@@ -13,7 +13,7 @@ import { AvatarRuntime } from './Avatar3D/AvatarRuntime'
 import { OnboardingFlow } from './OnboardingFlow'
 import type { AvatarConfig } from './OnboardingFlow'
 import { appendHistory } from './ChatBubble'
-import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems } from '../../lib/nexus/gemini_engine'
+import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
 import { loadHistory, saveHistory, learnFromTurn, fromStoredTurns, toStoredTurns, buildMemoryContext } from '../../lib/nexus/memory'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
@@ -2006,7 +2006,20 @@ export function FloatingCharacter() {
     setTyping(false)
     typingRef.current = false
 
-    // ── LLM clarify: 추가 정보 필요 ────────────────────────
+    // ── LLM clarify: 추가 정보 필요 (후속 질문이면 clarify 무시하고 재시도) ──
+    if (response.needs_clarify && response.clarify_question && isFollowUpQuestion(trimmed, historyRef.current.slice(0, -1) as ConversationTurn[])) {
+      // 후속 질문인데 clarify가 나오면 맥락을 강제 주입해서 재호출
+      const forceContextInput = `[이전 대화 참고]\n${historyRef.current.slice(-6, -1).map(t => `${t.role === 'user' ? '사용자' : 'Nexus'}: ${(t.parts?.map((p: {text:string}) => p.text).join('') ?? '').slice(0, 200)}`).join('\n')}\n\n사용자 질문: ${trimmed}\n\n위 대화를 참고해서 바로 답해라. 절대 다시 묻지 마라.`
+      const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
+      const retryRes = await callGemini(apiKey, forceContextInput, []).catch(() => null)
+      if (retryRes?.text?.trim()) {
+        setTyping(false); typingRef.current = false
+        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: retryRes.text }])
+        pushModelHistory(trimmed, retryRes.text)
+        speakText(retryRes.text)
+        return
+      }
+    }
     if (response.needs_clarify && response.clarify_question) {
       const question = response.clarify_question
       setClarifyPendingIntent(response.clarify_intent ?? 'llm_clarify')
