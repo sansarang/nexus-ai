@@ -35,7 +35,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   emailInbox, emailSend, emailSummarize,
   virusTotalCheck, historyStats, historyAnomalies,
   processKill, appPermissions, windowsUpdates, gpuStats,
-  priceCompare, newsSearch,
+  priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch,
   schedulerAdd, schedulerList, schedulerDelete,
   recallCapture, recallSearch,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
@@ -1231,13 +1231,23 @@ export function FloatingCharacter() {
           }
         }
 
-        /* ── 🌐 가격 비교 ── */
+        /* ── 🌐 가격 비교 (쿠팡·네이버·11번가·G마켓 실제 크롤링) ── */
         case 'price_compare': {
-          const query = originalText.replace(/가격.*비교|최저가|검색|찾아줘|얼마야|쿠팡.*에서|네이버.*에서/g, '').trim() || originalText
-          const data = await priceCompare(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '가격 검색 실패 — 백엔드 연결 필요' }))
+          const query = originalText.replace(/가격.*비교|최저가|검색|찾아줘|얼마야|쿠팡.*에서|네이버.*에서|11번가|지마켓/g, '').trim() || originalText
+          // 특정 사이트 지정 여부 확인
+          const isCoupangOnly = /쿠팡/i.test(originalText)
+          const isNaverOnly = /네이버/i.test(originalText)
+          const data = isCoupangOnly
+            ? await coupangSearch(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '' }))
+            : isNaverOnly
+            ? await naverShoppingSearch(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '' }))
+            : await priceCompare(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '가격 검색 실패 — 백엔드 연결 필요' }))
+          const siteName = isCoupangOnly ? '쿠팡' : isNaverOnly ? '네이버쇼핑' : '쿠팡·네이버·11번가·G마켓'
+          const resultItems = (data as { results?: {site:string;name:string;price:string;link:string}[] }).results ?? []
+          const detail = resultItems.slice(0, 5).map(r => `• [${r.site}] ${r.name} — ${r.price}`).join('\n')
           return {
-            text: data.summary || `'${query}' 가격 검색 완료!`,
-            card2: { type: 'system_action', icon: '🛒', title: `최저가 검색: ${query}`, detail: data.results.slice(0,3).map(r => `${r.site}: ${r.price}`).join('\n'), success: data.success },
+            text: data.summary || `${siteName}에서 "${query}" ${resultItems.length}개 상품을 찾았어요!`,
+            card2: { type: 'system_action', icon: '🛒', title: `${siteName}: ${query}`, detail: detail || '검색 중...', success: data.success },
             emotion: 'happy',
           }
         }
@@ -1256,15 +1266,17 @@ export function FloatingCharacter() {
         /* ── 🎬 유튜브 검색 ── */
         case 'youtube_search': {
           const query = originalText.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘|영상/g, '').trim() || originalText
-          const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
-          const results = [
-            { title: `YouTube: ${query}`, url: searchUrl },
-            { title: `YouTube: ${query} 방법`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' 방법')}` },
-            { title: `YouTube: ${query} 튜토리얼`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' 튜토리얼')}` },
-          ]
+          const isTiktok = /틱톡|tiktok/i.test(originalText)
+          const data = isTiktok
+            ? await tiktokSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
+            : await youtubeSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
+          const platform = isTiktok ? '틱톡' : '유튜브'
+          const icon = isTiktok ? '🎵' : '🎬'
+          const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
+          const detail = articles.slice(0, 5).map(a => `• ${a.title}\n  ${a.url}`).join('\n\n')
           return {
-            text: `유튜브에서 "${query}" 영상을 찾았어요! 오른쪽 미리보기에서 바로 확인하세요.`,
-            card2: { type: 'system_action', icon: '🎬', title: `YouTube: ${query}`, detail: results.map(r => r.url).join('\n'), success: true },
+            text: data.summary || `${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`,
+            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || '결과를 가져오는 중...', success: data.success },
             emotion: 'happy',
           }
         }

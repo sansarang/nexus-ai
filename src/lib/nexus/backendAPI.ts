@@ -653,7 +653,35 @@ export const gpuStats        = () => request<{ success: boolean; gpus: Array<{ n
 
 /* ── 🌐 브라우저 래퍼 (price/news 바로 실행) ── */
 export const priceCompare = (query: string) =>
-  request<CollectPriceResult>('POST', '/api/browser/collect-price', { product_query: query, max_per_site: 5, save_excel: false })
+  request<CollectPriceResult>('POST', '/api/browser/collect-price', {
+    product_query: query,
+    sites: ['coupang.com', 'naver.com', '11st.co.kr', 'gmarket.co.kr'],
+    max_per_site: 5,
+    save_excel: false,
+  })
+
+export const youtubeSearch = (query: string) =>
+  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'youtube.com', max_items: 8 })
+
+export const tiktokSearch = (query: string) =>
+  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'tiktok.com', max_items: 8 })
+
+export const naverShoppingSearch = (query: string) =>
+  request<CollectPriceResult>('POST', '/api/browser/collect-price', {
+    product_query: query,
+    sites: ['naver.com'],
+    max_per_site: 8,
+    save_excel: false,
+  })
+
+export const coupangSearch = (query: string) =>
+  request<CollectPriceResult>('POST', '/api/browser/collect-price', {
+    product_query: query,
+    sites: ['coupang.com'],
+    max_per_site: 8,
+    save_excel: false,
+  })
+
 export const newsSearch = (query: string) =>
   request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'naver.com', max_items: 8 })
 
