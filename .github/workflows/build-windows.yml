@@ -39,30 +39,32 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Find MSVC linker and set Cargo config
+      - name: Find MSVC link.exe and export to GITHUB_ENV
         shell: pwsh
         run: |
-          $link = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match "Hostx64\\x64" } |
-            Select-Object -First 1
-          if (-not $link) {
-            $link = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -match "Hostx64\\x64" } |
-              Select-Object -First 1
+          $searchRoots = @(
+            "C:\Program Files\Microsoft Visual Studio",
+            "C:\Program Files (x86)\Microsoft Visual Studio"
+          )
+          $found = $null
+          foreach ($root in $searchRoots) {
+            if (Test-Path $root) {
+              $found = Get-ChildItem $root -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match "Hostx64\\x64" } |
+                Select-Object -First 1
+              if ($found) { break }
+            }
           }
-          if ($link) {
-            $linkPath = $link.FullName -replace '\\', '/'
-            Write-Host "Found link.exe: $linkPath"
-            $cargoDir = "$env:USERPROFILE\.cargo"
-            New-Item -ItemType Directory -Force -Path $cargoDir | Out-Null
-            $configContent = @"
-[target.x86_64-pc-windows-msvc]
-linker = "$linkPath"
-"@
-            Set-Content -Path "$cargoDir\config.toml" -Value $configContent
-            Write-Host "Cargo config written."
+          if ($found) {
+            Write-Host "Found: $($found.FullName)"
+            $escaped = $found.FullName
+            echo "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$escaped" >> $env:GITHUB_ENV
+            $dir = $found.DirectoryName
+            echo "$dir" >> $env:GITHUB_PATH
+            Write-Host "Linker set to: $escaped"
           } else {
-            Write-Error "link.exe not found!"
+            Write-Error "link.exe NOT found on runner!"
+            Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq "link.exe" } | Select-Object FullName
             exit 1
           }
 
@@ -85,6 +87,7 @@ linker = "$linkPath"
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: ${{ env.CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Nexus AI ${{ github.ref_name }}'
