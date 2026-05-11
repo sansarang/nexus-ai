@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS AI — 당신의 Windows PC를 대신 운영합니다</title>
+  <meta name="description" content="엑셀 정리, PC 최적화, 메일 자동 운영, 쿠팡 가격 비교까지. Nexus AI가 당신 PC를 24시간 관리합니다." />
+  <meta property="og:title" content="NEXUS AI — Windows PC AI 비서" />
+  <meta property="og:description" content="말 한마디로 PC를 관리하는 AI 비서. 로컬 실행, 데이터 외부 유출 없음." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/sansarang/nexus-ai/main/landing/og-image.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #a855f7;
+      --primary2: #ec4899;
+      --accent: #06b6d4;
+      --bg: #050510;
+      --bg2: #0a0a1a;
+      --bg3: #0f0f25;
+      --text: #f0f0ff;
+      --muted: #888aaa;
+      --border: rgba(168,85,247,0.2);
+      --glow: rgba(168,85,247,0.15);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', 'Inter', sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(5,5,16,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color: white !important; padding: 9px 22px; border-radius: 10px;
+      font-size: 13px !important; font-weight: 700 !important;
+      transition: opacity 0.2s !important;
+    }
+    .nav-cta:hover { opacity: 0.85 !important; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 20px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse, rgba(168,85,247,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.3);
+      border-radius: 100px; padding: 7px 18px; font-size: 13px; font-weight: 600;
+      color: var(--primary); margin-bottom: 28px;
+      animation: fadeInDown 0.6s ease;
+    }
+    .hero-badge span { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); display: inline-block; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 80px);
+      font-weight: 900; line-height: 1.1; letter-spacing: -2px;
+      margin-bottom: 24px;
+      animation: fadeInUp 0.7s ease 0.1s both;
+    }
+    .hero h1 .grad {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary2) 50%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 22px); color: var(--muted); max-width: 640px;
+      margin: 0 auto 48px; line-height: 1.7;
+      animation: fadeInUp 0.7s ease 0.2s both;
+    }
+    .hero-btns {
+      display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+      animation: fadeInUp 0.7s ease 0.3s both;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color: white; padding: 16px 36px; border-radius: 14px;
+      font-size: 17px; font-weight: 700; text-decoration: none;
+      box-shadow: 0 0 40px rgba(168,85,247,0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 60px rgba(168,85,247,0.6); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+      color: white; padding: 16px 36px; border-radius: 14px;
+      font-size: 17px; font-weight: 700; text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+    .hero-meta {
+      margin-top: 20px; font-size: 13px; color: var(--muted);
+      animation: fadeInUp 0.7s ease 0.4s both;
+    }
+    .hero-meta span { color: #4ade80; }
+
+    /* ── DEMO VIDEO ── */
+    .section { padding: 100px 20px; max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.15em;
+      color: var(--primary); text-transform: uppercase; margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    .section-sub { font-size: 18px; color: var(--muted); max-width: 580px; }
+
+    .demo-wrap {
+      margin-top: 60px;
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(236,72,153,0.08));
+      border: 1px solid var(--border);
+      border-radius: 24px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      box-shadow: 0 0 80px rgba(168,85,247,0.15);
+    }
+    .demo-placeholder {
+      text-align: center; color: var(--muted);
+    }
+    .demo-placeholder .icon { font-size: 64px; margin-bottom: 16px; opacity: 0.4; }
+    .demo-placeholder p { font-size: 16px; font-weight: 600; }
+    .demo-placeholder small { font-size: 13px; opacity: 0.6; }
+    .demo-wrap video { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .demo-wrap video[src] { display: block; }
+
+    /* ── 5 FEATURE VIDEOS ── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 28px; margin-top: 60px;
+    }
+    .feature-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px; overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(168,85,247,0.5);
+      box-shadow: 0 20px 60px rgba(168,85,247,0.1);
+    }
+    .feature-video {
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, var(--bg3), rgba(168,85,247,0.06));
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .feature-video video { width: 100%; height: 100%; object-fit: cover; display: none; }
+    .feature-video video[src] { display: block; }
+    .video-placeholder {
+      text-align: center; padding: 20px;
+    }
+    .video-placeholder .feat-icon { font-size: 40px; margin-bottom: 10px; opacity: 0.5; }
+    .video-placeholder p { font-size: 12px; color: var(--muted); }
+    .video-tag {
+      position: absolute; top: 12px; left: 12px;
+      background: rgba(168,85,247,0.8); color: white;
+      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px;
+    }
+    .feature-body { padding: 24px; }
+    .feature-body h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+    .feature-body p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .feature-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+    .tag {
+      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px;
+      background: rgba(168,85,247,0.1); color: var(--primary); border: 1px solid rgba(168,85,247,0.2);
+    }
+
+    /* ── STRENGTHS ── */
+    .strengths-section { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .strengths-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px; margin-top: 60px;
+    }
+    .strength-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+      transition: border-color 0.2s;
+    }
+    .strength-card:hover { border-color: rgba(168,85,247,0.4); }
+    .strength-icon { font-size: 32px; margin-bottom: 14px; }
+    .strength-card h3 { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+    .strength-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* ── HOW IT WORKS ── */
+    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 60px; position: relative; }
+    .steps::before {
+      content: ''; position: absolute; left: 31px; top: 0; bottom: 0; width: 2px;
+      background: linear-gradient(to bottom, var(--primary), var(--primary2));
+      opacity: 0.3;
+    }
+    .step { display: flex; gap: 24px; align-items: flex-start; padding: 32px 0; }
+    .step-num {
+      width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; box-shadow: 0 0 24px rgba(168,85,247,0.4);
+      position: relative; z-index: 1;
+    }
+    .step-content h3 { font-size: 20px; font-weight: 800; margin-bottom: 8px; margin-top: 16px; }
+    .step-content p { font-size: 15px; color: var(--muted); line-height: 1.7; }
+
+    /* ── PRICING ── */
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px; margin-top: 60px; max-width: 900px; margin-left: auto; margin-right: auto;
+    }
+    .price-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 36px; text-align: center;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .price-card.featured {
+      border-color: var(--primary);
+      background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(236,72,153,0.04));
+      transform: scale(1.04);
+      box-shadow: 0 0 60px rgba(168,85,247,0.2);
+    }
+    .price-card.featured:hover { transform: scale(1.06); }
+    .price-card:not(.featured):hover { transform: translateY(-4px); }
+    .price-badge {
+      display: inline-block; background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color: white; font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px;
+      margin-bottom: 20px; letter-spacing: 0.05em;
+    }
+    .price-name { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+    .price-amount {
+      font-size: 52px; font-weight: 900; line-height: 1;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .price-period { font-size: 14px; color: var(--muted); margin: 6px 0 28px; }
+    .price-features { list-style: none; text-align: left; margin-bottom: 32px; }
+    .price-features li {
+      padding: 8px 0; font-size: 14px; display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .price-features li .check { color: #4ade80; font-size: 16px; }
+    .btn-plan {
+      display: block; width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color: white; border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      text-decoration: none; transition: opacity 0.2s;
+    }
+    .btn-plan:hover { opacity: 0.85; }
+    .btn-plan.outline {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+    }
+    .btn-plan.outline:hover { border-color: var(--primary); }
+
+    /* ── COMPARISON ── */
+    .compare-table {
+      width: 100%; border-collapse: collapse; margin-top: 60px; font-size: 14px;
+      border-radius: 16px; overflow: hidden;
+    }
+    .compare-table th, .compare-table td {
+      padding: 16px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .compare-table th { background: var(--bg3); font-weight: 800; font-size: 15px; }
+    .compare-table th:first-child, .compare-table td:first-child { text-align: left; }
+    .compare-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .compare-table .nexus-col { background: rgba(168,85,247,0.06); color: var(--primary); font-weight: 700; }
+    .compare-table th.nexus-col {
+      background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(236,72,153,0.1));
+      color: white;
+    }
+    .yes { color: #4ade80; font-weight: 700; font-size: 18px; }
+    .no { color: #ef4444; font-weight: 700; font-size: 18px; }
+    .partial { color: #f59e0b; font-weight: 700; }
+
+    /* ── FAQ ── */
+    .faq-list { margin-top: 60px; max-width: 760px; margin-left: auto; margin-right: auto; }
+    .faq-item {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; margin-bottom: 12px; overflow: hidden;
+    }
+    .faq-q {
+      width: 100%; background: none; border: none; cursor: pointer;
+      padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;
+      color: var(--text); font-size: 15px; font-weight: 700; text-align: left;
+      transition: background 0.2s;
+    }
+    .faq-q:hover { background: rgba(168,85,247,0.05); }
+    .faq-q .arrow { transition: transform 0.2s; font-size: 18px; color: var(--primary); }
+    .faq-q.open .arrow { transform: rotate(180deg); }
+    .faq-a {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s;
+      padding: 0 24px; font-size: 14px; color: var(--muted); line-height: 1.8;
+    }
+    .faq-a.open { max-height: 300px; padding: 0 24px 20px; }
+
+    /* ── CTA FINAL ── */
+    .cta-final {
+      text-align: center; padding: 120px 20px;
+      background: linear-gradient(135deg, rgba(168,85,247,0.06), rgba(236,72,153,0.04));
+      border-top: 1px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    .cta-final::before {
+      content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(ellipse, rgba(168,85,247,0.12) 0%, transparent 70%);
+    }
+    .cta-final h2 { font-size: clamp(32px, 5vw, 60px); font-weight: 900; margin-bottom: 20px; position: relative; }
+    .cta-final p { font-size: 18px; color: var(--muted); margin-bottom: 48px; position: relative; }
+    .download-info { margin-top: 20px; font-size: 13px; color: var(--muted); }
+    .download-info a { color: var(--primary); text-decoration: none; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 48px 40px; background: var(--bg);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;
+      gap: 16px;
+    }
+    .footer-logo { font-size: 18px; font-weight: 900; color: var(--primary); }
+    .footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--text); }
+    .footer-right { font-size: 12px; color: var(--muted); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      nav { padding: 14px 20px; }
+      .nav-links { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .strengths-grid { grid-template-columns: 1fr 1fr; }
+      footer { flex-direction: column; text-align: center; }
+      .price-card.featured { transform: scale(1); }
+    }
+    @media (max-width: 480px) {
+      .strengths-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">⬡ NEXUS AI</div>
+  <div class="nav-links">
+    <a href="#features">기능</a>
+    <a href="#how">사용법</a>
+    <a href="#pricing">가격</a>
+    <a href="#faq">FAQ</a>
+    <a href="#download" class="nav-cta">무료 체험 다운로드</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge"><span></span> 2026 Early Access · Windows 전용</div>
+  <h1>당신의 Windows PC를<br /><span class="grad">AI가 대신 운영합니다</span></h1>
+  <p class="hero-sub">
+    말 한마디로 PC 최적화, 엑셀 분석, 쿠팡 최저가 검색, 메일 자동 운영까지.<br />
+    데이터는 절대 외부로 나가지 않습니다.
+  </p>
+  <div class="hero-btns">
+    <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe"
+       class="btn-primary" id="hero-download">
+      ⬇ 지금 무료로 설치하기
+    </a>
+    <a href="#demo" class="btn-secondary">▶ 30초 데모 보기</a>
+  </div>
+  <p class="hero-meta"><span>✓</span> 설치 후 자동 업데이트 · <span>✓</span> 로컬 실행 · <span>✓</span> 데이터 외부 유출 없음</p>
+</section>
+
+<!-- DEMO VIDEO -->
+<div id="demo" style="background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:80px 20px;">
+  <div style="max-width:1000px; margin:0 auto; text-align:center;">
+    <div class="section-label">NEXUS AI DEMO</div>
+    <h2 class="section-title">30초 만에 이해하는 NEXUS AI</h2>
+    <p class="section-sub" style="margin:0 auto;">실제 작동 화면을 그대로 담았습니다</p>
+    <div class="demo-wrap" id="main-demo">
+      <video id="main-video" controls preload="none"></video>
+      <div class="demo-placeholder" id="main-placeholder">
+        <div class="icon">▶</div>
+        <p>메인 데모 영상</p>
+        <small>30초 · NEXUS AI 전체 기능 하이라이트</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5 FEATURE VIDEOS -->
+<section class="section" id="features">
+  <div class="section-label">핵심 기능 5가지</div>
+  <h2 class="section-title">Vision AI와 다릅니다.<br />백엔드에서 직접 실행합니다.</h2>
+  <p class="section-sub">화면만 보는 게 아니라, 실제로 데이터를 가져오고 PC를 조작합니다.</p>
+
+  <div class="features-grid">
+
+    <!-- Feature 1 -->
+    <div class="feature-card">
+      <div class="feature-video">
+        <video controls preload="none"></video>
+        <div class="video-placeholder">
+          <div class="feat-icon">⚡</div>
+          <p>PC 최적화 전/후 데모 영상</p>
+        </div>
+        <div class="video-tag">① PC 최적화</div>
+      </div>
+      <div class="feature-body">
+        <h3>PC 진단·자동 최적화</h3>
+        <p>CPU·메모리·온도·디스크를 실시간 감지하고, "느려졌어" 한마디로 자동 정리합니다. 드라이버 업데이트, 시작 프로그램 관리까지.</p>
+        <div class="feature-tags">
+          <span class="tag">PowerShell</span>
+          <span class="tag">WMI</span>
+          <span class="tag">실시간 모니터링</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature 2 -->
+    <div class="feature-card">
+      <div class="feature-video">
+        <video controls preload="none"></video>
+        <div class="video-placeholder">
+          <div class="feat-icon">🛒</div>
+          <p>쿠팡 최저가 자동 검색 데모 영상</p>
+        </div>
+        <div class="video-tag">② 실전 크롤링</div>
+      </div>
+      <div class="feature-body">
+        <h3>쿠팡·네이버 실전 크롤링</h3>
+        <p>"아이패드 최저가 찾아줘" 한마디로 쿠팡·다나와·11번가를 실시간 비교합니다. 스텔스 모드로 봇 탐지를 우회합니다.</p>
+        <div class="feature-tags">
+          <span class="tag">chromedp</span>
+          <span class="tag">스텔스 모드</span>
+          <span class="tag">가격 비교</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature 3 -->
+    <div class="feature-card">
+      <div class="feature-video">
+        <video controls preload="none"></video>
+        <div class="video-placeholder">
+          <div class="feat-icon">📊</div>
+          <p>Excel 업로드 → AI 분석 데모 영상</p>
+        </div>
+        <div class="video-tag">③ 파일·문서 AI</div>
+      </div>
+      <div class="feature-body">
+        <h3>엑셀·PDF·문서 AI 분석</h3>
+        <p>파일을 첨부하면 AI가 직접 데이터를 읽고 분석합니다. "이 엑셀에서 매출 TOP 5 뽑아줘" 같은 자연어 명령으로 즉시 실행.</p>
+        <div class="feature-tags">
+          <span class="tag">Excel 파싱</span>
+          <span class="tag">GPT-4o Vision</span>
+          <span class="tag">PDF 요약</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature 4 -->
+    <div class="feature-card">
+      <div class="feature-video">
+        <video controls preload="none"></video>
+        <div class="video-placeholder">
+          <div class="feat-icon">📧</div>
+          <p>Outlook 메일 자동 운영 데모 영상</p>
+        </div>
+        <div class="video-tag">④ Deep Email Agency</div>
+      </div>
+      <div class="feature-body">
+        <h3>Outlook 메일 자동 운영</h3>
+        <p>받은 메일을 AI가 요약하고, 답장 초안을 작성하고, 발송까지 합니다. 네이버·다음 메일도 IMAP으로 연동됩니다.</p>
+        <div class="feature-tags">
+          <span class="tag">Outlook COM</span>
+          <span class="tag">IMAP</span>
+          <span class="tag">스마트 답장</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature 5 -->
+    <div class="feature-card">
+      <div class="feature-video">
+        <video controls preload="none"></video>
+        <div class="video-placeholder">
+          <div class="feat-icon">🤖</div>
+          <p>Proactive AI 브리핑 데모 영상</p>
+        </div>
+        <div class="video-tag">⑤ Proactive AI</div>
+      </div>
+      <div class="feature-body">
+        <h3>물어보기 전에 알아서 합니다</h3>
+        <p>매일 아침 날씨·일정·PC 상태를 자동 브리핑. CPU 이상 감지 시 자동 최적화, 보안 위협 실시간 알림.</p>
+        <div class="feature-tags">
+          <span class="tag">24/7 모니터링</span>
+          <span class="tag">자동 브리핑</span>
+          <span class="tag">이상 감지</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- STRENGTHS -->
+<div class="strengths-section">
+  <div class="section">
+    <div class="section-label">WHY NEXUS</div>
+    <h2 class="section-title">다른 AI 앱과<br />근본적으로 다릅니다</h2>
+    <div class="strengths-grid">
+      <div class="strength-card">
+        <div class="strength-icon">🖥️</div>
+        <h3>Windows 네이티브 실행</h3>
+        <p>브라우저 플러그인이 아닙니다. PowerShell·WMI로 PC를 직접 조작하는 진짜 네이티브 앱입니다.</p>
+      </div>
+      <div class="strength-card">
+        <div class="strength-icon">🔒</div>
+        <h3>데이터 완전 로컬 처리</h3>
+        <p>모든 작업이 127.0.0.1 안에서 실행됩니다. API 호출을 제외한 어떤 데이터도 외부로 나가지 않습니다.</p>
+      </div>
+      <div class="strength-card">
+        <div class="strength-icon">🌐</div>
+        <h3>실전 chromedp 크롤링</h3>
+        <p>Vision으로 화면만 보는 게 아닙니다. 실제 Chrome으로 쿠팡·유튜브·틱톡에 접속해 데이터를 가져옵니다.</p>
+      </div>
+      <div class="strength-card">
+        <div class="strength-icon">🧠</div>
+        <h3>5가지 AI 페르소나</h3>
+        <p>전문가·리서치·크리에이티브·재무 모드로 전환. 전문가 모드는 10개+ 소스를 분석해 심층 답변을 제공합니다.</p>
+      </div>
+      <div class="strength-card">
+        <div class="strength-icon">⚡</div>
+        <h3>Workflow 자동화</h3>
+        <p>No-code 빌더로 반복 업무를 자동화. 매일 아침 브리핑부터 파일 정리, 이메일 자동 답장까지.</p>
+      </div>
+      <div class="strength-card">
+        <div class="strength-icon">🔄</div>
+        <h3>자동 업데이트</h3>
+        <p>GitHub Releases 기반 자동 업데이트. 앱을 다시 설치할 필요 없이 항상 최신 버전을 유지합니다.</p>
+      </div>
+      <div class="strength-card">
+        <div class="strength-icon">🎯</div>
+        <h3>대화 기억 시스템</h3>
+        <p>Claude 방식의 전체 대화 기억. 이전 대화 맥락을 완벽히 이해하고 사용자 패턴을 학습합니다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="section-label">HOW IT WORKS</div>
+  <h2 class="section-title">3단계로 시작합니다</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>설치 & 온보딩 (3분)</h3>
+        <p>설치 파일 실행 후 AI 엔진(Groq 무료 / GPT-4o)과 아바타 캐릭터를 선택합니다. API 키 입력만 하면 바로 사용 가능합니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>말하거나 입력하기</h3>
+        <p>"넥서스야" 웨이크워드나 텍스트로 명령합니다. 파일을 첨부하거나, AI 모드를 전환하거나, 워크플로우를 설정할 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>NEXUS가 실행합니다</h3>
+        <p>PC 최적화, 파일 검색, 메일 발송, 웹 크롤링 등 실제 작업을 수행하고 결과를 보고합니다. 자동 업데이트로 항상 최신 기능을 사용합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<div style="background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:80px 20px;">
+  <div style="max-width:1100px; margin:0 auto;">
+    <div class="section-label" style="text-align:center;">COMPARISON</div>
+    <h2 class="section-title" style="text-align:center; margin-bottom:0;">NEXUS vs 다른 AI 앱</h2>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>기능</th>
+          <th class="nexus-col">⬡ NEXUS AI</th>
+          <th>OpenClaw</th>
+          <th>ChatGPT</th>
+          <th>Copilot</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Windows 네이티브 PC 조작</td><td class="nexus-col yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="partial">△</td></tr>
+        <tr><td>실전 chromedp 크롤링</td><td class="nexus-col yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Outlook 실제 메일 발송</td><td class="nexus-col yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="partial">△</td></tr>
+        <tr><td>로컬 파일 딥서치</td><td class="nexus-col yes">✓</td><td class="partial">△</td><td class="no">✗</td><td class="partial">△</td></tr>
+        <tr><td>데이터 완전 로컬 처리</td><td class="nexus-col yes">✓</td><td class="partial">△</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Proactive 24/7 모니터링</td><td class="nexus-col yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>No-code 워크플로우</td><td class="nexus-col yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>자동 업데이트</td><td class="nexus-col yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="section-label" style="text-align:center;">PRICING</div>
+  <h2 class="section-title" style="text-align:center;">Early Bird 특가</h2>
+  <p class="section-sub" style="text-align:center; margin:0 auto 0;">런칭 기념 한정 가격 · 언제든 취소 가능</p>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-name">기본</div>
+      <div class="price-amount">무료</div>
+      <div class="price-period">영구 무료 (Groq API 사용)</div>
+      <ul class="price-features">
+        <li><span class="check">✓</span> AI 대화 무제한 (Groq 무료)</li>
+        <li><span class="check">✓</span> PC 진단·최적화</li>
+        <li><span class="check">✓</span> 캘린더·일정 관리</li>
+        <li><span class="check">✓</span> 파일 검색·정리</li>
+        <li><span class="check">✓</span> 자동 업데이트</li>
+      </ul>
+      <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe" class="btn-plan outline">무료로 설치하기</a>
+    </div>
+    <div class="price-card featured">
+      <div class="price-badge">🔥 EARLY BIRD</div>
+      <div class="price-name">Pro</div>
+      <div class="price-amount">9,900</div>
+      <div class="price-period">원/월 (정가 12,900원)</div>
+      <ul class="price-features">
+        <li><span class="check">✓</span> 기본 플랜 모든 기능</li>
+        <li><span class="check">✓</span> GPT-4o 고성능 AI</li>
+        <li><span class="check">✓</span> chromedp 실전 크롤링</li>
+        <li><span class="check">✓</span> Outlook 이메일 자동화</li>
+        <li><span class="check">✓</span> Workflow 자동화</li>
+        <li><span class="check">✓</span> Proactive AI 24/7</li>
+        <li><span class="check">✓</span> 5가지 AI 페르소나</li>
+      </ul>
+      <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe" class="btn-plan">Early Bird 시작하기</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<div style="background:var(--bg2); border-top:1px solid var(--border); padding:80px 20px;" id="faq">
+  <div style="max-width:800px; margin:0 auto; text-align:center;">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">자주 묻는 질문</h2>
+    <div class="faq-list" style="margin-top:40px; text-align:left;">
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Groq API 키가 없어도 사용할 수 있나요?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">Groq API는 무료로 발급됩니다 (groq.com). 가입 후 1분이면 API 키를 받을 수 있습니다. GPT-4o를 사용하고 싶다면 OpenAI API 키가 필요합니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          내 개인 데이터가 외부로 나가나요?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">모든 처리는 127.0.0.1(로컬)에서 이루어집니다. AI 응답 생성 시 Groq/OpenAI API로 질문 내용이 전송되지만, PC 파일·이메일 내용·시스템 정보는 외부로 전송되지 않습니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          크롤링이 법적으로 문제없나요?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">개인 사용 목적의 가격 비교·정보 수집은 일반적으로 허용됩니다. 상업적 대량 수집이나 로그인 우회 등은 각 사이트 이용약관을 확인하세요.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Windows 버전이 필요한가요?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">Windows 10 이상을 권장합니다. PC 조작 기능(PowerShell, WMI, Outlook COM)은 Windows 전용입니다. Mac은 기본 AI 대화 기능만 지원됩니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          업데이트는 어떻게 이루어지나요?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">GitHub Releases를 통해 자동 업데이트됩니다. 앱 실행 시 새 버전이 있으면 알림이 뜨고, 한 번의 클릭으로 최신 버전으로 업데이트됩니다.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Outlook이 없으면 이메일 기능을 사용할 수 없나요?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">Outlook 자동화(발송·일정 연동)는 Outlook 설치가 필요합니다. 네이버·다음·카카오 메일은 IMAP 설정으로 읽기 기능을 사용할 수 있습니다.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- CTA FINAL -->
+<div class="cta-final" id="download">
+  <h2>지금 바로 시작하세요<br /><span style="background:linear-gradient(135deg,var(--primary),var(--primary2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">무료로, 3분 안에</span></h2>
+  <p>설치하고 "안녕"이라고 말해보세요. NEXUS가 나머지를 합니다.</p>
+  <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe"
+     class="btn-primary" style="font-size:20px; padding:20px 48px; display:inline-flex;" id="main-download">
+    ⬇ Windows용 NEXUS AI 다운로드
+  </a>
+  <div class="download-info">
+    Windows 10/11 · 자동 업데이트 포함 ·
+    <a href="https://github.com/sansarang/nexus-ai/releases" target="_blank">모든 버전 보기 →</a>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">⬡ NEXUS AI</div>
+  <div class="footer-links">
+    <a href="https://github.com/sansarang/nexus-ai" target="_blank">GitHub</a>
+    <a href="https://github.com/sansarang/nexus-ai/releases" target="_blank">릴리즈 노트</a>
+    <a href="https://github.com/sansarang/nexus-ai/issues" target="_blank">버그 신고</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <div class="footer-right">© 2026 NEXUS AI · Made in Korea 🇰🇷</div>
+</footer>
+
+<script>
+  // FAQ 토글
+  function toggleFaq(btn) {
+    const answer = btn.nextElementSibling
+    const isOpen = answer.classList.contains('open')
+    document.querySelectorAll('.faq-a').forEach(a => a.classList.remove('open'))
+    document.querySelectorAll('.faq-q').forEach(b => b.classList.remove('open'))
+    if (!isOpen) { answer.classList.add('open'); btn.classList.add('open') }
+  }
+
+  // 다운로드 버튼 클릭 추적 (GA 연동 준비)
+  document.querySelectorAll('[id$="download"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // gtag('event', 'download_click', { event_category: 'conversion' })
+      console.log('[NEXUS] Download clicked')
+    })
+  })
+
+  // 스크롤 애니메이션
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1'
+        e.target.style.transform = 'translateY(0)'
+      }
+    })
+  }, { threshold: 0.1 })
+
+  document.querySelectorAll('.feature-card, .strength-card, .step, .price-card').forEach(el => {
+    el.style.opacity = '0'
+    el.style.transform = 'translateY(24px)'
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease'
+    observer.observe(el)
+  })
+</script>
+
+</body>
+</html>
