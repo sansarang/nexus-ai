@@ -39,16 +39,39 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Install Visual Studio Build Tools (MSVC linker)
+      - name: Find MSVC linker and set Cargo config
+        shell: pwsh
         run: |
-          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet" -y --no-progress
-        shell: powershell
+          $link = Get-ChildItem "C:\Program Files\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "Hostx64\\x64" } |
+            Select-Object -First 1
+          if (-not $link) {
+            $link = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match "Hostx64\\x64" } |
+              Select-Object -First 1
+          }
+          if ($link) {
+            $linkPath = $link.FullName -replace '\\', '/'
+            Write-Host "Found link.exe: $linkPath"
+            $cargoDir = "$env:USERPROFILE\.cargo"
+            New-Item -ItemType Directory -Force -Path $cargoDir | Out-Null
+            $configContent = @"
+[target.x86_64-pc-windows-msvc]
+linker = "$linkPath"
+"@
+            Set-Content -Path "$cargoDir\config.toml" -Value $configContent
+            Write-Host "Cargo config written."
+          } else {
+            Write-Error "link.exe not found!"
+            exit 1
+          }
 
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Go backend (Windows x64, CGO disabled)
+      - name: Build Go backend (Windows x64)
         working-directory: backend
+        shell: pwsh
         env:
           GOOS: windows
           GOARCH: amd64
@@ -57,7 +80,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
           go build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
           Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
-        shell: powershell
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -76,8 +98,7 @@ jobs:
 
             ### 시스템 요구사항
             - Windows 10/11 64-bit
-            - 인터넷 연결 (Groq AI API 사용 시)
-            - 관리자 권한 불필요
+            - 인터넷 연결 필요
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: false
