@@ -1,10 +1,10 @@
-name: 🚀 Build & Release Windows EXE
+name: Build & Release Windows EXE
 
 on:
   push:
     tags:
-      - 'v*'           # v2.5.0 처럼 태그 푸시 시 자동 Release
-  workflow_dispatch:   # Actions 탭에서 수동 "Run workflow" 버튼
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-windows:
@@ -13,18 +13,20 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      # ── 소스 체크아웃 ──────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Node.js ───────────────────────────────────────────────
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      # ── Go ────────────────────────────────────────────────────
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -32,7 +34,6 @@ jobs:
           cache: true
           cache-dependency-path: backend/go.sum
 
-      # ── Rust ──────────────────────────────────────────────────
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -43,11 +44,9 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # ── npm 패키지 ────────────────────────────────────────────
       - name: Install npm dependencies
         run: npm ci
 
-      # ── Go 백엔드 빌드 ────────────────────────────────────────
       - name: Build Go backend (Windows x64)
         working-directory: backend
         env:
@@ -57,10 +56,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
           go build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
-          Write-Host "Go backend built successfully"
           Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
 
-      # ── Tauri 빌드 (NSIS 인스톨러) ───────────────────────────
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -80,34 +77,14 @@ jobs:
             - Windows 10/11 64-bit
             - 인터넷 연결 (Groq AI API 사용 시)
             - 관리자 권한 불필요
-
-            ### 변경사항
-            - 4종 K-pop 캐릭터 추가 (진우, 미라, 루미, 조이)
-            - Go 백엔드 Windows PC 최적화
-            - Groq AI 통합
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: false
 
-      # ── 인스톨러 파일 아티팩트 업로드 (태그 없이 수동 실행 시) ──
       - name: Upload installer (manual run)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: Nexus-Windows-Installer
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           retention-days: 14
-
-      - name: Show result
-        run: |
-          Write-Host ""
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          Write-Host "  ✅ BUILD COMPLETE"
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          $installer = Get-ChildItem "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
-          if ($installer) {
-            Write-Host "  📦 Installer: $($installer.Name)"
-            Write-Host "  📏 Size: $([math]::Round($installer.Length/1MB, 1)) MB"
-          }
-          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
