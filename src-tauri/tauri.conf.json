@@ -53,7 +53,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg0RTJCMjRCRjFCRjMyQ0MKUldUTU1yL3hTN0xpaEZudzBzY1Npczl1SUdJSk13WTFmUTlJWkhNL1c3TW1HUTYrZjdWczJDZlkK",
       "endpoints": [
         "https://github.com/sansarang/nexus-ai/releases/latest/download/latest.json"
       ],
