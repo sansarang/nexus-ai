@@ -29,6 +29,7 @@ import {
   extractTwoFilePaths, extractVisionQuestion, extractDeepSearchQuery,
 } from '../../lib/nexus/intentDetector'
 import type { Intent } from '../../lib/nexus/intentDetector'
+import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
 import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   calendarToday, calendarWeek, calendarAdd,
   emailInbox, emailSend, emailSummarize,
@@ -1263,7 +1264,7 @@ export function FloatingCharacter() {
           ]
           return {
             text: `유튜브에서 "${query}" 영상을 찾았어요! 오른쪽 미리보기에서 바로 확인하세요.`,
-            inlineCards: results,
+            card2: { type: 'system_action', icon: '🎬', title: `YouTube: ${query}`, detail: results.map(r => r.url).join('\n'), success: true },
             emotion: 'happy',
           }
         }
@@ -1990,7 +1991,29 @@ export function FloatingCharacter() {
       return
     }
 
-    // ── 3순위: LLM 일반 대화 ─────────────────────────────────
+    // ── 3순위: LLM Tool Router — 검색/액션 자동 분류 ──────────
+    try {
+      const toolCall = await routeWithLLM(trimmed)
+      if (toolCall.tool !== 'general_answer') {
+        // LLM이 선택한 tool을 Intent로 변환해 handleBackendIntent 실행
+        const mappedIntent = toolCall.tool as Intent
+        const query = toolCall.args.query || toolCall.args.city || trimmed
+        const { text: resText, card, card2, card3, card4, emotion: resEmotion } = await handleBackendIntent(mappedIntent, msgId, query)
+        setTyping(false)
+        typingRef.current = false
+        setEmotion(resEmotion)
+        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4 }])
+        pushModelHistory(trimmed, resText)
+        if (resText) {
+          speakText(resText)
+          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(resText) })
+          setHistoryVersion(v => v + 1)
+        }
+        return
+      }
+    } catch { /* LLM 라우터 실패 시 일반 대화로 폴백 */ }
+
+    // ── 4순위: LLM 일반 대화 ─────────────────────────────────
     // apiKey는 env 또는 localStorage 어디서든 가져옴
     const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
     let response
