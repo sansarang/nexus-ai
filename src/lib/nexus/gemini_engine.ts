@@ -1410,11 +1410,15 @@ export function fallbackResponse(input: string, assistantName = 'Nexus'): Gemini
       steps: [],
     }
   }
-  /* 기본 - API 키 안내 */
+  /* 기본 — 모호한 입력은 Perplexity에 넘기도록 빈 응답 반환 (caller가 재시도) */
   return {
-    text: `"${input}"에 대해 더 잘 답하려면 **Gemini API 키** 또는 로컬 **Ollama**가 필요해요 🔑\n\nOllama 설치: https://ollama.ai (무료, 오프라인 사용 가능)`,
-    emotion: 'concerned',
+    text: `"${input}"에 대해 좀 더 구체적으로 말씀해주시겠어요? 무엇이 궁금하신가요? 😊`,
+    emotion: 'neutral',
     steps: [],
+    needs_clarify: true,
+    clarify_question: `"${input}"에 대해 어떤 것이 궁금하신가요?`,
+    clarify_intent: 'llm_clarify',
+    clarify_params: { original_query: input },
   }
 }
 

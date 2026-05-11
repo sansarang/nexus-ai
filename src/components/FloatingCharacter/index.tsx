@@ -1988,6 +1988,7 @@ export function FloatingCharacter() {
     }
 
     // ── 3순위: LLM 일반 대화 ─────────────────────────────────
+    // apiKey는 env 또는 localStorage 어디서든 가져옴
     const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
     let response
 
@@ -1996,9 +1997,10 @@ export function FloatingCharacter() {
       if (r) response = r
     } catch { /* Ollama 미실행 */ }
 
-    if (!response && apiKey && trackUsage()) {
+    // env에 키가 있으면 항상 callGemini 호출 (localStorage 키 없어도)
+    if (!response && trackUsage()) {
       try { response = await callGemini(apiKey, trimmed, historyRef.current) }
-      catch (e) { console.warn('[Perplexity] 호출 실패:', e) }
+      catch (e) { console.warn('[LLM] 호출 실패:', e) }
     }
 
     if (!response || !response.text?.trim()) response = fallbackResponse(trimmed, assistantName)
