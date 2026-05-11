@@ -39,6 +39,12 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Remove stale cargo config (from previous cache)
+        shell: pwsh
+        run: |
+          $cfg = "$env:USERPROFILE\.cargo\config.toml"
+          if (Test-Path $cfg) { Remove-Item $cfg -Force; Write-Host "Removed stale config.toml" }
+
       - name: Find MSVC link.exe and export to GITHUB_ENV
         shell: pwsh
         run: |
