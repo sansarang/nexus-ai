@@ -252,6 +252,12 @@ func main() {
 	mux.HandleFunc("GET /api/agent/desktop/screenshot", handleDesktopScreenshot)
 	mux.HandleFunc("GET /api/agent/desktop/status", handleDesktopStatus)
 	mux.HandleFunc("POST /api/agent/desktop/approve", handleDesktopApprove)
+	// aliases for frontend
+	mux.HandleFunc("GET /api/desktop/screenshot", handleDesktopScreenshot)
+	mux.HandleFunc("GET /api/desktop/status", handleDesktopStatus)
+	mux.HandleFunc("POST /api/desktop/approve", handleDesktopApprove)
+	mux.HandleFunc("POST /api/desktop/agent/run", handleDesktopAgentRun)
+	mux.HandleFunc("POST /api/desktop/agent/cancel", handleDesktopAgentCancel)
 
 	// ── 📋 Task Queue ──────────────────────────────────────────────
 	mux.HandleFunc("GET /api/tasks/stream", handleTaskStream)
@@ -262,6 +268,8 @@ func main() {
 	mux.HandleFunc("POST /api/agent/multi/run", handleMultiAgentRun)
 	mux.HandleFunc("POST /api/agent/multi/plan", handleMultiAgentPlan)
 	mux.HandleFunc("GET /api/agent/multi/agents", handleAgentList)
+	mux.HandleFunc("GET /api/multi-agent/stream/", handleMultiAgentStream)
+	mux.HandleFunc("POST /api/multi-agent/run", handleMultiAgentRunV2)
 
 	// ── 📧 Email Deep Agency ──────────────────────────────────────
 	mux.HandleFunc("POST /api/email/classify", handleEmailClassify)
@@ -277,6 +285,15 @@ func main() {
 	mux.HandleFunc("POST /api/workflow/run-now", handleWorkflowRunNow)
 	mux.HandleFunc("POST /api/workflow/from-text", handleWorkflowFromText)
 	mux.HandleFunc("GET /api/workflow/templates", handleWorkflowTemplates)
+
+	// ── 📬 IMAP/SMTP 이메일 (Naver/Daum/Kakao) ───────────────────
+	mux.HandleFunc("GET /api/imap/accounts", handleIMAPAccountList)
+	mux.HandleFunc("POST /api/imap/accounts", handleIMAPAccountAdd)
+	mux.HandleFunc("DELETE /api/imap/accounts", handleIMAPAccountDelete)
+	mux.HandleFunc("GET /api/imap/inbox", handleIMAPInbox)
+	mux.HandleFunc("POST /api/imap/send", handleIMAPSend)
+	mux.HandleFunc("GET /api/imap/reply-suggestions", handleIMAPReplySuggestions)
+	mux.HandleFunc("POST /api/imap/classify", handleIMAPClassify)
 
 	// ── 🔒 Privacy & Sandbox ──────────────────────────────────────
 	mux.HandleFunc("GET /api/security/audit", handleAuditLog)

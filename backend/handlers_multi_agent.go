@@ -408,3 +408,109 @@ func handleMultiAgentPlan(w http.ResponseWriter, r *http.Request) {
 	}
 	json200(w, map[string]any{"success": true, "plan": plan})
 }
+
+// POST /api/multi-agent/run — v2 alias {goal, agents}
+func handleMultiAgentRunV2(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Goal   string   `json:"goal"`
+		Agents []string `json:"agents"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Goal == "" {
+		json200(w, map[string]any{"success": false, "message": "goal이 필요합니다"})
+		return
+	}
+
+	llmMu.RLock()
+	gKey := llmPerplexityKey
+	llmMu.RUnlock()
+
+	task := globalTaskQueue.Enqueue("Multi-Agent: "+req.Goal, PriorityNormal,
+		map[string]any{"goal": req.Goal, "agents": req.Agents},
+		func(t *AgentTask) {
+			t.UpdateProgress(5, "목표 분석 중...")
+			plan, err := orchestrate(req.Goal, gKey)
+			if err != nil {
+				t.Status = TaskFailed
+				t.Error = err.Error()
+				return
+			}
+			t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
+			runMultiAgentPlan(t, plan, gKey)
+		},
+	)
+
+	json200(w, map[string]any{
+		"success": true,
+		"task_id": task.ID,
+		"message": fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal),
+	})
+}
+
+// GET /api/multi-agent/stream/:task_id — SSE 실시간 진행 상황
+func handleMultiAgentStream(w http.ResponseWriter, r *http.Request) {
+	// URL: /api/multi-agent/stream/{task_id}
+	path := r.URL.Path
+	parts := strings.Split(strings.TrimPrefix(path, "/api/multi-agent/stream/"), "/")
+	taskID := ""
+	if len(parts) > 0 {
+		taskID = parts[0]
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "SSE not supported", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "data: {\"type\":\"connected\",\"task_id\":%q}\n\n", taskID)
+	flusher.Flush()
+
+	ctx := r.Context()
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	lastProgress := -1
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if taskID == "" {
+				fmt.Fprintf(w, "data: {\"error\":\"task_id required\"}\n\n")
+				flusher.Flush()
+				return
+			}
+			task, ok := globalTaskQueue.GetTask(taskID)
+			if !ok {
+				fmt.Fprintf(w, "data: {\"error\":\"task not found\"}\n\n")
+				flusher.Flush()
+				return
+			}
+			if task.Progress != lastProgress || task.Status == TaskDone || task.Status == TaskFailed || task.Status == TaskCancelled {
+				lastProgress = task.Progress
+				data, _ := json.Marshal(map[string]any{
+					"task_id":  task.ID,
+					"status":   task.Status,
+					"progress": task.Progress,
+					"message":  task.Message,
+					"result":   task.Result,
+					"error":    task.Error,
+				})
+				fmt.Fprintf(w, "data: %s\n\n", data)
+				flusher.Flush()
+				if task.Status == TaskDone || task.Status == TaskFailed || task.Status == TaskCancelled {
+					return
+				}
+			}
+		case <-time.After(25 * time.Second):
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
+		}
+	}
+}

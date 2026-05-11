@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion, useMotionValue } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
+import { DesktopAgent } from '../DesktopAgent'
+import { WorkflowBuilder } from '../WorkflowBuilder'
+import { EmailSetup } from '../EmailSetup'
 import { ChatBubble } from './ChatBubble'
 import type { ChatMessage } from './ChatBubble'
 import { SettingsModal } from './SettingsModal'
@@ -228,7 +231,12 @@ export function FloatingCharacter() {
   const [input, setInput]                 = useState('')
   const [voiceInterim, setVoiceInterim]   = useState('')
   const [minimized, setMinimized]         = useState(false)
-  const [settingsOpen, setSettingsOpen]   = useState(false)
+  const [settingsOpen, setSettingsOpen]     = useState(false)
+  const [showDesktopAgent, setShowDesktopAgent] = useState(false)
+  const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false)
+  const [showEmailSetup, setShowEmailSetup] = useState(false)
+  const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
+  const alertESRef = useRef<EventSource | null>(null)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
   const [isActive, setIsActive]           = useState(true)   // 비활성화 토글
   const [isDragging, setIsDragging]       = useState(false)
@@ -425,6 +433,19 @@ export function FloatingCharacter() {
   useEffect(() => {
     nexusSSE.connect()
 
+    // 백엔드 Proactive SSE 구독 (실시간 알림 → 토스트)
+    const backendSSE = new EventSource('http://127.0.0.1:17891/api/alerts/stream')
+    alertESRef.current = backendSSE
+    backendSSE.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.type === 'connected' || !data.title) return
+        const toast = { id: data.id || String(Date.now()), title: data.title, message: data.message, level: data.level || 'info' }
+        setToastAlerts(prev => [...prev.slice(-4), toast])
+        setTimeout(() => setToastAlerts(prev => prev.filter(t => t.id !== toast.id)), 7000)
+      } catch { /* ignore */ }
+    }
+
     const unsubAlert = nexusSSE.onAlert((alert) => {
       // 승인 요청 알림 처리
       if (alert.action?.startsWith('approve:')) {
@@ -464,6 +485,7 @@ export function FloatingCharacter() {
       unsubAlert()
       unsubTask()
       nexusSSE.disconnect()
+      if (alertESRef.current) { alertESRef.current.close(); alertESRef.current = null }
     }
   }, [])
 
@@ -2096,8 +2118,11 @@ export function FloatingCharacter() {
     { icon: isActive ? '💬' : '😴',    active: isActive,     color: isActive ? primaryColor : '#6b7280',
       onClick: () => { setIsActive(p => !p); if (isActive) stopSpeaking() }, tip: isActive ? '비활성화' : '활성화' },
     { icon: '🎤', active: listening,   color: '#ef4444',     onClick: handleVoiceToggle, tip: '음성' },
-    { icon: '⚙️', active: false,      color: primaryColor,  onClick: () => setSettingsOpen(true), tip: '설정' },
-    { icon: '—',  active: false,      color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
+    { icon: '⚙️', active: false,            color: primaryColor,  onClick: () => setSettingsOpen(true), tip: '설정' },
+    { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4',     onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
+    { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b',  onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
+    { icon: '📧',  active: showEmailSetup,   color: '#22c55e',     onClick: () => setShowEmailSetup(p => !p), tip: '이메일 설정' },
+    { icon: '—',  active: false,             color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
   ]
 
   return (
@@ -2471,6 +2496,70 @@ export function FloatingCharacter() {
       onClose={() => setSettingsOpen(false)}
       primaryColor={primaryColor}
     />
+
+    {/* ── 새 패널들 ── */}
+    <AnimatePresence>
+      {showDesktopAgent && (
+        <DesktopAgent
+          key="desktop-agent"
+          onClose={() => setShowDesktopAgent(false)}
+          primaryColor={primaryColor}
+        />
+      )}
+    </AnimatePresence>
+    <AnimatePresence>
+      {showWorkflowBuilder && (
+        <WorkflowBuilder
+          key="workflow-builder"
+          onClose={() => setShowWorkflowBuilder(false)}
+          primaryColor={primaryColor}
+        />
+      )}
+    </AnimatePresence>
+    <AnimatePresence>
+      {showEmailSetup && (
+        <EmailSetup
+          key="email-setup"
+          onClose={() => setShowEmailSetup(false)}
+          primaryColor={primaryColor}
+        />
+      )}
+    </AnimatePresence>
+
+    {/* ── Proactive 알림 토스트 ── */}
+    <div style={{
+      position: 'fixed', top: 20, right: 20, zIndex: 99999,
+      display: 'flex', flexDirection: 'column', gap: 10, pointerEvents: 'none',
+    }}>
+      <AnimatePresence>
+        {toastAlerts.map(toast => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, x: 60, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 60, scale: 0.9 }}
+            style={{
+              background: toast.level === 'critical' ? 'rgba(239,68,68,0.95)' :
+                          toast.level === 'warn'     ? 'rgba(245,158,11,0.95)' :
+                                                       'rgba(30,30,50,0.95)',
+              backdropFilter: 'blur(12px)',
+              border: `1px solid ${toast.level === 'critical' ? 'rgba(239,68,68,0.5)' :
+                                    toast.level === 'warn'    ? 'rgba(245,158,11,0.5)' :
+                                                                `${primaryColor}44`}`,
+              borderRadius: 14, padding: '12px 16px', maxWidth: 320,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)', pointerEvents: 'auto',
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 12, color: '#fff', marginBottom: 4 }}>
+              {toast.title}
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+              {toast.message.slice(0, 120)}{toast.message.length > 120 ? '...' : ''}
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
 
     {/* 온보딩 플로우 */}
     {!isOnboarded && (

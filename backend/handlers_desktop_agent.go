@@ -738,3 +738,27 @@ func handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
 		"screen_h":     height,
 	})
 }
+
+// POST /api/desktop/agent/cancel — 실행 중인 Desktop Agent 취소
+func handleDesktopAgentCancel(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TaskID string `json:"task_id"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.TaskID == "" {
+		json200(w, map[string]any{"success": false, "message": "task_id가 필요합니다"})
+		return
+	}
+
+	task, ok := globalTaskQueue.GetTask(req.TaskID)
+	if !ok {
+		json200(w, map[string]any{"success": false, "message": "태스크를 찾을 수 없습니다"})
+		return
+	}
+	task.Cancel()
+	task.Status = TaskCancelled
+	fin := time.Now()
+	task.FinishedAt = &fin
+	json200(w, map[string]any{"success": true, "message": "Desktop Agent 취소 완료"})
+}

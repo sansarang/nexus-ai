@@ -37,3 +37,6 @@ func handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
 func handleDesktopApprove(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{"success": false, "message": "Windows 전용 기능입니다"})
 }
+func handleDesktopAgentCancel(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "Windows 전용 기능입니다"})
+}

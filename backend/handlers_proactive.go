@@ -6,20 +6,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
 
 // ══════════════════════════════════════════════════════════════════
-//  Proactive AI 모니터링
-//  - PC 상태를 실시간 감시하다가 문제가 생기면 먼저 알려줍니다
-//  - "주인님, CPU가 뜨거워요. 쿨링해드릴까요?"
-//  - SSE(Server-Sent Events)로 프론트엔드에 실시간 푸시
+//  Proactive AI — 24/7 Background Intelligence
+//  - 매 30초 PC 상태 감시
+//  - CPU > 85% 3회 연속 → 자동 정리 + 알림
+//  - 디스크 > 90% → 임시파일 자동 정리 + 알림
+//  - 의심 프로세스 → 알림
+//  - 캘린더 미팅 30분 전 → 알림
+//  - 업무 시간 2시간 무활동 → 집중 모드 제안
+//  - 오전 08:00 → 모닝 브리핑 (날씨+뉴스+캘린더+PC)
 // ══════════════════════════════════════════════════════════════════
 
 type Alert struct {
 	ID        string    `json:"id"`
-	Level     string    `json:"level"`   // info | warn | critical
+	Level     string    `json:"level"`            // info | warn | critical
 	Title     string    `json:"title"`
 	Message   string    `json:"message"`
 	Action    string    `json:"action,omitempty"` // 권장 액션
@@ -34,80 +41,7 @@ var (
 	subMu        sync.Mutex
 )
 
-// startProactiveMonitor: 백그라운드에서 PC 상태 감시
-func startProactiveMonitor() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	var lastCPUAlert, lastDiskAlert, lastMemAlert time.Time
-
-	for range ticker.C {
-		now := time.Now()
-
-		// ── CPU 온도 ────────────────────────────────────────────
-		temp := getCPUTempEstimate()
-		if temp > 85 && now.Sub(lastCPUAlert) > 10*time.Minute {
-			publishAlert(Alert{
-				ID:      fmt.Sprintf("cpu_temp_%d", now.Unix()),
-				Level:   "warn",
-				Title:   "CPU 온도가 높아요 🌡️",
-				Message: fmt.Sprintf("현재 CPU 온도가 %.0f°C입니다. 잠시 쉬어가는 게 좋을 것 같아요.", temp),
-				Action:  "pc_report",
-			})
-			lastCPUAlert = now
-		}
-
-		// ── 메모리 ──────────────────────────────────────────────
-		mem := getMemoryUsage()
-		if mem > 90 && now.Sub(lastMemAlert) > 15*time.Minute {
-			publishAlert(Alert{
-				ID:      fmt.Sprintf("mem_%d", now.Unix()),
-				Level:   "warn",
-				Title:   fmt.Sprintf("메모리 %d%% 사용 중이에요 💾", mem),
-				Message: "불필요한 프로그램을 종료하면 PC가 빨라질 거예요. 지금 정리해드릴까요?",
-				Action:  "clean",
-			})
-			lastMemAlert = now
-		}
-
-		// ── 디스크 용량 ─────────────────────────────────────────
-		free, total := getDiskSpace()
-		if total > 0 {
-			freePct := float64(free) / float64(total) * 100
-			if freePct < 10 && now.Sub(lastDiskAlert) > 30*time.Minute {
-				publishAlert(Alert{
-					ID:      fmt.Sprintf("disk_%d", now.Unix()),
-					Level:   "critical",
-					Title:   fmt.Sprintf("디스크 공간 부족! (%.0f%% 남음) 💿", freePct),
-					Message: "C드라이브 여유 공간이 얼마 남지 않았어요. 파일 정리가 필요해요.",
-					Action:  "clean",
-				})
-				lastDiskAlert = now
-			}
-		}
-
-		// ── 임시 파일 대량 누적 ──────────────────────────────────
-		tempSize := getTempSize()
-		if tempSize > 2<<30 { // 2GB 이상
-			publishAlert(Alert{
-				ID:      fmt.Sprintf("temp_%d", now.Unix()),
-				Level:   "info",
-				Title:   fmt.Sprintf("임시 파일 %s 누적됨 🗑️", formatBytes(tempSize)),
-				Message: "임시 파일이 많이 쌓였어요. 지금 정리하면 디스크 공간을 확보할 수 있어요.",
-				Action:  "clean",
-			})
-		}
-	}
-}
-
-func getCPUTempEstimate() float64 {
-	// WMI로 CPU 온도 조회 (실제 값이 없으면 메모리 부하 기반 추정)
-	mem := float64(getMemoryUsage())
-	// 간이 추정: 메모리 부하가 높으면 CPU도 뜨거울 가능성이 높음
-	// 실제 환경에서는 WMI MSAcpi_ThermalZoneTemperature 사용
-	return 40 + mem*0.5
-}
-
+// publishAlert: 모든 SSE 구독자에게 알림 push + 최근 목록 유지
 func publishAlert(a Alert) {
 	a.Timestamp = time.Now()
 
@@ -118,18 +52,325 @@ func publishAlert(a Alert) {
 	}
 	alertMu.Unlock()
 
-	// 모든 SSE 구독자에게 푸시
 	subMu.Lock()
 	for _, ch := range alertSubs {
 		select {
 		case ch <- a:
-		default: // 구독자가 느리면 건너뜀
+		default:
 		}
 	}
 	subMu.Unlock()
 }
 
-// GET /api/alerts/stream — SSE 스트림
+// ── 의심 프로세스 감지 ────────────────────────────────────────
+
+var suspiciousProcessKeywords = []string{
+	"keylog", "miner", "cryptominer", "xmrig", "coinhive",
+	"njrat", "darkcomet", "nanocore", "remcos", "asyncrat",
+	"mimikatz", "pwdump", "lazagne", "wce.exe",
+}
+
+func detectSuspiciousProcesses() []string {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		"Get-Process | Select-Object -ExpandProperty Name").Output()
+	if err != nil {
+		return nil
+	}
+	procs := strings.Split(strings.ToLower(string(out)), "\n")
+	var found []string
+	for _, p := range procs {
+		p = strings.TrimSpace(p)
+		for _, kw := range suspiciousProcessKeywords {
+			if strings.Contains(p, kw) {
+				found = append(found, p)
+				break
+			}
+		}
+	}
+	return found
+}
+
+// ── 임시 파일 자동 정리 ──────────────────────────────────────
+
+func autoCleanTempFiles() int64 {
+	var freed int64
+	tempDirs := []string{
+		os.Getenv("TEMP"),
+		os.Getenv("TMP"),
+		os.ExpandEnv(`%SystemRoot%\Temp`),
+	}
+	for _, dir := range tempDirs {
+		if dir == "" {
+			continue
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			path := dir + string(os.PathSeparator) + e.Name()
+			fi, err := os.Stat(path)
+			if err != nil {
+				continue
+			}
+			// 1일 이상 지난 파일만 삭제
+			if time.Since(fi.ModTime()) < 24*time.Hour {
+				continue
+			}
+			if fi.IsDir() {
+				continue
+			}
+			freed += fi.Size()
+			os.Remove(path)
+		}
+	}
+	return freed
+}
+
+// ── 모닝 브리핑 생성 ─────────────────────────────────────────
+
+func generateProactiveMorningBriefing() string {
+	llmMu.RLock()
+	pKey := llmPerplexityKey
+	llmMu.RUnlock()
+
+	// PC 건강 요약
+	mem := getMemoryUsage()
+	free, total := getDiskSpace()
+	diskUsed := 0.0
+	if total > 0 {
+		diskUsed = (1 - float64(free)/float64(total)) * 100
+	}
+	pcHealth := fmt.Sprintf("메모리: %d%% 사용, 디스크: %.0f%% 사용", mem, diskUsed)
+
+	if pKey == "" {
+		return fmt.Sprintf("🌅 좋은 아침이에요! 오늘도 좋은 하루 되세요.\n\n💻 PC 상태: %s", pcHealth)
+	}
+
+	prompt := fmt.Sprintf(`오늘 아침 브리핑을 한국어로 작성해주세요. 포함 내용:
+1. 오늘 날씨 (한국 서울 기준)
+2. 오늘의 주요 뉴스 3가지 (간략하게)
+3. PC 건강 요약: %s
+4. 오늘의 한마디 응원 메시지
+
+짧고 친근하게, 이모지 포함, 500자 이내로 작성하세요.`, pcHealth)
+
+	briefing, _, err := callGroq(pKey, groqChatModel, []groqMsg{
+		{Role: "user", Content: prompt},
+	}, 400, false)
+	if err != nil {
+		return fmt.Sprintf("🌅 좋은 아침이에요!\n\n💻 PC 상태: %s", pcHealth)
+	}
+	return briefing
+}
+
+// ── 캘린더 미팅 사전 알림 ────────────────────────────────────
+
+func checkUpcomingMeetings() {
+	// 캘린더 이벤트 확인 (PowerShell Outlook COM)
+	script := `
+try {
+  $outlook = New-Object -ComObject Outlook.Application
+  $cal = $outlook.GetNamespace("MAPI").GetDefaultFolder(9)
+  $now = Get-Date
+  $soon = $now.AddMinutes(35)
+  $items = $cal.Items
+  $items.Sort("[Start]")
+  $items.IncludeRecurrences = $true
+  $restrict = $items.Restrict("[Start] >= '" + $now.ToString("g") + "' AND [Start] <= '" + $soon.ToString("g") + "'")
+  foreach ($item in $restrict) {
+    Write-Output ($item.Subject + "|" + $item.Start.ToString("HH:mm"))
+  }
+} catch { }
+`
+	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	if err != nil || len(out) == 0 {
+		return
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 2)
+		subject := line
+		startTime := ""
+		if len(parts) == 2 {
+			subject = parts[0]
+			startTime = parts[1]
+		}
+		publishAlert(Alert{
+			ID:      fmt.Sprintf("meeting_%d", time.Now().UnixNano()),
+			Level:   "warn",
+			Title:   "📅 미팅 30분 전!",
+			Message: fmt.Sprintf("'%s' 미팅이 %s에 예정되어 있어요. 준비하세요!", subject, startTime),
+			Action:  "calendar",
+		})
+	}
+}
+
+// ── 무활동 감지 ──────────────────────────────────────────────
+
+var (
+	lastActivityMu sync.Mutex
+	lastActivity   = time.Now()
+)
+
+// UpdateActivity: 사용자 활동 발생 시 호출
+func updateLastActivity() {
+	lastActivityMu.Lock()
+	lastActivity = time.Now()
+	lastActivityMu.Unlock()
+}
+
+// ── 메인 모니터링 루프 ───────────────────────────────────────
+
+func startProactiveMonitor() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	var (
+		lastCPUAlert       time.Time
+		lastDiskAlert      time.Time
+		lastMemAlert       time.Time
+		lastSuspAlert      time.Time
+		lastBriefingDate   string
+		lastFocusSuggested time.Time
+		cpuHighCount       int
+		lastMeetingCheck   time.Time
+	)
+
+	for range ticker.C {
+		now := time.Now()
+
+		// ── 모닝 브리핑 (08:00 매일) ────────────────────────────
+		today := now.Format("2006-01-02")
+		if now.Hour() == 8 && now.Minute() < 1 && lastBriefingDate != today {
+			lastBriefingDate = today
+			go func() {
+				briefing := generateProactiveMorningBriefing()
+				publishAlert(Alert{
+					ID:      "morning_briefing_" + today,
+					Level:   "info",
+					Title:   fmt.Sprintf("☀️ %s 아침 브리핑", now.Format("1월 2일")),
+					Message: briefing,
+					Action:  "briefing",
+				})
+			}()
+		}
+
+		// ── CPU 고부하 감지 (3회 연속 > 85%) ────────────────────
+		mem := getMemoryUsage() // CPU 부하 대리 지표 (WMI 없이)
+		cpuEst := mem           // 메모리 부하가 높으면 CPU도 높을 가능성
+		if cpuEst > 85 {
+			cpuHighCount++
+			if cpuHighCount >= 3 && now.Sub(lastCPUAlert) > 15*time.Minute {
+				lastCPUAlert = now
+				cpuHighCount = 0
+				// 자동 정리 트리거
+				go func() {
+					freed := autoCleanTempFiles()
+					publishAlert(Alert{
+						ID:      fmt.Sprintf("cpu_high_%d", now.Unix()),
+						Level:   "warn",
+						Title:   "🌡️ CPU/메모리 과부하 감지 — 자동 최적화",
+						Message: fmt.Sprintf("PC가 과부하 상태입니다. 임시 파일 %s를 자동 정리했어요.", formatBytes(freed)),
+						Action:  "clean",
+					})
+				}()
+			}
+		} else {
+			cpuHighCount = 0
+		}
+
+		// ── 메모리 경고 ──────────────────────────────────────────
+		if mem > 90 && now.Sub(lastMemAlert) > 15*time.Minute {
+			lastMemAlert = now
+			publishAlert(Alert{
+				ID:      fmt.Sprintf("mem_%d", now.Unix()),
+				Level:   "warn",
+				Title:   fmt.Sprintf("💾 메모리 %d%% 사용 중", mem),
+				Message: "불필요한 프로그램을 종료하면 PC가 빨라질 거예요. 지금 정리해드릴까요?",
+				Action:  "clean",
+			})
+		}
+
+		// ── 디스크 > 90% → 자동 정리 ────────────────────────────
+		free, total := getDiskSpace()
+		if total > 0 {
+			usedPct := (1 - float64(free)/float64(total)) * 100
+			if usedPct > 90 && now.Sub(lastDiskAlert) > 30*time.Minute {
+				lastDiskAlert = now
+				go func() {
+					freed := autoCleanTempFiles()
+					publishAlert(Alert{
+						ID:      fmt.Sprintf("disk_full_%d", now.Unix()),
+						Level:   "critical",
+						Title:   fmt.Sprintf("💿 디스크 %.0f%% 사용! 자동 정리 실행", usedPct),
+						Message: fmt.Sprintf("디스크 공간이 부족합니다. 임시 파일 %s를 자동 삭제했어요.", formatBytes(freed)),
+						Action:  "clean",
+					})
+				}()
+			}
+		}
+
+		// ── 의심 프로세스 감지 ───────────────────────────────────
+		if now.Sub(lastSuspAlert) > 5*time.Minute {
+			suspicious := detectSuspiciousProcesses()
+			if len(suspicious) > 0 {
+				lastSuspAlert = now
+				publishAlert(Alert{
+					ID:      fmt.Sprintf("suspicious_%d", now.Unix()),
+					Level:   "critical",
+					Title:   "🚨 의심 프로세스 감지!",
+					Message: fmt.Sprintf("의심스러운 프로세스가 실행 중입니다: %s", strings.Join(suspicious, ", ")),
+					Action:  "security",
+				})
+			}
+		}
+
+		// ── 미팅 30분 전 알림 (5분마다 확인) ───────────────────
+		if now.Sub(lastMeetingCheck) > 5*time.Minute {
+			lastMeetingCheck = now
+			go checkUpcomingMeetings()
+		}
+
+		// ── 업무 시간 2시간 무활동 → 집중 모드 제안 ────────────
+		isWorkHour := now.Hour() >= 9 && now.Hour() < 18
+		lastActivityMu.Lock()
+		inactiveDur := now.Sub(lastActivity)
+		lastActivityMu.Unlock()
+
+		if isWorkHour && inactiveDur > 2*time.Hour && now.Sub(lastFocusSuggested) > 2*time.Hour {
+			lastFocusSuggested = now
+			publishAlert(Alert{
+				ID:      fmt.Sprintf("focus_%d", now.Unix()),
+				Level:   "info",
+				Title:   "🎯 집중 모드 제안",
+				Message: fmt.Sprintf("약 %d분간 활동이 없었어요. 집중 모드를 활성화할까요?", int(inactiveDur.Minutes())),
+				Action:  "focus",
+			})
+		}
+
+		// ── 대용량 임시 파일 알림 ────────────────────────────────
+		tempSize := getTempSize()
+		if tempSize > 2<<30 { // 2GB
+			publishAlert(Alert{
+				ID:      fmt.Sprintf("temp_%d", now.Unix()),
+				Level:   "info",
+				Title:   fmt.Sprintf("🗑️ 임시 파일 %s 누적", formatBytes(tempSize)),
+				Message: "임시 파일이 많이 쌓였어요. 지금 정리하면 디스크를 확보할 수 있어요.",
+				Action:  "clean",
+			})
+		}
+	}
+}
+
+// ── SSE 핸들러 ──────────────────────────────────────────────────
+
+// GET /api/alerts/stream — SSE 실시간 알림 스트림
 func handleAlertStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -155,7 +396,6 @@ func handleAlertStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 연결 확인 메시지
 	fmt.Fprintf(w, "data: {\"type\":\"connected\"}\n\n")
 	flusher.Flush()
 
@@ -172,7 +412,6 @@ func handleAlertStream(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		case <-time.After(25 * time.Second):
-			// 하트비트
 			fmt.Fprintf(w, ": heartbeat\n\n")
 			flusher.Flush()
 		}
