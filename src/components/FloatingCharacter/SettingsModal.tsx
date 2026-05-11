@@ -15,8 +15,9 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
   const [pplxKey,     setPplxKey]     = useState(localStorage.getItem('nexus-pplx-key') ?? '')
   const [openaiKey,   setOpenaiKey]   = useState(localStorage.getItem('nexus-openai-key') ?? '')
   const [ollamaUrl,   setOllamaUrl]   = useState(localStorage.getItem('nexus-ollama-url') ?? 'http://localhost:11434')
-  const [emailTo,     setEmailTo]     = useState(localStorage.getItem('nexus-report-email') ?? '')
-  const [saved,       setSaved]       = useState(false)
+  const [emailTo,           setEmailTo]           = useState(localStorage.getItem('nexus-report-email') ?? '')
+  const [customInstructions, setCustomInstructions] = useState(localStorage.getItem('nexus-custom-instructions') ?? '')
+  const [saved,             setSaved]             = useState(false)
   const [tab,         setTab]         = useState<'account' | 'ai' | 'email' | 'about'>('account')
   const [pplxStatus,  setPplxStatus]  = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 
@@ -42,6 +43,9 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     localStorage.setItem('nexus-ollama-url', ollamaUrl.trim() || 'http://localhost:11434')
 
     if (emailTo.trim()) localStorage.setItem('nexus-report-email', emailTo.trim())
+
+    if (customInstructions.trim()) localStorage.setItem('nexus-custom-instructions', customInstructions.trim())
+    else localStorage.removeItem('nexus-custom-instructions')
 
     setSaved(true)
     setTimeout(() => { setSaved(false); onClose() }, 1400)
@@ -388,6 +392,31 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   ))}
                 </div>
               </>
+            )}
+
+            {/* ── AI 설정 탭 — Custom Instructions ── */}
+            {tab === 'ai' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <label style={{ ...labelStyle, color: '#b794f4' }}>
+                  🧠 Custom Instructions (나만의 AI 스타일 설정)
+                </label>
+                <textarea
+                  value={customInstructions}
+                  onChange={e => setCustomInstructions(e.target.value)}
+                  placeholder={"예시:\n- 항상 bullet point로 정리해줘\n- 답변은 3줄 이내로\n- 요리 레시피는 재료표 먼저 보여줘\n- 코드는 항상 TypeScript로"}
+                  rows={5}
+                  style={{
+                    ...inputStyle(!!customInstructions),
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.6,
+                    minHeight: 100,
+                  }}
+                />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                  여기에 입력한 내용은 모든 AI 답변에 자동으로 반영됩니다.
+                </span>
+              </div>
             )}
 
             {/* ── 이메일 탭 ── */}
