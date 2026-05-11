@@ -32,8 +32,8 @@ export function PersonaSwitcher({ onClose }: Props) {
     setSwitching(id)
     try {
       await personaSet(id)
-      setActivePersonaId(id)
-    } catch { /* 백엔드 없으면 로컬만 변경 */ }
+    } catch { /* 백엔드 미연결 시 무시 */ }
+    setActivePersonaId(id)  // 백엔드 성공 여부와 무관하게 항상 로컬 적용
     setSwitching(null)
     onClose()
   }
