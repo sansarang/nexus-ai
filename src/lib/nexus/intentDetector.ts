@@ -79,6 +79,7 @@ export type Intent =
   | 'price_compare'    // 가격 비교 (쿠팡·네이버)
   | 'news_search'      // 뉴스 검색
   | 'youtube_search'   // 유튜브 영상 검색
+  | 'video_download'  // 유튜브/틱톡 영상 다운로드
   // ── ⏰ 스케줄러 ────────────────────────────
   | 'schedule_list'    // 스케줄 목록
   | 'schedule_add'     // 스케줄 추가
@@ -118,6 +119,27 @@ export type Intent =
   // ── 🎬 Live Caption ─────────────────────────────
   | 'caption_start'    // 실시간 자막 시작
   | 'caption_stop'     // 실시간 자막 종료
+  // ── 📧 이메일 심화 ────────────────────────────────────────────
+  | 'email_classify'   // 이메일 분류·우선순위
+  | 'email_draft'      // 이메일 답장 초안 작성
+  // ── 📅 캘린더 심화 ───────────────────────────────────────────
+  | 'calendar_find_slot'  // 빈 시간 찾기
+  | 'calendar_smart_add'  // 자연어 일정 추가
+  // ── ⚡ 워크플로 관리 ──────────────────────────────────────────
+  | 'workflow_list'    // 저장된 워크플로 목록
+  | 'workflow_create'  // 자연어로 워크플로 생성
+  | 'workflow_templates' // 워크플로 템플릿 목록
+  // ── 📨 IMAP 이메일 ───────────────────────────────────────────
+  | 'imap_inbox'       // IMAP 받은 메일 확인
+  | 'imap_send'        // IMAP 메일 전송
+  // ── 🤖 멀티 에이전트 ─────────────────────────────────────────
+  | 'multi_agent'      // 멀티 에이전트 실행
+  // ── 📢 브리핑 ───────────────────────────────────────────────
+  | 'briefing_now'     // 모닝 브리핑 실행
+  // ── ❌ 작업 취소 ─────────────────────────────────────────────
+  | 'task_cancel'      // 실행 중 작업 취소
+  // ── 🔍 검색+PDF ──────────────────────────────────────────────
+  | 'search_pdf'       // 웹 검색 후 PDF 보고서 생성
   | 'none'             // LLM으로 위임
 
 const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
@@ -574,6 +596,16 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
       /유튜브.*찾아|유튜브.*검색|youtube.*찾아|youtube.*검색/i,
       /유튜브에서.*보여|유튜브.*영상.*찾아|영상.*찾아줘/i,
       /유튜브.*어떻게|유튜브.*방법|유튜브.*강의|유튜브.*레시피/i,
+      /틱톡.*찾아|틱톡.*검색|tiktok.*찾아|tiktok.*검색/i,
+    ],
+  },
+  // ── ⬇️ 영상 다운로드 ──
+  {
+    intent: 'video_download',
+    patterns: [
+      /유튜브.*다운|youtube.*다운|영상.*다운로드|video.*download/i,
+      /틱톡.*다운|tiktok.*다운|영상.*저장|동영상.*다운/i,
+      /다운.*유튜브|다운.*틱톡|저장.*영상|download.*video/i,
     ],
   },
 
@@ -814,6 +846,108 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     ],
   },
   // ── 🎬 Live Caption ──────────────────────────────────────────
+  // ── 📧 이메일 분류 ──
+  {
+    intent: 'email_classify',
+    patterns: [
+      /이메일.*분류|메일.*분류|메일.*우선순위|중요한.*메일.*구분|email.*classify/i,
+      /메일.*카테고리|메일.*정리.*ai|이메일.*ai.*분석/i,
+    ],
+  },
+  // ── 📧 이메일 답장 초안 ──
+  {
+    intent: 'email_draft',
+    patterns: [
+      /답장.*초안|메일.*초안|이메일.*답변.*써줘|reply.*draft|draft.*reply/i,
+      /답장.*써줘|이메일.*대신.*써|메일.*작성.*해줘/i,
+    ],
+  },
+  // ── 📅 빈 시간 찾기 ──
+  {
+    intent: 'calendar_find_slot',
+    patterns: [
+      /빈.*시간.*찾아|일정.*빈.*슬롯|언제.*가능|스케줄.*빈.*시간|find.*slot/i,
+      /회의.*잡을.*시간|미팅.*가능한.*시간|약속.*가능.*언제/i,
+    ],
+  },
+  // ── 📅 자연어 일정 추가 ──
+  {
+    intent: 'calendar_smart_add',
+    patterns: [
+      /다음.*주.*미팅|내일.*점심.*일정|오후.*회의.*추가|스마트.*일정/i,
+      /(".*")\s*(일정|미팅|약속).*추가|일정.*자연어.*추가/i,
+    ],
+  },
+  // ── ⚡ 워크플로 목록 ──
+  {
+    intent: 'workflow_list',
+    patterns: [
+      /워크플로.*목록|자동화.*목록.*저장|저장된.*워크플로|workflow.*list/i,
+      /만들어둔.*자동화|등록.*워크플로|자동화.*뭐.*있어/i,
+    ],
+  },
+  // ── ⚡ 워크플로 생성 ──
+  {
+    intent: 'workflow_create',
+    patterns: [
+      /워크플로.*만들어|자동화.*새로.*만들|workflow.*create|새.*자동화.*생성/i,
+      /자연어.*워크플로|텍스트로.*자동화.*만들/i,
+    ],
+  },
+  // ── ⚡ 워크플로 템플릿 ──
+  {
+    intent: 'workflow_templates',
+    patterns: [
+      /워크플로.*템플릿|자동화.*템플릿|workflow.*template|자동화.*예시/i,
+    ],
+  },
+  // ── 📨 IMAP 받은 메일 ──
+  {
+    intent: 'imap_inbox',
+    patterns: [
+      /imap.*메일|개인.*메일.*서버|gmail.*직접|계정.*메일.*확인/i,
+      /외부.*메일.*확인|서드파티.*메일|직접.*메일.*서버/i,
+    ],
+  },
+  // ── 📨 IMAP 메일 전송 ──
+  {
+    intent: 'imap_send',
+    patterns: [
+      /imap.*보내|메일.*서버.*전송|gmail.*직접.*보내/i,
+    ],
+  },
+  // ── 🤖 멀티 에이전트 ──
+  {
+    intent: 'multi_agent',
+    patterns: [
+      /멀티.*에이전트|여러.*ai.*동시|multi.*agent|에이전트.*팀/i,
+      /병렬.*처리.*ai|동시에.*여러.*작업.*ai/i,
+    ],
+  },
+  // ── 📢 브리핑 ──
+  {
+    intent: 'briefing_now',
+    patterns: [
+      /브리핑.*해줘|모닝.*브리핑|briefing.*now|오늘.*브리핑|아침.*브리핑/i,
+      /오늘.*요약.*시작|하루.*시작.*보고|daily.*briefing/i,
+    ],
+  },
+  // ── ❌ 작업 취소 ──
+  {
+    intent: 'task_cancel',
+    patterns: [
+      /작업.*취소|실행.*중.*멈춰|task.*cancel|진행.*중.*중지/i,
+      /멈춰줘|중단해줘|취소해줘.*작업/i,
+    ],
+  },
+  // ── 🔍 검색+PDF 보고서 ──
+  {
+    intent: 'search_pdf',
+    patterns: [
+      /검색.*pdf|pdf.*보고서.*만들어|search.*pdf|웹.*검색.*pdf/i,
+      /조사.*보고서.*저장|검색.*결과.*파일로|pdf.*리포트.*생성/i,
+    ],
+  },
   {
     intent: 'caption_start',
     patterns: [

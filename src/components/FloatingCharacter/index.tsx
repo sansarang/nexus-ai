@@ -31,11 +31,11 @@ import {
 import type { Intent } from '../../lib/nexus/intentDetector'
 import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
 import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
-  calendarToday, calendarWeek, calendarAdd,
-  emailInbox, emailSend, emailSummarize,
+  calendarToday, calendarWeek, calendarAdd, calendarFindSlot, calendarSmartAdd,
+  emailInbox, emailSend, emailSummarize, emailClassify, emailDraftReply,
   virusTotalCheck, historyStats, historyAnomalies,
   processKill, appPermissions, windowsUpdates, gpuStats,
-  priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch,
+  priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload,
   schedulerAdd, schedulerList, schedulerDelete,
   recallCapture, recallSearch,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
@@ -43,8 +43,12 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   weatherGet, travelTime,
   personaList, personaSet, personaCurrent,
   brainSearch, brainStats, brainRebuild,
-  workflowRun, workflowPlan,
+  workflowRun, workflowPlan, workflowList, workflowFromText, workflowTemplates,
   captionStart, captionStop, captionLatest,
+  briefingNow,
+  taskList, taskCancel,
+  multiAgentRun, multiAgentPlan,
+  searchAndPDF,
 } from '../../lib/nexus/backendAPI'
 import type { PersonaDef } from '../../lib/nexus/backendAPI'
 import {
@@ -171,6 +175,20 @@ function buildAgentSteps(intent: Intent): string[] {
     case 'workflow_plan':    return ['⚡ 워크플로 계획 생성 중...']
     case 'caption_start':    return ['🎬 오디오 캡처 초기화 중...', '실시간 자막 시작']
     case 'caption_stop':     return ['자막 종료 중...']
+    case 'video_download':    return ['영상 URL 확인 중...', 'yt-dlp로 다운로드 중...', '파일 저장 중']
+    case 'email_classify':    return ['받은 메일 가져오는 중...', 'AI 분류 중...', '우선순위 정리 중']
+    case 'email_draft':       return ['메일 내용 분석 중...', 'AI 답장 초안 작성 중']
+    case 'calendar_find_slot': return ['캘린더 확인 중...', '빈 시간 탐색 중', '가능한 슬롯 정리 중']
+    case 'calendar_smart_add': return ['자연어 파싱 중...', '일정 생성 중', 'Outlook 저장 중']
+    case 'workflow_list':     return ['저장된 워크플로 조회 중...']
+    case 'workflow_create':   return ['자연어 파싱 중...', '워크플로 생성 중', '저장 중']
+    case 'workflow_templates': return ['워크플로 템플릿 불러오는 중...']
+    case 'imap_inbox':        return ['IMAP 서버 연결 중...', '받은 메일 불러오는 중']
+    case 'imap_send':         return ['IMAP 서버 연결 중...', '메일 전송 중']
+    case 'multi_agent':       return ['멀티 에이전트 준비 중...', '에이전트 팀 배치 중', '병렬 실행 중']
+    case 'briefing_now':      return ['날씨 확인 중...', '일정 수집 중...', '이메일 확인 중...', '브리핑 생성 중']
+    case 'task_cancel':       return ['실행 중 작업 확인...', '취소 신호 전송 중']
+    case 'search_pdf':        return ['웹 검색 중...', '결과 수집 중', 'PDF 보고서 생성 중', '파일 저장 중']
     default:
       return ['요청 분석 중...']
   }
@@ -245,7 +263,7 @@ export function FloatingCharacter() {
   const dragY = useMotionValue(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd)
-  const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string }> | null>(null)
+  const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean }> | null>(null)
 
   // ── Clarify 멀티턴 상태 ──────────────────────────────────
   const [clarifyPendingIntent,   setClarifyPendingIntent]   = useState<string | null>(null)
@@ -1231,25 +1249,10 @@ export function FloatingCharacter() {
           }
         }
 
-        /* ── 🌐 가격 비교 (쿠팡·네이버·11번가·G마켓 실제 크롤링) ── */
+        /* ── 🌐 가격 비교 (chromedp 불필요 — /api/command 결과 사용) ── */
         case 'price_compare': {
-          const query = originalText.replace(/가격.*비교|최저가|검색|찾아줘|얼마야|쿠팡.*에서|네이버.*에서|11번가|지마켓/g, '').trim() || originalText
-          // 특정 사이트 지정 여부 확인
-          const isCoupangOnly = /쿠팡/i.test(originalText)
-          const isNaverOnly = /네이버/i.test(originalText)
-          const data = isCoupangOnly
-            ? await coupangSearch(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '' }))
-            : isNaverOnly
-            ? await naverShoppingSearch(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '' }))
-            : await priceCompare(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '가격 검색 실패 — 백엔드 연결 필요' }))
-          const siteName = isCoupangOnly ? '쿠팡' : isNaverOnly ? '네이버쇼핑' : '쿠팡·네이버·11번가·G마켓'
-          const resultItems = (data as { results?: {site:string;name:string;price:string;link:string}[] }).results ?? []
-          const detail = resultItems.slice(0, 5).map(r => `• [${r.site}] ${r.name} — ${r.price}`).join('\n')
-          return {
-            text: data.summary || `${siteName}에서 "${query}" ${resultItems.length}개 상품을 찾았어요!`,
-            card2: { type: 'system_action', icon: '🛒', title: `${siteName}: ${query}`, detail: detail || '검색 중...', success: data.success },
-            emotion: 'happy',
-          }
+          // handleBackendIntent에서 직접 호출되는 경우: /api/command에 위임
+          return { text: '가격을 검색하고 있어요...', emotion: 'neutral' }
         }
 
         /* ── 🌐 뉴스 검색 ── */
@@ -1274,10 +1277,43 @@ export function FloatingCharacter() {
           const icon = isTiktok ? '🎵' : '🎬'
           const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
           const detail = articles.slice(0, 5).map(a => `• ${a.title}\n  ${a.url}`).join('\n\n')
+          // 플로팅 미리보기 패널에 영상 링크 표시
+          if (articles.length > 0) setFloatingPreview(articles.slice(0, 5).map(a => ({ title: a.title, url: a.url })))
           return {
             text: data.summary || `${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`,
             card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || '결과를 가져오는 중...', success: data.success },
             emotion: 'happy',
+          }
+        }
+
+        /* ── ⬇️ 영상 다운로드 ── */
+        case 'video_download': {
+          // URL 추출
+          const urlMatch = originalText.match(/https?:\/\/[^\s]+/)
+          const url = urlMatch?.[0] ?? ''
+          if (!url) {
+            return {
+              text: '다운로드할 영상 URL을 붙여넣어주세요.\n예: "https://www.youtube.com/watch?v=... 다운로드해줘"',
+              emotion: 'neutral',
+            }
+          }
+          const qualityMatch = originalText.match(/720p|480p|1080p|4k/)
+          const quality = qualityMatch?.[0] ?? 'best'
+          const data = await videoDownload(url, quality).catch(() => ({
+            success: false, url, save_path: '', message: 'yt-dlp 다운로드 실패', install_url: 'https://github.com/yt-dlp/yt-dlp/releases/latest',
+          }))
+          return {
+            text: data.message,
+            card2: {
+              type: 'system_action',
+              icon: data.success ? '✅' : '⚠️',
+              title: data.success ? '영상 다운로드 완료' : 'yt-dlp 설치 필요',
+              detail: data.success
+                ? `저장 위치: ${data.save_path}`
+                : `yt-dlp 설치 후 다시 시도해주세요.\n${data.install_url ?? ''}`,
+              success: data.success,
+            },
+            emotion: data.success ? 'happy' : 'concerned',
           }
         }
 
@@ -1672,6 +1708,165 @@ export function FloatingCharacter() {
           }
         }
 
+        /* ── 📧 이메일 분류 ── */
+        case 'email_classify': {
+          const data = await emailClassify(20).catch(() => ({ success: false, classified: [], counts: {}, message: 'Outlook이 필요합니다.' }))
+          const countStr = Object.entries(data.counts ?? {}).map(([k, v]) => `${k}: ${v}개`).join(' · ')
+          return {
+            text: data.message || `이메일 분류 완료! ${countStr}`,
+            card2: { type: 'system_action', icon: '📊', title: '이메일 AI 분류', detail: countStr || '분류 결과 없음', success: data.success },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 📧 이메일 답장 초안 ── */
+        case 'email_draft': {
+          const inbox = await emailInbox(1).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: '' }))
+          const latest = inbox.emails?.[0]
+          if (!latest) return { text: '답장할 메일이 없어요. 먼저 받은 메일함을 확인해주세요.', emotion: 'neutral' }
+          const tone = /격식|formal|정중/.test(originalText) ? 'formal' : 'casual'
+          const data = await emailDraftReply(latest.subject, latest.sender, latest.body, tone).catch(() => ({ success: false, draft: '', message: '초안 작성 실패' }))
+          return {
+            text: data.message || '답장 초안이 완성됐어요!',
+            card2: { type: 'system_action', icon: '✉️', title: `"${latest.subject}" 답장 초안`, detail: data.draft?.slice(0, 150) ?? '', success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 📅 빈 시간 찾기 ── */
+        case 'calendar_find_slot': {
+          const durMatch = originalText.match(/(\d+)\s*시간/)
+          const duration = durMatch ? parseInt(durMatch[1]) * 60 : 60
+          const prefer = /오후|afternoon/.test(originalText) ? 'afternoon' : /저녁|evening/.test(originalText) ? 'evening' : 'morning'
+          const data = await calendarFindSlot(duration, prefer, 7).catch(() => ({ success: false, slots: [], message: 'Outlook이 필요합니다.' }))
+          const slotStr = (data.slots as Array<{start: string; end: string}>).slice(0, 3).map(s => `${s.start} ~ ${s.end}`).join('\n')
+          return {
+            text: data.message || `가능한 시간 ${data.slots.length}개를 찾았어요!`,
+            card2: { type: 'system_action', icon: '📅', title: `빈 시간 ${data.slots.length}개`, detail: slotStr, success: data.success },
+            emotion: data.slots.length > 0 ? 'happy' : 'neutral',
+          }
+        }
+
+        /* ── 📅 자연어 일정 추가 ── */
+        case 'calendar_smart_add': {
+          const data = await calendarSmartAdd(originalText).catch(() => ({ success: false, event: null, message: '일정 추가 실패', confirm_needed: false }))
+          return {
+            text: data.message,
+            card2: { type: 'system_action', icon: '📅', title: data.message, success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── ⚡ 워크플로 목록 ── */
+        case 'workflow_list': {
+          const data = await workflowList().catch(() => ({ workflows: [], count: 0 }))
+          const wfs = (data.workflows as Array<{name?: string; id: string}>)
+          return {
+            text: wfs.length === 0 ? '저장된 워크플로가 없어요. "워크플로 만들어줘"로 생성해보세요!' : `워크플로 ${wfs.length}개가 있어요.`,
+            card2: { type: 'system_action', icon: '⚡', title: `워크플로 ${wfs.length}개`, detail: wfs.slice(0, 5).map(w => `• ${w.name ?? w.id}`).join('\n'), success: true },
+            emotion: 'neutral',
+          }
+        }
+
+        /* ── ⚡ 워크플로 생성 (자연어) ── */
+        case 'workflow_create': {
+          const text = originalText.replace(/워크플로.*만들어|새.*자동화.*생성|텍스트로.*자동화/gi, '').trim() || originalText
+          const data = await workflowFromText(text).catch(() => ({ success: false, workflow: null, message: '워크플로 생성 실패' }))
+          return {
+            text: data.message || '워크플로가 생성됐어요!',
+            card2: { type: 'system_action', icon: '⚡', title: data.message, success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── ⚡ 워크플로 템플릿 ── */
+        case 'workflow_templates': {
+          const data = await workflowTemplates().catch(() => ({ templates: [], count: 0 }))
+          const tpls = (data.templates as Array<{name?: string; description?: string}>)
+          return {
+            text: `워크플로 템플릿 ${tpls.length}개를 찾았어요!`,
+            card2: { type: 'system_action', icon: '📋', title: `템플릿 ${tpls.length}개`, detail: tpls.slice(0, 5).map(t => `• ${t.name ?? ''} — ${t.description ?? ''}`).join('\n'), success: true },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 📨 IMAP 받은 메일 ── */
+        case 'imap_inbox': {
+          const data = await fetch('http://127.0.0.1:17891/api/imap/inbox', { signal: AbortSignal.timeout(10000) })
+            .then(r => r.json() as Promise<{ success: boolean; emails: Array<{subject: string; sender: string; received_at: string; is_read: boolean}>; total: number; unread: number; message: string }>)
+            .catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'IMAP 계정이 설정되어 있지 않아요. 설정에서 IMAP 계정을 추가해주세요.' }))
+          return {
+            text: data.message || `받은 메일 ${data.total}개 (읽지 않음 ${data.unread}개)`,
+            card2: { type: 'system_action', icon: '📨', title: `IMAP 메일 ${data.total}개`, detail: data.emails.slice(0, 3).map(e => `${e.is_read ? '📨' : '📩'} ${e.subject} — ${e.sender}`).join('\n'), success: data.success },
+            emotion: data.unread > 0 ? 'concerned' : 'neutral',
+          }
+        }
+
+        /* ── 📨 IMAP 메일 전송 ── */
+        case 'imap_send': {
+          const toMatch = originalText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
+          const to = toMatch?.[1] ?? ''
+          if (!to) return { text: '받는 사람 이메일을 알려주세요.', emotion: 'neutral' }
+          const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? 'NEXUS에서 보낸 메일'
+          const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? ''
+          const res = await fetch('http://127.0.0.1:17891/api/imap/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to, subject, body }),
+            signal: AbortSignal.timeout(15000),
+          }).then(r => r.json() as Promise<{ success: boolean; message: string }>).catch(() => ({ success: false, message: '전송 실패' }))
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '📤', title: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 🤖 멀티 에이전트 ── */
+        case 'multi_agent': {
+          const goal = originalText.replace(/멀티.*에이전트|여러.*ai.*동시|multi.*agent|에이전트.*팀/gi, '').trim() || originalText
+          const data = await multiAgentRun(goal).catch(() => ({ success: false, task_id: '', message: '멀티 에이전트 실행 실패' }))
+          return {
+            text: data.message || `멀티 에이전트 작업이 시작됐어요! 작업 ID: ${data.task_id}`,
+            card2: { type: 'system_action', icon: '🤖', title: '멀티 에이전트 실행', detail: `목표: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 📢 브리핑 ── */
+        case 'briefing_now': {
+          const data = await briefingNow().catch(() => ({ success: false, task_id: '', message: '브리핑 시작 실패' }))
+          return {
+            text: data.message || '모닝 브리핑이 시작됐어요! 날씨·일정·이메일 정보를 수집 중이에요.',
+            card2: { type: 'system_action', icon: '📢', title: '모닝 브리핑 시작', detail: `Task ID: ${data.task_id}`, success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── ❌ 작업 취소 ── */
+        case 'task_cancel': {
+          const tasks = await taskList().catch(() => ({ tasks: [], count: 0 }))
+          if (!tasks.count) return { text: '취소할 실행 중 작업이 없어요.', emotion: 'neutral' }
+          const first = (tasks.tasks as Array<{id: string; name?: string}>)[0]
+          const res = await taskCancel(first.id).catch(() => ({ success: false, message: '취소 실패' }))
+          return {
+            text: res.message || `작업 "${first.name ?? first.id}"을 취소했어요.`,
+            card2: { type: 'system_action', icon: '❌', title: res.message, success: res.success },
+            emotion: res.success ? 'neutral' : 'concerned',
+          }
+        }
+
+        /* ── 🔍 검색+PDF 보고서 ── */
+        case 'search_pdf': {
+          const query = originalText.replace(/검색.*pdf|pdf.*보고서|웹.*검색.*pdf|조사.*보고서|search.*pdf/gi, '').trim() || originalText
+          const data = await searchAndPDF(query, 8, '', true).catch(() => ({ success: false, pdf_path: '', html_path: '', query, item_count: 0, summary: '생성 실패', duration: '' }))
+          return {
+            text: data.success ? `PDF 보고서 생성 완료! ${data.item_count}개 항목 수집, ${data.duration} 소요.` : data.summary,
+            card2: { type: 'system_action', icon: '📄', title: `PDF 보고서: ${query.slice(0, 30)}`, detail: `경로: ${data.pdf_path || '생성 실패'}\n${data.summary?.slice(0, 100) ?? ''}`, success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
         /* ── 🎮 GPU 모니터링 ── */
         case 'gpu_stats': {
           const data = await gpuStats().catch(() => ({ success: false, gpus: [], message: 'GPU 정보 조회 실패' }))
@@ -1727,6 +1922,31 @@ export function FloatingCharacter() {
   ): Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; emotion: CharacterEmotion }> => {
     try {
       switch (action) {
+        case 'price_compare': {
+          const r = result as { results?: {site:string;name:string;price:string;link:string}[]; query?: string; site?: string; summary?: string } | undefined
+          const items = r?.results ?? []
+          const query = r?.query || trimmed
+          const siteName = (r?.site ?? '').replace('coupang.com','쿠팡').replace('shopping.naver.com','네이버쇼핑').replace('temu.com','태무').replace('11st.co.kr','11번가').replace('gmarket.co.kr','G마켓').replace('aliexpress.com','알리').replace('amazon.com','아마존') || '쇼핑몰'
+          if (items.length > 0) setFloatingPreview(items.slice(0, 8).map(i => ({ title: i.name, url: i.link })))
+          return {
+            card2: { type: 'system_action', icon: '🛒', title: `${siteName}: ${query}`, detail: items.slice(0,5).map(i => `• ${i.name}${i.price ? ' — '+i.price : ''}`).join('\n') || '결과 없음', success: items.length > 0 },
+            emotion: 'happy',
+          }
+        }
+        case 'video_search': {
+          const items = (result as { items?: { title: string; url: string }[] })?.items ?? []
+          const platform = /tiktok|틱톡/i.test(trimmed) ? '틱톡' : '유튜브'
+          const icon = platform === '틱톡' ? '🎵' : '🎬'
+          const query = (result as { query?: string })?.query || trimmed
+          // 플로팅 미리보기 패널에 영상 목록 표시 (재생/다운로드 버튼용)
+          if (items.length > 0) {
+            setFloatingPreview(items.slice(0, 8).map(a => ({ title: a.title, url: a.url, isVideo: true })))
+          }
+          return {
+            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: items.length > 0 ? `${items.length}개 영상을 찾았어요. 오른쪽 패널에서 재생하세요!` : '검색 결과가 없어요.', success: items.length > 0 },
+            emotion: items.length > 0 ? 'happy' : 'concerned',
+          }
+        }
         case 'scan':
         case 'security_scan': {
           const data = (result && typeof result === 'object' && 'score' in result)
@@ -1888,6 +2108,8 @@ export function FloatingCharacter() {
       } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)) }
     }
 
+
+
     // ── 1순위: Go 백엔드 /api/command (LLM 자동 라우팅 + 멀티턴) ─
     if (backendStatus === 'connected') {
       try {
@@ -1950,6 +2172,24 @@ export function FloatingCharacter() {
           setTyping(false)
           typingRef.current = false
           setEmotion(cmdEmotion)
+
+          // 가격 비교 결과 미리보기
+          if (cmd.action === 'price_compare') {
+            const r = cmd.result as { results?: Array<{ name?: string; link?: string }> } | undefined
+            const priceItems = (r?.results ?? [])
+              .filter((it): it is { name: string; link: string } => !!(it.link))
+              .map(it => ({ title: it.name ?? it.link, url: it.link }))
+            if (priceItems.length > 0) setFloatingPreview(priceItems)
+          }
+
+          // 영상 검색 결과 미리보기 (video_search)
+          if (cmd.action === 'video_search') {
+            const resultObj = cmd.result as { items?: Array<{ title?: string; url?: string }> } | undefined
+            const videoItems = (resultObj?.items ?? [])
+              .filter((it): it is { title: string; url: string } => !!(it.url))
+              .map(it => ({ title: it.title ?? it.url, url: it.url, isVideo: true }))
+            if (videoItems.length > 0) setFloatingPreview(videoItems)
+          }
 
           // 웹 검색 결과에 미리보기 카드 추가 (항상 표시 보장)
           if (cmd.action === 'web_search') {
@@ -2353,15 +2593,15 @@ export function FloatingCharacter() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 12, color: primaryColor, fontWeight: 800, letterSpacing: '0.05em' }}>
-              🔍 검색 결과 미리보기
+              {floatingPreview[0]?.isVideo ? '🎬 영상 검색 결과' : '🔍 검색 결과 미리보기'}
             </span>
             <button
               onClick={() => setFloatingPreview(null)}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
             >✕</button>
           </div>
-          {floatingPreview.slice(0, 5).map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < floatingPreview.slice(0, 5).length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+          {floatingPreview.slice(0, 8).map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 8) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, background: `${primaryColor}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: 9, color: primaryColor, fontWeight: 700 }}>{i + 1}</span>
               </div>
@@ -2373,16 +2613,45 @@ export function FloatingCharacter() {
                   {item.url.replace(/^https?:\/\//, '').slice(0, 40)}
                 </div>
               </div>
-              <button
-                onClick={() => openPreview(item.url, item.title)}
-                style={{
-                  background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`,
-                  border: 'none', borderRadius: 8,
-                  color: '#fff', fontSize: 10, fontWeight: 700,
-                  padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
-                  flexShrink: 0, boxShadow: `0 2px 8px ${primaryColor}44`,
-                }}
-              >미리보기</button>
+              {item.isVideo ? (
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button
+                    onClick={() => window.open(item.url, '_blank')}
+                    title="재생"
+                    style={{
+                      background: `linear-gradient(135deg, #e53e3e, #c53030)`,
+                      border: 'none', borderRadius: 7,
+                      color: '#fff', fontSize: 13, fontWeight: 700,
+                      width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(229,62,62,0.4)',
+                    }}
+                  >▶</button>
+                  <button
+                    onClick={async () => {
+                      const msg = await videoDownload(item.url, 'best').catch(() => ({ success: false, message: 'yt-dlp 필요' }))
+                      void sendText(`"${item.title}" 다운로드 ${msg.success ? '완료' : '실패: ' + msg.message}`)
+                    }}
+                    title="다운로드"
+                    style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.2)', borderRadius: 7,
+                      color: '#fff', fontSize: 11, fontWeight: 700,
+                      width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >↓</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => openPreview(item.url, item.title)}
+                  style={{
+                    background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`,
+                    border: 'none', borderRadius: 8,
+                    color: '#fff', fontSize: 10, fontWeight: 700,
+                    padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    flexShrink: 0, boxShadow: `0 2px 8px ${primaryColor}44`,
+                  }}
+                >미리보기</button>
+              )}
             </div>
           ))}
         </motion.div>

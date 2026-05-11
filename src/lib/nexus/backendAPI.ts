@@ -685,6 +685,11 @@ export const coupangSearch = (query: string) =>
 export const newsSearch = (query: string) =>
   request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'naver.com', max_items: 8 })
 
+export const videoDownload = (url: string, quality = 'best', savePath = '') =>
+  request<{ success: boolean; url: string; save_path: string; message: string; install_url?: string; output?: string }>(
+    'POST', '/api/browser/video-download', { url, quality, save_path: savePath }, 300000 // 5분 타임아웃
+  )
+
 /* ── 🎭 AI 멀티 페르소나 ── */
 export interface PersonaDef {
   id: string; name: string; emoji: string; description: string; color: string; system_prompt: string

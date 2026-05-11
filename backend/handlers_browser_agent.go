@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -609,15 +610,31 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 
 	waitForPageStable(ctx)
 
-	// 뉴스 기사 추출
+	// 사이트별 링크 필터 조건
+	var linkFilter string
+	switch {
+	case strings.Contains(req.Site, "youtube"):
+		// YouTube: /watch?v= 링크만
+		linkFilter = `a.href.includes('/watch?v=') && a.innerText.length > 5`
+	case strings.Contains(req.Site, "tiktok"):
+		// TikTok: /@username/video/ 패턴
+		linkFilter = `(a.href.includes('/video/') || a.href.match(/@[^/]+\/video/)) && a.innerText.length > 2`
+	default:
+		// 뉴스 기사: news 포함 링크 또는 충분히 긴 텍스트
+		linkFilter = `a.innerText.length > 20 && (a.href.includes('news') || a.href.includes('article') || a.href.includes('view'))`
+	}
+
 	extractJS := fmt.Sprintf(`
-	JSON.stringify(Array.from(document.querySelectorAll('a')).filter(a =>
-		a.innerText.length > 20 && a.href.includes('news')
-	).slice(0, %d).map(a => ({
-		title: a.innerText.trim(),
-		url: a.href
-	})))
-	`, req.MaxItems)
+	(function() {
+		var links = Array.from(document.querySelectorAll('a')).filter(a => {
+			try { return %s; } catch(e) { return false; }
+		}).slice(0, %d).map(a => ({
+			title: (a.querySelector('img[alt]') ? a.querySelector('img[alt]').alt + ' ' : '') + a.innerText.trim().replace(/\s+/g, ' ').slice(0, 100),
+			url: a.href
+		})).filter(x => x.title.length > 2 && x.url.startsWith('http'));
+		return JSON.stringify(links);
+	})()
+	`, linkFilter, req.MaxItems)
 
 	var raw string
 	chromedp.Run(ctx, chromedp.Evaluate(extractJS, &raw))
@@ -760,6 +777,79 @@ func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 // 유틸리티
 // ──────────────────────────────────────────────────────────────
+
+// POST /api/browser/video-download
+// yt-dlp로 YouTube/TikTok 영상 다운로드. yt-dlp 없으면 직접 링크 반환.
+func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL      string `json:"url"`       // 영상 URL
+		Quality  string `json:"quality"`   // "best", "720p", "480p"
+		SavePath string `json:"save_path"` // 저장 경로 (기본: Downloads)
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.URL == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
+		return
+	}
+	if req.Quality == "" {
+		req.Quality = "best"
+	}
+
+	// yt-dlp 경로 탐색
+	ytdlpPaths := []string{"yt-dlp", "yt-dlp.exe", `C:\yt-dlp\yt-dlp.exe`}
+	ytdlpPath := ""
+	for _, p := range ytdlpPaths {
+		if out, err := exec.Command(p, "--version").Output(); err == nil && len(out) > 0 {
+			ytdlpPath = p
+			break
+		}
+	}
+
+	if ytdlpPath == "" {
+		// yt-dlp 없음 → 다운로드 가이드 링크 반환
+		writeJSON(w, 200, map[string]any{
+			"success":    false,
+			"url":        req.URL,
+			"message":    "yt-dlp가 설치되어 있지 않습니다. https://github.com/yt-dlp/yt-dlp 에서 설치 후 다시 시도해주세요.",
+			"install_url": "https://github.com/yt-dlp/yt-dlp/releases/latest",
+			"direct_url": req.URL,
+		})
+		return
+	}
+
+	savePath := req.SavePath
+	if savePath == "" {
+		savePath = os.Getenv("USERPROFILE") + `\Downloads`
+	}
+
+	formatFlag := "bestvideo+bestaudio/best"
+	if req.Quality == "720p" {
+		formatFlag = "bestvideo[height<=720]+bestaudio/best[height<=720]"
+	} else if req.Quality == "480p" {
+		formatFlag = "bestvideo[height<=480]+bestaudio/best[height<=480]"
+	}
+
+	outTmpl := savePath + `\%(title)s.%(ext)s`
+	cmd := exec.Command(ytdlpPath, "-f", formatFlag, "-o", outTmpl, "--no-playlist", req.URL)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		writeJSON(w, 500, map[string]any{
+			"success": false,
+			"message": "다운로드 실패: " + string(out),
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	writeJSON(w, 200, map[string]any{
+		"success":   true,
+		"url":       req.URL,
+		"save_path": savePath,
+		"message":   "다운로드 완료! " + savePath + " 에 저장됐어요.",
+		"output":    string(out),
+	})
+}
 
 func sanitizeFilename(s string) string {
 	replacer := strings.NewReplacer(

@@ -48,6 +48,46 @@ const NEXUS_TOOLS = [
     params: { city: '도시명 (기본: 현재 위치)' },
   },
   {
+    name: 'email_classify',
+    description: '받은 이메일을 AI로 분류·우선순위 정리',
+    params: {},
+  },
+  {
+    name: 'email_draft',
+    description: '수신된 이메일에 대한 답장 초안 자동 작성',
+    params: { tone: '(선택) formal | casual' },
+  },
+  {
+    name: 'calendar_find_slot',
+    description: '캘린더에서 미팅 가능한 빈 시간 탐색',
+    params: { duration_min: '(선택) 분 단위 길이', prefer_time: '(선택) morning | afternoon | evening' },
+  },
+  {
+    name: 'workflow_list',
+    description: '저장된 자동화 워크플로 목록 조회',
+    params: {},
+  },
+  {
+    name: 'briefing_now',
+    description: '모닝 브리핑 실행 (날씨·일정·이메일 요약)',
+    params: {},
+  },
+  {
+    name: 'search_pdf',
+    description: '웹 검색 후 PDF 보고서 자동 생성',
+    params: { query: '검색 주제' },
+  },
+  {
+    name: 'multi_agent',
+    description: '복잡한 목표를 여러 AI 에이전트가 병렬로 처리',
+    params: { goal: '처리할 목표' },
+  },
+  {
+    name: 'video_download',
+    description: 'YouTube, TikTok 등 영상 URL로 동영상 다운로드',
+    params: { url: '영상 URL', quality: '(선택) 720p, 480p, best' },
+  },
+  {
     name: 'general_answer',
     description: '위 도구 없이 AI가 직접 답변. 지식 질문, 조언, 대화 등',
     params: { answer_type: 'knowledge | advice | conversation' },
@@ -146,6 +186,10 @@ function parseToolCall(content: string): ToolCall | null {
 }
 
 function fallbackRoute(text: string): ToolCall {
+  if (/다운로드|download.*http|http.*다운/i.test(text) && /http/i.test(text)) {
+    const urlMatch = text.match(/https?:\/\/[^\s]+/)
+    return { tool: 'video_download', args: { url: urlMatch?.[0] ?? '' } }
+  }
   if (/유튜브|youtube/i.test(text)) {
     const query = text.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘/gi, '').trim()
     return { tool: 'youtube_search', args: { query } }

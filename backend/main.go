@@ -145,6 +145,7 @@ func main() {
 	mux.HandleFunc("POST /api/browser/collect-price", handleBrowserCollectPrice)
 	mux.HandleFunc("POST /api/browser/news-collect", handleBrowserNewsCollect)
 	mux.HandleFunc("POST /api/browser/login-session", handleBrowserLoginSession)
+	mux.HandleFunc("POST /api/browser/video-download", handleVideoDownload)
 	// ★ 핵심: 검색 → PDF 자동 생성 (동적 결과물)
 	mux.HandleFunc("POST /api/browser/search-and-pdf", handleBrowserSearchAndPDF)
 	mux.HandleFunc("GET /api/browser/open-file", handleOpenFile)

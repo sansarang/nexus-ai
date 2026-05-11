@@ -85,9 +85,7 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 		} `json:"response_format,omitempty"`
 	}
 	rb := reqBody{Model: model, Messages: msgs, Temperature: 0.1, MaxTokens: maxTokens}
-	if jsonMode {
-		rb.RespFmt = &struct{ Type string `json:"type"` }{Type: "json_object"}
-	}
+	// Perplexity sonar는 response_format을 지원하지 않음 — JSON은 system prompt로 강제
 	body, _ := json.Marshal(rb)
 	req, _ := http.NewRequest("POST", baseURL, bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+apiKey)

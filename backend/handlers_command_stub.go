@@ -166,16 +166,82 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		intentPrompt = req.Message
 	}
 
-	// LLM으로 의도 파악
-	sysPrompt := macSystemPrompt
-	msgs := []groqMsg{
-		{Role: "system", Content: sysPrompt},
-		{Role: "user", Content: intentPrompt},
+	// ── 키워드 사전 라우팅 (LLM보다 우선, 틱톡/유튜브 영상 검색) ──
+	msgLower := strings.ToLower(req.Message)
+	videoVerbs := []string{"찾", "검색", "영상", "보여", "추천", "viral", "바이럴", "트렌드"}
+	isTikTokReq := strings.Contains(msgLower, "틱톡") || strings.Contains(msgLower, "tiktok")
+	isYouTubeReq := strings.Contains(msgLower, "유튜브") || strings.Contains(msgLower, "youtube")
+	hasVideoVerb := false
+	for _, kw := range videoVerbs {
+		if strings.Contains(msgLower, kw) {
+			hasVideoVerb = true
+			break
+		}
 	}
-	raw, _, err := callGroq(gKey, groqFastModel, msgs, 500, true)
-	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "LLM 오류: " + err.Error()})
-		return
+
+	var preRoutedAction string
+	var preRoutedParams map[string]any
+	// 가격/쇼핑 사전 라우팅
+	shoppingSites := map[string]string{
+		"태무": "temu.com", "테무": "temu.com", "temu": "temu.com",
+		"쿠팡": "coupang.com", "coupang": "coupang.com",
+		"네이버쇼핑": "shopping.naver.com", "네이버 쇼핑": "shopping.naver.com",
+		"11번가": "11st.co.kr", "지마켓": "gmarket.co.kr",
+		"알리": "aliexpress.com", "ali": "aliexpress.com",
+		"아마존": "amazon.com", "amazon": "amazon.com",
+	}
+	priceVerbs := []string{"찾아", "검색", "최저가", "얼마", "가격", "사고 싶", "구매", "살 수"}
+	hasPriceVerb := false
+	for _, kw := range priceVerbs {
+		if strings.Contains(msgLower, kw) {
+			hasPriceVerb = true
+			break
+		}
+	}
+	detectedShopSite := ""
+	for keyword, domain := range shoppingSites {
+		if strings.Contains(msgLower, strings.ToLower(keyword)) {
+			detectedShopSite = domain
+			break
+		}
+	}
+
+	if detectedShopSite != "" && hasPriceVerb && req.PendingIntent == "" {
+		q := req.Message
+		for kw := range shoppingSites {
+			q = strings.ReplaceAll(q, kw, "")
+		}
+		for _, rm := range []string{"에서", "찾아줘", "검색해줘", "최저가", "가격", "얼마야", "구매", "사고 싶어"} {
+			q = strings.ReplaceAll(q, rm, "")
+		}
+		q = strings.TrimSpace(q)
+		if q == "" {
+			q = req.Message
+		}
+		preRoutedAction = "price_compare"
+		preRoutedParams = map[string]any{"query": q, "site": detectedShopSite, "max_items": 8}
+	} else if isTikTokReq && hasVideoVerb && req.PendingIntent == "" {
+		q := req.Message
+		for _, rm := range []string{"틱톡에서", "틱톡", "tiktok", "찾아줘", "검색해줘", "보여줘", "영상", "추천해줘"} {
+			q = strings.ReplaceAll(q, rm, "")
+		}
+		q = strings.TrimSpace(q)
+		if q == "" {
+			q = "바이럴 트렌드"
+		}
+		preRoutedAction = "video_search"
+		preRoutedParams = map[string]any{"query": q, "platform": "tiktok", "max_items": 8}
+	} else if isYouTubeReq && hasVideoVerb && req.PendingIntent == "" {
+		q := req.Message
+		for _, rm := range []string{"유튜브에서", "유튜브", "youtube", "찾아줘", "검색해줘", "보여줘", "영상", "추천해줘"} {
+			q = strings.ReplaceAll(q, rm, "")
+		}
+		q = strings.TrimSpace(q)
+		if q == "" {
+			q = "인기 영상"
+		}
+		preRoutedAction = "video_search"
+		preRoutedParams = map[string]any{"query": q, "platform": "youtube", "max_items": 8}
 	}
 
 	var intent struct {
@@ -183,10 +249,26 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		Params  map[string]any `json:"params"`
 		Message string         `json:"message"`
 	}
-	if err := json.Unmarshal([]byte(raw), &intent); err != nil {
-		// JSON 파싱 실패 → chat으로 처리
-		intent.Action = "chat"
-		intent.Message = raw
+
+	if preRoutedAction != "" {
+		intent.Action = preRoutedAction
+		intent.Params = preRoutedParams
+	} else {
+		// LLM으로 의도 파악
+		sysPrompt := macSystemPrompt
+		msgs := []groqMsg{
+			{Role: "system", Content: sysPrompt},
+			{Role: "user", Content: intentPrompt},
+		}
+		raw, _, err := callGroq(gKey, groqFastModel, msgs, 500, true)
+		if err != nil {
+			writeJSON(w, 500, map[string]any{"success": false, "message": "LLM 오류: " + err.Error()})
+			return
+		}
+		if err := json.Unmarshal([]byte(raw), &intent); err != nil {
+			intent.Action = "chat"
+			intent.Message = raw
+		}
 	}
 
 	dur := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
@@ -308,6 +390,129 @@ Q: "파이썬이 뭐야?" → A: "파이썬은 읽기 쉬운 문법의 프로그
 			Result:   map[string]any{"event": ev},
 			Duration: dur,
 		})
+
+	case "price_compare":
+		var query, site string
+		maxItems := 8
+		if intent.Params != nil {
+			query, _ = intent.Params["query"].(string)
+			site, _ = intent.Params["site"].(string)
+			if v, ok := intent.Params["max_items"].(float64); ok {
+				maxItems = int(v)
+			}
+		}
+		if query == "" {
+			query = req.Message
+		}
+		llmMu.RLock()
+		priceTKey := llmTavilyKey
+		llmMu.RUnlock()
+		searchQuery := query
+		if site != "" {
+			searchQuery = "site:" + site + " " + query
+		}
+		var priceItems []map[string]string
+		if priceTKey != "" {
+			if tr, ok := tavilySearch(priceTKey, searchQuery, maxItems); ok {
+				for _, it := range tr.Items {
+					if site == "" || strings.Contains(it["url"], strings.Split(site, ".")[0]) {
+						priceItems = append(priceItems, it)
+					}
+				}
+				if len(priceItems) == 0 {
+					priceItems = tr.Items
+				}
+			}
+		}
+		siteName := site
+		if siteName == "" {
+			siteName = "쇼핑몰"
+		}
+		if len(priceItems) == 0 {
+			enc := strings.ReplaceAll(query, " ", "+")
+			priceItems = []map[string]string{
+				{"title": fmt.Sprintf("%s 검색: %s", siteName, query), "url": fmt.Sprintf("https://www.%s/search?q=%s", site, enc)},
+			}
+		}
+		summary := fmt.Sprintf("%s에서 \"%s\" 상품 %d개를 찾았어요!", siteName, query, len(priceItems))
+		results := make([]map[string]string, 0, len(priceItems))
+		for _, it := range priceItems {
+			results = append(results, map[string]string{"site": siteName, "name": it["title"], "price": "", "link": it["url"]})
+		}
+		json200(w, CommandResponse{
+			Success: true, Message: summary, Action: "price_compare",
+			Result:   map[string]any{"query": query, "site": site, "summary": summary, "results": results, "total": len(results)},
+			Duration: dur,
+		})
+
+	case "video_search":
+		var query, platform string
+		maxItems := 8
+		if intent.Params != nil {
+			query, _ = intent.Params["query"].(string)
+			platform, _ = intent.Params["platform"].(string)
+			if v, ok := intent.Params["max_items"].(float64); ok {
+				maxItems = int(v)
+			}
+		}
+		if query == "" {
+			query = req.Message
+		}
+		llmMu.RLock()
+		videoTKey := llmTavilyKey
+		llmMu.RUnlock()
+		isTikTok := platform == "tiktok" ||
+			strings.Contains(strings.ToLower(req.Message), "틱톡") ||
+			strings.Contains(strings.ToLower(req.Message), "tiktok")
+		var videoItems []map[string]string
+		if isTikTok {
+			tiktokQuery := "site:tiktok.com " + query
+			if videoTKey != "" {
+				if tr, ok := tavilySearch(videoTKey, tiktokQuery, maxItems); ok {
+					for _, it := range tr.Items {
+						if strings.Contains(it["url"], "tiktok.com") {
+							videoItems = append(videoItems, it)
+						}
+					}
+				}
+			}
+			if len(videoItems) == 0 {
+				enc := strings.ReplaceAll(query, " ", "%20")
+				videoItems = []map[string]string{
+					{"title": fmt.Sprintf("TikTok에서 \"%s\" 검색", query), "url": fmt.Sprintf("https://www.tiktok.com/search?q=%s", enc)},
+					{"title": "TikTok 트렌딩", "url": "https://www.tiktok.com/trending"},
+				}
+			}
+			summary := fmt.Sprintf("TikTok에서 \"%s\" 영상 %d개를 찾았어요!", query, len(videoItems))
+			json200(w, CommandResponse{
+				Success: true, Message: summary, Action: "video_search",
+				Result:   map[string]any{"query": query, "platform": "tiktok", "items": videoItems, "total": len(videoItems)},
+				Duration: dur,
+			})
+		} else {
+			ytQuery := "site:youtube.com " + query
+			if videoTKey != "" {
+				if tr, ok := tavilySearch(videoTKey, ytQuery, maxItems); ok {
+					for _, it := range tr.Items {
+						if strings.Contains(it["url"], "youtube.com/watch") || strings.Contains(it["url"], "youtu.be") {
+							videoItems = append(videoItems, it)
+						}
+					}
+				}
+			}
+			if len(videoItems) == 0 {
+				enc := strings.ReplaceAll(query, " ", "%20")
+				videoItems = []map[string]string{
+					{"title": fmt.Sprintf("YouTube에서 \"%s\" 검색", query), "url": fmt.Sprintf("https://www.youtube.com/results?search_query=%s", enc)},
+				}
+			}
+			summary := fmt.Sprintf("YouTube에서 \"%s\" 영상 %d개를 찾았어요!", query, len(videoItems))
+			json200(w, CommandResponse{
+				Success: true, Message: summary, Action: "video_search",
+				Result:   map[string]any{"query": query, "platform": "youtube", "items": videoItems, "total": len(videoItems)},
+				Duration: dur,
+			})
+		}
 
 	case "web_search":
 		var query, site string
