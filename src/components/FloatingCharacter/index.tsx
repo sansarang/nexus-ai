@@ -2032,6 +2032,129 @@ export function FloatingCharacter() {
 
   const handleSend = useCallback((text: string) => void sendText(text), [sendText])
 
+  const handleSendWithFileImpl = useCallback(async (text: string, file: { name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: 'image' | 'document' | 'spreadsheet' | 'other' }) => {
+    setTyping(true)
+    const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
+    const personaLabel: Record<string, string> = {
+      nexus: '기본', expert: '전문가', research: '리서치', creative: '크리에이티브', finance: '재무',
+    }
+    const mode = personaLabel[personaId] ?? '기본'
+
+    // 웹서치 요청 여부 감지
+    const wantSearch = /검색|웹|최신|찾아|서치|search/i.test(text)
+
+    let analysisResult = ''
+
+    try {
+      if (file.fileType === 'image') {
+        // 이미지 → GPT-4o Vision
+        const { callGroqVision } = await import('../../lib/nexus/gemini_engine')
+        const base64 = file.dataUrl.split(',')[1] ?? file.dataUrl
+        const question = text || `이 이미지를 ${mode} 모드로 분석해줘. 내용, 특징, 시사점을 상세하게 설명해줘.`
+        analysisResult = await callGroqVision(base64, question)
+      } else {
+        // 문서/스프레드시트 → 텍스트 추출 후 LLM 분석
+        let docContent = file.text ?? ''
+
+        // 백엔드 PDF/Word 파싱 시도
+        if (!docContent && (file.mimeType.includes('pdf') || file.mimeType.includes('word') || file.mimeType.includes('document'))) {
+          try {
+            const blob = await fetch(file.dataUrl).then(r => r.blob())
+            const formData = new FormData()
+            formData.append('file', blob, file.name)
+            const res = await fetch('http://127.0.0.1:17891/api/docs/parse', {
+              method: 'POST', body: formData, signal: AbortSignal.timeout(15000),
+            })
+            if (res.ok) {
+              const data = await res.json() as { text?: string }
+              docContent = data.text ?? ''
+            }
+          } catch { /* 백엔드 없으면 스킵 */ }
+        }
+
+        const truncated = docContent.slice(0, 8000)
+        const userQ = text || `이 문서를 ${mode} 모드로 분석해줘. 핵심 내용, 중요 데이터, 인사이트를 정리해줘.`
+        const prompt = truncated
+          ? `[첨부 파일: ${file.name}]\n\n${truncated}\n\n---\n사용자 질문: ${userQ}`
+          : `[첨부 파일: ${file.name} — 텍스트 추출 불가]\n\n사용자 질문: ${userQ}`
+
+        const { callGroqVision: _unused, ...engineModule } = await import('../../lib/nexus/gemini_engine')
+        void _unused
+        // Groq/GPT로 직접 텍스트 분석
+        const groqKey = localStorage.getItem('nexus-perplexity-key') ?? ''
+        const openaiKey = localStorage.getItem('nexus-openai-key') ?? ''
+        if (openaiKey) {
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              messages: [{ role: 'user', content: prompt }],
+              max_tokens: 1500,
+            }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (res.ok) {
+            const d = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+            analysisResult = d.choices?.[0]?.message?.content?.trim() ?? '분석 결과를 가져오지 못했습니다.'
+          }
+        } else if (groqKey) {
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [{ role: 'user', content: prompt }],
+              max_tokens: 1500,
+            }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (res.ok) {
+            const d = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+            analysisResult = d.choices?.[0]?.message?.content?.trim() ?? '분석 결과를 가져오지 못했습니다.'
+          }
+        } else {
+          analysisResult = '⚠️ API 키가 없습니다. 설정에서 OpenAI 또는 Groq API 키를 입력해주세요.'
+        }
+        void engineModule
+      }
+
+      // 웹서치 병행 요청 시
+      if (wantSearch) {
+        const searchQuery = text.replace(/검색|웹|최신|찾아|서치|search/gi, '').trim() || file.name.replace(/\.[^.]+$/, '')
+        try {
+          const tavilyKey = localStorage.getItem('nexus-tavily-key') ?? ''
+          if (tavilyKey) {
+            const res = await fetch('https://api.tavily.com/search', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ api_key: tavilyKey, query: searchQuery, max_results: 5, search_depth: 'advanced' }),
+            })
+            if (res.ok) {
+              const data = await res.json() as { results?: Array<{ title: string; url: string; content: string }> }
+              const searchSummary = (data.results ?? []).map(r => `• ${r.title}\n  ${r.content.slice(0, 150)}`).join('\n\n')
+              if (searchSummary) {
+                analysisResult += `\n\n---\n🔍 **웹 검색 결과** (${searchQuery})\n\n${searchSummary}`
+              }
+            }
+          }
+        } catch { /* 검색 실패 무시 */ }
+      }
+    } catch (e) {
+      analysisResult = `파일 분석 중 오류가 발생했습니다: ${e instanceof Error ? e.message : String(e)}`
+    }
+
+    const displayText = text || `📎 ${file.name} 분석`
+    const icon = file.fileType === 'image' ? '🖼️' : file.fileType === 'spreadsheet' ? '📊' : '📄'
+    setMessages(prev => [
+      ...prev,
+      { id: `u-${Date.now()}`, role: 'user', text: `${icon} ${file.name}${text ? '\n' + text : ''}` },
+      { id: `n-${Date.now()}`, role: 'nexus', text: analysisResult },
+    ])
+    appendHistory({ id: `${Date.now()}`, ts: Date.now(), q: displayText, a: analysisResult.slice(0, 300) })
+    setTyping(false)
+  }, [])
+
   /* 캐릭터 클릭 */
   const handleCharacterClick = () => {
     setChatOpen(prev => !prev)
@@ -2204,6 +2327,7 @@ export function FloatingCharacter() {
               input={displayInput}
               onInputChange={v => { setInput(v); setVoiceInterim('') }}
               onSend={handleSend}
+              onSendWithFile={handleSendWithFileImpl}
               onVoiceToggle={handleVoiceToggle}
               onRepair={handleRepair}
               assistantName={assistantName}

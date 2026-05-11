@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { InlineCardRenderer } from './InlineCards'
 import type { InlineCardData } from './InlineCards'
@@ -21,6 +21,15 @@ interface ChatMessage {
 }
 
 export type { ChatMessage }
+
+export interface AttachedFile {
+  name: string
+  mimeType: string
+  dataUrl: string   // base64 data URL
+  text?: string     // 텍스트 파일인 경우 추출된 내용
+  size: number
+  fileType: 'image' | 'document' | 'spreadsheet' | 'other'
+}
 
 /* ── 대화 이력 ── */
 export interface HistoryEntry {
@@ -141,14 +150,15 @@ interface ChatBubbleProps {
   input: string
   onInputChange: (v: string) => void
   onSend: (text: string) => void
+  onSendWithFile?: (text: string, file: AttachedFile) => void | Promise<void>
   onVoiceToggle: () => void
   onRepair?: (ids: string[]) => void
   assistantName: string
   lang: 'ko' | 'en'
   primaryColor: string
   historyVersion?: number
-  clarifyPending?: boolean   /* clarify 질문 대기 중 */
-  clarifyQuestion?: string   /* 현재 clarify 질문 내용 */
+  clarifyPending?: boolean
+  clarifyQuestion?: string
 }
 
 export function ChatBubble({
@@ -160,6 +170,7 @@ export function ChatBubble({
   clarifyQuestion = '',
   onInputChange,
   onSend,
+  onSendWithFile,
   onVoiceToggle,
   onRepair,
   assistantName,
@@ -169,6 +180,50 @@ export function ChatBubble({
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory())
+  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
+  const [fileLoading, setFileLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const detectFileType = (mime: string, name: string): AttachedFile['fileType'] => {
+    if (mime.startsWith('image/')) return 'image'
+    if (mime.includes('spreadsheet') || mime.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.csv')) return 'spreadsheet'
+    if (mime.includes('pdf') || mime.includes('word') || mime.includes('document') ||
+        name.endsWith('.pdf') || name.endsWith('.docx') || name.endsWith('.doc') ||
+        name.endsWith('.txt') || name.endsWith('.md')) return 'document'
+    return 'other'
+  }
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    setFileLoading(true)
+    const dataUrl = await new Promise<string>(resolve => {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target?.result as string)
+      reader.readAsDataURL(file)
+    })
+    const fileType = detectFileType(file.type, file.name)
+    let text: string | undefined
+    if (fileType === 'document' && (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv'))) {
+      text = await new Promise<string>(resolve => {
+        const r = new FileReader()
+        r.onload = e => resolve(e.target?.result as string)
+        r.readAsText(file, 'utf-8')
+      })
+    }
+    setAttachedFile({ name: file.name, mimeType: file.type, dataUrl, text, size: file.size, fileType })
+    setFileLoading(false)
+  }, [])
+
+  const handleSendAll = useCallback(() => {
+    const text = input.trim()
+    if (!text && !attachedFile) return
+    if (attachedFile && onSendWithFile) {
+      onSendWithFile(text, attachedFile)
+    } else if (text) {
+      onSend(text)
+    }
+    setAttachedFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [input, attachedFile, onSend, onSendWithFile])
 
   /* historyVersion 변경 시 재로드 */
   useEffect(() => {
@@ -320,9 +375,46 @@ export function ChatBubble({
         <div ref={bottomRef} />
       </div>
 
+      {/* 첨부 파일 미리보기 */}
+      {attachedFile && (
+        <div style={{
+          margin: '0 10px 0',
+          padding: '6px 10px',
+          background: 'rgba(255,255,255,0.06)',
+          border: `1px solid ${primaryColor}44`,
+          borderRadius: 10,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 16 }}>
+            {attachedFile.fileType === 'image' ? '🖼️'
+              : attachedFile.fileType === 'spreadsheet' ? '📊'
+              : attachedFile.fileType === 'document' ? '📄' : '📎'}
+          </span>
+          {attachedFile.fileType === 'image' && (
+            <img src={attachedFile.dataUrl} alt="preview"
+              style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 11, fontWeight: 600,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {attachedFile.name}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
+              {(attachedFile.size / 1024).toFixed(0)}KB · {
+                attachedFile.fileType === 'image' ? '이미지 분석' :
+                attachedFile.fileType === 'spreadsheet' ? '스프레드시트 분석' : '문서 분석'
+              }
+            </div>
+          </div>
+          <button onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
+              cursor: 'pointer', fontSize: 14, padding: 2 }}>✕</button>
+        </div>
+      )}
+
       {/* 입력 바 */}
       <div style={{
-        padding: clarifyPending ? '46px 10px 8px' : '8px 10px',
+        padding: clarifyPending ? '46px 10px 8px' : attachedFile ? '6px 10px 8px' : '8px 10px',
         borderTop: `1px solid ${clarifyPending ? primaryColor + '44' : primaryColor + '22'}`,
         display: 'flex',
         alignItems: 'center',
@@ -330,6 +422,32 @@ export function ChatBubble({
         position: 'relative',
         transition: 'padding 0.2s',
       }}>
+        {/* 숨겨진 파일 인풋 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.csv,.pptx"
+          style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }}
+        />
+
+        {/* 📎 첨부 버튼 */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={fileLoading}
+          title="파일 첨부 (이미지·문서·스프레드시트)"
+          style={{
+            width: 32, height: 32, borderRadius: '50%', border: 'none',
+            background: attachedFile ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
+            color: attachedFile ? primaryColor : 'rgba(255,255,255,0.5)',
+            fontSize: 15, cursor: 'pointer', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.2s',
+          }}
+        >
+          {fileLoading ? '⏳' : '📎'}
+        </button>
+
         <button
           onClick={onVoiceToggle}
           style={{
@@ -366,21 +484,23 @@ export function ChatBubble({
           value={input}
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey && input.trim()) {
+            if (e.key === 'Enter' && !e.shiftKey && (input.trim() || attachedFile)) {
               e.preventDefault()
-              onSend(input)
+              handleSendAll()
             }
           }}
           placeholder={
-            clarifyPending
-              ? '답변을 입력하거나 마이크로 말씀하세요...'
-              : listening
-                ? (lang === 'ko' ? '말씀하세요...' : 'Speak now...')
-                : lang === 'ko' ? `${assistantName}에게...` : `Ask ${assistantName}...`
+            attachedFile
+              ? '파일에 대해 질문하거나 Enter로 바로 분석...'
+              : clarifyPending
+                ? '답변을 입력하거나 마이크로 말씀하세요...'
+                : listening
+                  ? (lang === 'ko' ? '말씀하세요...' : 'Speak now...')
+                  : lang === 'ko' ? `${assistantName}에게...` : `Ask ${assistantName}...`
           }
           style={{
             flex: 1, background: clarifyPending ? `${primaryColor}11` : 'rgba(255,255,255,0.05)',
-            border: `1.5px solid ${clarifyPending ? primaryColor : listening ? '#ef4444' : primaryColor}${clarifyPending ? 'aa' : '44'}`,
+            border: `1.5px solid ${clarifyPending ? primaryColor : listening ? '#ef4444' : attachedFile ? primaryColor : primaryColor}${clarifyPending || attachedFile ? 'aa' : '44'}`,
             borderRadius: 16, padding: '7px 12px',
             color: 'rgba(255,255,255,0.9)', fontSize: 13, outline: 'none',
             fontFamily: 'Pretendard, Inter, sans-serif',
@@ -389,14 +509,14 @@ export function ChatBubble({
         />
 
         <button
-          onClick={() => input.trim() && onSend(input)}
-          disabled={!input.trim()}
+          onClick={handleSendAll}
+          disabled={!input.trim() && !attachedFile}
           style={{
             width: 32, height: 32, borderRadius: '50%', border: 'none',
-            background: input.trim() ? primaryColor : `${primaryColor}22`,
-            color: '#fff', fontSize: 13, cursor: input.trim() ? 'pointer' : 'default',
+            background: (input.trim() || attachedFile) ? primaryColor : `${primaryColor}22`,
+            color: '#fff', fontSize: 13, cursor: (input.trim() || attachedFile) ? 'pointer' : 'default',
             flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            opacity: input.trim() ? 1 : 0.4, transition: 'all 0.2s',
+            opacity: (input.trim() || attachedFile) ? 1 : 0.4, transition: 'all 0.2s',
           }}
         >
           ➤
