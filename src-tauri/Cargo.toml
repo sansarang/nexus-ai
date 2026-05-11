@@ -1,0 +1,27 @@
+[package]
+name = "ttuktak-pc"
+version = "2.5.0"
+description = "Nexus — AI PC 비서"
+authors = ["Jung"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-ico", "devtools"] }
+tauri-plugin-shell = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio      = { version = "1", features = ["full"] }
+
+[profile.release]
+panic         = "abort"
+codegen-units = 1
+lto           = true
+opt-level     = "s"
+strip         = true

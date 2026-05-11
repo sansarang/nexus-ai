@@ -1,0 +1,44 @@
+Nexus AI Personal Assistant
+Copyright (c) 2026 Nexus AI. All Rights Reserved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  소프트웨어 사용권 계약 (End User License Agreement)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+이 소프트웨어를 설치하거나 사용하기 전에 아래 조건을 주의 깊게
+읽어 주세요. 설치를 진행하면 이 계약에 동의하는 것입니다.
+
+제1조 (사용권 부여)
+본 사용권은 개인 또는 단일 컴퓨터에서의 사용을 위해 부여됩니다.
+상업적 재배포, 역공학, 소스코드 추출은 금지됩니다.
+
+제2조 (제한사항)
+- 소프트웨어를 복사, 수정, 배포, 판매, 임대할 수 없습니다.
+- 역공학(리버스 엔지니어링)을 통한 소스코드 추출을 금합니다.
+- 제3자에게 사용권을 재허가하거나 양도할 수 없습니다.
+
+제3조 (개인정보 및 데이터)
+- 본 소프트웨어는 PC 최적화를 위해 시스템 정보를 수집할 수 있습니다.
+- AI 기능 사용을 위한 API 호출은 사용자의 네트워크를 통해 이루어집니다.
+- 수집된 데이터는 기기 내에 안전하게 저장됩니다.
+
+제4조 (면책조항)
+본 소프트웨어는 "있는 그대로(AS-IS)" 제공되며, 어떠한 명시적 또는
+묵시적 보증도 하지 않습니다. 법률이 허용하는 최대 범위 내에서
+소프트웨어의 사용으로 인한 손해에 대해 책임을 지지 않습니다.
+
+제5조 (지원)
+기술 지원은 라이센스 구매자에게만 제공됩니다.
+문의: support@nexus-ai.kr
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  END USER LICENSE AGREEMENT (English Summary)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This software is licensed, not sold. You may use this software on a
+single device for personal use. Reverse engineering, redistribution,
+and commercial use without written permission are strictly prohibited.
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND.
+
+(c) 2026 Nexus AI. All Rights Reserved.

@@ -1,0 +1,74 @@
+name: Nexus Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'          # v2.5.0 같은 태그 push 시 자동 빌드
+  workflow_dispatch:  # 수동 실행 버튼
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Create .env from secrets
+        shell: bash
+        run: |
+          cat > .env << EOF
+          VITE_PPLX_KEY=${{ secrets.VITE_PPLX_KEY }}
+          VITE_OPENAI_KEY=${{ secrets.VITE_OPENAI_KEY }}
+          VITE_TAVILY_KEY=${{ secrets.VITE_TAVILY_KEY }}
+          VITE_ADMIN_EMAIL=${{ secrets.VITE_ADMIN_EMAIL }}
+          VITE_ADMIN_PASSWORD=${{ secrets.VITE_ADMIN_PASSWORD }}
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PADDLE_CLIENT_TOKEN=${{ secrets.VITE_PADDLE_CLIENT_TOKEN }}
+          VITE_PADDLE_PRICE_ID=${{ secrets.VITE_PADDLE_PRICE_ID }}
+          EOF
+
+      - name: Build Tauri App (Windows .exe)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Nexus AI ${{ github.ref_name }}'
+          releaseBody: |
+            ## Nexus AI 업데이트
+
+            ### 변경사항
+            - AI 대화 기억 기능 추가
+            - 모호한 질문 시 되묻기 개선
+            - 버그 수정 및 성능 향상
+
+            ### 설치 방법
+            1. `Nexus_x64-setup.exe` 다운로드
+            2. 실행 후 설치
+          releaseDraft: false
+          prerelease: false

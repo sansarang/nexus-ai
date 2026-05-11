@@ -1,0 +1,18 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 배경: 진한 네이비 둥근 사각형 -->
+  <rect width="512" height="512" rx="120" fill="#0f172a"/>
+  <!-- 망치 헤드 (황금색) -->
+  <rect x="120" y="200" width="200" height="70" rx="20" fill="#f59e0b" transform="rotate(-45 256 256)"/>
+  <!-- 망치 손잡이 (갈색) -->
+  <rect x="236" y="275" width="44" height="148" rx="14" fill="#92400e" transform="rotate(-45 256 256)"/>
+  <!-- 번개 포인트 (파란색) -->
+  <polygon points="340,72 308,162 336,162 298,242 364,142 332,142" fill="#3b82f6"/>
+  <!-- 번개 광택 -->
+  <polygon points="340,72 308,162 336,162 298,242 364,142 332,142" fill="url(#lightning-glow)" opacity="0.4"/>
+  <defs>
+    <radialGradient id="lightning-glow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
