@@ -603,15 +603,6 @@ export const dictationType  = (text: string, app?: string) =>
 export const dictationPaste = (text: string) =>
   request<{ success: boolean; message: string }>('POST', '/api/dictation/paste', { text })
 
-/* ── 🏠 스마트홈 ── */
-export const smarthomeConfig  = () =>
-  request<{ success: boolean; url: string; token: string; message: string }>('GET', '/api/smarthome/config')
-export const smarthomeSaveConfig = (url: string, token: string) =>
-  request<{ success: boolean; message: string }>('POST', '/api/smarthome/config', { url, token })
-export const smarthomeDevices = () =>
-  request<{ success: boolean; devices: Array<{ id: string; name: string; state: string; domain: string; attributes: Record<string,unknown> }>; total: number; message: string }>('GET', '/api/smarthome/devices')
-export const smarthomeControl = (entityId: string, action: string, params?: Record<string,unknown>) =>
-  request<{ success: boolean; message: string }>('POST', '/api/smarthome/control', { entity_id: entityId, action, params })
 
 /* ── 🌤️ 날씨 + 교통 ── */
 export const weatherGet  = (city = '서울') =>

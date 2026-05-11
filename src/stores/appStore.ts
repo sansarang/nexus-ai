@@ -96,6 +96,10 @@ interface AppState {
   memUsage: number
   diskUsage: number
 
+  /* 페르소나 */
+  activePersonaId: string
+  setActivePersonaId: (id: string) => void
+
   /* UI */
   currentView: ViewId
   commandOpen: boolean
@@ -250,6 +254,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   cpuUsage: 0,
   memUsage: 0,
   diskUsage: 0,
+  activePersonaId: localStorage.getItem('nexus-persona-id') ?? 'nexus',
+  setActivePersonaId: (id) => {
+    localStorage.setItem('nexus-persona-id', id)
+    set({ activePersonaId: id })
+  },
   currentView: 'home',
   commandOpen: false,
   clipboardHistory: [

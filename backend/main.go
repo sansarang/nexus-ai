@@ -212,11 +212,6 @@ func main() {
 	mux.HandleFunc("POST /api/dictation/type", handleDictationType)
 	mux.HandleFunc("POST /api/dictation/paste", handleDictationPaste)
 
-	// ── 🏠 스마트홈 ──────────────────────────────────────────────
-	mux.HandleFunc("GET /api/smarthome/config", handleSmartHomeConfig)
-	mux.HandleFunc("POST /api/smarthome/config", handleSmartHomeConfig)
-	mux.HandleFunc("GET /api/smarthome/devices", handleSmartHomeDevices)
-	mux.HandleFunc("POST /api/smarthome/control", handleSmartHomeControl)
 
 	// ── 🌤️ 날씨 + 교통 ──────────────────────────────────────────
 	mux.HandleFunc("GET /api/weather", handleWeather)

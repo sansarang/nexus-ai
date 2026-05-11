@@ -1438,15 +1438,31 @@ interface ConversationTurn {
 }
 
 /** 대화 기록을 OpenAI 포맷으로 변환 — Claude 방식: 전체 히스토리 전달 */
+function getPersonaSystemPrompt(): string {
+  try {
+    const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
+    const personaPrompts: Record<string, string> = {
+      nexus: '',
+      expert: '당신은 전문가 수준의 Nexus입니다. 모든 답변을 전문가 관점에서 깊이 있게 분석하세요. 웹 검색 시 신뢰할 수 있는 학술·기술 자료를 우선 참고하고, 데이터와 근거를 반드시 포함하세요. 딥서치 시 최소 10개 이상의 소스를 분석하고 상충되는 견해도 함께 제시하세요. 전문 용어를 사용하되 핵심 개념은 명확히 설명하세요.',
+      research: '당신은 리서치 전문 Nexus입니다. 데이터와 근거 중심으로 분석합니다. 시장 조사, 경쟁사 분석, 트렌드 파악에 특화되어 있습니다.',
+      creative: '당신은 크리에이티브 전문 Nexus입니다. 창의적인 아이디어를 제시하고 콘텐츠 기획, 브레인스토밍을 도와줍니다.',
+      finance: '당신은 재무 전문 Nexus입니다. 숫자와 재무 지표를 명확히 분석하고 예산 관리, 재무 보고서 작성을 도와줍니다.',
+    }
+    return personaPrompts[personaId] ?? ''
+  } catch { return '' }
+}
+
 function historyToGroqMessages(history: ConversationTurn[], systemPrompt: string) {
   import('../../lib/nexus/memory').then(({ buildMemoryContext }) => {
     const ctx = buildMemoryContext()
     if (ctx) _memoryContext = ctx
   }).catch(() => {})
 
+  const personaPrompt = getPersonaSystemPrompt()
+  const baseSystem = personaPrompt ? `${systemPrompt}\n\n[페르소나 지침]\n${personaPrompt}` : systemPrompt
   const fullSystem = _memoryContext
-    ? `${systemPrompt}\n\n${_memoryContext}`
-    : systemPrompt
+    ? `${baseSystem}\n\n${_memoryContext}`
+    : baseSystem
 
   const messages: Array<{ role: string; content: string }> = [
     { role: 'system', content: fullSystem },
@@ -1698,6 +1714,13 @@ export function clearLastPreviewItems(): void { _lastPreviewItems = [] }
 async function executeWebSearch(query: string, site = 'auto', maxItems = 5): Promise<string> {
   _lastPreviewItems = []
 
+  // 전문가 모드: 쿼리 강화 + 결과 수 증가
+  const isExpert = (localStorage.getItem('nexus-persona-id') ?? 'nexus') === 'expert'
+  if (isExpert) {
+    maxItems = Math.max(maxItems, 10)
+    query = `전문 분석 ${query} (학술·기술 자료 포함)`
+  }
+
   // Go 백엔드가 연결된 경우 실제 크롤링 사용
   try {
     const res = await fetch('http://127.0.0.1:17891/api/browser/smart-agent', {
@@ -1725,7 +1748,7 @@ async function executeWebSearch(query: string, site = 'auto', maxItems = 5): Pro
       const res = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: tavilyKey, query, max_results: maxItems, search_depth: 'advanced' }),
+        body: JSON.stringify({ api_key: tavilyKey, query, max_results: maxItems, search_depth: isExpert ? 'advanced' : 'basic', include_domains: isExpert ? ['scholar.google.com', 'arxiv.org', 'pubmed.ncbi.nlm.nih.gov'] : [] }),
       })
       if (res.ok) {
         const data = await res.json() as { results?: Array<{ title: string; url: string; content: string }> }
@@ -2044,7 +2067,8 @@ export async function executeNewAction(
       case 'ai_deep_search': {
         const query = (params.query as string) ?? ''
         const folder = (params.folder as string) ?? undefined
-        const maxResults = (params.maxResults as number) ?? 15
+        const isExpertDeep = (localStorage.getItem('nexus-persona-id') ?? 'nexus') === 'expert'
+        const maxResults = isExpertDeep ? Math.max((params.maxResults as number) ?? 15, 10) : (params.maxResults as number) ?? 15
         const result = await backendAPI.llmDeepSearch(query, folder, maxResults)
         return {
           success: result.success,

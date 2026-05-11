@@ -96,8 +96,6 @@ export type Intent =
   // ── ⌨️ 음성 받아쓰기 ──────────────────────────
   | 'dictation_start'  // 받아쓰기 시작 (현재 앱에 타이핑)
   // ── 🏠 스마트홈 ────────────────────────────────
-  | 'smarthome_list'   // 스마트홈 기기 목록
-  | 'smarthome_control'// 스마트홈 기기 제어
   // ── 🌤️ 날씨 + 교통 ────────────────────────────
   | 'weather'          // 날씨 조회
   | 'travel_time'      // 교통 시간 조회
@@ -704,21 +702,9 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     ],
   },
 
-  // ── 🏠 스마트홈 ──
   {
-    intent: 'smarthome_list',
-    patterns: [
-      /스마트홈.*기기|iot.*기기|집.*기기|스마트.*기기.*목록|home.*assistant.*devices/i,
-      /어떤.*기기.*연결|연결된.*기기|집.*뭐가.*있어/i,
-    ],
-  },
-  {
-    intent: 'smarthome_control',
-    patterns: [
-      /불.*켜|불.*꺼|조명.*켜|조명.*꺼|에어컨.*켜|에어컨.*꺼|선풍기.*켜|선풍기.*꺼/i,
-      /온도.*올려|온도.*내려|온도.*설정|스마트홈.*제어|home.*assistant.*control/i,
-      /커튼.*열어|커튼.*닫아|TV.*켜|TV.*꺼|콘센트.*켜|콘센트.*꺼/i,
-    ],
+    intent: 'persona_list',
+    patterns: [/페르소나|모드.*목록|ai.*모드/i],
   },
 
   // ── 🌤️ 날씨 ──

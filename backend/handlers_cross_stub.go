@@ -179,6 +179,8 @@ type Persona struct {
 var builtinPersonas = []Persona{
 	{ID: "nexus", Name: "Nexus (기본)", Emoji: "🤖", Description: "PC 관리 만능 AI 어시스턴트", Color: "#6366f1",
 		SystemPrompt: "당신은 Nexus AI 비서입니다. 친근하고 명확하게 답변합니다."},
+	{ID: "expert", Name: "전문가 모드", Emoji: "🧠", Description: "심층 분석·기술 전문 답변·딥서치", Color: "#f59e0b",
+		SystemPrompt: "당신은 전문가 수준의 Nexus입니다. 모든 답변을 전문가 관점에서 깊이 있게 분석하세요. 웹 검색 시 신뢰할 수 있는 학술·기술 자료를 우선 참고하고, 데이터와 근거를 반드시 포함하세요. 딥서치 시 최소 10개 이상의 소스를 분석하고 상충되는 견해도 함께 제시하세요. 전문 용어를 사용하되 핵심 개념은 명확히 설명하세요."},
 	{ID: "research", Name: "리서치 Nexus", Emoji: "🔬", Description: "경쟁사 분석·시장 조사 전문", Color: "#0ea5e9",
 		SystemPrompt: "당신은 리서치 전문 Nexus입니다. 데이터와 근거 중심으로 분석합니다."},
 	{ID: "creative", Name: "크리에이티브 Nexus", Emoji: "🎨", Description: "아이디어 발상·콘텐츠 기획 전문", Color: "#ec4899",

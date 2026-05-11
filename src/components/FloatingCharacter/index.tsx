@@ -4,6 +4,7 @@ import { useAppStore } from '../../stores/appStore'
 import { DesktopAgent } from '../DesktopAgent'
 import { WorkflowBuilder } from '../WorkflowBuilder'
 import { EmailSetup } from '../EmailSetup'
+import { PersonaSwitcher } from '../PersonaSwitcher'
 import { ChatBubble } from './ChatBubble'
 import type { ChatMessage } from './ChatBubble'
 import { SettingsModal } from './SettingsModal'
@@ -38,7 +39,6 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   recallCapture, recallSearch,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
   dictationType, dictationPaste,
-  smarthomeDevices, smarthomeControl,
   weatherGet, travelTime,
   personaList, personaSet, personaCurrent,
   brainSearch, brainStats, brainRebuild,
@@ -157,8 +157,6 @@ function buildAgentSteps(intent: Intent): string[] {
     case 'meeting_summary':  return ['녹음 파일 확인 중...', 'Whisper 전사 중...', 'AI 요약 생성 중']
     case 'meeting_list':     return ['회의 목록 불러오는 중...']
     case 'dictation_start':  return ['텍스트 분석 중...', '현재 앱에 입력 중']
-    case 'smarthome_list':   return ['Home Assistant 연결 중...', '기기 목록 불러오는 중']
-    case 'smarthome_control':return ['Home Assistant 연결 중...', '명령 전송 중']
     case 'weather':          return ['날씨 데이터 수집 중...', '예보 분석 중']
     case 'travel_time':      return ['출발지·목적지 좌표 조회 중...', '경로 계산 중']
     case 'translate':        return ['클립보드 내용 확인 중...', '번역 중...']
@@ -235,6 +233,7 @@ export function FloatingCharacter() {
   const [showDesktopAgent, setShowDesktopAgent] = useState(false)
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false)
   const [showEmailSetup, setShowEmailSetup] = useState(false)
+  const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false)
   const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
   const alertESRef = useRef<EventSource | null>(null)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
@@ -1550,40 +1549,6 @@ export function FloatingCharacter() {
           }
         }
 
-        /* ── 🏠 스마트홈 ── */
-        case 'smarthome_list': {
-          const data = await smarthomeDevices().catch(() => ({ success: false, devices: [], total: 0, message: 'Home Assistant 연결 실패. 설정에서 HA URL과 토큰을 입력해주세요.' }))
-          return {
-            text: data.message || `스마트홈 기기 ${data.total}개 연결됨`,
-            card2: {
-              type: 'system_action', icon: '🏠',
-              title: `기기 ${data.total}개`,
-              detail: data.devices.slice(0, 5).map(d => `${d.name}: ${d.state}`).join('\n'),
-              success: data.success,
-            },
-            emotion: data.success ? 'happy' : 'concerned',
-          }
-        }
-        case 'smarthome_control': {
-          // 명령 파싱: "불 꺼줘" → entity: light, action: turn_off
-          const isOn = /켜|on|열어/.test(originalText)
-          const action = isOn ? 'turn_on' : 'turn_off'
-          const deviceMap: Record<string, string> = { '불': 'light', '조명': 'light', '에어컨': 'climate', '선풍기': 'fan', 'TV': 'media_player', '커튼': 'cover', '콘센트': 'switch' }
-          let domain = 'light'
-          for (const [keyword, d] of Object.entries(deviceMap)) {
-            if (originalText.includes(keyword)) { domain = d; break }
-          }
-          const devices = await smarthomeDevices().catch(() => ({ success: false, devices: [], total: 0, message: '' }))
-          const target = devices.devices.find(d => d.domain === domain)
-          if (!target) return { text: `제어할 ${domain} 기기를 찾지 못했어요. 먼저 "스마트홈 기기 목록" 확인해주세요.`, emotion: 'neutral' }
-          const res = await smarthomeControl(target.id, action).catch(() => ({ success: false, message: '제어 실패' }))
-          return {
-            text: res.message || `${target.name} ${action === 'turn_on' ? '켰어요' : '껐어요'} 🏠`,
-            card2: { type: 'system_action', icon: isOn ? '💡' : '🌑', title: `${target.name} ${action === 'turn_on' ? 'ON' : 'OFF'}`, success: res.success },
-            emotion: res.success ? 'happy' : 'concerned',
-          }
-        }
-
         /* ── 🎭 AI 멀티 페르소나 ── */
         case 'persona_list': {
           const data = await personaList().catch(() => ({ personas: [], current: 'nexus' }))
@@ -2122,6 +2087,7 @@ export function FloatingCharacter() {
     { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4',     onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
     { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b',  onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
     { icon: '📧',  active: showEmailSetup,   color: '#22c55e',     onClick: () => setShowEmailSetup(p => !p), tip: '이메일 설정' },
+    { icon: '🧠',  active: showPersonaSwitcher, color: '#a855f7',  onClick: () => setShowPersonaSwitcher(p => !p), tip: 'AI 모드' },
     { icon: '—',  active: false,             color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
   ]
 
@@ -2522,6 +2488,15 @@ export function FloatingCharacter() {
           key="email-setup"
           onClose={() => setShowEmailSetup(false)}
           primaryColor={primaryColor}
+        />
+      )}
+    </AnimatePresence>
+
+    <AnimatePresence>
+      {showPersonaSwitcher && (
+        <PersonaSwitcher
+          key="persona-switcher"
+          onClose={() => setShowPersonaSwitcher(false)}
         />
       )}
     </AnimatePresence>
