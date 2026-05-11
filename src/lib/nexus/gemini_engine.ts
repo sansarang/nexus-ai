@@ -1433,9 +1433,8 @@ interface ConversationTurn {
   content?: string
 }
 
-/** 대화 기록을 Perplexity 포맷(OpenAI)으로 변환 */
+/** 대화 기록을 OpenAI 포맷으로 변환 — Claude 방식: 전체 히스토리 전달 */
 function historyToGroqMessages(history: ConversationTurn[], systemPrompt: string) {
-  // 장기 메모리 컨텍스트를 시스템 프롬프트에 주입
   import('../../lib/nexus/memory').then(({ buildMemoryContext }) => {
     const ctx = buildMemoryContext()
     if (ctx) _memoryContext = ctx
@@ -1448,11 +1447,24 @@ function historyToGroqMessages(history: ConversationTurn[], systemPrompt: string
   const messages: Array<{ role: string; content: string }> = [
     { role: 'system', content: fullSystem },
   ]
-  for (const turn of history) {
+
+  // 전체 히스토리를 전달하되 총 토큰 예산 초과 시 오래된 것부터 제거
+  // (텍스트 길이 기준 ~60,000자 = 약 15,000 토큰)
+  const TOKEN_BUDGET = 60000
+  let totalLen = fullSystem.length
+  const turns: Array<{ role: string; content: string }> = []
+
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i]
     const role = turn.role === 'model' ? 'assistant' : turn.role
     const content = turn.content ?? turn.parts?.map(p => p.text).join('') ?? ''
-    if (content) messages.push({ role, content })
+    if (!content.trim()) continue
+    totalLen += content.length
+    if (totalLen > TOKEN_BUDGET) break  // 예산 초과 시 더 오래된 건 제외
+    turns.unshift({ role, content })
   }
+
+  messages.push(...turns)
   return messages
 }
 
@@ -1462,46 +1474,10 @@ import('../../lib/nexus/memory').then(({ buildMemoryContext }) => {
   _memoryContext = buildMemoryContext()
 }).catch(() => {})
 
-// ── 후속 질문 감지 + 컨텍스트 자동 주입 ─────────────────────
-// "어디서요?", "얼마예요?", "언제요?" 같은 짧고 모호한 후속 질문에
-// 이전 대화 내용을 자동으로 붙여서 AI가 맥락을 알 수 있게 한다.
-
-const FOLLOWUP_PATTERNS = [
-  /^(어디서|어디에서|어디로|거기서|거기에서|그곳에서|그거|그게|그건|그것|그것은|그것도|그때|그날|그분|그사람|거기|거기서|그쪽)\s/,
-  /^(얼마|얼마나|얼마예요|얼마에요|얼마입니까|비용|가격|요금|가격은|요금은)\s*[?？]?$/,
-  /^(언제|몇\s*시|몇\s*분|시간|시간은|몇\s*시간)\s*[?？]?$/,
-  /^(어떻게|어떤\s*방법|방법|방법은)\s*[?？]?$/,
-  /^(왜|이유|이유는|원인)\s*[?？]?$/,
-  /^(몇|몇\s*개|몇\s*명|몇\s*번)\s*[?？]?$/,
-  /^(더\s*자세히|자세히|더\s*알려줘|더\s*알고\s*싶어|설명해줘|자세하게)\s*[?？]?$/,
-  /^(그럼|그러면|그렇다면|그렇게)\s/,
-  /^(맞아|맞아요|맞죠|그래서|그래서요|그래서는|그렇군|아)\s/,
-  /^.{1,15}[?？]$/, // 15자 이하의 짧은 질문
-]
-
-export function isFollowUpQuestion(input: string, history: ConversationTurn[]): boolean {
-  return isFollowUp(input, history)
-}
-
-function isFollowUp(input: string, history: ConversationTurn[]): boolean {
-  if (history.length < 2) return false
-  const trimmed = input.trim()
-  // 15자 이하 + 의문문이면 후속 질문으로 판단
-  if (trimmed.length <= 15 && /[?？요]$/.test(trimmed)) return true
-  return FOLLOWUP_PATTERNS.some(p => p.test(trimmed))
-}
-
-function injectContext(input: string, history: ConversationTurn[]): string {
-  // 최근 2턴(사용자 질문 + AI 답변)을 컨텍스트로 추가
-  const recent = history.slice(-4)
-  const contextLines: string[] = []
-  for (const turn of recent) {
-    const text = turn.content ?? turn.parts?.map(p => p.text).join('') ?? ''
-    if (!text.trim()) continue
-    contextLines.push(`${turn.role === 'user' ? '[이전 사용자]' : '[이전 Nexus]'}: ${text.slice(0, 300)}`)
-  }
-  if (contextLines.length === 0) return input
-  return `[대화 맥락]\n${contextLines.join('\n')}\n\n[현재 질문] ${input}\n\n위 대화 맥락을 참고해서 현재 질문에 답해라. 맥락에서 알 수 있는 정보는 다시 묻지 말고 바로 답해라.`
+// Claude 방식: 별도 후속 감지 로직 없음.
+// 전체 히스토리가 모델에 전달되므로 모델이 스스로 맥락 파악.
+export function isFollowUpQuestion(_input: string, _history: ConversationTurn[]): boolean {
+  return false // 더 이상 사용 안 함 — 히스토리 전달로 대체
 }
 
 export async function callGemini(
@@ -1509,18 +1485,13 @@ export async function callGemini(
   userInput: string,
   history: ConversationTurn[],
 ): Promise<GeminiResponse> {
-  // 후속 질문이면 이전 맥락을 자동으로 주입
-  const enrichedInput = isFollowUp(userInput, history)
-    ? injectContext(userInput, history)
-    : userInput
-
-  // 1순위: GPT-4o (Tool Calling + Vision 지원)
+  // 1순위: GPT-4o — 전체 히스토리 포함
   const openaiKey = OPENAI_API_KEY || localStorage.getItem('nexus-openai-key') || ''
   if (openaiKey) {
-    try { return await callGPT4oWithTools(openaiKey, enrichedInput, history) } catch { /* 폴백 */ }
+    try { return await callGPT4oWithTools(openaiKey, userInput, history) } catch { /* 폴백 */ }
   }
-  // 2순위: Perplexity sonar-pro (웹검색 내장)
-  return callGroq('', enrichedInput, history)
+  // 2순위: Perplexity sonar-pro — 전체 히스토리 포함
+  return callGroq('', userInput, history)
 }
 
 // ──────────────────────────────────────────────────────────────

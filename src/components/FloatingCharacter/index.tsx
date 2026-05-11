@@ -1304,7 +1304,7 @@ export function FloatingCharacter() {
             // 백엔드 없음 → Groq로 동적 응답
             const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
             if (apiKey) {
-              const gr = await callGemini(apiKey, originalText, historyRef.current.slice(-6)).catch(() => null)
+              const gr = await callGemini(apiKey, originalText, historyRef.current).catch(() => null)
               if (gr?.text) return { text: gr.text, emotion: gr.emotion ?? 'neutral' }
             }
             return { text: `날씨 서비스에 연결할 수 없어요. 현재 위치 날씨는 날씨 앱이나 포털 사이트에서 확인해보세요! 🌤️`, emotion: 'neutral' }
@@ -1828,7 +1828,7 @@ export function FloatingCharacter() {
       resetClarify()
       const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
       let llmRes
-      try { llmRes = await callGemini(apiKey, combinedInput, historyRef.current.slice(-10)) }
+      try { llmRes = await callGemini(apiKey, combinedInput, historyRef.current) }
       catch { /* 폴백 */ }
       if (!llmRes?.text?.trim()) llmRes = fallbackResponse(combinedInput, assistantName)
       setTyping(false)
@@ -1885,7 +1885,7 @@ export function FloatingCharacter() {
         }])
 
         // 멀티턴: clarify 컨텍스트 + 최근 대화 이력 포함
-        const recentHistory = historyRef.current.slice(-10).map(h => ({
+        const recentHistory = historyRef.current.map(h => ({
           role: (h.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
           content: h.parts?.[0]?.text ?? '',
         })).filter(h => h.content.length > 0)
@@ -1992,12 +1992,12 @@ export function FloatingCharacter() {
     let response
 
     try {
-      const r = await callOllama(trimmed, historyRef.current.slice(-10))
+      const r = await callOllama(trimmed, historyRef.current)
       if (r) response = r
     } catch { /* Ollama 미실행 */ }
 
     if (!response && apiKey && trackUsage()) {
-      try { response = await callGemini(apiKey, trimmed, historyRef.current.slice(-10)) }
+      try { response = await callGemini(apiKey, trimmed, historyRef.current) }
       catch (e) { console.warn('[Perplexity] 호출 실패:', e) }
     }
 
@@ -2006,20 +2006,7 @@ export function FloatingCharacter() {
     setTyping(false)
     typingRef.current = false
 
-    // ── LLM clarify: 추가 정보 필요 (후속 질문이면 clarify 무시하고 재시도) ──
-    if (response.needs_clarify && response.clarify_question && isFollowUpQuestion(trimmed, historyRef.current.slice(0, -1) as ConversationTurn[])) {
-      // 후속 질문인데 clarify가 나오면 맥락을 강제 주입해서 재호출
-      const forceContextInput = `[이전 대화 참고]\n${historyRef.current.slice(-6, -1).map(t => `${t.role === 'user' ? '사용자' : 'Nexus'}: ${(t.parts?.map((p: {text:string}) => p.text).join('') ?? '').slice(0, 200)}`).join('\n')}\n\n사용자 질문: ${trimmed}\n\n위 대화를 참고해서 바로 답해라. 절대 다시 묻지 마라.`
-      const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
-      const retryRes = await callGemini(apiKey, forceContextInput, []).catch(() => null)
-      if (retryRes?.text?.trim()) {
-        setTyping(false); typingRef.current = false
-        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: retryRes.text }])
-        pushModelHistory(trimmed, retryRes.text)
-        speakText(retryRes.text)
-        return
-      }
-    }
+    // ── LLM clarify: 추가 정보 필요 ──────────────────────────
     if (response.needs_clarify && response.clarify_question) {
       const question = response.clarify_question
       setClarifyPendingIntent(response.clarify_intent ?? 'llm_clarify')
