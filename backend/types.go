@@ -11,6 +11,10 @@ const (
 	// 하위 호환 별칭 (기존 코드 callGroq 호출 유지)
 	groqChatModel = pplxChatModel
 	groqFastModel = pplxFastModel
+
+	// Claude (Anthropic) — fallback LLM
+	claudeModel   = "claude-sonnet-4-6"
+	claudeAPIBase = "https://api.anthropic.com/v1/messages"
 )
 
 // groqMsg: OpenAI 호환 메시지 (Perplexity/Groq/OpenAI 공통 포맷)

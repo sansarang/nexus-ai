@@ -2040,36 +2040,99 @@ export function FloatingCharacter() {
     }
     const mode = personaLabel[personaId] ?? '기본'
 
-    // 웹서치 요청 여부 감지
+    // 편집 의도 감지 (분석 vs 수정)
+    const wantEdit = /수정|편집|바꿔|변경|삭제|추가|정렬|필터|합계|계산|저장|만들어|작성|고쳐|업데이트|넣어|지워|빼|이름변경|이름 변경|rename|sort|edit|modify|delete|add|insert|update/i.test(text)
     const wantSearch = /검색|웹|최신|찾아|서치|search/i.test(text)
 
     let analysisResult = ''
 
     try {
       if (file.fileType === 'image') {
-        // 이미지 → GPT-4o Vision
+        // ── 이미지 → GPT-4o Vision ───────────────────────────────
         const { callGroqVision } = await import('../../lib/nexus/gemini_engine')
         const base64 = file.dataUrl.split(',')[1] ?? file.dataUrl
         const question = text || `이 이미지를 ${mode} 모드로 분석해줘. 내용, 특징, 시사점을 상세하게 설명해줘.`
         analysisResult = await callGroqVision(base64, question)
+
+      } else if (wantEdit && (file.fileType === 'spreadsheet' || file.fileType === 'document')) {
+        // ── 편집 의도 + 문서 → 백엔드 AI 편집 ──────────────────
+        const { uploadDocFile, aiEditDoc, docTypeLabel } = await import('../../lib/nexus/docEditor')
+        const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
+        const docLabel = docTypeLabel(fileExt)
+
+        analysisResult = `⏳ ${docLabel} 파일을 백엔드에 업로드 중...`
+        setMessages(prev => [
+          ...prev,
+          { id: `u-${Date.now()}`, role: 'user', text: `📎 ${file.name}\n${text}` },
+          { id: `n-${Date.now()}-progress`, role: 'nexus', text: analysisResult },
+        ])
+
+        // 1. dataUrl → Blob → File 객체
+        const response = await fetch(file.dataUrl)
+        const blob = await response.blob()
+        const fileObj = new File([blob], file.name, { type: file.mimeType })
+
+        // 2. 백엔드 업로드
+        const uploadResult = await uploadDocFile(fileObj)
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.message ?? '업로드 실패')
+        }
+
+        // 미리보기 정보 표시
+        let previewInfo = ''
+        if (uploadResult.preview) {
+          if (uploadResult.preview.sheets) {
+            previewInfo = `\n📋 시트: ${uploadResult.preview.sheets.join(', ')} | 총 ${uploadResult.preview.total_rows ?? 0}행`
+          } else if (uploadResult.preview.text) {
+            previewInfo = `\n📄 내용 미리보기: ${uploadResult.preview.text.slice(0, 100)}...`
+          }
+        }
+
+        // 3. AI 편집 실행
+        setMessages(prev => prev.map(m =>
+          m.id === `n-${Date.now()}-progress`
+            ? { ...m, text: `📤 업로드 완료${previewInfo}\n⚙️ AI가 "${text}" 작업을 실행 중...` }
+            : m
+        ))
+
+        const editResult = await aiEditDoc(uploadResult.file_path, text)
+        if (!editResult.success) {
+          throw new Error(editResult.message ?? '편집 실패')
+        }
+
+        const opsInfo = editResult.operations_count
+          ? `\n적용된 연산: ${editResult.operations_count}개 (${(editResult.operations ?? []).slice(0, 5).join(', ')}${(editResult.operations?.length ?? 0) > 5 ? '...' : ''})`
+          : ''
+
+        analysisResult = `✅ **문서 편집 완료**\n\n📝 ${editResult.summary}${opsInfo}\n\n💾 저장 위치: \`${editResult.out_path}\`\n\n바탕화면에서 파일을 확인하세요.`
+
+        // progress 메시지 교체
+        setMessages(prev => prev.map(m =>
+          m.id?.endsWith('-progress') ? { ...m, text: analysisResult } : m
+        ))
+        appendHistory({ id: `${Date.now()}`, ts: Date.now(), q: `📎 ${file.name} - ${text}`, a: editResult.summary })
+        setTyping(false)
+        return
+
       } else {
-        // 문서/스프레드시트 → 텍스트 추출 후 LLM 분석
+        // ── 분석 의도 → 텍스트 추출 후 LLM 분석 ────────────────
         let docContent = file.text ?? ''
 
-        // 백엔드 PDF/Word 파싱 시도
-        if (!docContent && (file.mimeType.includes('pdf') || file.mimeType.includes('word') || file.mimeType.includes('document'))) {
+        // 백엔드 업로드로 더 정확한 텍스트 추출 시도
+        if (file.fileType !== 'other') {
           try {
-            const blob = await fetch(file.dataUrl).then(r => r.blob())
-            const formData = new FormData()
-            formData.append('file', blob, file.name)
-            const res = await fetch('http://127.0.0.1:17891/api/docs/parse', {
-              method: 'POST', body: formData, signal: AbortSignal.timeout(15000),
-            })
-            if (res.ok) {
-              const data = await res.json() as { text?: string }
-              docContent = data.text ?? ''
+            const { uploadDocFile } = await import('../../lib/nexus/docEditor')
+            const resp = await fetch(file.dataUrl)
+            const blob = await resp.blob()
+            const fileObj = new File([blob], file.name, { type: file.mimeType })
+            const uploaded = await uploadDocFile(fileObj)
+            if (uploaded.success && uploaded.preview?.text) {
+              docContent = uploaded.preview.text
+            } else if (uploaded.success && uploaded.preview?.rows) {
+              // Excel 미리보기 → 탭 구분 텍스트
+              docContent = (uploaded.preview.rows as string[][]).map(r => r.join('\t')).join('\n')
             }
-          } catch { /* 백엔드 없으면 스킵 */ }
+          } catch { /* 백엔드 없으면 기존 file.text 사용 */ }
         }
 
         const truncated = docContent.slice(0, 8000)
@@ -2078,19 +2141,18 @@ export function FloatingCharacter() {
           ? `[첨부 파일: ${file.name}]\n\n${truncated}\n\n---\n사용자 질문: ${userQ}`
           : `[첨부 파일: ${file.name} — 텍스트 추출 불가]\n\n사용자 질문: ${userQ}`
 
-        const { callGroqVision: _unused, ...engineModule } = await import('../../lib/nexus/gemini_engine')
-        void _unused
-        // Groq/GPT로 직접 텍스트 분석
-        const groqKey = localStorage.getItem('nexus-perplexity-key') ?? ''
+        // Perplexity/Groq API 호출
+        const pplxKey = localStorage.getItem('nexus-perplexity-key') ?? ''
         const openaiKey = localStorage.getItem('nexus-openai-key') ?? ''
-        if (openaiKey) {
-          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+
+        if (pplxKey) {
+          const res = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pplxKey}` },
             body: JSON.stringify({
-              model: 'gpt-4o',
+              model: 'sonar-pro',
               messages: [{ role: 'user', content: prompt }],
-              max_tokens: 1500,
+              max_tokens: 2000,
             }),
             signal: AbortSignal.timeout(30000),
           })
@@ -2098,14 +2160,14 @@ export function FloatingCharacter() {
             const d = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
             analysisResult = d.choices?.[0]?.message?.content?.trim() ?? '분석 결과를 가져오지 못했습니다.'
           }
-        } else if (groqKey) {
-          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        } else if (openaiKey) {
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
             body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
+              model: 'gpt-4o',
               messages: [{ role: 'user', content: prompt }],
-              max_tokens: 1500,
+              max_tokens: 2000,
             }),
             signal: AbortSignal.timeout(30000),
           })
@@ -2114,12 +2176,11 @@ export function FloatingCharacter() {
             analysisResult = d.choices?.[0]?.message?.content?.trim() ?? '분석 결과를 가져오지 못했습니다.'
           }
         } else {
-          analysisResult = '⚠️ API 키가 없습니다. 설정에서 OpenAI 또는 Groq API 키를 입력해주세요.'
+          analysisResult = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 OpenAI API 키를 입력해주세요.'
         }
-        void engineModule
       }
 
-      // 웹서치 병행 요청 시
+      // ── 웹서치 병행 ──────────────────────────────────────────
       if (wantSearch) {
         const searchQuery = text.replace(/검색|웹|최신|찾아|서치|search/gi, '').trim() || file.name.replace(/\.[^.]+$/, '')
         try {
@@ -2141,7 +2202,7 @@ export function FloatingCharacter() {
         } catch { /* 검색 실패 무시 */ }
       }
     } catch (e) {
-      analysisResult = `파일 분석 중 오류가 발생했습니다: ${e instanceof Error ? e.message : String(e)}`
+      analysisResult = `파일 처리 중 오류가 발생했습니다: ${e instanceof Error ? e.message : String(e)}`
     }
 
     const displayText = text || `📎 ${file.name} 분석`

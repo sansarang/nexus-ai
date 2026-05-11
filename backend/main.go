@@ -153,6 +153,11 @@ func main() {
 	mux.HandleFunc("POST /api/excel/save", handleExcelSave)
 	mux.HandleFunc("GET /api/excel/list", handleExcelList)
 
+	// ── AI 문서 편집 (excelize 기반) ────────────────────────
+	mux.HandleFunc("POST /api/docs/upload", handleDocUpload)
+	mux.HandleFunc("POST /api/docs/ai-edit", handleDocAIEdit)
+	mux.HandleFunc("GET /api/excel/read", handleReadExcel)
+
 	// ── 자연어 스케줄러 ───────────────────────────────────────
 	mux.HandleFunc("POST /api/scheduler/add", handleSchedulerAdd)
 	mux.HandleFunc("GET /api/scheduler/list", handleSchedulerList)

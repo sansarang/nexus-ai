@@ -89,10 +89,7 @@
     },
     "macOS": {
       "entitlements": "../entitlements.plist",
-      "infoPlist": {
-        "NSMicrophoneUsageDescription": "음성 인식을 위해 마이크 접근이 필요합니다.",
-        "NSSpeechRecognitionUsageDescription": "음성 명령 처리를 위해 음성 인식 권한이 필요합니다."
-      }
+      "infoPlist": null
     }
   }
 }

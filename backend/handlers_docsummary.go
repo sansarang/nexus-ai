@@ -243,10 +243,6 @@ func buildDocSummary(r DocSummaryResult) string {
 	return strings.Join(parts, " ")
 }
 
-func min2(a, b int) int {
-	if a < b { return a }
-	return b
-}
 
 // ──────────────────────────────────────────
 // 비교 리포트 내보내기 (Word/HTML)

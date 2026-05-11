@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -337,4 +339,24 @@ func saveCurrentSnapshot() {
 	h := loadHistory()
 	h.Snapshots = append(h.Snapshots, snap)
 	saveHistory(h)
+}
+
+// getCPUTempEstimate: PowerShell로 CPU 온도 추정 (WMI)
+func getCPUTempEstimate() float64 {
+	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+		`(Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | Select-Object -First 1).CurrentTemperature`,
+	).Output()
+	if err != nil {
+		return 0
+	}
+	val := strings.TrimSpace(string(out))
+	if val == "" {
+		return 0
+	}
+	// WMI 반환값: 켈빈×10 → 섭씨 변환
+	raw := 0.0
+	if _, err := fmt.Sscanf(val, "%f", &raw); err == nil && raw > 2000 {
+		return (raw/10.0) - 273.15
+	}
+	return 0
 }

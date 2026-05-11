@@ -55,8 +55,8 @@ jobs:
           GOARCH: amd64
           CGO_ENABLED: '0'
         run: |
-          New-Item -ItemType Directory -Force -Path "..\src-tauri\binaries"
-          go build -ldflags="-s -w" -o "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" .
+          New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
+          go build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
           Write-Host "✅ Go backend built successfully"
           Get-Item "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" | Select-Object Name, Length
 

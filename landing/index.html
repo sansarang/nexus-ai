@@ -301,8 +301,13 @@
     .compare-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
     .compare-table .nexus-col { background: rgba(168,85,247,0.06); color: var(--primary); font-weight: 700; }
     .compare-table th.nexus-col {
-      background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(236,72,153,0.1));
-      color: white;
+      background: linear-gradient(135deg, rgba(168,85,247,0.45), rgba(236,72,153,0.3));
+      color: white; border: 2px solid rgba(168,85,247,0.7);
+      box-shadow: 0 0 24px rgba(168,85,247,0.3);
+    }
+    .compare-table td.nexus-col {
+      border-left: 2px solid rgba(168,85,247,0.4);
+      border-right: 2px solid rgba(168,85,247,0.4);
     }
     .yes { color: #4ade80; font-weight: 700; font-size: 18px; }
     .no { color: #ef4444; font-weight: 700; font-size: 18px; }
@@ -363,10 +368,41 @@
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes fadeInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
 
+    /* ── HAMBURGER ── */
+    .hamburger {
+      display: none; flex-direction: column; gap: 5px; cursor: pointer;
+      background: none; border: none; padding: 4px;
+    }
+    .hamburger span {
+      display: block; width: 22px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      transition: all 0.3s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .mobile-menu {
+      display: none; position: fixed; top: 65px; left: 0; right: 0;
+      background: rgba(5,5,16,0.97); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border); z-index: 99;
+      padding: 20px 24px; flex-direction: column; gap: 16px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a {
+      color: var(--text); text-decoration: none; font-size: 16px; font-weight: 600;
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .mobile-menu .nav-cta {
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      text-align: center; padding: 13px; border-radius: 10px; margin-top: 4px;
+      border: none; -webkit-text-fill-color: white;
+    }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       nav { padding: 14px 20px; }
       .nav-links { display: none; }
+      .hamburger { display: flex; }
       .features-grid { grid-template-columns: 1fr; }
       .strengths-grid { grid-template-columns: 1fr 1fr; }
       footer { flex-direction: column; text-align: center; }
@@ -387,9 +423,20 @@
     <a href="#how">사용법</a>
     <a href="#pricing">가격</a>
     <a href="#faq">FAQ</a>
+    <a href="../en/index.html" style="color:var(--muted)">EN</a>
     <a href="#download" class="nav-cta">무료 체험 다운로드</a>
   </div>
+  <button class="hamburger" id="hamburger" aria-label="메뉴" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+<div class="mobile-menu" id="mobile-menu">
+  <a href="#features" onclick="closeMenu()">기능</a>
+  <a href="#how" onclick="closeMenu()">사용법</a>
+  <a href="#pricing" onclick="closeMenu()">가격</a>
+  <a href="#faq" onclick="closeMenu()">FAQ</a>
+  <a href="#download" class="nav-cta" onclick="closeMenu()">무료 체험 다운로드</a>
+</div>
 
 <!-- HERO -->
 <section class="hero">
@@ -510,7 +557,7 @@
       </div>
       <div class="feature-body">
         <h3>Outlook 메일 자동 운영</h3>
-        <p>받은 메일을 AI가 요약하고, 답장 초안을 작성하고, 발송까지 합니다. 네이버·다음 메일도 IMAP으로 연동됩니다.</p>
+        <p>Outlook 메일을 AI가 요약하고, 답장 초안 작성부터 <strong style="color:var(--primary)">실제 발송</strong>까지 자동으로 처리합니다. 네이버·다음은 IMAP으로 <strong>읽기·요약</strong>만 지원됩니다.</p>
         <div class="feature-tags">
           <span class="tag">Outlook COM</span>
           <span class="tag">IMAP</span>
@@ -679,7 +726,8 @@
         <li><span class="check">✓</span> Proactive AI 24/7</li>
         <li><span class="check">✓</span> 5가지 AI 페르소나</li>
       </ul>
-      <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe" class="btn-plan">Early Bird 시작하기</a>
+      <a href="https://forms.gle/nexus-earlybird" class="btn-plan" onclick="alert('얼리버드 신청 페이지로 연결됩니다.\n문의: nexusai.kr@gmail.com'); return false;">Early Bird 9,900원 시작하기</a>
+      <small style="display:block; margin-top:10px; color:var(--muted); font-size:12px;">✓ 자동 업데이트 포함 · 언제든 취소 가능</small>
     </div>
   </div>
 </section>
@@ -736,7 +784,7 @@
           Outlook이 없으면 이메일 기능을 사용할 수 없나요?
           <span class="arrow">▼</span>
         </button>
-        <div class="faq-a">Outlook 자동화(발송·일정 연동)는 Outlook 설치가 필요합니다. 네이버·다음·카카오 메일은 IMAP 설정으로 읽기 기능을 사용할 수 있습니다.</div>
+        <div class="faq-a">Outlook 자동화(발송·일정 연동·스마트 답장)는 Outlook 설치가 필요합니다. 네이버·다음·카카오 메일은 IMAP으로 <strong>읽기·요약</strong>만 지원되며, 자동 발송은 Outlook에서만 가능합니다.</div>
       </div>
 
     </div>
@@ -751,8 +799,11 @@
      class="btn-primary" style="font-size:20px; padding:20px 48px; display:inline-flex;" id="main-download">
     ⬇ Windows용 NEXUS AI 다운로드
   </a>
-  <div class="download-info">
-    Windows 10/11 · 자동 업데이트 포함 ·
+  <small style="display:block; margin-top:12px; opacity:0.7; position:relative;">
+    ✓ 설치 후 자동 업데이트 · ✓ Go-selfupdate 적용 · ✓ 로컬 실행
+  </small>
+  <div class="download-info" style="margin-top:12px;">
+    Windows 10/11 · 설치 파일 크기 약 15MB ·
     <a href="https://github.com/sansarang/nexus-ai/releases" target="_blank">모든 버전 보기 →</a>
   </div>
 </div>
@@ -769,7 +820,15 @@
   <div class="footer-right">© 2026 NEXUS AI · Made in Korea 🇰🇷</div>
 </footer>
 
+<!-- Google Analytics (GA4) — Replace G-XXXXXXXXXX with your Measurement ID -->
+<!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script> -->
 <script>
+  // GA4 초기화 (측정 ID 입력 후 위 script 태그 주석 해제)
+  window.dataLayer = window.dataLayer || []
+  function gtag(){ dataLayer.push(arguments) }
+  // gtag('js', new Date())
+  // gtag('config', 'G-XXXXXXXXXX')
+
   // FAQ 토글
   function toggleFaq(btn) {
     const answer = btn.nextElementSibling
@@ -779,11 +838,23 @@
     if (!isOpen) { answer.classList.add('open'); btn.classList.add('open') }
   }
 
-  // 다운로드 버튼 클릭 추적 (GA 연동 준비)
+  // 모바일 햄버거 메뉴
+  function toggleMenu() {
+    const menu = document.getElementById('mobile-menu')
+    const btn = document.getElementById('hamburger')
+    menu.classList.toggle('open')
+    btn.classList.toggle('open')
+  }
+  function closeMenu() {
+    document.getElementById('mobile-menu').classList.remove('open')
+    document.getElementById('hamburger').classList.remove('open')
+  }
+
+  // 다운로드 버튼 클릭 추적
   document.querySelectorAll('[id$="download"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      // gtag('event', 'download_click', { event_category: 'conversion' })
-      console.log('[NEXUS] Download clicked')
+      gtag('event', 'download_click', { event_category: 'conversion', event_label: btn.id })
+      console.log('[NEXUS] Download clicked:', btn.id)
     })
   })
 
