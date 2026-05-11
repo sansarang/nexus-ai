@@ -57,11 +57,12 @@ function formatTime(ts: number) {
 }
 function formatDate(ts: number) {
   const d = new Date(ts)
-  const today = new Date()
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
-  if (d.toDateString() === today.toDateString()) return '오늘'
-  if (d.toDateString() === yesterday.toDateString()) return '어제'
-  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+}
+
+function formatDateTime(ts: number) {
+  const d = new Date(ts)
+  return d.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 function groupByDate(entries: HistoryEntry[]): { date: string; items: HistoryEntry[] }[] {
@@ -75,7 +76,7 @@ function groupByDate(entries: HistoryEntry[]): { date: string; items: HistoryEnt
 }
 
 /* ── HistoryItem: 질문/답변 행 ── */
-function HistoryItem({ entry, primaryColor }: { entry: HistoryEntry; primaryColor: string }) {
+function HistoryItem({ entry, primaryColor, onDelete }: { entry: HistoryEntry; primaryColor: string; onDelete: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const shortA = entry.a.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 40)
@@ -92,20 +93,35 @@ function HistoryItem({ entry, primaryColor }: { entry: HistoryEntry; primaryColo
     <div style={{
       borderBottom: '1px solid rgba(255,255,255,0.06)',
       padding: '8px 0',
+      position: 'relative',
     }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3, paddingRight: 20 }}>
         <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
-          {formatTime(entry.ts)}
+          {formatDateTime(entry.ts)}
         </span>
         <span style={{
           fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600,
           background: `${primaryColor}22`, borderRadius: 6,
-          padding: '1px 7px', maxWidth: 200, overflow: 'hidden',
+          padding: '1px 7px', maxWidth: 160, overflow: 'hidden',
           textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {entry.q}
         </span>
       </div>
+      {/* 개별 삭제 버튼 */}
+      <button
+        onClick={() => onDelete(entry.id)}
+        title="이 대화 삭제"
+        style={{
+          position: 'absolute', top: 8, right: 0,
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'rgba(255,255,255,0.2)', fontSize: 11, padding: '1px 3px',
+          lineHeight: 1,
+          transition: 'color 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.2)')}
+      >✕</button>
       <div
         onClick={() => needsExpand && setExpanded(p => !p)}
         style={{
@@ -124,7 +140,6 @@ function HistoryItem({ entry, primaryColor }: { entry: HistoryEntry; primaryColo
           </span>
         )}
       </div>
-      {/* 복사 버튼: 50자 이상일 때만 표시 */}
       {entry.a.length > 50 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3, paddingRight: 2 }}>
           <button
@@ -180,6 +195,12 @@ export function ChatBubble({
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory())
+
+  const handleDeleteOne = useCallback((id: string) => {
+    const updated = history.filter(e => e.id !== id)
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
+    setHistory(updated)
+  }, [history])
   const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -331,7 +352,7 @@ export function ChatBubble({
               {g.date}
             </div>
             {g.items.map(entry => (
-              <HistoryItem key={entry.id} entry={entry} primaryColor={primaryColor} />
+              <HistoryItem key={entry.id} entry={entry} primaryColor={primaryColor} onDelete={handleDeleteOne} />
             ))}
           </div>
         ))}
@@ -484,7 +505,7 @@ export function ChatBubble({
           value={input}
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey && (input.trim() || attachedFile)) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && (input.trim() || attachedFile)) {
               e.preventDefault()
               handleSendAll()
             }
