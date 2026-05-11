@@ -57,8 +57,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
           go build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
-          Write-Host "✅ Go backend built successfully"
-          Get-Item "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" | Select-Object Name, Length
+          Write-Host "Go backend built successfully"
+          Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
 
       # ── Tauri 빌드 (NSIS 인스톨러) ───────────────────────────
       - name: Build Tauri app
