@@ -1233,14 +1233,6 @@ export function FloatingCharacter() {
         /* ── 🌐 가격 비교 ── */
         case 'price_compare': {
           const query = originalText.replace(/가격.*비교|최저가|검색|찾아줘|얼마야|쿠팡.*에서|네이버.*에서/g, '').trim() || originalText
-          // 검색어가 너무 짧거나 조건이 없으면 구체적인 조건 요청
-          const hasCondition = /\d+만원|예산|이하|이상|브랜드|용량|인치|GB|TB|RAM|SSD|색상|화이트|블랙|실버|최신|구형/i.test(originalText)
-          if (query.length < 3 || !hasCondition) {
-            return {
-              text: `"${query}" 검색을 도와드릴게요! 더 정확한 결과를 위해 조건을 알려주세요.\n\n예) 예산이 얼마인가요?\n예) 어떤 용도로 사용하시나요?\n예) 특정 브랜드나 사양이 있나요?`,
-              emotion: 'neutral',
-            }
-          }
           const data = await priceCompare(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '가격 검색 실패 — 백엔드 연결 필요' }))
           return {
             text: data.summary || `'${query}' 가격 검색 완료!`,
@@ -1257,6 +1249,22 @@ export function FloatingCharacter() {
             text: data.summary || `'${query}' 뉴스 검색 완료!`,
             card2: { type: 'system_action', icon: '📰', title: `뉴스: ${query}`, detail: data.articles.slice(0,3).map(a => `• ${a.title}`).join('\n'), success: data.success },
             emotion: 'neutral',
+          }
+        }
+
+        /* ── 🎬 유튜브 검색 ── */
+        case 'youtube_search': {
+          const query = originalText.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘|영상/g, '').trim() || originalText
+          const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
+          const results = [
+            { title: `YouTube: ${query}`, url: searchUrl },
+            { title: `YouTube: ${query} 방법`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' 방법')}` },
+            { title: `YouTube: ${query} 튜토리얼`, url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' 튜토리얼')}` },
+          ]
+          return {
+            text: `유튜브에서 "${query}" 영상을 찾았어요! 오른쪽 미리보기에서 바로 확인하세요.`,
+            inlineCards: results,
+            emotion: 'happy',
           }
         }
 

@@ -78,6 +78,7 @@ export type Intent =
   // ── 🌐 웹 검색·가격 비교 ───────────────────
   | 'price_compare'    // 가격 비교 (쿠팡·네이버)
   | 'news_search'      // 뉴스 검색
+  | 'youtube_search'   // 유튜브 영상 검색
   // ── ⏰ 스케줄러 ────────────────────────────
   | 'schedule_list'    // 스케줄 목록
   | 'schedule_add'     // 스케줄 추가
@@ -564,6 +565,15 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /뉴스.*검색|최신.*뉴스|오늘.*뉴스|news.*search|latest.*news/i,
       /뭐.*화제|핫.*이슈|트렌딩|요즘.*뭐가.*화제|요즘.*뉴스/i,
+    ],
+  },
+  // ── 🎬 유튜브 검색 ──
+  {
+    intent: 'youtube_search',
+    patterns: [
+      /유튜브.*찾아|유튜브.*검색|youtube.*찾아|youtube.*검색/i,
+      /유튜브에서.*보여|유튜브.*영상.*찾아|영상.*찾아줘/i,
+      /유튜브.*어떻게|유튜브.*방법|유튜브.*강의|유튜브.*레시피/i,
     ],
   },
 
