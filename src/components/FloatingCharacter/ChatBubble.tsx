@@ -216,23 +216,77 @@ export function ChatBubble({
 
   const handleFileSelect = useCallback(async (file: File) => {
     setFileLoading(true)
-    const dataUrl = await new Promise<string>(resolve => {
-      const reader = new FileReader()
-      reader.onload = e => resolve(e.target?.result as string)
-      reader.readAsDataURL(file)
-    })
-    const fileType = detectFileType(file.type, file.name)
+    const name = file.name
+    const fileType = detectFileType(file.type, name)
+    let dataUrl = ''
     let text: string | undefined
-    if (fileType === 'document' && (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv'))) {
-      text = await new Promise<string>(resolve => {
-        const r = new FileReader()
-        r.onload = e => resolve(e.target?.result as string)
-        r.readAsText(file, 'utf-8')
-      })
+
+    try {
+      // 이미지: dataUrl만 읽기
+      if (fileType === 'image') {
+        dataUrl = await new Promise<string>(resolve => {
+          const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsDataURL(file)
+        })
+      }
+      // Excel/스프레드시트: SheetJS로 파싱
+      else if (fileType === 'spreadsheet' || name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
+        const arrayBuffer = await file.arrayBuffer()
+        const XLSX = await import('xlsx')
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+        const lines: string[] = []
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName]
+          const csv = XLSX.utils.sheet_to_csv(sheet)
+          if (csv.trim()) lines.push(`[시트: ${sheetName}]\n${csv}`)
+        })
+        text = lines.join('\n\n').slice(0, 12000)
+        dataUrl = `data:application/vnd.ms-excel;base64,`
+      }
+      // 텍스트 문서: 직접 읽기
+      else if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv') || name.endsWith('.json') || file.type.includes('text')) {
+        text = await new Promise<string>(resolve => {
+          const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsText(file, 'utf-8')
+        })
+        dataUrl = ''
+      }
+      // PDF/Word/기타 바이너리: dataUrl로 넘기고 백엔드에서 처리
+      else {
+        dataUrl = await new Promise<string>(resolve => {
+          const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsDataURL(file)
+        })
+      }
+    } catch (err) {
+      console.error('파일 읽기 오류:', err)
     }
-    setAttachedFile({ name: file.name, mimeType: file.type, dataUrl, text, size: file.size, fileType })
+
+    setAttachedFile({ name, mimeType: file.type, dataUrl, text, size: file.size, fileType })
     setFileLoading(false)
   }, [])
+
+  // 크기 조절 상태
+  const [chatSize, setChatSize] = useState({ w: 300, h: 440 })
+  const resizingRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null)
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizingRef.current = { startX: e.clientX, startY: e.clientY, startW: chatSize.w, startH: chatSize.h }
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return
+      const dw = ev.clientX - resizingRef.current.startX
+      const dh = resizingRef.current.startY - ev.clientY
+      setChatSize({
+        w: Math.max(260, Math.min(600, resizingRef.current.startW + dw)),
+        h: Math.max(300, Math.min(700, resizingRef.current.startH + dh)),
+      })
+    }
+    const onUp = () => {
+      resizingRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [chatSize])
 
   const handleSendAll = useCallback(() => {
     const text = input.trim()
@@ -276,7 +330,8 @@ export function ChatBubble({
       exit={{ opacity: 0, y: 16, scale: 0.9 }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       style={{
-        width: 300,
+        width: chatSize.w,
+        height: chatSize.h,
         background: 'rgba(10,10,20,0.93)',
         border: `1px solid ${primaryColor}44`,
         borderRadius: 18,
@@ -285,9 +340,26 @@ export function ChatBubble({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        maxHeight: 440,
+        position: 'relative',
       }}
     >
+      {/* 크기 조절 핸들 (좌상단 모서리) */}
+      <div
+        onMouseDown={startResize}
+        title="드래그하여 크기 조절"
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          width: 18, height: 18,
+          cursor: 'nwse-resize',
+          zIndex: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" style={{ opacity: 0.3 }}>
+          <line x1="2" y1="8" x2="8" y2="2" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+          <line x1="5" y1="8" x2="8" y2="5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
       {/* 타이틀 */}
       <div style={{
         padding: '10px 14px 8px',
