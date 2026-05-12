@@ -265,7 +265,7 @@ export function FloatingCharacter() {
   const dragY = useMotionValue(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd)
-  const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean }> | null>(null)
+  const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isMap?: boolean; mapType?: string; service?: string }> | null>(null)
 
   // ── Clarify 멀티턴 상태 ──────────────────────────────────
   const [clarifyPendingIntent,   setClarifyPendingIntent]   = useState<string | null>(null)
@@ -2105,6 +2105,82 @@ export function FloatingCharacter() {
       return
     }
 
+    // ── 0.4순위: 길찾기 / 장소 로드뷰 ─────────────────────────
+    const isDirections = /에서.*(?:가는\s*방법|가는\s*법|가는\s*길|경로|어떻게\s*가|대중교통|버스로|지하철로|길찾기)|(?:까지|→|->) .+(?:경로|어떻게|버스|지하철)/i.test(trimmed)
+    const isPlaceView = !isDirections && /(?:위치|어디야|어디\s*있어|어디에\s*있|주소|로드뷰|지도에서|지도\s*보여|어디\s*있는지|위치\s*알려|어디야)/i.test(trimmed)
+
+    if (isDirections && backendStatus === 'connected') {
+      try {
+        setMessages(prev => [...prev, {
+          id: `think-${msgId}`, role: 'nexus', text: '',
+          inlineCard: { type: 'agent_thinking', steps: ['경로 분석 중...', '지도 앱 연결 중...', '버스 노선 검색 중...'] },
+        }])
+        const res = await fetch('http://localhost:17891/api/directions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmed }),
+        }).then(r => r.json()).catch(() => null)
+
+        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+        setTyping(false); typingRef.current = false
+
+        if (res?.success) {
+          const mapLinks = (res.map_links ?? []).map((l: { title: string; url: string; type?: string; service?: string }) => ({
+            title: l.title, url: l.url, isMap: true, mapType: l.type, service: l.service,
+          }))
+          const routeLinks = (res.route_info ?? []).map((l: { title: string; url: string }) => ({
+            title: l.title, url: l.url,
+          }))
+          const allLinks = [...mapLinks, ...routeLinks]
+          if (allLinks.length > 0) setFloatingPreview(allLinks as any)
+
+          const displayText = res.summary || `**${res.from} → ${res.to}** 경로를 지도 앱에서 확인하세요.`
+          setEmotion('happy')
+          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText }])
+          pushModelHistory(trimmed, displayText)
+          speakText(displayText)
+          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
+          setHistoryVersion(v => v + 1)
+          return
+        }
+      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)) }
+    }
+
+    if (isPlaceView && backendStatus === 'connected') {
+      try {
+        setMessages(prev => [...prev, {
+          id: `think-${msgId}`, role: 'nexus', text: '',
+          inlineCard: { type: 'agent_thinking', steps: ['장소 검색 중...', '로드뷰 링크 생성 중...', '지도 정보 준비 중...'] },
+        }])
+        const res = await fetch('http://localhost:17891/api/place-view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmed }),
+        }).then(r => r.json()).catch(() => null)
+
+        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+        setTyping(false); typingRef.current = false
+
+        if (res?.success) {
+          const mapLinks = (res.map_links ?? []).map((l: { title: string; url: string; type?: string; service?: string }) => ({
+            title: l.title, url: l.url, isMap: true, mapType: l.type, service: l.service,
+          }))
+          const placeLinks = (res.place_info ?? []).map((l: { title: string; url: string }) => ({ title: l.title, url: l.url }))
+          const allLinks = [...mapLinks, ...placeLinks]
+          if (allLinks.length > 0) setFloatingPreview(allLinks as any)
+
+          const displayText = `**${res.place}** 위치를 지도 앱에서 확인하세요. 로드뷰 버튼을 클릭하면 실제 거리 사진을 볼 수 있어요.`
+          setEmotion('happy')
+          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText }])
+          pushModelHistory(trimmed, displayText)
+          speakText(displayText)
+          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
+          setHistoryVersion(v => v + 1)
+          return
+        }
+      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)) }
+    }
+
     // ── 0.5순위: 딥서치 ──────────────────────────────────────
     const isDeepSearch = /딥\s*서치|deep\s*search|자세히\s*찾|깊게\s*검색|심층\s*검색/i.test(trimmed)
     if (isDeepSearch && backendStatus === 'connected') {
@@ -2843,8 +2919,10 @@ export function FloatingCharacter() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 12, color: primaryColor, fontWeight: 800, letterSpacing: '0.05em' }}>
-              {floatingPreview.some(x => x.isVideo) && floatingPreview.some(x => !x.isVideo)
-                ? '🔍 웹 검색 결과'
+              {floatingPreview.some(x => x.isMap && x.mapType === 'directions') ? '🗺️ 길찾기 결과'
+                : floatingPreview.some(x => x.isMap && x.mapType === 'roadview') ? '📍 로드뷰 / 위치'
+                : floatingPreview.some(x => x.isMap) ? '🗺️ 지도 결과'
+                : floatingPreview.some(x => x.isVideo) && floatingPreview.some(x => !x.isVideo) ? '🔍 웹 검색 결과'
                 : floatingPreview[0]?.isVideo ? '🎬 영상 검색 결과' : '🔍 검색 결과 미리보기'}
             </span>
             <button
@@ -2856,20 +2934,41 @@ export function FloatingCharacter() {
             const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
             const isNaverTV = item.url.includes('tv.naver.com')
             const isStream = item.url.includes('tving.com') || item.url.includes('wavve.com')
+            const isNaver = item.service === 'naver' || item.url.includes('map.naver.com')
+            const isKakao = item.service === 'kakao' || item.url.includes('map.kakao.com')
+            const isGoogle = item.service === 'google' || item.url.includes('google.com/maps')
+            const isRoadview = item.mapType === 'roadview'
+            const isDirectionsLink = item.mapType === 'directions'
+
             const typeBadge = isYt ? { label: 'YT', color: '#e53e3e' }
               : isNaverTV ? { label: 'TV', color: '#03c75a' }
               : isStream ? { label: '스트림', color: '#7c3aed' }
               : item.isVideo ? { label: '영상', color: '#e53e3e' }
+              : isRoadview && isNaver ? { label: '로드뷰', color: '#03c75a' }
+              : isRoadview && isKakao ? { label: '로드뷰', color: '#ffcd00' }
+              : isRoadview && isGoogle ? { label: 'StreetView', color: '#4285f4' }
+              : isDirectionsLink && isNaver ? { label: '네이버지도', color: '#03c75a' }
+              : isDirectionsLink && isKakao ? { label: '카카오맵', color: '#ffcd00' }
+              : isDirectionsLink && isGoogle ? { label: '구글지도', color: '#4285f4' }
+              : item.mapType === 'bus' ? { label: '버스', color: '#f59e0b' }
+              : item.isMap ? { label: '지도', color: '#06b6d4' }
               : null
+
+            const mapBtnColor = isNaver ? '#03c75a' : isKakao ? '#f9e000' : isGoogle ? '#4285f4' : primaryColor
+            const mapBtnText = isRoadview ? (isNaver ? '로드뷰' : isKakao ? '로드뷰' : '거리뷰')
+              : isDirectionsLink ? '경로보기'
+              : item.isMap ? '지도열기'
+              : null
+
             return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 8) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-              <div style={{ width: 18, height: 18, borderRadius: 4, background: `${primaryColor}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ fontSize: 9, color: primaryColor, fontWeight: 700 }}>{i + 1}</span>
+              <div style={{ width: 18, height: 18, borderRadius: 4, background: item.isMap ? `${mapBtnColor}33` : `${primaryColor}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: item.isMap ? mapBtnColor : primaryColor, fontWeight: 700 }}>{i + 1}</span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   {typeBadge && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', background: typeBadge.color, borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: isKakao ? '#000' : '#fff', background: typeBadge.color, borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
                       {typeBadge.label}
                     </span>
                   )}
@@ -2878,7 +2977,7 @@ export function FloatingCharacter() {
                   </div>
                 </div>
                 <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
-                  {item.url.replace(/^https?:\/\//, '').slice(0, 40)}
+                  {item.url.replace(/^https?:\/\//, '').slice(0, 38)}
                 </div>
               </div>
               {item.isVideo ? (
@@ -2908,6 +3007,17 @@ export function FloatingCharacter() {
                     }}
                   >↓</button>
                 </div>
+              ) : mapBtnText ? (
+                <button
+                  onClick={() => window.open(item.url, '_blank')}
+                  style={{
+                    background: `linear-gradient(135deg, ${mapBtnColor}, ${mapBtnColor}bb)`,
+                    border: 'none', borderRadius: 8,
+                    color: isKakao ? '#000' : '#fff', fontSize: 10, fontWeight: 800,
+                    padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    flexShrink: 0, boxShadow: `0 2px 8px ${mapBtnColor}44`,
+                  }}
+                >{mapBtnText}</button>
               ) : (
                 <button
                   onClick={() => openPreview(item.url, item.title)}
