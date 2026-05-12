@@ -2037,7 +2037,8 @@ export async function syncAPIKeysToBackend(): Promise<void> {
   const pplxKey = PPLX_API_KEY
   const claudeKey = localStorage.getItem('nexus-claude-key') ?? ''
   const tavilyKey = TAVILY_API_KEY || localStorage.getItem('nexus-tavily-key') || ''
-  if (!claudeKey && !tavilyKey) return
+  // pplxKey만 있어도 반드시 전송 (이전엔 claudeKey/tavilyKey 없으면 리턴해서 백엔드에 키 미전달)
+  if (!pplxKey && !claudeKey && !tavilyKey) return
   try {
     const { backendAPI } = await import('./backendAPI')
     await backendAPI.llmConfigSet(pplxKey || undefined, claudeKey || undefined, tavilyKey || undefined)
