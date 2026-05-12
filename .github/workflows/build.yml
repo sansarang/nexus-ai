@@ -50,6 +50,18 @@ jobs:
           VITE_PADDLE_PRICE_ID=${{ secrets.VITE_PADDLE_PRICE_ID }}
           EOF
 
+      - name: Build Go backend (Windows x64)
+        working-directory: backend
+        shell: pwsh
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
+          go build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
+          Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
+
       - name: Build Tauri App (Windows .exe)
         uses: tauri-apps/tauri-action@v0
         env:
