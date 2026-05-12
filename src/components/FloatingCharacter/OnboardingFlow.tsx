@@ -15,7 +15,7 @@ import { REALISTIC_STYLE_PRESETS } from './Avatar3D/Presets'
 import type { RealisticStyleId, RealisticStylePreset } from './Avatar3D/Presets'
 import type { CharacterPreset } from './Avatar3D'
 import { signInWithGoogle } from '../../lib/supabase'
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from '../../config/services'
+import { ADMIN_EMAIL, ADMIN_PASSWORD, SUPABASE_URL } from '../../config/services'
 
 export type AvatarConfig = {
   assistantName: string
@@ -71,14 +71,24 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   const handleGoogleLogin = async () => {
+    // Supabase 미설정 시 → 바로 7일 체험판 시작
+    if (!SUPABASE_URL || SUPABASE_URL.includes('placeholder')) {
+      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const demoEmail = 'user@gmail.com'
+      localStorage.setItem('nexus-user-email', demoEmail)
+      localStorage.setItem('nexus-sub-status', 'trial')
+      localStorage.setItem('nexus-sub-expiry', trialExpiry)
+      setGoogleEmail(demoEmail)
+      handleComplete(demoEmail)
+      return
+    }
     setGoogleLoading(true)
     try {
       await signInWithGoogle()
       // 성공 시 onAuthStateChange → main.tsx bootstrap에서 세션 처리
       // OAuth redirect이므로 페이지 이동됨 — handleComplete는 복귀 후 호출
     } catch (e) {
-      // Supabase 미설정 fallback
-      console.warn('Google OAuth 미설정, 체험판 시작:', e)
+      console.warn('Google OAuth 실패, 체험판 시작:', e)
       const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       const demoEmail = 'user@gmail.com'
       localStorage.setItem('nexus-user-email', demoEmail)
@@ -118,13 +128,15 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const card: React.CSSProperties = {
     width: '100%', maxWidth: 560,
+    maxHeight: '90vh',
     background: 'rgba(10,10,24,0.98)',
     border: '1px solid rgba(255,255,255,0.09)',
     borderRadius: 28,
-    padding: '40px 44px',
+    padding: '32px 36px',
     backdropFilter: 'blur(24px)',
     position: 'relative',
-    overflow: 'hidden',
+    overflowX: 'hidden',
+    overflowY: 'auto',
   }
 
   const progressBar = (
