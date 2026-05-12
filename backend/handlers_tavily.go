@@ -29,11 +29,19 @@ func isNewsQuery(query string) bool {
 }
 
 func tavilySearch(apiKey, query string, maxItems int) (tavilyResult, bool) {
+	return tavilySearchDomain(apiKey, query, maxItems, "")
+}
+
+// 특정 도메인에서만 검색 (include_domains 사용)
+func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavilyResult, bool) {
 	payload := map[string]any{
 		"api_key":      apiKey,
 		"query":        query,
 		"max_results":  maxItems,
 		"search_depth": "advanced",
+	}
+	if domain != "" {
+		payload["include_domains"] = []string{domain}
 	}
 	// 뉴스/최신 쿼리는 최근 3일 이내 결과만
 	if isNewsQuery(query) {
