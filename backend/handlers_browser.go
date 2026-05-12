@@ -22,15 +22,29 @@ import (
 // ──────────────────────────────────────────────────────────────
 
 func isChromeInstalled() bool {
-	paths := []string{
+	// 시스템 전체 설치 경로
+	fixed := []string{
 		`C:\Program Files\Google\Chrome\Application\chrome.exe`,
 		`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
 		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
 		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
 	}
-	for _, p := range paths {
+	for _, p := range fixed {
 		if _, err := os.Stat(p); err == nil {
 			return true
+		}
+	}
+	// 사용자별 설치 경로 (%LOCALAPPDATA%)
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		user := []string{
+			local + `\Google\Chrome\Application\chrome.exe`,
+			local + `\Microsoft\Edge\Application\msedge.exe`,
+			local + `\Chromium\Application\chrome.exe`,
+		}
+		for _, p := range user {
+			if _, err := os.Stat(p); err == nil {
+				return true
+			}
 		}
 	}
 	_, e1 := exec.LookPath("chrome")
@@ -695,24 +709,7 @@ func handleBrowserStatus(w http.ResponseWriter, r *http.Request) {
 	browserMu.Unlock()
 
 	// Chrome 설치 여부 확인
-	chromeInstalled := false
-	for _, p := range []string{
-		`C:\Program Files\Google\Chrome\Application\chrome.exe`,
-		`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
-		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
-		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
-	} {
-		if _, err := exec.LookPath(p); err == nil {
-			chromeInstalled = true
-			break
-		}
-	}
-	// PATH에서도 확인
-	if !chromeInstalled {
-		_, err1 := exec.LookPath("chrome")
-		_, err2 := exec.LookPath("msedge")
-		chromeInstalled = err1 == nil || err2 == nil
-	}
+	chromeInstalled := isChromeInstalled()
 
 	json200(w, map[string]any{
 		"active":           active,
