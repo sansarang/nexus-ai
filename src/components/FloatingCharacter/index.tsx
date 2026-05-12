@@ -2324,13 +2324,15 @@ export function FloatingCharacter() {
           typingRef.current = false
           setEmotion(cmdEmotion)
 
+          let previewSet = false
+
           // 가격 비교 결과 미리보기
           if (cmd.action === 'price_compare') {
             const r = cmd.result as { results?: Array<{ name?: string; link?: string }> } | undefined
             const priceItems = (r?.results ?? [])
               .filter((it): it is { name: string; link: string } => !!(it.link))
               .map(it => ({ title: it.name ?? it.link, url: it.link }))
-            if (priceItems.length > 0) setFloatingPreview(priceItems)
+            if (priceItems.length > 0) { setFloatingPreview(priceItems); previewSet = true }
           }
 
           // 영상 검색 결과 미리보기 (video_search)
@@ -2339,24 +2341,42 @@ export function FloatingCharacter() {
             const videoItems = (resultObj?.items ?? [])
               .filter((it): it is { title: string; url: string } => !!(it.url))
               .map(it => ({ title: it.title ?? it.url, url: it.url, isVideo: true }))
-            if (videoItems.length > 0) setFloatingPreview(videoItems)
+            if (videoItems.length > 0) { setFloatingPreview(videoItems); previewSet = true }
+          }
+
+          // 멀티액션 미리보기
+          if (cmd.action === 'multi_action') {
+            const r = cmd.result as { results?: Array<{ name?: string; link?: string }> } | undefined
+            const maItems = (r?.results ?? []).filter((it): it is { name: string; link: string } => !!(it.link))
+              .map(it => ({ title: it.name ?? it.link, url: it.link }))
+            if (maItems.length > 0) { setFloatingPreview(maItems); previewSet = true }
           }
 
           // 웹 검색 결과에 미리보기 카드 추가 (항상 표시 보장)
           if (cmd.action === 'web_search') {
             const resultObj = cmd.result as { items?: Array<{ title?: string; url?: string }>; query?: string; site?: string } | undefined
             let rawItems: Array<{ title?: string; url?: string }> = resultObj?.items ?? []
-
             if (rawItems.length === 0) {
               const searchQuery = resultObj?.query ?? trimmed
               const site = resultObj?.site ?? ''
               rawItems = buildFrontendFallbackURLs(searchQuery, site)
             }
-
             const previewItems = rawItems
               .filter((it): it is { title: string; url: string } => !!(it.url))
               .map(it => ({ title: it.title ?? it.url, url: it.url }))
-            if (previewItems.length > 0) setFloatingPreview(previewItems)
+            if (previewItems.length > 0) { setFloatingPreview(previewItems); previewSet = true }
+          }
+
+          // ── 어떤 액션이든 미리보기 없으면 항상 Tavily로 자동 보완 ──
+          if (!previewSet) {
+            backendAPI.llmDeepSearchWeb(trimmed, 6).then(dr => {
+              if (dr.success && dr.items && dr.items.length > 0) {
+                const items = dr.items
+                  .filter((it: { url?: string }) => it.url)
+                  .map((it: { title: string; url: string }) => ({ title: it.title, url: it.url }))
+                if (items.length > 0) setFloatingPreview(items)
+              }
+            }).catch(() => {})
           }
 
           setMessages(prev => [...prev, {
