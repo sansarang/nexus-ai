@@ -29,6 +29,7 @@ func main() {
 
 	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
 	mux.HandleFunc("POST /api/site-search", handleSiteSearch)
+	mux.HandleFunc("POST /api/file/process", handleFileProcess)
 
 	// ── Browser / 크롤링 ─────────────────────────────────────
 	mux.HandleFunc("GET /api/browser/status", handleBrowserStatus)

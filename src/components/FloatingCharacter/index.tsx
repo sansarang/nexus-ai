@@ -2502,7 +2502,7 @@ export function FloatingCharacter() {
 
   const handleSend = useCallback((text: string) => void sendText(text), [sendText])
 
-  const handleSendWithFileImpl = useCallback(async (text: string, file: { name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: 'image' | 'document' | 'spreadsheet' | 'other' }) => {
+  const handleSendWithFileImpl = useCallback(async (text: string, file: { name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: 'image' | 'document' | 'spreadsheet' | 'video' | 'other' }, extraFiles?: Array<{ name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: string }>) => {
     setTyping(true)
     const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
     const personaLabel: Record<string, string> = {
@@ -2510,14 +2510,85 @@ export function FloatingCharacter() {
     }
     const mode = personaLabel[personaId] ?? '기본'
 
+    // 파일 처리 의도 감지
+    const wantGIF = /gif|움직이는|애니메이션|움짤/i.test(text)
+    const wantResize = /리사이즈|사이즈|크기|resize|인스타|트위터|유튜브|틱톡|썸네일|맞춰|플랫폼|변경.*크기|크기.*변경/i.test(text)
+    const wantConvert = /변환|convert|jpg로|png로|webp로|jpeg로/i.test(text)
+    const wantCompare = /비교|compare|차이|다른점|같은점/i.test(text)
+    const allFiles = [file, ...(extraFiles ?? [])]
+    const isImageFile = (f: { mimeType: string }) => f.mimeType.startsWith('image/')
+    const isVideoFile = (f: { mimeType: string }) => f.mimeType.startsWith('video/')
+
     // 편집 의도 감지 (분석 vs 수정)
     const wantEdit = /수정|편집|바꿔|변경|삭제|추가|정렬|필터|합계|계산|저장|만들어|작성|고쳐|업데이트|넣어|지워|빼|이름변경|이름 변경|rename|sort|edit|modify|delete|add|insert|update/i.test(text)
     const wantSearch = /검색|웹|최신|찾아|서치|search/i.test(text)
 
     let analysisResult = ''
 
+    // ── 파일 처리 인텐트 (이미지/문서 조작) ──────────────────────
+    const needsFileProcess = wantGIF || wantResize || wantConvert || (wantCompare && allFiles.length >= 2)
+
     try {
-      if (file.fileType === 'image') {
+      if (needsFileProcess) {
+        // 진행 중 메시지
+        const fileNames = allFiles.map(f => f.name).join(', ')
+        const opLabel = wantGIF ? 'GIF 변환' : wantResize ? '리사이즈' : wantConvert ? '포맷 변환' : '비교 분석'
+        setMessages(prev => [
+          ...prev,
+          { id: `u-${Date.now()}`, role: 'user', text: `📎 ${fileNames}\n${text}` },
+          { id: `n-${Date.now()}-progress`, role: 'nexus', text: `⏳ ${opLabel} 진행 중...` },
+        ])
+
+        const payload = {
+          files: allFiles.map(f => ({ name: f.name, mime_type: f.mimeType, data: f.dataUrl })),
+          operation: 'auto',
+          query: text,
+          params: {},
+        }
+        const res = await fetch('http://localhost:17891/api/file/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then(r => r.json()).catch(() => ({ success: false, message: '파일 처리 실패' }))
+
+        if (res.success) {
+          const msg = res.message ?? `${opLabel} 완료`
+          // 다운로드 가능한 파일이 있으면 링크 제공
+          if (res.data && res.file_name) {
+            const mimeType = res.mime_type ?? 'application/octet-stream'
+            const byteString = atob(res.data)
+            const ab = new ArrayBuffer(byteString.length)
+            const ia = new Uint8Array(ab)
+            for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i)
+            const blob = new Blob([ab], { type: mimeType })
+            const url = URL.createObjectURL(blob)
+
+            setMessages(prev => prev.filter(m => !m.id.includes('-progress')))
+            setMessages(prev => [...prev, {
+              id: `n-${Date.now()}-result`,
+              role: 'nexus',
+              text: msg,
+              inlineCard2: {
+                type: 'file_result',
+                data: { fileName: res.file_name, url, mimeType, width: res.width, height: res.height, frames: res.frames, operation: res.operation },
+              } as any,
+            }])
+          } else {
+            setMessages(prev => prev.filter(m => !m.id.includes('-progress')))
+            setMessages(prev => [...prev, { id: `n-${Date.now()}-result`, role: 'nexus', text: msg }])
+          }
+        } else {
+          setMessages(prev => prev.filter(m => !m.id.includes('-progress')))
+          setMessages(prev => [...prev, { id: `n-${Date.now()}-err`, role: 'nexus', text: `❌ ${res.message}` }])
+        }
+        setTyping(false)
+        return
+
+      } else if (isVideoFile(file)) {
+        // ── 동영상 → 분석 안내 ───────────────────────────────────
+        analysisResult = `🎬 **${file.name}** (${(file.size / 1024 / 1024).toFixed(1)}MB)\n동영상이 첨부되었습니다. 다음 작업을 요청할 수 있어요:\n• "GIF로 만들어줘" — 애니메이션 GIF 변환\n• "유튜브 썸네일 크기로 리사이즈해줘" — 플랫폼 맞춤 크기 조정\n• "MP4로 변환해줘" — 포맷 변환`
+
+      } else if (file.fileType === 'image') {
         // ── 이미지 → GPT-4o Vision ───────────────────────────────
         const { callGroqVision } = await import('../../lib/nexus/gemini_engine')
         const base64 = file.dataUrl.split(',')[1] ?? file.dataUrl

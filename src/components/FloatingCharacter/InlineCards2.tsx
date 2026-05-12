@@ -604,6 +604,7 @@ export type InlineCardData2 =
   | { type: 'notes'; data: { notes: NoteItem[]; total: number } }
   | { type: 'boot_analysis'; data: { uptime_minutes: string; startup_count: string; message: string } }
   | { type: 'focus_mode'; active: boolean; duration?: number }
+  | { type: 'file_result'; data: { fileName: string; url: string; mimeType: string; width?: number; height?: number; frames?: number; operation?: string } }
 
 export function InlineCardRenderer2({
   card,
@@ -627,8 +628,40 @@ export function InlineCardRenderer2({
     case 'notes':            return <NotesCard           data={card.data} accentColor={accentColor} />
     case 'boot_analysis':    return <BootAnalysisCard    data={card.data} accentColor={accentColor} />
     case 'focus_mode':       return <FocusModeCard       active={card.active} duration={card.duration} accentColor={accentColor} />
+    case 'file_result':      return <FileResultCard       data={card.data} accentColor={accentColor} />
     default:                 return null
   }
+}
+
+function FileResultCard({ data, accentColor }: { data: { fileName: string; url: string; mimeType: string; width?: number; height?: number; frames?: number; operation?: string }; accentColor: string }) {
+  const isImage = data.mimeType.startsWith('image/')
+  const opLabel: Record<string, string> = { resize: '리사이즈', to_gif: 'GIF 변환', convert: '포맷 변환', compare: '비교 분석' }
+  const label = opLabel[data.operation ?? ''] ?? '파일 처리'
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${accentColor}44`, borderRadius: 12, padding: '10px 12px', marginTop: 4 }}>
+      <div style={{ fontSize: 11, color: accentColor, fontWeight: 700, marginBottom: 6 }}>
+        ✅ {label} 완료
+      </div>
+      {isImage && (
+        <img src={data.url} alt={data.fileName}
+          style={{ width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 8, marginBottom: 6, background: 'rgba(0,0,0,0.3)' }} />
+      )}
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
+        {data.fileName}
+        {data.width && data.height && <span style={{ marginLeft: 6, color: accentColor }}>· {data.width}×{data.height}</span>}
+        {data.frames && <span style={{ marginLeft: 6, color: accentColor }}>· {data.frames}프레임</span>}
+      </div>
+      <a href={data.url} download={data.fileName}
+        style={{
+          display: 'inline-block', background: `linear-gradient(135deg, ${accentColor}, ${accentColor}99)`,
+          color: '#fff', fontSize: 11, fontWeight: 700, padding: '6px 14px',
+          borderRadius: 8, textDecoration: 'none', boxShadow: `0 2px 8px ${accentColor}44`,
+        }}>
+        ⬇ 다운로드
+      </a>
+    </div>
+  )
 }
 
 // AnimatePresence export for use in ChatBubble

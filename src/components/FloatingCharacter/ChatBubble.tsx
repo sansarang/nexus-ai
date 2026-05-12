@@ -28,7 +28,7 @@ export interface AttachedFile {
   dataUrl: string   // base64 data URL
   text?: string     // 텍스트 파일인 경우 추출된 내용
   size: number
-  fileType: 'image' | 'document' | 'spreadsheet' | 'other'
+  fileType: 'image' | 'document' | 'spreadsheet' | 'video' | 'other'
 }
 
 /* ── 대화 이력 ── */
@@ -165,7 +165,7 @@ interface ChatBubbleProps {
   input: string
   onInputChange: (v: string) => void
   onSend: (text: string) => void
-  onSendWithFile?: (text: string, file: AttachedFile) => void | Promise<void>
+  onSendWithFile?: (text: string, file: AttachedFile, extraFiles?: AttachedFile[]) => void | Promise<void>
   onVoiceToggle: () => void
   onRepair?: (ids: string[]) => void
   assistantName: string
@@ -201,12 +201,15 @@ export function ChatBubble({
     localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
     setHistory(updated)
   }, [history])
-  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null)
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
+  const attachedFile = attachedFiles[0] ?? null
+  const setAttachedFile = (f: AttachedFile | null) => setAttachedFiles(f ? [f] : [])
   const [fileLoading, setFileLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const detectFileType = (mime: string, name: string): AttachedFile['fileType'] => {
     if (mime.startsWith('image/')) return 'image'
+    if (mime.startsWith('video/')) return 'video'
     if (mime.includes('spreadsheet') || mime.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.csv')) return 'spreadsheet'
     if (mime.includes('pdf') || mime.includes('word') || mime.includes('document') ||
         name.endsWith('.pdf') || name.endsWith('.docx') || name.endsWith('.doc') ||
@@ -214,22 +217,17 @@ export function ChatBubble({
     return 'other'
   }
 
-  const handleFileSelect = useCallback(async (file: File) => {
-    setFileLoading(true)
+  const readOneFile = useCallback(async (file: File): Promise<AttachedFile> => {
     const name = file.name
     const fileType = detectFileType(file.type, name)
     let dataUrl = ''
     let text: string | undefined
-
     try {
-      // 이미지: dataUrl만 읽기
-      if (fileType === 'image') {
+      if (fileType === 'image' || fileType === 'video') {
         dataUrl = await new Promise<string>(resolve => {
           const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsDataURL(file)
         })
-      }
-      // Excel/스프레드시트: SheetJS로 파싱
-      else if (fileType === 'spreadsheet' || name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
+      } else if (fileType === 'spreadsheet' || name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
         const arrayBuffer = await file.arrayBuffer()
         const XLSX = await import('xlsx')
         const workbook = XLSX.read(arrayBuffer, { type: 'array' })
@@ -241,16 +239,11 @@ export function ChatBubble({
         })
         text = lines.join('\n\n').slice(0, 12000)
         dataUrl = `data:application/vnd.ms-excel;base64,`
-      }
-      // 텍스트 문서: 직접 읽기
-      else if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv') || name.endsWith('.json') || file.type.includes('text')) {
+      } else if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv') || name.endsWith('.json') || file.type.includes('text')) {
         text = await new Promise<string>(resolve => {
           const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsText(file, 'utf-8')
         })
-        dataUrl = ''
-      }
-      // PDF/Word/기타 바이너리: dataUrl로 넘기고 백엔드에서 처리
-      else {
+      } else {
         dataUrl = await new Promise<string>(resolve => {
           const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsDataURL(file)
         })
@@ -258,10 +251,19 @@ export function ChatBubble({
     } catch (err) {
       console.error('파일 읽기 오류:', err)
     }
-
-    setAttachedFile({ name, mimeType: file.type, dataUrl, text, size: file.size, fileType })
-    setFileLoading(false)
+    return { name, mimeType: file.type, dataUrl, text, size: file.size, fileType }
   }, [])
+
+  const handleFileSelect = useCallback(async (files: FileList | File[]) => {
+    setFileLoading(true)
+    const arr = Array.from(files).slice(0, 3) // 최대 3개
+    const results = await Promise.all(arr.map(readOneFile))
+    setAttachedFiles(prev => {
+      const combined = [...prev, ...results].slice(0, 3)
+      return combined
+    })
+    setFileLoading(false)
+  }, [readOneFile])
 
   // 크기 조절 상태
   const [chatSize, setChatSize] = useState({ w: 300, h: 440 })
@@ -290,15 +292,16 @@ export function ChatBubble({
 
   const handleSendAll = useCallback(() => {
     const text = input.trim()
-    if (!text && !attachedFile) return
-    if (attachedFile && onSendWithFile) {
-      onSendWithFile(text, attachedFile)
+    if (!text && attachedFiles.length === 0) return
+    if (attachedFiles.length > 0 && onSendWithFile) {
+      const [primary, ...extra] = attachedFiles
+      onSendWithFile(text, primary, extra.length > 0 ? extra : undefined)
     } else if (text) {
       onSend(text)
     }
-    setAttachedFile(null)
+    setAttachedFiles([])
     if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [input, attachedFile, onSend, onSendWithFile])
+  }, [input, attachedFiles, onSend, onSendWithFile])
 
   /* historyVersion 변경 시 재로드 */
   useEffect(() => {
@@ -468,46 +471,54 @@ export function ChatBubble({
         <div ref={bottomRef} />
       </div>
 
-      {/* 첨부 파일 미리보기 */}
-      {attachedFile && (
-        <div style={{
-          margin: '0 10px 0',
-          padding: '6px 10px',
-          background: 'rgba(255,255,255,0.06)',
-          border: `1px solid ${primaryColor}44`,
-          borderRadius: 10,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ fontSize: 16 }}>
-            {attachedFile.fileType === 'image' ? '🖼️'
-              : attachedFile.fileType === 'spreadsheet' ? '📊'
-              : attachedFile.fileType === 'document' ? '📄' : '📎'}
-          </span>
-          {attachedFile.fileType === 'image' && (
-            <img src={attachedFile.dataUrl} alt="preview"
-              style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+      {/* 첨부 파일 미리보기 (다중) */}
+      {attachedFiles.length > 0 && (
+        <div style={{ margin: '0 10px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {attachedFiles.map((af, idx) => (
+            <div key={idx} style={{
+              padding: '5px 10px',
+              background: 'rgba(255,255,255,0.06)',
+              border: `1px solid ${primaryColor}44`,
+              borderRadius: 10,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              {af.fileType === 'image' && af.dataUrl ? (
+                <img src={af.dataUrl} alt="preview"
+                  style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
+              ) : (
+                <span style={{ fontSize: 15 }}>
+                  {af.fileType === 'image' ? '🖼️' : af.fileType === 'video' ? '🎬'
+                    : af.fileType === 'spreadsheet' ? '📊' : af.fileType === 'document' ? '📄' : '📎'}
+                </span>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 10.5, fontWeight: 600,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {af.name}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9.5 }}>
+                  {(af.size / 1024).toFixed(0)}KB
+                  {attachedFiles.length >= 2 && idx === 0 && <span style={{ color: primaryColor, marginLeft: 4 }}>· 비교 모드</span>}
+                </div>
+              </div>
+              <button onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
+                  cursor: 'pointer', fontSize: 13, padding: 2 }}>✕</button>
+            </div>
+          ))}
+          {attachedFiles.length < 3 && (
+            <button onClick={() => fileInputRef.current?.click()}
+              style={{ fontSize: 10, color: primaryColor, background: 'none', border: `1px dashed ${primaryColor}55`,
+                borderRadius: 8, padding: '3px 8px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+              + 파일 추가 (최대 3개)
+            </button>
           )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 11, fontWeight: 600,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {attachedFile.name}
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
-              {(attachedFile.size / 1024).toFixed(0)}KB · {
-                attachedFile.fileType === 'image' ? '이미지 분석' :
-                attachedFile.fileType === 'spreadsheet' ? '스프레드시트 분석' : '문서 분석'
-              }
-            </div>
-          </div>
-          <button onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)',
-              cursor: 'pointer', fontSize: 14, padding: 2 }}>✕</button>
         </div>
       )}
 
       {/* 입력 바 */}
       <div style={{
-        padding: clarifyPending ? '46px 10px 8px' : attachedFile ? '6px 10px 8px' : '8px 10px',
+        padding: clarifyPending ? '46px 10px 8px' : attachedFiles.length > 0 ? '6px 10px 8px' : '8px 10px',
         borderTop: `1px solid ${clarifyPending ? primaryColor + '44' : primaryColor + '22'}`,
         display: 'flex',
         alignItems: 'center',
@@ -519,9 +530,10 @@ export function ChatBubble({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.csv,.pptx"
+          multiple
+          accept="image/*,video/*,.pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.csv,.pptx"
           style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }}
+          onChange={e => { if (e.target.files && e.target.files.length > 0) handleFileSelect(e.target.files) }}
         />
 
         {/* 📎 첨부 버튼 */}
@@ -531,8 +543,8 @@ export function ChatBubble({
           title="파일 첨부 (이미지·문서·스프레드시트)"
           style={{
             width: 32, height: 32, borderRadius: '50%', border: 'none',
-            background: attachedFile ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
-            color: attachedFile ? primaryColor : 'rgba(255,255,255,0.5)',
+            background: attachedFiles.length > 0 ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
+            color: attachedFiles.length > 0 ? primaryColor : 'rgba(255,255,255,0.5)',
             fontSize: 15, cursor: 'pointer', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all 0.2s',
