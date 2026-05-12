@@ -171,7 +171,7 @@ func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
 	keywords := queryKeywords(req.Query)
 
 	if searchYouTube && tKey != "" {
-		if tr, ok := tavilySearchDomain(tKey, "site:youtube.com "+req.Query, req.MaxItems, "youtube.com"); ok {
+		if tr, ok := tavilySearchDomain(tKey, req.Query, req.MaxItems, "youtube.com"); ok {
 			for _, it := range tr.Items {
 				u := it["url"]
 				if (strings.Contains(u, "youtube.com/watch") || strings.Contains(u, "youtu.be/")) &&
@@ -185,7 +185,7 @@ func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if searchTikTok && tKey != "" {
-		if tr, ok := tavilySearchDomain(tKey, "site:tiktok.com "+req.Query, req.MaxItems, "tiktok.com"); ok {
+		if tr, ok := tavilySearchDomain(tKey, req.Query, req.MaxItems, "tiktok.com"); ok {
 			for _, it := range tr.Items {
 				u := it["url"]
 				if strings.Contains(u, "tiktok.com/@") && strings.Contains(u, "/video/") &&
@@ -199,7 +199,7 @@ func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if searchInstagram && tKey != "" {
-		if tr, ok := tavilySearchDomain(tKey, "site:instagram.com "+req.Query, req.MaxItems, "instagram.com"); ok {
+		if tr, ok := tavilySearchDomain(tKey, req.Query, req.MaxItems, "instagram.com"); ok {
 			for _, it := range tr.Items {
 				u := it["url"]
 				if (strings.Contains(u, "instagram.com/p/") || strings.Contains(u, "instagram.com/reel/")) &&
@@ -214,7 +214,7 @@ func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
 
 	if searchX && tKey != "" {
 		for _, domain := range []string{"x.com", "twitter.com"} {
-			if tr, ok := tavilySearchDomain(tKey, "site:"+domain+" "+req.Query, req.MaxItems, domain); ok {
+			if tr, ok := tavilySearchDomain(tKey, req.Query, req.MaxItems, domain); ok {
 				for _, it := range tr.Items {
 					u := it["url"]
 					if strings.Contains(u, "/status/") && titleMatchesQuery(it["title"], keywords) {
