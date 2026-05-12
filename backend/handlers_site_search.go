@@ -36,13 +36,15 @@ func handleSiteSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var items []map[string]string
+	queryWords := queryKeywords(req.Query)
+	siteKey := strings.Split(req.Site, ".")[0]
 
 	if tKey != "" {
 		// 1차: include_domains로 해당 사이트만 정밀 검색
 		if req.Site != "" {
 			if tr, ok := tavilySearchDomain(tKey, req.Query, req.MaxItems, req.Site); ok {
 				for _, it := range tr.Items {
-					if strings.Contains(it["url"], strings.Split(req.Site, ".")[0]) {
+					if strings.Contains(it["url"], siteKey) && titleMatchesQuery(it["title"], queryWords) {
 						items = append(items, map[string]string{
 							"name": it["title"], "link": it["url"], "price": "", "site": req.Site,
 						})
@@ -54,17 +56,20 @@ func handleSiteSearch(w http.ResponseWriter, r *http.Request) {
 		if len(items) == 0 {
 			if tr, ok := tavilySearch(tKey, searchQuery, req.MaxItems); ok {
 				for _, it := range tr.Items {
-					if req.Site == "" || strings.Contains(it["url"], strings.Split(req.Site, ".")[0]) {
+					if (req.Site == "" || strings.Contains(it["url"], siteKey)) && titleMatchesQuery(it["title"], queryWords) {
 						items = append(items, map[string]string{
 							"name": it["title"], "link": it["url"], "price": "", "site": req.Site,
 						})
 					}
 				}
+				// 키워드 필터 없이 재시도 (결과 없을 경우 폴백)
 				if len(items) == 0 {
 					for _, it := range tr.Items {
-						items = append(items, map[string]string{
-							"name": it["title"], "link": it["url"], "price": "", "site": req.Site,
-						})
+						if req.Site == "" || strings.Contains(it["url"], siteKey) {
+							items = append(items, map[string]string{
+								"name": it["title"], "link": it["url"], "price": "", "site": req.Site,
+							})
+						}
 					}
 				}
 			}
@@ -188,12 +193,16 @@ func httpCrawlSite(site, query string, maxItems int) []map[string]string {
 	} else {
 		linkPat = regexp.MustCompile(`href="(https?://[^"]*` + regexp.QuoteMeta(strings.Split(site, ".")[0]) + `[^"]{5,})"[^>]*>([^<]{3,60})`)
 	}
-	matches := linkPat.FindAllStringSubmatch(html, maxItems*3)
+	matches := linkPat.FindAllStringSubmatch(html, maxItems*5)
+	queryWords := queryKeywords(query)
 	seen := map[string]bool{}
 	var items []map[string]string
 	for _, m := range matches {
 		link, title := m[1], strings.TrimSpace(m[2])
 		if seen[link] || len(title) < 3 {
+			continue
+		}
+		if !titleMatchesQuery(title, queryWords) {
 			continue
 		}
 		seen[link] = true

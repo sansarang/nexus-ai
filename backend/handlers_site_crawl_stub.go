@@ -16,6 +16,9 @@ func crawlSiteForItems(site, query string, maxItems int) []map[string]string {
 	searchURL := buildSearchURL(site, query)
 	detailPattern := siteDetailPatterns[site]
 
+	// 쿼리 키워드 (2글자 이상 단어만)
+	queryWords := queryKeywords(query)
+
 	ctx, cancel, err := getBrowserCtxMac()
 	if err == nil {
 		defer cancel()
@@ -33,7 +36,7 @@ JSON.stringify(Array.from(document.querySelectorAll('a[href]'))
     title: (a.innerText || a.title || a.getAttribute('aria-label') || '').trim().replace(/\s+/g,' ').slice(0,80),
     link: a.href
   }))
-  .filter(x => x.title.length > 1))`, detailPattern, maxItems*2)
+  .filter(x => x.title.length > 1))`, detailPattern, maxItems*5)
 			} else {
 				jsScript = fmt.Sprintf(`
 JSON.stringify(Array.from(document.querySelectorAll('a[href]'))
@@ -43,7 +46,7 @@ JSON.stringify(Array.from(document.querySelectorAll('a[href]'))
     title: (a.innerText || a.title || '').trim().replace(/\s+/g,' ').slice(0,80),
     link: a.href
   }))
-  .filter(x => x.title.length > 1))`, strings.Split(site, ".")[0], maxItems*2)
+  .filter(x => x.title.length > 1))`, strings.Split(site, ".")[0], maxItems*5)
 			}
 			var raw string
 			chromedp.Run(ctx, chromedp.Evaluate(jsScript, &raw))
@@ -56,6 +59,9 @@ JSON.stringify(Array.from(document.querySelectorAll('a[href]'))
 				var items []map[string]string
 				for _, p := range parsed {
 					if seen[p.Link] || p.Title == "" {
+						continue
+					}
+					if !titleMatchesQuery(p.Title, queryWords) {
 						continue
 					}
 					seen[p.Link] = true

@@ -5,6 +5,40 @@ import (
 	"strings"
 )
 
+// queryKeywords: 쿼리에서 2글자 이상 유의미한 단어 추출
+func queryKeywords(query string) []string {
+	stopWords := map[string]bool{
+		"에서": true, "에서의": true, "가장": true, "제일": true, "좀": true,
+		"찾아줘": true, "보여줘": true, "알려줘": true, "검색해줘": true,
+		"싼": true, "비싼": true, "좋은": true, "추천": true, "최저": true,
+		"저렴한": true, "저렴": true, "구매": true, "구입": true, "어디서": true,
+		"중에서": true, "중": true, "것": true, "거": true, "걸": true,
+	}
+	words := strings.Fields(query)
+	var keywords []string
+	for _, w := range words {
+		w = strings.TrimSpace(w)
+		if len([]rune(w)) >= 2 && !stopWords[w] {
+			keywords = append(keywords, strings.ToLower(w))
+		}
+	}
+	return keywords
+}
+
+// titleMatchesQuery: 제목이 쿼리 키워드 중 하나 이상 포함하는지 확인
+func titleMatchesQuery(title string, keywords []string) bool {
+	if len(keywords) == 0 {
+		return true
+	}
+	titleLower := strings.ToLower(title)
+	for _, kw := range keywords {
+		if strings.Contains(titleLower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 // normalizeSite: 사이트 이름을 도메인 형식으로 정규화
 func normalizeSite(site string) string {
 	aliases := map[string]string{
