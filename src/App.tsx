@@ -10,7 +10,7 @@ export default function App() {
       style={{
         width: '100vw',
         height: '100vh',
-        background: 'rgba(0,0,0,0.95)',
+        background: 'transparent',
         overflow: 'hidden',
         position: 'relative',
       }}
