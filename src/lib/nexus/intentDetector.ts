@@ -79,7 +79,9 @@ export type Intent =
   | 'price_compare'    // 가격 비교 (쿠팡·네이버)
   | 'news_search'      // 뉴스 검색
   | 'youtube_search'   // 유튜브 영상 검색
+  | 'video_search'     // 틱톡/유튜브 영상 검색
   | 'video_download'  // 유튜브/틱톡 영상 다운로드
+  | 'multi_action'     // 멀티 액션 (검색 + 파일 저장)
   // ── ⏰ 스케줄러 ────────────────────────────
   | 'schedule_list'    // 스케줄 목록
   | 'schedule_add'     // 스케줄 추가

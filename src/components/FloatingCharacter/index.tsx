@@ -146,6 +146,7 @@ function buildAgentSteps(intent: Intent): string[] {
     case 'perf_history':     return ['성능 이력 불러오는 중...', '트렌드 분석 중']
     case 'perf_anomaly':     return ['이력 데이터 분석 중...', '이상 패턴 탐지 중']
     case 'price_compare':    return ['검색 시작...', '쿠팡 확인 중', '네이버 확인 중', '가격 비교 중']
+    case 'multi_action':     return ['멀티 액션 시작...', '검색 중', '결과 정리 중', '파일 저장 중']
     case 'news_search':      return ['뉴스 검색 중...', '최신 기사 수집 중']
     case 'schedule_list':    return ['스케줄 목록 불러오는 중...']
     case 'schedule_add':     return ['명령 파싱 중...', '스케줄 등록 중']
@@ -1944,6 +1945,28 @@ export function FloatingCharacter() {
           }
           return {
             card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: items.length > 0 ? `${items.length}개 영상을 찾았어요. 오른쪽 패널에서 재생하세요!` : '검색 결과가 없어요.', success: items.length > 0 },
+            emotion: items.length > 0 ? 'happy' : 'concerned',
+          }
+        }
+        case 'multi_action': {
+          const r = result as { results?: {site:string;name:string;price:string;link:string}[]; query?: string; summary?: string; file_path?: string; file_msg?: string; format?: string; sub_action?: string } | undefined
+          const items = r?.results ?? []
+          const query = r?.query || trimmed
+          const fileMsg = r?.file_msg ?? ''
+          const filePath = r?.file_path ?? ''
+          const fmt = (r?.format ?? '').toUpperCase() || 'FILE'
+          const isVideo = r?.sub_action === 'video_search'
+          if (items.length > 0) {
+            if (isVideo) {
+              setFloatingPreview(items.slice(0, 8).map(i => ({ title: i.name, url: i.link, isVideo: true })))
+            } else {
+              setFloatingPreview(items.slice(0, 8).map(i => ({ title: i.name, url: i.link })))
+            }
+          }
+          const itemLines = items.slice(0,5).map(i => `• ${i.name}${i.price ? ' — '+i.price : ''}`).join('\n') || '결과 없음'
+          const detail = filePath ? itemLines + `\n\n📄 ${fmt} 파일 저장됨` : itemLines
+          return {
+            card2: { type: 'system_action', icon: '📋', title: `멀티액션: ${query}`, detail, success: items.length > 0 },
             emotion: items.length > 0 ? 'happy' : 'concerned',
           }
         }
