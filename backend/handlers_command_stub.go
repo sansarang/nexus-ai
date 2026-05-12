@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -170,11 +171,13 @@ func saveResultToFile(format outputFormat, title string, items []map[string]stri
 }
 
 type CommandRequest struct {
-	Message         string         `json:"message"`
-	Context         string         `json:"context"`
-	PendingIntent   string         `json:"pending_intent"`
-	PendingParams   map[string]any `json:"pending_params"`
-	PendingQuestion string         `json:"pending_question"`
+	Message         string              `json:"message"`
+	Context         string              `json:"context"`
+	Lang            string              `json:"lang"`
+	PendingIntent   string              `json:"pending_intent"`
+	PendingParams   map[string]any      `json:"pending_params"`
+	PendingQuestion string              `json:"pending_question"`
+	History         []ConvHistoryMsg    `json:"history"`
 }
 
 type CommandResponse struct {
@@ -521,30 +524,59 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		})
 
 	case "chat":
-		baseSys := getPersonaSystemPrompt()
-		sysPrompt := baseSys + `
+		cat := detectCategory(req.Message)
+		expertList := detectExperts(req.Message, req.Lang)
+		previewType := categoryPreviewType(cat)
 
-[Instructions - highest priority]
-1. NEVER hallucinate real-time data (weather, stock prices, news, schedules)
-2. If you don't know → say "정확한 정보를 알 수 없습니다"
-3. Answer in natural Korean, 2~4 sentences max
-4. No markdown headers, no excessive bullet points
+		var answer string
+		var chatItems []map[string]string
+		var wg sync.WaitGroup
+		wg.Add(2)
 
-[Example]
-Q: "오늘 날씨 어때?" → A: "실시간 날씨 정보는 날씨 기능을 이용해 주세요."
-Q: "파이썬이 뭐야?" → A: "파이썬은 읽기 쉬운 문법의 프로그래밍 언어로, 데이터 분석과 웹 개발에 많이 쓰입니다."`
-		chatMsgs := []groqMsg{
-			{Role: "system", Content: sysPrompt},
-			{Role: "user", Content: req.Message},
-		}
-		answer, _, err := callGroq(gKey, groqChatModel, chatMsgs, 512, false)
-		if err != nil {
-			answer = "죄송합니다, 답변을 생성하는 중 오류가 발생했습니다."
-		}
+		// 고루틴 A: LLM 답변 (전문가 or 일반)
+		go func() {
+			defer wg.Done()
+			if len(expertList) > 0 {
+				answer, _ = runExpertParallel(req.Message, req.Lang, gKey, expertList, req.History)
+			}
+			if answer == "" {
+				lang := req.Lang
+				var sysPrompt string
+				if lang == "en" {
+					sysPrompt = "You are Nexus AI, a helpful assistant. Answer in natural English, 2-4 sentences. No markdown headers."
+				} else {
+					sysPrompt = "당신은 Nexus AI 한국어 비서입니다. 자연스러운 한국어로 2~4문장 답변. 마크다운 헤더 금지."
+				}
+				msgs := []groqMsg{{Role: "system", Content: sysPrompt}, {Role: "user", Content: req.Message}}
+				answer, _, _ = callGroqWithCitations(gKey, groqChatModel, msgs, 600)
+				if answer == "" {
+					answer = "죄송합니다, 답변을 생성하는 중 오류가 발생했습니다."
+				}
+			}
+		}()
+
+		// 고루틴 B: 카테고리별 상세 페이지 검색
+		go func() {
+			defer wg.Done()
+			expertCat := expertsToCategory(expertList)
+			pr := parallelWebSearch(req.Message, 6, expertCat)
+			if len(pr.Items) > 0 {
+				chatItems = pr.Items
+			} else {
+				searchCat := cat
+				if expertCat >= 0 {
+					searchCat = expertCat
+				}
+				chatItems = categoryFallbackSites(req.Message, searchCat)
+			}
+		}()
+		wg.Wait()
+
 		json200(w, CommandResponse{
 			Success:  true,
 			Message:  answer,
 			Action:   "chat",
+			Result:   map[string]any{"reply": answer, "items": chatItems, "preview_type": previewType},
 			Duration: dur,
 		})
 
@@ -951,10 +983,11 @@ Q: "파이썬이 뭐야?" → A: "파이썬은 읽기 쉬운 문법의 프로그
 // ── 웹 검색 (Groq 기반 + 브라우저 에이전트) ───────────────────
 
 type webSearchResult struct {
-	Query   string         `json:"query"`
-	Site    string         `json:"site"`
-	Summary string         `json:"summary"`
-	Items   []map[string]string `json:"items,omitempty"`
+	Query       string              `json:"query"`
+	Site        string              `json:"site"`
+	Summary     string              `json:"summary"`
+	Items       []map[string]string `json:"items,omitempty"`
+	PreviewType string              `json:"preview_type,omitempty"`
 }
 
 func runWebSearchMac(apiKey, query, site string, maxItems int) webSearchResult {
@@ -963,16 +996,24 @@ func runWebSearchMac(apiKey, query, site string, maxItems int) webSearchResult {
 		siteLabel = "웹"
 	}
 
+	cat := detectCategory(query)
+	previewType := categoryPreviewType(cat)
+
 	// 병렬 검색: Tavily + 브라우저 동시 실행
 	result := parallelWebSearch(query, maxItems)
 
 	// 결과가 있으면 그대로 반환
 	if result.Summary != "" || len(result.Items) > 0 {
+		items := result.Items
+		if len(items) == 0 {
+			items = categoryFallbackSites(query, cat)
+		}
 		return webSearchResult{
-			Query:   query,
-			Site:    siteLabel,
-			Summary: result.Summary,
-			Items:   result.Items,
+			Query:       query,
+			Site:        siteLabel,
+			Summary:     result.Summary,
+			Items:       items,
+			PreviewType: previewType,
 		}
 	}
 
@@ -992,14 +1033,17 @@ func runWebSearchMac(apiKey, query, site string, maxItems int) webSearchResult {
 		text = "검색 중 오류가 발생했습니다: " + err.Error()
 	}
 
-	// items가 없어도 검색 엔진 URL을 항상 제공해서 미리보기 가능하게
-	fallbackItems := buildFallbackURLs(query, site)
+	fallbackItems := categoryFallbackSites(query, cat)
+	if len(fallbackItems) == 0 {
+		fallbackItems = buildFallbackURLs(query, site)
+	}
 
 	return webSearchResult{
-		Query:   query,
-		Site:    siteLabel,
-		Summary: text,
-		Items:   fallbackItems,
+		Query:       query,
+		Site:        siteLabel,
+		Summary:     text,
+		Items:       fallbackItems,
+		PreviewType: previewType,
 	}
 }
 

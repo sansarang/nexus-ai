@@ -62,16 +62,6 @@ func handleSiteSearch(w http.ResponseWriter, r *http.Request) {
 						})
 					}
 				}
-				// 키워드 필터 없이 재시도 (결과 없을 경우 폴백)
-				if len(items) == 0 {
-					for _, it := range tr.Items {
-						if req.Site == "" || strings.Contains(it["url"], siteKey) {
-							items = append(items, map[string]string{
-								"name": it["title"], "link": it["url"], "price": "", "site": req.Site,
-							})
-						}
-					}
-				}
 			}
 		}
 	}
@@ -158,6 +148,22 @@ var siteDetailPatterns = map[string]string{
 	"temu.com":           `/goods.html`,
 	"aliexpress.com":     `/item/`,
 	"amazon.com":         `/dp/`,
+	"ebay.com":           `/itm/`,
+	"etsy.com":           `/listing/`,
+	"walmart.com":        `/ip/`,
+	"target.com":         `/p/`,
+	"bestbuy.com":        `/site/`,
+	"booking.com":        `/hotel/`,
+	"airbnb.com":         `/rooms/`,
+	"expedia.com":        `/Hotel-Search`,
+	"tripadvisor.com":    `/Hotel_Review`,
+	"yelp.com":           `/biz/`,
+	"zillow.com":         `/homedetails/`,
+	"realtor.com":        `/realestateandhomes-detail/`,
+	"imdb.com":           `/title/`,
+	"reddit.com":         `/comments/`,
+	"github.com":         `/blob/`,
+	"stackoverflow.com":  `/questions/`,
 	"danawa.com":         `pcode=`,
 	"zigbang.com":        `/home/`,
 	"dabangapp.com":      `/room/`,

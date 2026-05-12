@@ -564,6 +564,7 @@ export const sendCommand = (
   message: string,
   options?: {
     context?: string
+    lang?: 'ko' | 'en'
     pendingIntent?: string
     pendingParams?: Record<string, unknown>
     pendingQuestion?: string
@@ -573,6 +574,7 @@ export const sendCommand = (
   request<CommandResult>('POST', '/api/command', {
     message,
     context: options?.context,
+    lang: options?.lang ?? 'ko',
     pending_intent: options?.pendingIntent,
     pending_params: options?.pendingParams,
     pending_question: options?.pendingQuestion,
@@ -665,6 +667,12 @@ export const youtubeSearch = (query: string) =>
 
 export const tiktokSearch = (query: string) =>
   request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'tiktok.com', max_items: 8 })
+
+// 크로스플랫폼 YouTube/TikTok 빠른 검색 (Mac + Windows 모두 동작, Tavily 기반)
+export const videoQuickSearch = (query: string, platform: 'youtube' | 'tiktok' | 'instagram' | 'x' | 'all' = 'youtube', maxItems = 4) =>
+  request<{ success: boolean; items: Array<{ title: string; url: string; type?: string; platform?: string }>; total: number }>(
+    'POST', '/api/video/quick-search', { query, platform, max_items: maxItems }
+  )
 
 export const naverShoppingSearch = (query: string) =>
   request<CollectPriceResult>('POST', '/api/browser/collect-price', {

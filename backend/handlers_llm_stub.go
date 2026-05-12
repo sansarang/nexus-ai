@@ -101,7 +101,8 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 		Choices []struct {
 			Message struct{ Content string `json:"content"` } `json:"message"`
 		} `json:"choices"`
-		Error *struct{ Message string `json:"message"` } `json:"error"`
+		Citations []string `json:"citations"`
+		Error     *struct{ Message string `json:"message"` } `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &gr); err != nil {
 		return "", 0, fmt.Errorf("응답 파싱 실패: %w", err)
@@ -112,7 +113,41 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 	if len(gr.Choices) == 0 {
 		return "", 0, fmt.Errorf("응답 없음 (%s)", model)
 	}
+	lastCitationsMu.Lock()
+	lastCitations = gr.Citations
+	lastCitationsMu.Unlock()
 	return gr.Choices[0].Message.Content, maxTokens, nil
+}
+
+var (
+	lastCitationsMu sync.Mutex
+	lastCitations   []string
+)
+
+func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) (string, []string, error) {
+	llmMu.RLock()
+	pKey := llmPerplexityKey
+	llmMu.RUnlock()
+	useKey := pKey
+	if useKey == "" {
+		useKey = apiKey
+	}
+	pModel := model
+	switch model {
+	case "llama-3.3-70b-versatile", "llama-3.1-70b-versatile":
+		pModel = pplxChatModel
+	case "llama-3.1-8b-instant", "llama-3.2-3b-preview":
+		pModel = pplxFastModel
+	}
+	text, _, err := callOpenAICompat(useKey, pplxAPIBase, pModel, msgs, maxTokens, false)
+	if err != nil {
+		return "", nil, err
+	}
+	lastCitationsMu.Lock()
+	cites := make([]string, len(lastCitations))
+	copy(cites, lastCitations)
+	lastCitationsMu.Unlock()
+	return text, cites, nil
 }
 
 // callGroq: Perplexity API 호출 (groqChatModel/groqFastModel은 pplx 별칭)

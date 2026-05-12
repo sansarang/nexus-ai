@@ -5,6 +5,21 @@ import (
 	"strings"
 )
 
+// isEnglishQuery: 쿼리가 영어인지 판별 (60% 이상 ASCII)
+func isEnglishQuery(q string) bool {
+	if q == "" {
+		return false
+	}
+	runes := []rune(q)
+	ascii := 0
+	for _, r := range runes {
+		if r < 128 {
+			ascii++
+		}
+	}
+	return float64(ascii)/float64(len(runes)) > 0.6
+}
+
 // classifyItemType: URL과 소스명으로 콘텐츠 타입 판별
 func classifyItemType(url, source string) string {
 	lower := strings.ToLower(url)
@@ -12,18 +27,18 @@ func classifyItemType(url, source string) string {
 	case strings.Contains(lower, "youtube.com") || strings.Contains(lower, "youtu.be"):
 		return "video"
 	case strings.Contains(lower, "tv.naver.com") || strings.Contains(lower, "vod.mbc.co.kr") ||
-		strings.Contains(lower, "vodmall.imbc.com") || strings.Contains(lower, "sbs.co.kr/news/video") ||
 		strings.Contains(lower, "tving.com") || strings.Contains(lower, "wavve.com") ||
-		strings.Contains(lower, "netflix.com") || strings.Contains(lower, "laftel.net") ||
-		strings.Contains(lower, "vimeo.com") || strings.Contains(lower, "dailymotion.com"):
+		strings.Contains(lower, "netflix.com") || strings.Contains(lower, "hulu.com") ||
+		strings.Contains(lower, "disneyplus.com") || strings.Contains(lower, "vimeo.com") ||
+		strings.Contains(lower, "dailymotion.com") || strings.Contains(lower, "twitch.tv"):
 		return "video"
 	case source == "youtube" || source == "video":
 		return "video"
 	case strings.Contains(lower, "news") || strings.Contains(lower, "/article/") ||
 		strings.Contains(lower, "yna.co.kr") || strings.Contains(lower, "chosun.com") ||
-		strings.Contains(lower, "joongang.co.kr") || strings.Contains(lower, "hani.co.kr") ||
-		strings.Contains(lower, "donga.com") || strings.Contains(lower, "mbc.co.kr/news") ||
-		strings.Contains(lower, "kbs.co.kr/news") || strings.Contains(lower, "sbs.co.kr/news"):
+		strings.Contains(lower, "bbc.com") || strings.Contains(lower, "cnn.com") ||
+		strings.Contains(lower, "reuters.com") || strings.Contains(lower, "apnews.com") ||
+		strings.Contains(lower, "nytimes.com") || strings.Contains(lower, "theguardian.com"):
 		return "news"
 	case strings.Contains(lower, ".pdf"):
 		return "document"
@@ -32,21 +47,51 @@ func classifyItemType(url, source string) string {
 	}
 }
 
-// queryKeywords: 쿼리에서 2글자 이상 유의미한 단어 추출
+// queryKeywords: 쿼리에서 유의미한 단어 추출 (한/영 공통)
 func queryKeywords(query string) []string {
 	stopWords := map[string]bool{
+		// 한국어 조사/어미
 		"에서": true, "에서의": true, "가장": true, "제일": true, "좀": true,
-		"찾아줘": true, "보여줘": true, "알려줘": true, "검색해줘": true,
-		"싼": true, "비싼": true, "좋은": true, "추천": true, "최저": true,
-		"저렴한": true, "저렴": true, "구매": true, "구입": true, "어디서": true,
+		"찾아줘": true, "보여줘": true, "알려줘": true, "검색해줘": true, "추천해줘": true,
+		"싼": true, "싼거": true, "싼것": true, "비싼": true, "비싼거": true,
+		"좋은": true, "좋은거": true, "추천": true, "최저": true, "최저가": true,
+		"저렴한": true, "저렴": true, "저렴하게": true, "구매": true, "구입": true,
+		"어디서": true, "어디서사": true, "어디서살": true,
 		"중에서": true, "중": true, "것": true, "거": true, "걸": true,
+		"파는": true, "파는곳": true, "사는곳": true, "살수있는": true,
+		"얼마": true, "얼마야": true, "얼마에요": true, "가격": true,
+		// 카테고리 자체 이름 (너무 일반적이라 제목 매칭 노이즈가 됨)
+		"뉴스": true, "기사": true, "news": true,
+		"레시피": true, "요리": true, "recipe": true,
+		"날씨": true, "weather": true,
+		"맛집": true, "음식": true, "식당": true,
+		"쇼핑": true, "shopping": true,
+		"영상": true, "동영상": true, "video": true,
+		"여행": true, "travel": true,
+		"건강": true, "health": true,
+		"교통": true, "transit": true,
+		"부동산": true, "realestate": true,
+		"법률": true, "legal": true,
+		"교육": true, "education": true,
+		"금융": true, "finance": true,
+		"오늘": true, "today": true, "관련": true, "최신": true, "recent": true,
+		// 영어
+		"the": true, "a": true, "an": true, "is": true, "are": true,
+		"in": true, "on": true, "at": true, "to": true, "for": true,
+		"of": true, "with": true, "and": true, "or": true, "but": true,
+		"how": true, "what": true, "where": true, "when": true, "who": true,
+		"why": true, "can": true, "do": true, "does": true, "did": true,
+		"me": true, "my": true, "show": true, "find": true, "get": true,
+		"search": true, "tell": true, "please": true, "help": true,
+		"want": true, "need": true, "looking": true, "i": true,
 	}
 	words := strings.Fields(query)
 	var keywords []string
 	for _, w := range words {
 		w = strings.TrimSpace(w)
-		if len([]rune(w)) >= 2 && !stopWords[w] {
-			keywords = append(keywords, strings.ToLower(w))
+		wl := strings.ToLower(w)
+		if len([]rune(w)) >= 2 && !stopWords[wl] {
+			keywords = append(keywords, wl)
 		}
 	}
 	return keywords
@@ -66,76 +111,133 @@ func titleMatchesQuery(title string, keywords []string) bool {
 	return false
 }
 
-// normalizeSite: 사이트 이름을 도메인 형식으로 정규화
+// normalizeSite: 사이트 이름을 도메인 형식으로 정규화 (한/영)
 func normalizeSite(site string) string {
 	aliases := map[string]string{
-		"youtube":   "youtube.com",
-		"tiktok":    "tiktok.com",
-		"temu":      "temu.com",
-		"coupang":   "coupang.com",
-		"naver":     "naver.com",
-		"google":    "google.com",
-		"danawa":    "danawa.com",
-		"gmarket":   "gmarket.co.kr",
-		"11st":      "11st.co.kr",
-		"11번가":      "11st.co.kr",
-		"auction":   "auction.co.kr",
-		"옥션":        "auction.co.kr",
-		"auto":      "coupang.com",
-		"":          "coupang.com",
+		// 한국
+		"youtube": "youtube.com", "tiktok": "tiktok.com",
+		"temu": "temu.com", "coupang": "coupang.com",
+		"naver": "naver.com", "google": "google.com",
+		"danawa": "danawa.com", "gmarket": "gmarket.co.kr",
+		"11st": "11st.co.kr", "11번가": "11st.co.kr",
+		"auction": "auction.co.kr", "옥션": "auction.co.kr",
+		"auto": "coupang.com", "": "google.com",
+		// 국제 쇼핑
+		"amazon": "amazon.com", "ebay": "ebay.com",
+		"etsy": "etsy.com", "walmart": "walmart.com",
+		"target": "target.com", "bestbuy": "bestbuy.com",
+		"aliexpress": "aliexpress.com",
+		// 국제 여행
+		"booking": "booking.com", "airbnb": "airbnb.com",
+		"expedia": "expedia.com", "tripadvisor": "tripadvisor.com",
+		"yelp": "yelp.com",
+		// 국제 엔터
+		"netflix": "netflix.com", "imdb": "imdb.com",
+		"reddit": "reddit.com", "twitter": "twitter.com",
+		"instagram": "instagram.com",
+		// 국제 취업
+		"linkedin": "linkedin.com", "indeed": "indeed.com",
+		"glassdoor": "glassdoor.com",
+		// 국제 기술
+		"github": "github.com", "stackoverflow": "stackoverflow.com",
+		// 국제 교육
+		"coursera": "coursera.org", "udemy": "udemy.com",
+		"khan": "khanacademy.org", "edx": "edx.org",
+		// 국제 부동산
+		"zillow": "zillow.com", "realtor": "realtor.com",
+		// 기타
+		"wikipedia": "wikipedia.org", "bloomberg": "bloomberg.com",
+		"yahoo": "yahoo.com",
 	}
-	if normalized, ok := aliases[site]; ok {
+	if normalized, ok := aliases[strings.ToLower(site)]; ok {
 		return normalized
 	}
 	return site
 }
 
-// buildSearchURL: 사이트별 검색 URL 생성
+// buildSearchURL: 사이트별 검색 URL 생성 (한/영 국제화)
 func buildSearchURL(site, query string) string {
 	site = normalizeSite(site)
 	encoded := strings.ReplaceAll(query, " ", "+")
+	qenc := strings.ReplaceAll(query, " ", "%20")
+
 	searchURLs := map[string]string{
-		// 쇼핑몰
+		// ── 한국 쇼핑 ──
 		"coupang.com":        fmt.Sprintf("https://www.coupang.com/np/search?q=%s", encoded),
 		"naver.com":          fmt.Sprintf("https://search.naver.com/search.naver?query=%s", encoded),
 		"shopping.naver.com": fmt.Sprintf("https://search.shopping.naver.com/search/all?query=%s", encoded),
-		"google.com":         fmt.Sprintf("https://www.google.com/search?q=%s&hl=ko", encoded),
 		"danawa.com":         fmt.Sprintf("https://search.danawa.com/dsearch.php?query=%s", encoded),
 		"gmarket.co.kr":      fmt.Sprintf("https://browse.gmarket.co.kr/search?keyword=%s", encoded),
-		"youtube.com":        fmt.Sprintf("https://www.youtube.com/results?search_query=%s", encoded),
-		"tiktok.com":         fmt.Sprintf("https://www.tiktok.com/search?q=%s", encoded),
-		"temu.com":           fmt.Sprintf("https://www.temu.com/search_result.html?search_key=%s&refer_page_name=home", encoded),
 		"11st.co.kr":         fmt.Sprintf("https://search.11st.co.kr/Search.tmall?kwd=%s", encoded),
 		"auction.co.kr":      fmt.Sprintf("https://www.auction.co.kr/search/list.aspx?keyword=%s", encoded),
 		"musinsa.com":        fmt.Sprintf("https://www.musinsa.com/search/musinsa/integration?q=%s", encoded),
 		"a-bly.com":          fmt.Sprintf("https://a-bly.com/search?keyword=%s", encoded),
 		"zigzag.kr":          fmt.Sprintf("https://zigzag.kr/search?q=%s", encoded),
 		"ohou.se":            fmt.Sprintf("https://ohou.se/search?query=%s", encoded),
-		"aliexpress.com":     fmt.Sprintf("https://www.aliexpress.com/wholesale?SearchText=%s", encoded),
-		"amazon.com":         fmt.Sprintf("https://www.amazon.com/s?k=%s", encoded),
-		// 중고차
-		"heydealer.com":   fmt.Sprintf("https://www.heydealer.com/car/search?keyword=%s", encoded),
-		"encar.com":       fmt.Sprintf("https://www.encar.com/search/car?searchKey=%s", encoded),
-		"kbchachacha.com": fmt.Sprintf("https://www.kbchachacha.com/public/car/list.kbc?keyword=%s", encoded),
+		// ── 국제 쇼핑 ──
+		"amazon.com":       fmt.Sprintf("https://www.amazon.com/s?k=%s", encoded),
+		"ebay.com":         fmt.Sprintf("https://www.ebay.com/sch/i.html?_nkw=%s", encoded),
+		"etsy.com":         fmt.Sprintf("https://www.etsy.com/search?q=%s", encoded),
+		"walmart.com":      fmt.Sprintf("https://www.walmart.com/search?q=%s", encoded),
+		"target.com":       fmt.Sprintf("https://www.target.com/s?searchTerm=%s", encoded),
+		"bestbuy.com":      fmt.Sprintf("https://www.bestbuy.com/site/searchpage.jsp?st=%s", encoded),
+		"aliexpress.com":   fmt.Sprintf("https://www.aliexpress.com/wholesale?SearchText=%s", encoded),
+		"temu.com":         fmt.Sprintf("https://www.temu.com/search_result.html?search_key=%s&refer_page_name=home", encoded),
+		// ── 동영상 ──
+		"youtube.com": fmt.Sprintf("https://www.youtube.com/results?search_query=%s", encoded),
+		"tiktok.com":  fmt.Sprintf("https://www.tiktok.com/search?q=%s", encoded),
+		// ── 검색 ──
+		"google.com":    fmt.Sprintf("https://www.google.com/search?q=%s", encoded),
+		"reddit.com":    fmt.Sprintf("https://www.reddit.com/search/?q=%s", encoded),
+		"wikipedia.org": fmt.Sprintf("https://en.wikipedia.org/w/index.php?search=%s", encoded),
+		// ── 중고차 ──
+		"heydealer.com":    fmt.Sprintf("https://www.heydealer.com/car/search?keyword=%s", encoded),
+		"encar.com":        fmt.Sprintf("https://www.encar.com/search/car?searchKey=%s", encoded),
+		"kbchachacha.com":  fmt.Sprintf("https://www.kbchachacha.com/public/car/list.kbc?keyword=%s", encoded),
 		"bobaedream.co.kr": fmt.Sprintf("https://www.bobaedream.co.kr/search?search_params=%s", encoded),
-		// 중고거래
-		"daangn.com":   fmt.Sprintf("https://www.daangn.com/search/%s", strings.ReplaceAll(query, " ", "%20")),
+		// ── 중고거래 ──
+		"daangn.com":    fmt.Sprintf("https://www.daangn.com/search/%s", qenc),
 		"bunjang.co.kr": fmt.Sprintf("https://m.bunjang.co.kr/search/products?q=%s", encoded),
-		"joongna.com":  fmt.Sprintf("https://web.joongna.com/search/%s", encoded),
-		// 부동산
+		"joongna.com":   fmt.Sprintf("https://web.joongna.com/search/%s", encoded),
+		// ── 국제 여행/숙박 ──
+		"airbnb.com":       fmt.Sprintf("https://www.airbnb.com/s/%s/homes", qenc),
+		"booking.com":      fmt.Sprintf("https://www.booking.com/searchresults.html?ss=%s", encoded),
+		"expedia.com":      fmt.Sprintf("https://www.expedia.com/Hotel-Search?destination=%s", encoded),
+		"tripadvisor.com":  fmt.Sprintf("https://www.tripadvisor.com/Search?q=%s", encoded),
+		"yelp.com":         fmt.Sprintf("https://www.yelp.com/search?find_desc=%s", encoded),
+		// ── 한국 여행/숙박 ──
+		"yanolja.com":   fmt.Sprintf("https://www.yanolja.com/keyword/%s", encoded),
+		"goodchoice.kr": fmt.Sprintf("https://www.goodchoice.kr/product/search?keyword=%s", encoded),
+		// ── 부동산 ──
 		"zigbang.com":    fmt.Sprintf("https://www.zigbang.com/search?q=%s", encoded),
 		"dabangapp.com":  fmt.Sprintf("https://www.dabangapp.com/map/oneroom?search_type=keyword&keyword=%s", encoded),
 		"land.naver.com": fmt.Sprintf("https://land.naver.com/search/search.nhn?query=%s", encoded),
-		// 여행/숙박
-		"yanolja.com":   fmt.Sprintf("https://www.yanolja.com/keyword/%s", encoded),
-		"goodchoice.kr": fmt.Sprintf("https://www.goodchoice.kr/product/search?keyword=%s", encoded),
-		"airbnb.com":    fmt.Sprintf("https://www.airbnb.co.kr/s/%s/homes", encoded),
-		// 배달
-		"baemin.com":    fmt.Sprintf("https://www.baemin.com/search?query=%s", encoded),
-		"yogiyo.co.kr":  fmt.Sprintf("https://www.yogiyo.co.kr/search?keyword=%s", encoded),
+		"zillow.com":     fmt.Sprintf("https://www.zillow.com/homes/%s_rb/", qenc),
+		"realtor.com":    fmt.Sprintf("https://www.realtor.com/realestateandhomes-search/%s", qenc),
+		// ── 배달 ──
+		"baemin.com":   fmt.Sprintf("https://www.baemin.com/search?query=%s", encoded),
+		"yogiyo.co.kr": fmt.Sprintf("https://www.yogiyo.co.kr/search?keyword=%s", encoded),
+		// ── 취업 ──
+		"linkedin.com":  fmt.Sprintf("https://www.linkedin.com/search/results/all/?keywords=%s", encoded),
+		"indeed.com":    fmt.Sprintf("https://www.indeed.com/jobs?q=%s", encoded),
+		"glassdoor.com": fmt.Sprintf("https://www.glassdoor.com/Search/results.htm?keyword=%s", encoded),
+		// ── 기술 ──
+		"github.com":         fmt.Sprintf("https://github.com/search?q=%s", encoded),
+		"stackoverflow.com":  fmt.Sprintf("https://stackoverflow.com/search?q=%s", encoded),
+		// ── 교육 ──
+		"coursera.org":    fmt.Sprintf("https://www.coursera.org/search?query=%s", encoded),
+		"udemy.com":       fmt.Sprintf("https://www.udemy.com/courses/search/?q=%s", encoded),
+		"edx.org":         fmt.Sprintf("https://www.edx.org/search?q=%s", encoded),
+		"khanacademy.org": fmt.Sprintf("https://www.khanacademy.org/search?page_search_query=%s", encoded),
+		// ── 엔터 ──
+		"netflix.com":  fmt.Sprintf("https://www.netflix.com/search?q=%s", encoded),
+		"imdb.com":     fmt.Sprintf("https://www.imdb.com/find?q=%s", encoded),
+		// ── 금융 ──
+		"bloomberg.com":   fmt.Sprintf("https://www.bloomberg.com/search?query=%s", encoded),
+		"yahoo.com":       fmt.Sprintf("https://finance.yahoo.com/lookup?s=%s", encoded),
 	}
 	if url, ok := searchURLs[site]; ok {
 		return url
 	}
-	return fmt.Sprintf("https://www.google.com/search?q=%s&hl=ko", encoded)
+	return fmt.Sprintf("https://www.google.com/search?q=%s", encoded)
 }

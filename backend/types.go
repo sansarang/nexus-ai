@@ -34,6 +34,12 @@ type imageURL struct {
 	URL string `json:"url"`
 }
 
+// ConvHistoryMsg: 대화 이력 메시지 (멀티턴 컨텍스트용)
+type ConvHistoryMsg struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 // DeepSearchResult: 파일 검색 결과
 type DeepSearchResult struct {
 	Name    string  `json:"name"`

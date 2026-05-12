@@ -4,7 +4,6 @@ import { useAppStore } from '../../stores/appStore'
 import { DesktopAgent } from '../DesktopAgent'
 import { WorkflowBuilder } from '../WorkflowBuilder'
 import { EmailSetup } from '../EmailSetup'
-import { PersonaSwitcher } from '../PersonaSwitcher'
 import { ChatBubble } from './ChatBubble'
 import type { ChatMessage } from './ChatBubble'
 import { SettingsModal } from './SettingsModal'
@@ -35,7 +34,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   emailInbox, emailSend, emailSummarize, emailClassify, emailDraftReply,
   virusTotalCheck, historyStats, historyAnomalies,
   processKill, appPermissions, windowsUpdates, gpuStats,
-  priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload,
+  priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload, videoQuickSearch,
   schedulerAdd, schedulerList, schedulerDelete,
   recallCapture, recallSearch,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
@@ -83,6 +82,14 @@ interface ConversationTurn {
   parts: Array<{ text: string }>
 }
 
+
+/* 영어 쿼리 판별 (60% 이상 ASCII) */
+function isEnglishQuery(q: string): boolean {
+  if (!q) return false
+  const chars = [...q]
+  const ascii = chars.filter(c => c.charCodeAt(0) < 128).length
+  return ascii / chars.length > 0.6
+}
 
 /* 에이전트 사고 단계 생성 */
 function buildAgentSteps(intent: Intent): string[] {
@@ -228,6 +235,7 @@ export function FloatingCharacter() {
     setPrimaryColor, setAccentColor,
     micEnabled, ttsVoice, setTtsVoice,
     isLoggedIn, setLoggedIn, subscriptionStatus, userEmail,
+    setUserLang,
   } = useAppStore()
 
   const primaryColor = storePrimary || '#a78bfa'
@@ -254,7 +262,6 @@ export function FloatingCharacter() {
   const [showDesktopAgent, setShowDesktopAgent] = useState(false)
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false)
   const [showEmailSetup, setShowEmailSetup] = useState(false)
-  const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false)
   const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
   const alertESRef = useRef<EventSource | null>(null)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
@@ -265,7 +272,8 @@ export function FloatingCharacter() {
   const dragY = useMotionValue(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd)
-  const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isMap?: boolean; mapType?: string; service?: string }> | null>(null)
+  const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
+  const [previewType, setPreviewType] = useState<string>('general')
 
   // ── Clarify 멀티턴 상태 ──────────────────────────────────
   const [clarifyPendingIntent,   setClarifyPendingIntent]   = useState<string | null>(null)
@@ -275,26 +283,13 @@ export function FloatingCharacter() {
   const [captionRunning, setCaptionRunning] = useState(false)
 
   // ── 미리보기 WebviewWindow 열기 ────────────────────────────
-  const openPreview = useCallback(async (url: string, title: string) => {
+  const openPreview = useCallback(async (url: string, _title: string) => {
     try {
-      // Tauri 환경: 별도 WebviewWindow로 열기
-      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
-      const label = `preview_${Date.now()}`
-      const win = new WebviewWindow(label, {
-        url,
-        title: title || '미리보기',
-        width: 1024,
-        height: 768,
-        center: true,
-        resizable: true,
-        decorations: true,
-      })
-      win.once('tauri://error', () => {
-        // Tauri 창 생성 실패 시 기본 브라우저로 폴백
-        window.open(url, '_blank')
-      })
+      // Tauri 환경: shell.open으로 시스템 기본 브라우저에서 열기
+      const { open } = await import('@tauri-apps/plugin-shell')
+      await open(url)
     } catch {
-      // 브라우저 환경 (Mac 개발) — 새 탭으로 열기
+      // 브라우저 환경 폴백
       window.open(url, '_blank')
     }
   }, [])
@@ -1261,9 +1256,17 @@ export function FloatingCharacter() {
         case 'news_search': {
           const query = originalText.replace(/뉴스|검색|최신|오늘|찾아줘/g, '').trim() || '오늘 주요 뉴스'
           const data = await newsSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '뉴스 검색 실패' }))
+          const articles = data.articles ?? []
+          if (articles.length > 0) {
+            setPreviewType('news')
+            setFloatingPreview(articles.slice(0, 8).map((a: { title: string; url: string }) => ({
+              title: a.title, url: a.url,
+              isVideo: a.url.includes('youtube.com') || a.url.includes('youtu.be'),
+            })))
+          }
           return {
             text: data.summary || `'${query}' 뉴스 검색 완료!`,
-            card2: { type: 'system_action', icon: '📰', title: `뉴스: ${query}`, detail: data.articles.slice(0,3).map(a => `• ${a.title}`).join('\n'), success: data.success },
+            card2: { type: 'system_action', icon: '📰', title: `뉴스: ${query}`, detail: articles.slice(0,3).map((a: { title: string }) => `• ${a.title}`).join('\n'), success: data.success },
             emotion: 'neutral',
           }
         }
@@ -2031,20 +2034,33 @@ export function FloatingCharacter() {
   }
 
   /* ── 검색 fallback URL 생성 (백엔드 items 없을 때 항상 미리보기 보장) ── */
+  // URL을 보고 isVideo/isImage 자동 태깅
+  const tagPreviewItem = (item: { title: string; url: string; isVideo?: boolean; isImage?: boolean; source?: string; type?: string }) => {
+    const u = item.url.toLowerCase()
+    const isVideo = item.isVideo ||
+      u.includes('youtube.com') || u.includes('youtu.be') ||
+      u.includes('tiktok.com') || u.includes('tv.naver.com') ||
+      u.includes('tving.com') || u.includes('wavve.com') ||
+      item.source === 'youtube' || item.source === 'video' || item.type === 'video'
+    const isSocial = !isVideo && (
+      u.includes('instagram.com') || u.includes('x.com/') || u.includes('twitter.com/') ||
+      item.source === 'instagram' || item.source === 'x' || item.type === 'social'
+    )
+    const isImage = item.isImage || u.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i) !== null
+    return { ...item, isVideo: isVideo || undefined, isSocial: isSocial || undefined, isImage: isImage || undefined }
+  }
+
   const buildFrontendFallbackURLs = (query: string, site: string) => {
     const enc = encodeURIComponent(query)
     const s = site.toLowerCase()
-    if (s === 'coupang' || query.includes('쿠팡'))
+    const q = query.toLowerCase()
+    // 특정 플랫폼 직접 지정 시에만 해당 플랫폼 URL 반환
+    if (s === 'coupang' || q.includes('쿠팡'))
       return [{ title: `쿠팡에서 "${query}" 검색`, url: `https://www.coupang.com/np/search?q=${enc}` }]
-    if (s === 'youtube')
-      return [{ title: `YouTube에서 "${query}" 검색`, url: `https://www.youtube.com/results?search_query=${enc}` }]
-    if (s === 'naver')
-      return [{ title: `네이버에서 "${query}" 검색`, url: `https://search.naver.com/search.naver?query=${enc}` }]
-    return [
-      { title: `네이버: ${query}`, url: `https://search.naver.com/search.naver?query=${enc}` },
-      { title: `쿠팡: ${query}`, url: `https://www.coupang.com/np/search?q=${enc}` },
-      { title: `구글: ${query}`, url: `https://www.google.com/search?q=${enc}` },
-    ]
+    if (s === 'youtube' || q.includes('유튜브') || q.includes('youtube'))
+      return [{ title: `YouTube: ${query}`, url: `https://www.youtube.com/results?search_query=${enc}`, isVideo: true }]
+    // 그 외: 백엔드 items를 신뢰 → 프론트 fallback 없음 (검색 URL 절대 생성 안 함)
+    return []
   }
 
   /* ── 메시지 전송 ── */
@@ -2066,6 +2082,10 @@ export function FloatingCharacter() {
       }
       return
     }
+
+    // 영어 입력 자동 감지 → UI 언어 전환
+    const detectedLang: 'ko' | 'en' = isEnglishQuery(trimmed) ? 'en' : 'ko'
+    if (detectedLang !== userLang) setUserLang(detectedLang)
 
     typingRef.current = true
 
@@ -2106,14 +2126,25 @@ export function FloatingCharacter() {
     }
 
     // ── 0.4순위: 길찾기 / 장소 로드뷰 ─────────────────────────
-    const isDirections = /에서.*(?:가는\s*방법|가는\s*법|가는\s*길|경로|어떻게\s*가|대중교통|버스로|지하철로|길찾기)|(?:까지|→|->) .+(?:경로|어떻게|버스|지하철)/i.test(trimmed)
-    const isPlaceView = !isDirections && /(?:위치|어디야|어디\s*있어|어디에\s*있|주소|로드뷰|지도에서|지도\s*보여|어디\s*있는지|위치\s*알려|어디야)/i.test(trimmed)
+    // 길찾기 감지: "에서 [목적지]" 패턴 (방법/경로 없어도 인식)
+    const isDirections = (
+      // 한국어: "A에서 B" + 이동 키워드 or 단순 "A에서 B" (2글자 이상 출발지/도착지)
+      /\S{2,}에서\s*\S{2,}(?:으로|로|까지|가려면|가는\s*방법|가는\s*법|가는\s*길|경로|어떻게\s*가|대중교통|버스|지하철|길찾기|이동|갈\s*때|가고\s*싶|가는\s*길)/i.test(trimmed) ||
+      /\S{2,}에서\s+\S{2,}/.test(trimmed) && /버스|지하철|기차|ktx|택시|교통|이동|경로|길찾기|가는|가려면|가는법|갈때/.test(trimmed.toLowerCase()) ||
+      // 화살표/물결 구분자
+      /\S+\s*(?:→|->|~)\s*\S+/.test(trimmed) ||
+      // 영어
+      /from\s+\S+.{1,30}\s+to\s+\S+/i.test(trimmed) ||
+      /(?:directions?|route|how\s+(?:do\s+i\s+)?get)\s+(?:from|to)\s+\S+/i.test(trimmed) ||
+      /\S+\s+to\s+\S+\s+(?:by\s+bus|by\s+train|transit|subway|directions?)/i.test(trimmed)
+    )
+    const isPlaceView = !isDirections && /(?:위치|어디야|어디\s*있어|어디에\s*있|주소|로드뷰|지도에서|지도\s*보여|어디\s*있는지|위치\s*알려|어디야)|(?:where\s+is\s+\S)|(?:street\s+view\s+of)|(?:location\s+of\s+\S)|(?:show\s+me\s+\S+.*(?:map|location))/i.test(trimmed)
 
     if (isDirections && backendStatus === 'connected') {
       try {
         setMessages(prev => [...prev, {
           id: `think-${msgId}`, role: 'nexus', text: '',
-          inlineCard: { type: 'agent_thinking', steps: ['경로 분석 중...', '지도 앱 연결 중...', '버스 노선 검색 중...'] },
+          inlineCard: { type: 'agent_thinking', steps: isEnglishQuery(trimmed) ? ['Analyzing route...', 'Connecting to map services...', 'Searching transit options...'] : ['경로 분석 중...', '지도 앱 연결 중...', '버스 노선 검색 중...'] },
         }])
         const res = await fetch('http://localhost:17891/api/directions', {
           method: 'POST',
@@ -2125,18 +2156,35 @@ export function FloatingCharacter() {
         setTyping(false); typingRef.current = false
 
         if (res?.success) {
-          const mapLinks = (res.map_links ?? []).map((l: { title: string; url: string; type?: string; service?: string }) => ({
-            title: l.title, url: l.url, isMap: true, mapType: l.type, service: l.service,
-          }))
-          const routeLinks = (res.route_info ?? []).map((l: { title: string; url: string }) => ({
-            title: l.title, url: l.url,
-          }))
-          const allLinks = [...mapLinks, ...routeLinks]
-          if (allLinks.length > 0) setFloatingPreview(allLinks as any)
+          // 교통수단별 지도 링크를 미리보기로 표시 (네이버/카카오 × 5가지 교통수단)
+          const mapLinks: Array<{ title: string; url: string; type?: string; service?: string; mode?: string; modeKo?: string; modeEmoji?: string }> = res.map_links ?? []
+          // 네이버 지도 링크만 먼저 (중복 제거 — 카카오는 클릭 후 선택)
+          const naverLinks = mapLinks.filter(l => l.service === 'naver' && l.type === 'directions')
+          const otherLinks = mapLinks.filter(l => l.service !== 'naver' || l.type !== 'directions')
+          const previewLinks = [
+            ...naverLinks.map(l => ({
+              title: l.title ?? '', url: l.url, isMap: true, mapType: 'directions' as const,
+              service: 'naver', mode: l.mode, modeKo: l.modeKo, modeEmoji: l.modeEmoji,
+            })),
+            ...otherLinks.slice(0, 2).map(l => ({
+              title: l.title ?? '', url: l.url, isMap: true, mapType: (l.type ?? 'directions') as any,
+              service: l.service,
+            })),
+          ]
+          if (previewLinks.length > 0) {
+            setFloatingPreview(previewLinks as any)
+          } else {
+            setFloatingPreview(null)
+          }
 
-          const displayText = res.summary || `**${res.from} → ${res.to}** 경로를 지도 앱에서 확인하세요.`
+          const displayText = res.travel_summary || res.summary || (isEnglishQuery(trimmed)
+            ? `**${res.from} → ${res.to}** — Check the map app for routes.`
+            : `**${res.from} → ${res.to}** 경로를 지도 앱에서 확인하세요.`)
+
           setEmotion('happy')
-          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText }])
+          setMessages(prev => [...prev, {
+            id: `${msgId}-res`, role: 'nexus', text: displayText,
+          }])
           pushModelHistory(trimmed, displayText)
           speakText(displayText)
           appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
@@ -2150,7 +2198,7 @@ export function FloatingCharacter() {
       try {
         setMessages(prev => [...prev, {
           id: `think-${msgId}`, role: 'nexus', text: '',
-          inlineCard: { type: 'agent_thinking', steps: ['장소 검색 중...', '로드뷰 링크 생성 중...', '지도 정보 준비 중...'] },
+          inlineCard: { type: 'agent_thinking', steps: isEnglishQuery(trimmed) ? ['Searching location...', 'Generating street view links...', 'Preparing map info...'] : ['장소 검색 중...', '로드뷰 링크 생성 중...', '지도 정보 준비 중...'] },
         }])
         const res = await fetch('http://localhost:17891/api/place-view', {
           method: 'POST',
@@ -2169,7 +2217,7 @@ export function FloatingCharacter() {
           const allLinks = [...mapLinks, ...placeLinks]
           if (allLinks.length > 0) setFloatingPreview(allLinks as any)
 
-          const displayText = `**${res.place}** 위치를 지도 앱에서 확인하세요. 로드뷰 버튼을 클릭하면 실제 거리 사진을 볼 수 있어요.`
+          const displayText = isEnglishQuery(trimmed) ? `**${res.place}** — View the location on the map app. Click Street View to see real-world photos.` : `**${res.place}** 위치를 지도 앱에서 확인하세요. 로드뷰 버튼을 클릭하면 실제 거리 사진을 볼 수 있어요.`
           setEmotion('happy')
           setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText }])
           pushModelHistory(trimmed, displayText)
@@ -2212,13 +2260,16 @@ export function FloatingCharacter() {
 
     // ── 0.8순위: 사이트 직접 검색 (LLM 우회 → 항상 링크+미리보기 보장) ──
     const SITE_MAP: Record<string, string> = {
+      // 한국 중고차
       '헤이딜러': 'heydealer.com', 'heydealer': 'heydealer.com',
       '엔카': 'encar.com', 'encar': 'encar.com',
       'kb차차차': 'kbchachacha.com', '차차차': 'kbchachacha.com',
       '보배드림': 'bobaedream.co.kr',
+      // 한국 중고거래
       '당근': 'daangn.com', '당근마켓': 'daangn.com',
       '번개장터': 'bunjang.co.kr', '번개': 'bunjang.co.kr',
       '중고나라': 'joongna.com',
+      // 한국 쇼핑
       '쿠팡': 'coupang.com', 'coupang': 'coupang.com',
       '네이버쇼핑': 'shopping.naver.com',
       '11번가': '11st.co.kr',
@@ -2229,15 +2280,32 @@ export function FloatingCharacter() {
       '지그재그': 'zigzag.kr',
       '오늘의집': 'ohou.se',
       '태무': 'temu.com', '테무': 'temu.com', 'temu': 'temu.com',
-      '알리': 'aliexpress.com', '알리익스프레스': 'aliexpress.com',
+      '알리': 'aliexpress.com', '알리익스프레스': 'aliexpress.com', 'aliexpress': 'aliexpress.com',
       '아마존': 'amazon.com', 'amazon': 'amazon.com',
+      // 국제 쇼핑
+      'ebay': 'ebay.com', 'etsy': 'etsy.com', 'walmart': 'walmart.com',
+      'target': 'target.com', 'bestbuy': 'bestbuy.com', 'best buy': 'bestbuy.com',
+      // 한국 부동산/숙박
       '직방': 'zigbang.com',
       '다방': 'dabangapp.com',
       '야놀자': 'yanolja.com',
       '여기어때': 'goodchoice.kr',
+      // 국제 여행/숙박
+      'airbnb': 'airbnb.com', 'booking.com': 'booking.com', 'booking': 'booking.com',
+      'expedia': 'expedia.com', 'tripadvisor': 'tripadvisor.com', 'yelp': 'yelp.com',
+      // 국제 부동산
+      'zillow': 'zillow.com', 'realtor': 'realtor.com',
+      // 가격비교
       '다나와': 'danawa.com',
       '에누리': 'enuri.com',
+      // 배달
       '배민': 'baemin.com', '배달의민족': 'baemin.com',
+      // 기술/개발
+      'github': 'github.com', 'stackoverflow': 'stackoverflow.com', 'stack overflow': 'stackoverflow.com',
+      // 엔터
+      'reddit': 'reddit.com', 'imdb': 'imdb.com',
+      // 교육
+      'coursera': 'coursera.org', 'udemy': 'udemy.com',
     }
     const msgLower = trimmed.toLowerCase()
     let detectedSite = ''
@@ -2270,7 +2338,7 @@ export function FloatingCharacter() {
       try {
         setMessages(prev => [...prev, {
           id: `think-${msgId}`, role: 'nexus', text: '',
-          inlineCard: { type: 'agent_thinking', steps: [`${siteLabel} 검색 중...`, '실시간 결과 수집 중...', '미리보기 준비 중...'] },
+          inlineCard: { type: 'agent_thinking', steps: userLang === 'en' ? [`Searching ${siteLabel}...`, 'Collecting live results...', 'Preparing preview...'] : [`${siteLabel} 검색 중...`, '실시간 결과 수집 중...', '미리보기 준비 중...'] },
         }])
 
         // 1차: /api/site-search (새 백엔드) 시도
@@ -2356,6 +2424,7 @@ export function FloatingCharacter() {
         })).filter(h => h.content.length > 0)
 
         const cmd = await sendCommand(trimmed, {
+          lang:            detectedLang,
           pendingIntent:   clarifyPendingIntent   ?? undefined,
           pendingParams:   clarifyPendingParams   ?? undefined,
           pendingQuestion: clarifyPendingQuestion ?? undefined,
@@ -2428,39 +2497,50 @@ export function FloatingCharacter() {
             if (maItems.length > 0) { setFloatingPreview(maItems); previewSet = true }
           }
 
-          // 웹 검색 결과에 미리보기 카드 추가 (항상 표시 보장)
-          if (cmd.action === 'web_search') {
-            const resultObj = cmd.result as { items?: Array<{ title?: string; url?: string }>; query?: string; site?: string } | undefined
-            let rawItems: Array<{ title?: string; url?: string }> = resultObj?.items ?? []
+          // web_search / chat 공통: result.items → tagPreviewItem 적용
+          if (!previewSet && (cmd.action === 'web_search' || cmd.action === 'chat' || cmd.action === 'weather')) {
+            const resultObj = cmd.result as { items?: Array<{ title?: string; url?: string; type?: string; source?: string }>; query?: string; site?: string; preview_type?: string } | undefined
+            // preview_type 설정
+            if (resultObj?.preview_type) setPreviewType(resultObj.preview_type)
+            let rawItems: Array<{ title?: string; url?: string; type?: string; source?: string }> = resultObj?.items ?? []
+
+            // items 없으면 카테고리 인식 fallback
             if (rawItems.length === 0) {
               const searchQuery = resultObj?.query ?? trimmed
-              const site = resultObj?.site ?? ''
+              const site = resultObj?.site ?? 'auto'
               rawItems = buildFrontendFallbackURLs(searchQuery, site)
             }
-            const previewItems = rawItems
-              .filter((it): it is { title: string; url: string } => !!(it.url))
-              .map(it => ({ title: it.title ?? it.url, url: it.url }))
-            if (previewItems.length > 0) { setFloatingPreview(previewItems); previewSet = true }
-          }
 
-          // ── 어떤 액션이든 미리보기 없으면 항상 Tavily로 자동 보완 ──
-          if (!previewSet) {
-            backendAPI.llmDeepSearchWeb(trimmed, 10).then(dr => {
-              if (dr.success && dr.items && dr.items.length > 0) {
-                const items = dr.items
-                  .filter((it: { url?: string }) => it.url)
-                  .map((it: { title: string; url: string; type?: string; source?: string }) => ({
-                    title: it.title,
-                    url: it.url,
-                    isVideo: it.type === 'video' ||
-                      it.source === 'youtube' || it.source === 'video' ||
-                      it.url.includes('youtube.com') || it.url.includes('youtu.be') ||
-                      it.url.includes('tv.naver.com') || it.url.includes('tving.com') ||
-                      it.url.includes('wavve.com'),
-                  }))
-                if (items.length > 0) setFloatingPreview(items)
-              }
-            }).catch(() => {})
+            const previewItems = rawItems
+              .filter(it => !!(it.url))
+              .map(it => tagPreviewItem({ title: (it.title ?? it.url) as string, url: it.url as string, source: it.source, type: it.type }))
+
+            if (previewItems.length > 0) { setFloatingPreview(previewItems as any); previewSet = true }
+
+            // 백그라운드로 YouTube/Instagram/X 병렬 검색 → preview에 append
+            const isTransitQuery = /버스|지하철|기차|ktx|택시|경로|길찾기|에서.*가는|에서.*까지|directions|route|transit/i.test(trimmed)
+            // 정보성 쿼리(우편번호·날씨·계산·환율·번역 등)는 SNS 검색 건너뜀
+            const isInfoQuery = /우편번호|zip\s*code|postal|날씨|기온|미세먼지|환율|주가|주식|계산|더하기|빼기|곱하기|나누기|몇\s*살|나이|생일|번역|translate|정의|뜻|이란|이란\?|공식|수식|공항|비행|편명|시간표|전화번호|주소\s*알려|몇\s*시|몇\s*층|몇\s*호|층수|면적|넓이|인구|gdp|환산|convert/i.test(trimmed)
+            if (previewSet && !isTransitQuery && !isInfoQuery) {
+              Promise.allSettled([
+                videoQuickSearch(trimmed, 'youtube', 3),
+                videoQuickSearch(trimmed, 'tiktok', 2),
+                videoQuickSearch(trimmed, 'instagram', 2),
+                videoQuickSearch(trimmed, 'x', 2),
+              ]).then(results => {
+                const newItems: typeof floatingPreview = []
+                for (const r of results) {
+                  if (r.status === 'fulfilled' && r.value.items?.length) {
+                    for (const it of r.value.items) {
+                      newItems.push(tagPreviewItem({ title: it.title, url: it.url, type: it.type ?? 'video', source: it.platform }) as any)
+                    }
+                  }
+                }
+                if (newItems.length > 0) {
+                  setFloatingPreview(prev => prev ? [...prev, ...newItems] : newItems)
+                }
+              })
+            }
           }
 
           setMessages(prev => [...prev, {
@@ -2563,6 +2643,7 @@ export function FloatingCharacter() {
     // 미리보기는 오른쪽 플로팅 패널에만 표시
     const previewItems = response.preview_items ?? getLastPreviewItems()
     clearLastPreviewItems()
+    if ((response as any).preview_type) setPreviewType((response as any).preview_type)
     if (previewItems.length > 0) setFloatingPreview(previewItems)
 
     setMessages(prev => [...prev, {
@@ -2888,7 +2969,6 @@ export function FloatingCharacter() {
     { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4',     onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
     { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b',  onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
     { icon: '📧',  active: showEmailSetup,   color: '#22c55e',     onClick: () => setShowEmailSetup(p => !p), tip: '이메일 설정' },
-    { icon: '🧠',  active: showPersonaSwitcher, color: '#a855f7',  onClick: () => setShowPersonaSwitcher(p => !p), tip: 'AI 모드' },
     { icon: '—',  active: false,             color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
   ]
 
@@ -2915,22 +2995,146 @@ export function FloatingCharacter() {
             backdropFilter: 'blur(20px)',
             zIndex: 10001,
             pointerEvents: 'auto',
+            maxHeight: 520,
+            overflowY: 'auto',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 12, color: primaryColor, fontWeight: 800, letterSpacing: '0.05em' }}>
-              {floatingPreview.some(x => x.isMap && x.mapType === 'directions') ? '🗺️ 길찾기 결과'
-                : floatingPreview.some(x => x.isMap && x.mapType === 'roadview') ? '📍 로드뷰 / 위치'
-                : floatingPreview.some(x => x.isMap) ? '🗺️ 지도 결과'
-                : floatingPreview.some(x => x.isVideo) && floatingPreview.some(x => !x.isVideo) ? '🔍 웹 검색 결과'
-                : floatingPreview[0]?.isVideo ? '🎬 영상 검색 결과' : '🔍 검색 결과 미리보기'}
+              {(() => {
+                const eng = userLang === 'en'
+                if (floatingPreview.some(x => x.isMap && x.mapType === 'directions')) return eng ? '🗺️ Route Results' : '🗺️ 길찾기 결과'
+                if (floatingPreview.some(x => x.isMap && x.mapType === 'roadview')) return eng ? '📍 Street View / Location' : '📍 로드뷰 / 위치'
+                if (floatingPreview.some(x => x.isMap)) return eng ? '🗺️ Map Results' : '🗺️ 지도 결과'
+                if (floatingPreview[0]?.isVideo) return eng ? '🎬 Video Results' : '🎬 영상 검색 결과'
+                const titleMap: Record<string, [string, string]> = {
+                  weather:       ['🌤️ Weather Info',      '🌤️ 날씨 정보'],
+                  news:          ['📰 News Results',       '📰 뉴스 결과'],
+                  recipe:        ['🍳 Recipe Sources',     '🍳 레시피 출처'],
+                  shopping:      ['🛒 Shopping Results',   '🛒 쇼핑 결과'],
+                  transit:       ['🚆 Transit Info',       '🚆 교통 정보'],
+                  food:          ['🍜 Restaurant Results', '🍜 맛집 결과'],
+                  finance:       ['📈 Finance Sources',    '📈 금융 정보'],
+                  medical:       ['🏥 Health Sources',     '🏥 건강 정보'],
+                  travel:        ['✈️ Travel Sources',     '✈️ 여행 정보'],
+                  entertainment: ['🎬 Entertainment',      '🎬 엔터테인먼트'],
+                  tech:          ['💻 Tech Sources',       '💻 IT 정보'],
+                  education:     ['📚 Study Sources',      '📚 학습 정보'],
+                  realestate:    ['🏠 Real Estate',        '🏠 부동산 정보'],
+                  legal:         ['⚖️ Legal Sources',      '⚖️ 법률 정보'],
+                }
+                const t = titleMap[previewType]
+                if (t) return eng ? t[0] : t[1]
+                return eng ? '🔍 Search Preview' : '🔍 검색 결과 미리보기'
+              })()}
             </span>
             <button
               onClick={() => setFloatingPreview(null)}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
             >✕</button>
           </div>
-          {floatingPreview.slice(0, 8).map((item, i) => {
+          {/* ── 길찾기 전용 교통수단 버튼 UI ── */}
+          {floatingPreview.some(x => x.isMap && (x as any).mapType === 'directions') ? (() => {
+            const dirItems = floatingPreview.filter(x => x.isMap && (x as any).mapType === 'directions')
+            const otherItems = floatingPreview.filter(x => !(x.isMap && (x as any).mapType === 'directions'))
+            const modeOrder = ['transit', 'car', 'walk', 'bicycle', 'ktx']
+            const modeEmojis: Record<string, string> = { transit: '🚌', car: '🚗', walk: '🚶', bicycle: '🚲', ktx: '🚂' }
+            const modeLabels: Record<string, string> = { transit: '대중교통', car: '자동차', walk: '도보', bicycle: '자전거', ktx: '기차/KTX' }
+            // service별로 분리
+            const googleByMode: Record<string, typeof dirItems[0]> = {}
+            const kakaoByMode: Record<string, typeof dirItems[0]> = {}
+            for (const item of dirItems) {
+              const m = (item as any).mode as string
+              const svc = (item as any).service as string
+              if (m && svc === 'google') googleByMode[m] = item
+              if (m && svc === 'kakao') kakaoByMode[m] = item
+            }
+            // from/to 파싱
+            const firstItem = dirItems[0] as any
+            const fromTo = firstItem?.title?.match(/— (.+?)→(.+)/)
+            const fromLabel = fromTo?.[1]?.trim() ?? ''
+            const toLabel = fromTo?.[2]?.replace(/\s*\(.*\)/, '').trim() ?? ''
+            // Google Maps iframe URL (실제 경로 표시)
+            const iframeSrc = fromLabel && toLabel
+              ? `https://www.google.com/maps/embed/v1/directions?key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY&origin=${encodeURIComponent(fromLabel)}&destination=${encodeURIComponent(toLabel)}&mode=transit&language=ko`
+              : ''
+            // Google Maps 직접 링크 (API 키 불필요)
+            const googleDirectUrl = fromLabel && toLabel
+              ? `https://www.google.com/maps/dir/${encodeURIComponent(fromLabel)}/${encodeURIComponent(toLabel)}/`
+              : ''
+            return (
+              <div>
+                {/* 출발→도착 헤더 */}
+                {fromLabel && toLabel && (
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 8, textAlign: 'center', fontWeight: 600 }}>
+                    {fromLabel} <span style={{ color: primaryColor }}>→</span> {toLabel}
+                  </div>
+                )}
+                {/* Google Maps 실제 경로 미리보기 */}
+                {googleDirectUrl && (
+                  <div style={{ position: 'relative', width: '100%', height: 130, borderRadius: 10, overflow: 'hidden', marginBottom: 8, background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }}
+                    onClick={() => window.open(googleDirectUrl, '_blank')}
+                  >
+                    <iframe
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(fromLabel + ' to ' + toLabel)}&output=embed&hl=ko`}
+                      style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none', borderRadius: 10 }}
+                      loading="lazy"
+                    />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.0)' }} />
+                    <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: '3px 7px', fontSize: 9, color: '#fff', fontWeight: 700 }}>
+                      클릭 → 경로 열기
+                    </div>
+                  </div>
+                )}
+                {/* 교통수단 버튼 그리드 (Google Maps 경로 링크) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5, marginBottom: 7 }}>
+                  {modeOrder.map(mode => {
+                    const item = googleByMode[mode]
+                    if (!item) return null
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => window.open(item.url, '_blank')}
+                        style={{
+                          background: 'rgba(66,133,244,0.15)',
+                          border: '1px solid rgba(66,133,244,0.35)',
+                          borderRadius: 10, cursor: 'pointer',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center',
+                          padding: '7px 3px', gap: 2,
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(66,133,244,0.3)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(66,133,244,0.15)')}
+                      >
+                        <span style={{ fontSize: 15 }}>{modeEmojis[mode]}</span>
+                        <span style={{ fontSize: 8, color: '#4285f4', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>{modeLabels[mode]}</span>
+                        <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.3)' }}>구글</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* 카카오맵 + 예매 링크 */}
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {(['transit', 'car'] as const).map(mode => {
+                    const item = kakaoByMode[mode]
+                    if (!item) return null
+                    return (
+                      <button key={mode} onClick={() => window.open(item.url, '_blank')}
+                        style={{ background: 'rgba(249,224,0,0.1)', border: '1px solid rgba(249,224,0,0.3)', borderRadius: 8, cursor: 'pointer', padding: '4px 8px', fontSize: 9, color: '#f9e000', fontWeight: 700 }}>
+                        {modeEmojis[mode]} 카카오맵
+                      </button>
+                    )
+                  })}
+                  {otherItems.map((item, i) => (
+                    <button key={i} onClick={() => window.open(item.url, '_blank')}
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, cursor: 'pointer', padding: '4px 8px', fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
+                      {item.title.slice(0, 12)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })() : floatingPreview.slice(0, 14).map((item, i) => {
             const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
             const isNaverTV = item.url.includes('tv.naver.com')
             const isStream = item.url.includes('tving.com') || item.url.includes('wavve.com')
@@ -2940,10 +3144,18 @@ export function FloatingCharacter() {
             const isRoadview = item.mapType === 'roadview'
             const isDirectionsLink = item.mapType === 'directions'
 
+            const isInstagram = item.url.includes('instagram.com')
+            const isX = item.url.includes('x.com/') || item.url.includes('twitter.com/')
+            const isTikTok = item.url.includes('tiktok.com')
+
             const typeBadge = isYt ? { label: 'YT', color: '#e53e3e' }
               : isNaverTV ? { label: 'TV', color: '#03c75a' }
               : isStream ? { label: '스트림', color: '#7c3aed' }
+              : isTikTok ? { label: 'TikTok', color: '#010101' }
+              : isInstagram ? { label: 'IG', color: '#e1306c' }
+              : isX ? { label: 'X', color: '#1a1a1a' }
               : item.isVideo ? { label: '영상', color: '#e53e3e' }
+              : (item as any).isSocial ? { label: 'SNS', color: '#7c3aed' }
               : isRoadview && isNaver ? { label: '로드뷰', color: '#03c75a' }
               : isRoadview && isKakao ? { label: '로드뷰', color: '#ffcd00' }
               : isRoadview && isGoogle ? { label: 'StreetView', color: '#4285f4' }
@@ -2955,13 +3167,13 @@ export function FloatingCharacter() {
               : null
 
             const mapBtnColor = isNaver ? '#03c75a' : isKakao ? '#f9e000' : isGoogle ? '#4285f4' : primaryColor
-            const mapBtnText = isRoadview ? (isNaver ? '로드뷰' : isKakao ? '로드뷰' : '거리뷰')
-              : isDirectionsLink ? '경로보기'
-              : item.isMap ? '지도열기'
+            const mapBtnText = isRoadview ? (isGoogle ? (userLang === 'en' ? 'Street View' : '거리뷰') : (userLang === 'en' ? 'Street View' : '로드뷰'))
+              : isDirectionsLink ? (userLang === 'en' ? 'Directions' : '경로보기')
+              : item.isMap ? (userLang === 'en' ? 'Open Map' : '지도열기')
               : null
 
             return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 8) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 14) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, background: item.isMap ? `${mapBtnColor}33` : `${primaryColor}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: 9, color: item.isMap ? mapBtnColor : primaryColor, fontWeight: 700 }}>{i + 1}</span>
               </div>
@@ -2980,17 +3192,43 @@ export function FloatingCharacter() {
                   {item.url.replace(/^https?:\/\//, '').slice(0, 38)}
                 </div>
               </div>
-              {item.isVideo ? (
+              {(item as any).isImage ? (
+                <button
+                  onClick={() => openPreview(item.url, item.title)}
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                    border: 'none', borderRadius: 8,
+                    color: '#fff', fontSize: 10, fontWeight: 700,
+                    padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    flexShrink: 0, boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
+                  }}
+                >{userLang === 'en' ? 'View' : '사진보기'}</button>
+              ) : (item as any).isSocial ? (
+                <button
+                  onClick={() => window.open(item.url, '_blank')}
+                  style={{
+                    background: isInstagram
+                      ? 'linear-gradient(135deg, #e1306c, #833ab4)'
+                      : isX ? '#1a1a1a' : '#7c3aed',
+                    border: 'none', borderRadius: 8,
+                    color: '#fff', fontSize: 10, fontWeight: 700,
+                    padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >{isInstagram ? '📷 보기' : isX ? '𝕏 보기' : '보기'}</button>
+              ) : item.isVideo ? (
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                   <button
                     onClick={() => window.open(item.url, '_blank')}
                     title="재생"
                     style={{
-                      background: `linear-gradient(135deg, #e53e3e, #c53030)`,
+                      background: isTikTok
+                        ? 'linear-gradient(135deg, #010101, #69c9d0)'
+                        : `linear-gradient(135deg, #e53e3e, #c53030)`,
                       border: 'none', borderRadius: 7,
                       color: '#fff', fontSize: 13, fontWeight: 700,
                       width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: '0 2px 8px rgba(229,62,62,0.4)',
+                      boxShadow: isTikTok ? '0 2px 8px rgba(105,201,208,0.4)' : '0 2px 8px rgba(229,62,62,0.4)',
                     }}
                   >▶</button>
                   <button
@@ -3028,7 +3266,7 @@ export function FloatingCharacter() {
                     padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
                     flexShrink: 0, boxShadow: `0 2px 8px ${primaryColor}44`,
                   }}
-                >미리보기</button>
+                >{userLang === 'en' ? 'Preview' : '미리보기'}</button>
               )}
             </div>
             )
@@ -3376,14 +3614,6 @@ export function FloatingCharacter() {
       )}
     </AnimatePresence>
 
-    <AnimatePresence>
-      {showPersonaSwitcher && (
-        <PersonaSwitcher
-          key="persona-switcher"
-          onClose={() => setShowPersonaSwitcher(false)}
-        />
-      )}
-    </AnimatePresence>
 
     {/* ── Proactive 알림 토스트 ── */}
     <div style={{

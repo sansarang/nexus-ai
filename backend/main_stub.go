@@ -45,6 +45,7 @@ func main() {
 	mux.HandleFunc("POST /api/browser/smart-agent", handleBrowserSmartAgent)
 	mux.HandleFunc("POST /api/browser/collect-price", handleBrowserCollectPrice)
 	mux.HandleFunc("POST /api/browser/news-collect", handleBrowserNewsCollect)
+	mux.HandleFunc("POST /api/video/quick-search", handleVideoQuickSearch)
 	mux.HandleFunc("POST /api/browser/search-and-pdf", handleBrowserSearchAndPDF)
 	mux.HandleFunc("GET /api/browser/open-file", handleOpenFile)
 

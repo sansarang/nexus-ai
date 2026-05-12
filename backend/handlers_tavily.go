@@ -32,21 +32,51 @@ func tavilySearch(apiKey, query string, maxItems int) (tavilyResult, bool) {
 	return tavilySearchDomain(apiKey, query, maxItems, "")
 }
 
+// tavilySearchImages: 이미지 URL 포함 검색
+func tavilySearchImages(apiKey, query string, maxItems int) ([]string, bool) {
+	payload := map[string]any{
+		"api_key":        apiKey,
+		"query":          query,
+		"max_results":    maxItems,
+		"search_depth":   "basic",
+		"include_images": true,
+	}
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", "https://api.tavily.com/search", bytes.NewReader(body))
+	if err != nil {
+		return nil, false
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return nil, false
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var data struct {
+		Images []string `json:"images"`
+	}
+	if json.Unmarshal(raw, &data) != nil || len(data.Images) == 0 {
+		return nil, false
+	}
+	return data.Images, true
+}
+
 // 특정 도메인에서만 검색 (include_domains 사용)
 func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavilyResult, bool) {
 	payload := map[string]any{
 		"api_key":      apiKey,
 		"query":        query,
 		"max_results":  maxItems,
-		"search_depth": "advanced",
+		"search_depth": "basic",
 	}
 	if domain != "" {
+		// 도메인 지정 시 topic/days 제거 — 조합하면 결과 0개 발생
 		payload["include_domains"] = []string{domain}
-	}
-	// 뉴스/최신 쿼리는 최근 3일 이내 결과만
-	if isNewsQuery(query) {
-		payload["days"] = 3
-		payload["topic"] = "news"
+	} else if isNewsQuery(query) {
+		// 일반 뉴스 검색만 최근 7일 적용 (3일은 너무 좁음)
+		payload["days"] = 7
 	}
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequest("POST", "https://api.tavily.com/search", bytes.NewReader(body))
@@ -106,4 +136,122 @@ func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavi
 	}
 
 	return tavilyResult{Summary: summary, Items: items}, true
+}
+
+// handleVideoQuickSearch: 카테고리 미리보기용 YouTube/TikTok 영상 빠른 검색
+// Mac/Windows 모두 동작 (Tavily API만 사용, chromedp 없음)
+func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Query    string `json:"query"`
+		Platform string `json:"platform"` // "youtube"|"tiktok"|"instagram"|"x"|"all"
+		MaxItems int    `json:"max_items"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Query == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		return
+	}
+	if req.MaxItems == 0 {
+		req.MaxItems = 5
+	}
+
+	llmMu.RLock()
+	tKey := llmTavilyKey
+	llmMu.RUnlock()
+
+	enc := strings.ReplaceAll(req.Query, " ", "%20")
+	var items []map[string]string
+
+	p := req.Platform
+	searchYouTube  := p == "" || p == "youtube"  || p == "all"
+	searchTikTok   := p == "tiktok"   || p == "all"
+	searchInstagram := p == "instagram" || p == "all"
+	searchX        := p == "x"        || p == "all"
+
+	keywords := queryKeywords(req.Query)
+
+	if searchYouTube && tKey != "" {
+		if tr, ok := tavilySearchDomain(tKey, "site:youtube.com "+req.Query, req.MaxItems, "youtube.com"); ok {
+			for _, it := range tr.Items {
+				u := it["url"]
+				if (strings.Contains(u, "youtube.com/watch") || strings.Contains(u, "youtu.be/")) &&
+					titleMatchesQuery(it["title"], keywords) {
+					it["type"] = "video"
+					it["platform"] = "youtube"
+					items = append(items, it)
+				}
+			}
+		}
+	}
+
+	if searchTikTok && tKey != "" {
+		if tr, ok := tavilySearchDomain(tKey, "site:tiktok.com "+req.Query, req.MaxItems, "tiktok.com"); ok {
+			for _, it := range tr.Items {
+				u := it["url"]
+				if strings.Contains(u, "tiktok.com/@") && strings.Contains(u, "/video/") &&
+					titleMatchesQuery(it["title"], keywords) {
+					it["type"] = "video"
+					it["platform"] = "tiktok"
+					items = append(items, it)
+				}
+			}
+		}
+	}
+
+	if searchInstagram && tKey != "" {
+		if tr, ok := tavilySearchDomain(tKey, "site:instagram.com "+req.Query, req.MaxItems, "instagram.com"); ok {
+			for _, it := range tr.Items {
+				u := it["url"]
+				if (strings.Contains(u, "instagram.com/p/") || strings.Contains(u, "instagram.com/reel/")) &&
+					titleMatchesQuery(it["title"], keywords) {
+					it["type"] = "social"
+					it["platform"] = "instagram"
+					items = append(items, it)
+				}
+			}
+		}
+	}
+
+	if searchX && tKey != "" {
+		for _, domain := range []string{"x.com", "twitter.com"} {
+			if tr, ok := tavilySearchDomain(tKey, "site:"+domain+" "+req.Query, req.MaxItems, domain); ok {
+				for _, it := range tr.Items {
+					u := it["url"]
+					if strings.Contains(u, "/status/") && titleMatchesQuery(it["title"], keywords) {
+						it["type"] = "social"
+						it["platform"] = "x"
+						items = append(items, it)
+					}
+				}
+			}
+		}
+	}
+
+	// fallback: 결과 없을 때만 검색 링크 제공
+	if len(items) == 0 && searchYouTube {
+		items = append(items, map[string]string{
+			"title": "YouTube: " + req.Query, "url": "https://www.youtube.com/results?search_query=" + enc,
+			"type": "video", "platform": "youtube",
+		})
+	}
+	if len(items) == 0 && searchTikTok {
+		items = append(items, map[string]string{
+			"title": "TikTok: " + req.Query, "url": "https://www.tiktok.com/search?q=" + enc,
+			"type": "video", "platform": "tiktok",
+		})
+	}
+	if len(items) == 0 && searchInstagram {
+		items = append(items, map[string]string{
+			"title": "Instagram: " + req.Query, "url": "https://www.instagram.com/explore/tags/" + enc,
+			"type": "social", "platform": "instagram",
+		})
+	}
+	if len(items) == 0 && searchX {
+		items = append(items, map[string]string{
+			"title": "X: " + req.Query, "url": "https://x.com/search?q=" + enc,
+			"type": "social", "platform": "x",
+		})
+	}
+
+	json200(w, map[string]any{"success": true, "items": items, "total": len(items)})
 }

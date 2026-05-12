@@ -62,7 +62,8 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 		Choices []struct {
 			Message struct{ Content string `json:"content"` } `json:"message"`
 		} `json:"choices"`
-		Usage *struct {
+		Citations []string `json:"citations"`
+		Usage     *struct {
 			PromptTokens     int `json:"prompt_tokens"`
 			CompletionTokens int `json:"completion_tokens"`
 		} `json:"usage"`
@@ -84,7 +85,43 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 	if gr.Usage != nil {
 		tokens = gr.Usage.PromptTokens + gr.Usage.CompletionTokens
 	}
+	// citations를 전역 슬라이스에 임시 저장 (callGroqWithCitations에서 사용)
+	lastCitationsMu.Lock()
+	lastCitations = gr.Citations
+	lastCitationsMu.Unlock()
 	return gr.Choices[0].Message.Content, tokens, nil
+}
+
+var (
+	lastCitationsMu sync.Mutex
+	lastCitations   []string
+)
+
+// callGroqWithCitations: 답변 텍스트 + Perplexity citations URL 목록 반환
+func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) (string, []string, error) {
+	llmMu.RLock()
+	pKey := llmPerplexityKey
+	llmMu.RUnlock()
+	useKey := pKey
+	if useKey == "" {
+		useKey = apiKey
+	}
+	pModel := model
+	switch model {
+	case "llama-3.3-70b-versatile", "llama-3.1-70b-versatile":
+		pModel = pplxChatModel
+	case "llama-3.1-8b-instant", "llama-3.2-3b-preview":
+		pModel = pplxFastModel
+	}
+	text, _, err := callOpenAICompat(useKey, pplxAPIBase, pModel, msgs, maxTokens, false)
+	if err != nil {
+		return "", nil, err
+	}
+	lastCitationsMu.Lock()
+	cites := make([]string, len(lastCitations))
+	copy(cites, lastCitations)
+	lastCitationsMu.Unlock()
+	return text, cites, nil
 }
 
 // callGroq: Perplexity API 호출 (이름 유지 — 호출부 변경 최소화)

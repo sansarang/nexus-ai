@@ -37,7 +37,9 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		items   []map[string]string
 	}
 
-	ch := make(chan source, 5)
+	isKoreanQuery := !isEnglishQuery(req.Query)
+
+	ch := make(chan source, 8)
 	var wg sync.WaitGroup
 
 	// ── 소스 1: Tavily 일반 검색 ──────────────────────────────
@@ -51,16 +53,32 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	// ── 소스 2: Tavily 뉴스 검색 ─────────────────────────────
+	// ── 소스 2: 뉴스 검색 (언어별 분리) ──────────────────────
 	if tKey != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			newsQuery := req.Query + " 최신 뉴스"
-			if r, ok := tavilySearch(tKey, newsQuery, req.MaxResults/2+1); ok {
-				ch <- source{name: "news", summary: r.Summary, items: r.Items}
+		if isKoreanQuery {
+			// 한국어: 네이버뉴스/다음뉴스/JTBC/MBC 병렬 검색
+			koreanNewsDomains := []string{"news.naver.com", "news.daum.net", "jtbc.co.kr", "imbc.com", "kbs.co.kr"}
+			for _, domain := range koreanNewsDomains {
+				domain := domain
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if r, ok := tavilySearchDomain(tKey, req.Query, 3, domain); ok {
+						ch <- source{name: "news", items: r.Items}
+					}
+				}()
 			}
-		}()
+		} else {
+			// 영어: 일반 뉴스 검색
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				newsQuery := req.Query + " latest news"
+				if r, ok := tavilySearch(tKey, newsQuery, req.MaxResults/2+1); ok {
+					ch <- source{name: "news", summary: r.Summary, items: r.Items}
+				}
+			}()
+		}
 	}
 
 	// ── 소스 3: YouTube 영상 검색 ────────────────────────────
@@ -68,21 +86,37 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ytQuery := req.Query + " site:youtube.com"
 			if r, ok := tavilySearchDomain(tKey, req.Query, req.MaxResults/2+2, "youtube.com"); ok {
-				_ = ytQuery
 				ch <- source{name: "youtube", items: r.Items}
 			}
 		}()
 	}
 
-	// ── 소스 4: 네이버 TV·VOD 검색 ──────────────────────────
-	if tKey != "" {
+	// ── 소스 4: 한국어 전용 추가 소스 ────────────────────────
+	if tKey != "" && isKoreanQuery {
+		// 네이버 블로그/카페
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if r, ok := tavilySearchDomain(tKey, req.Query, req.MaxResults/2+2, "tv.naver.com"); ok {
+			if r, ok := tavilySearchDomain(tKey, req.Query, 3, "blog.naver.com"); ok {
+				ch <- source{name: "blog", items: r.Items}
+			}
+		}()
+		// 네이버 TV
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if r, ok := tavilySearchDomain(tKey, req.Query, 3, "tv.naver.com"); ok {
 				ch <- source{name: "video", items: r.Items}
+			}
+		}()
+	} else if tKey != "" {
+		// 영어: Reddit/YouTube 추가
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if r, ok := tavilySearchDomain(tKey, req.Query, 3, "reddit.com"); ok {
+				ch <- source{name: "web", items: r.Items}
 			}
 		}()
 	}
@@ -107,6 +141,8 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 	var allItems []map[string]string
 	var summaries []string
 
+	queryWords := queryKeywords(req.Query)
+
 	for s := range ch {
 		if s.summary != "" {
 			summaries = append(summaries, s.summary)
@@ -114,6 +150,15 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		for _, item := range s.items {
 			url := item["url"]
 			if url == "" || seen[url] {
+				continue
+			}
+			title := item["title"]
+			// 키워드 관련성 필터
+			if len(queryWords) > 0 && !titleMatchesQuery(title, queryWords) {
+				continue
+			}
+			// 한국어 쿼리인데 제목이 순수 영어(한글 없음)이면 제외
+			if isKoreanQuery && title != "" && !containsKorean(title) {
 				continue
 			}
 			seen[url] = true
@@ -140,7 +185,8 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 				titleLines = append(titleLines, fmt.Sprintf("• %s", t))
 			}
 		}
-		today := time.Now().Format("2006-01-02")
+		kst := time.FixedZone("KST", 9*3600)
+		today := time.Now().In(kst).Format("2006-01-02 15:04 KST")
 		cat := detectCategory(req.Query)
 		sysMsg := fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
 
@@ -153,7 +199,7 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 
 [결과 부족 시 안내]
 %s`, buildOfficialSiteHint(cat))
-		userMsg := fmt.Sprintf("오늘: %s\n질문: \"%s\"\n검색된 콘텐츠 제목:\n%s\n\n위 검색 결과만 근거로 질문에 직접 답하세요. 결과에 없는 내용은 절대 추측하지 마세요.",
+		userMsg := fmt.Sprintf("현재 시각(KST): %s\n질문: \"%s\"\n검색된 콘텐츠 제목:\n%s\n\n⚠️ 시간을 언급할 때 반드시 KST(한국 표준시) 기준으로 표현하세요. UTC 표기 절대 금지.\n위 검색 결과만 근거로 질문에 직접 답하세요. 결과에 없는 내용은 절대 추측하지 마세요.",
 			today, req.Query, strings.Join(titleLines, "\n"))
 		msgs := []groqMsg{
 			{Role: "system", Content: sysMsg},
@@ -219,6 +265,16 @@ func buildFallbackURLs(query, site string) []map[string]string {
 	// 카테고리 자동 감지 → 최적 사이트 링크
 	cat := detectCategory(query)
 	return categoryFallbackSites(query, cat)
+}
+
+// containsKorean: 문자열에 한글 문자가 하나라도 있는지 확인
+func containsKorean(s string) bool {
+	for _, r := range s {
+		if r >= 0xAC00 && r <= 0xD7A3 {
+			return true
+		}
+	}
+	return false
 }
 
 // fetchPageContent: URL의 본문 텍스트를 가져옴 (딥서치용)
