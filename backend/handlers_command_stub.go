@@ -394,14 +394,6 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		"컴퓨존": "compuzone.co.kr",
 		"아이셋톱": "isettop.com",
 	}
-	priceVerbs := []string{"찾아", "검색", "최저가", "얼마", "가격", "사고 싶", "구매", "살 수", "추천", "알려줘", "보여줘", "있어"}
-	hasPriceVerb := false
-	for _, kw := range priceVerbs {
-		if strings.Contains(msgLower, kw) {
-			hasPriceVerb = true
-			break
-		}
-	}
 	detectedShopSite := ""
 	for keyword, domain := range shoppingSites {
 		if strings.Contains(msgLower, strings.ToLower(keyword)) {
@@ -413,7 +405,8 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	outFmt := detectOutputFormat(req.Message)
 	isMultiAction := outFmt != outNone && hasFileSaveVerb(req.Message) && req.PendingIntent == ""
 
-	if detectedShopSite != "" && hasPriceVerb && req.PendingIntent == "" {
+	// 특정 사이트가 감지되면 바로 price_compare (priceVerb 불필요)
+	if detectedShopSite != "" && req.PendingIntent == "" {
 		q := req.Message
 		for kw := range shoppingSites {
 			q = strings.ReplaceAll(q, kw, "")
