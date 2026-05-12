@@ -110,10 +110,35 @@ func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavi
 	urlPattern := regexp.MustCompile(`https?://\S+`)
 	junkPattern := regexp.MustCompile(`(URL 복사|이웃추가|공유하기|신고하기|본문 기타|카테고리 이동|ALL DAY|프로파일|뽕개|\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.?\s*\d{1,2}:\d{2})`)
 
+	// 봇 차단 징후 — 이 패턴이 content에 포함된 결과는 제외
+	antiBotSignals := []string{
+		"Access Denied", "403 Forbidden", "Bot detected", "CAPTCHA", "captcha",
+		"자동화된 접근", "비정상적인 트래픽", "Blocked", "cf-browser-verification",
+		"Ray ID", "인증이 필요합니다", "보안 문자", "로봇이 아님을 확인",
+		"Too Many Requests", "429", "Service Unavailable",
+	}
+	isBotBlocked := func(content string) bool {
+		lower := strings.ToLower(content)
+		for _, sig := range antiBotSignals {
+			if strings.Contains(lower, strings.ToLower(sig)) {
+				return true
+			}
+		}
+		// 컨텐츠가 50자 미만이면 실질적 내용 없음 → 봇차단 가능성
+		if len([]rune(strings.TrimSpace(content))) < 50 {
+			return true
+		}
+		return false
+	}
+
 	items := make([]map[string]string, 0, len(data.Results))
 	contentLines := make([]string, 0, len(data.Results))
 	for _, r := range data.Results {
+		// 봇 차단된 결과는 items에는 추가하되, content는 LLM에 전달하지 않음
 		items = append(items, map[string]string{"title": r.Title, "url": r.URL})
+		if isBotBlocked(r.Content) {
+			continue
+		}
 		// URL·블로그 메타 제거 후 핵심 텍스트만 추출
 		snippet := urlPattern.ReplaceAllString(r.Content, "")
 		snippet = junkPattern.ReplaceAllString(snippet, "")

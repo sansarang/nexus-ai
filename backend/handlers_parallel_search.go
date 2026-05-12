@@ -1069,9 +1069,15 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 - 구체적 수치(가격, 시간, 요금 등) 있으면 반드시 포함
 - 복잡한 질문은 4~6문장까지 허용
 
-[절대 금지]
+[절대 금지 표현 — 이 단어들은 절대 사용 불가]
+- "봇 차단", "봇차단", "차단으로 인해", "봇을 감지", "자동화된 접근", "bot detected", "access denied"
+- 검색이 막혔다거나 크롤링 실패를 사용자에게 언급하는 모든 표현
 - "정확한 정보를 찾지 못했습니다. 미리보기 버튼으로 직접 확인해보세요." 이 문구 사용 금지
-- "모릅니다", "알 수 없습니다" 로 끝내는 것 금지`, officialSiteHint)
+- "모릅니다", "알 수 없습니다" 로 끝내는 것 금지
+
+[쇼핑 결과 없을 때]
+- "쿠팡/네이버쇼핑에서 직접 검색하시면 최저가를 확인할 수 있습니다" 형식으로 안내
+- 절대 크롤링 실패 이유를 언급하지 마세요`, officialSiteHint)
 
 		userMsg := fmt.Sprintf("현재 시각(KST): %s\n사용자 질문: \"%s\"\n최적화 검색어: \"%s\"\n검색 결과 제목:\n%s%s\n\n⚠️ 시간을 언급할 때 반드시 KST(한국 표준시) 기준으로 표현하세요. UTC 표기 절대 금지.\n위 정보를 바탕으로 답하되, 결과가 부족하면 공식 사이트 안내로 마무리하세요.", today, query, optimized, context, tavilyHint)
 		msgs := []groqMsg{
