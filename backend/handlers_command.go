@@ -722,8 +722,12 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 				items = categoryFallbackSites(resolvedQuery, cat)
 			}
 			msg := pr.Summary
-			if msg == "" {
-				msg = buildNoResultMessage(resolvedQuery, cat, "")
+			if msg == "" || containsBotBlockText(msg) {
+				if cleaned := cleanPerplexityCall(resolvedQuery, gKey); cleaned != "" {
+					msg = cleaned
+				} else if msg == "" {
+					msg = buildNoResultMessage(resolvedQuery, cat, "")
+				}
 			}
 			return map[string]any{"query": resolvedQuery, "summary": msg, "items": items}, msg
 		}
@@ -829,16 +833,20 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			if len(items) == 0 {
 				items = categoryFallbackSites(query, cat)
 			}
+			msg := pr.Summary
+			if msg == "" || containsBotBlockText(msg) {
+				if cleaned := cleanPerplexityCall(query, gKey); cleaned != "" {
+					msg = cleaned
+				} else if msg == "" {
+					msg = buildNoResultMessage(query, cat, "")
+				}
+			}
 			result := map[string]any{
 				"query":        query,
 				"site":         site,
-				"summary":      pr.Summary,
+				"summary":      msg,
 				"items":        items,
 				"preview_type": categoryPreviewType(cat),
-			}
-			msg := pr.Summary
-			if msg == "" {
-				msg = buildNoResultMessage(query, cat, "")
 			}
 			return result, msg
 		}
@@ -1317,8 +1325,12 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			items = categoryFallbackSites(resolved, cat)
 		}
 		msg := pr.Summary
-		if msg == "" {
-			msg = buildNoResultMessage(resolved, cat, "")
+		if msg == "" || containsBotBlockText(msg) {
+			if cleaned := cleanPerplexityCall(resolved, gKey); cleaned != "" {
+				msg = cleaned
+			} else if msg == "" {
+				msg = buildNoResultMessage(resolved, cat, "")
+			}
 		}
 		return map[string]any{"query": resolved, "summary": msg, "items": items}, msg
 	}
@@ -1750,6 +1762,39 @@ func truncateStr(s string, n int) string {
 
 // resolveWithHistory: 이전 대화 이력을 참고해 모호한 질문을 구체화
 // 예) "버스 시간 알려줘" + 이전 대화 "부산 정관→인천터미널 버스" → "부산 정관에서 인천터미널 버스 시간"
+// containsBotBlockText: LLM 응답에 봇 차단 언급이 있는지 확인
+func containsBotBlockText(s string) bool {
+	signals := []string{
+		"봇 차단", "봇을 감지", "봇으로 감지", "차단으로 인해", "접근이 차단", "접근 불가",
+		"bot detected", "bot blocked", "access denied", "403 forbidden",
+		"자동화된 접근", "비정상적인 트래픽", "captcha", "보안 문자",
+		"크롤링", "스크래핑이 차단", "검색 결과를 가져올 수 없",
+	}
+	lower := strings.ToLower(s)
+	for _, sig := range signals {
+		if strings.Contains(lower, strings.ToLower(sig)) {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanPerplexityCall: 봇 차단 없이 Perplexity에 직접 질문 (Mac 스타일 폴백)
+func cleanPerplexityCall(query, gKey string) string {
+	kst := time.FixedZone("KST", 9*3600)
+	today := time.Now().In(kst).Format("2006-01-02 15:04 KST")
+	sys := "당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 최신 정보를 찾아 자연스러운 한국어로 2~4문장 답변하세요. 마크다운 헤더 금지. '봇 차단', '접근 불가', '차단으로 인해' 같은 표현 절대 금지. 정보 없으면 공식 사이트나 앱 이용을 안내하세요."
+	msgs := []groqMsg{
+		{Role: "system", Content: sys},
+		{Role: "user", Content: fmt.Sprintf("현재 시각: %s\n%s", today, query)},
+	}
+	text, _, err := callGroq(gKey, groqChatModel, msgs, 512, false)
+	if err != nil || text == "" {
+		return ""
+	}
+	return text
+}
+
 func resolveWithHistory(current string, history []ConvHistoryMsg) string {
 	if len(history) == 0 {
 		return current

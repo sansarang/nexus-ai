@@ -1034,10 +1034,11 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 	// 카테고리별 공식 사이트 안내 문구
 	officialSiteHint := buildOfficialSiteHint(cat)
 
-	// 쇼핑/SNS/맛집 등 봇차단이 잦은 카테고리에서 Tavily content가 비어있으면
-	// Perplexity 자체 실시간 웹 검색으로 직접 전환 (Tavily context 없이 쿼리만 전달)
-	needsDirectSearch := len(titleLines) == 0 && tavilySummary == "" &&
-		(cat == catShopping || cat == catFood || cat == catEntertainment || cat == catTravel || cat == catNews)
+	// 브라우저 스크래핑(merged)도 비어있고 Tavily content도 없을 때만
+	// Perplexity sonar-online 직접 검색으로 폴백
+	needsDirectSearch := len(merged) == 0 && tavilySummary == "" &&
+		(cat == catShopping || cat == catFood || cat == catEntertainment ||
+			cat == catTravel || cat == catNews || cat == catRecipe)
 
 	var summary string
 	if gKey != "" {

@@ -7,48 +7,98 @@ import (
 	"time"
 )
 
-// browserParallelScrape: Windows에서 여러 사이트를 goroutine으로 동시 크롤링
-// Google, Naver, YouTube를 병렬 실행 후 결과 합산
+// browserParallelScrape: 카테고리에 맞는 실제 사이트를 스텔스 브라우저로 병렬 크롤링
 func browserParallelScrape(query string, maxItems int) []map[string]string {
-	ctx, cancel, err := withStealthBrowserTimeout(30 * time.Second)
+	if !isChromeInstalled() {
+		return nil
+	}
+
+	ctx, cancel, err := withStealthBrowserTimeout(45 * time.Second)
 	if err != nil {
 		return nil
 	}
 	defer cancel()
 
-	type siteResult struct {
-		items []map[string]string
+	cat := detectCategory(query)
+
+	// 카테고리별 직접 스크래핑 대상 사이트
+	type siteJob struct{ site, src string }
+	var jobs []siteJob
+
+	switch cat {
+	case catShopping:
+		jobs = []siteJob{
+			{"coupang.com", "shop"},
+			{"shopping.naver.com", "shop"},
+		}
+	case catFood:
+		jobs = []siteJob{
+			{"place.naver.com", "food"},
+			{"baemin.com", "food"},
+		}
+	case catEntertainment:
+		jobs = []siteJob{
+			{"youtube.com", "youtube"},
+			{"tiktok.com", "tiktok"},
+		}
+	case catTravel:
+		jobs = []siteJob{
+			{"yanolja.com", "travel"},
+			{"naver.com", "travel"},
+		}
+	case catRealEstate:
+		jobs = []siteJob{
+			{"land.naver.com", "realestate"},
+			{"zigbang.com", "realestate"},
+		}
+	case catNews:
+		jobs = []siteJob{
+			{"naver.com", "news"},
+		}
+	default:
+		// 일반 검색: Google + Naver
+		jobs = []siteJob{
+			{"google.com", "web"},
+			{"naver.com", "web"},
+		}
 	}
 
-	sites := []string{"google", "naver"}
-	ch := make(chan siteResult, len(sites))
+	ch := make(chan []map[string]string, len(jobs))
 	var wg sync.WaitGroup
+	perSite := maxItems/len(jobs) + 2
 
-	perSite := maxItems/len(sites) + 1
-
-	for _, site := range sites {
+	for _, job := range jobs {
+		job := job
 		wg.Add(1)
-		go func(s string) {
+		go func() {
 			defer wg.Done()
-			items, _ := scrapeSearchResults(ctx, query, s, perSite)
-			if len(items) > 0 {
-				// scrapeSearchResults 반환 타입(map)을 통일
-				normalized := make([]map[string]string, 0, len(items))
-				for _, it := range items {
-					item := map[string]string{
-						"title": it["name"],
-						"url":   it["url"],
-					}
-					if item["title"] == "" {
-						item["title"] = it["title"]
-					}
-					if item["url"] != "" {
-						normalized = append(normalized, item)
-					}
-				}
-				ch <- siteResult{items: normalized}
+			items, err := scrapeSearchResults(ctx, query, job.site, perSite)
+			if err != nil || len(items) == 0 {
+				return
 			}
-		}(site)
+			// title/url 필드 통일
+			normalized := make([]map[string]string, 0, len(items))
+			for _, it := range items {
+				item := map[string]string{
+					"title":  it["name"],
+					"url":    it["link"],
+					"price":  it["price"],
+					"source": job.src,
+				}
+				if item["title"] == "" {
+					item["title"] = it["title"]
+				}
+				if item["url"] == "" {
+					item["url"] = it["url"]
+				}
+				if item["url"] != "" && item["title"] != "" {
+					normalized = append(normalized, item)
+				}
+			}
+			if len(normalized) > 0 {
+				ch <- normalized
+			}
+		}()
 	}
 
 	go func() {
@@ -58,7 +108,7 @@ func browserParallelScrape(query string, maxItems int) []map[string]string {
 
 	var all []map[string]string
 	for r := range ch {
-		all = append(all, r.items...)
+		all = append(all, r...)
 	}
 	return all
 }

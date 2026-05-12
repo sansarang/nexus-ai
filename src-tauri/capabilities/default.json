@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "shell:default",
+    "shell:allow-open",
     "shell:allow-spawn",
     "shell:allow-kill",
     "global-shortcut:allow-register",
