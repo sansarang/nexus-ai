@@ -519,6 +519,128 @@ var siteProfiles = map[string]SiteProfile{
 		ProductNameSel:  ".tit",
 		WaitAfterSearch: 1 * time.Second,
 	},
+	// ── 중고차 ──────────────────────────────────────────────
+	"heydealer.com": {
+		SearchInputSel:  "input[placeholder*='검색']",
+		ProductListSel:  "ul.car-list li, div[class*='CarCard'], div[class*='car-item']",
+		ProductNameSel:  "p[class*='name'], h3[class*='name'], div[class*='title']",
+		ProductPriceSel: "p[class*='price'], span[class*='price']",
+		WaitAfterSearch: 3 * time.Second,
+	},
+	"encar.com": {
+		SearchInputSel:  "input#SearchText",
+		SearchBtnSel:    "button.btn_search",
+		ProductListSel:  ".card_wrap, .item_list li",
+		ProductNameSel:  ".car_name, .tit_car",
+		ProductPriceSel: ".price, .tit_price",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	"kbchachacha.com": {
+		SearchInputSel:  "input[name='keyword']",
+		ProductListSel:  ".list_item, .car_list li",
+		ProductNameSel:  ".car_name, .tit",
+		ProductPriceSel: ".price",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	"bobaedream.co.kr": {
+		SearchInputSel:  "input#search_word",
+		SearchBtnSel:    "button.btn-search",
+		ProductListSel:  ".car-list-item, .listing-card",
+		ProductNameSel:  ".car-name, h3",
+		ProductPriceSel: ".price",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	// ── 중고거래 ─────────────────────────────────────────────
+	"daangn.com": {
+		SearchInputSel:  "input[type='search'], input[placeholder*='검색']",
+		ProductListSel:  "article, div[data-type='article'], li[data-type='article']",
+		ProductNameSel:  "strong, h2, .article-title",
+		ProductPriceSel: "span[class*='price'], div[class*='price']",
+		WaitAfterSearch: 3 * time.Second,
+	},
+	"bunjang.co.kr": {
+		SearchInputSel:  "input[placeholder*='검색']",
+		ProductListSel:  "ul.product-list li, div[class*='product-item']",
+		ProductNameSel:  "p[class*='name'], div[class*='title']",
+		ProductPriceSel: "p[class*='price']",
+		WaitAfterSearch: 2500 * time.Millisecond,
+	},
+	"joongna.com": {
+		SearchInputSel:  "input[type='search']",
+		ProductListSel:  ".product-card, .item-card",
+		ProductNameSel:  ".product-name, .item-name",
+		ProductPriceSel: ".price",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	// ── 쇼핑 ─────────────────────────────────────────────────
+	"shopping.naver.com": {
+		SearchInputSel:  "input.input_text",
+		SearchBtnSel:    "button.btn_search",
+		ProductListSel:  ".basicList_item__0T9YD, .product_item__MDjeH",
+		ProductNameSel:  ".basicList_title__VfX3c, .product_title__Mmkiq",
+		ProductPriceSel: ".price_num__S2p_v, .price_area__BCCh0",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	"musinsa.com": {
+		SearchInputSel:  "input[placeholder*='검색']",
+		ProductListSel:  "ul.list-section li, .goods_list_item",
+		ProductNameSel:  ".goods_nm, .article_title",
+		ProductPriceSel: ".price, .sale_price",
+		WaitAfterSearch: 2500 * time.Millisecond,
+	},
+	"a-bly.com": {
+		ProductListSel:  "li[class*='product'], div[class*='ProductCard']",
+		ProductNameSel:  "p[class*='name']",
+		ProductPriceSel: "span[class*='price']",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	"zigzag.kr": {
+		ProductListSel:  "div[class*='ProductCard'], li[class*='item']",
+		ProductNameSel:  "div[class*='name'], p[class*='title']",
+		ProductPriceSel: "span[class*='price']",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	"ohou.se": {
+		ProductListSel:  "div[class*='product'], article[class*='card']",
+		ProductNameSel:  "p[class*='name'], div[class*='title']",
+		ProductPriceSel: "span[class*='price']",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	// ── 부동산 ───────────────────────────────────────────────
+	"zigbang.com": {
+		SearchInputSel:  "input[placeholder*='검색'], input[type='text']",
+		ProductListSel:  "li[class*='item'], div[class*='ItemCard']",
+		ProductNameSel:  "p[class*='name'], div[class*='title']",
+		ProductPriceSel: "span[class*='price']",
+		WaitAfterSearch: 3 * time.Second,
+	},
+	"dabangapp.com": {
+		ProductListSel:  "div[class*='room-item'], li[class*='item']",
+		ProductNameSel:  "div[class*='title'], p[class*='name']",
+		ProductPriceSel: "span[class*='price']",
+		WaitAfterSearch: 3 * time.Second,
+	},
+	// ── 여행/숙박 ────────────────────────────────────────────
+	"yanolja.com": {
+		SearchInputSel:  "input[placeholder*='검색']",
+		ProductListSel:  "div[class*='accommodation'], li[class*='item'], article",
+		ProductNameSel:  "p[class*='name'], h3, div[class*='title']",
+		ProductPriceSel: "span[class*='price'], div[class*='price']",
+		WaitAfterSearch: 3 * time.Second,
+	},
+	"goodchoice.kr": {
+		ProductListSel:  "li.box_list, div.item_area",
+		ProductNameSel:  ".name, h3",
+		ProductPriceSel: ".price, .sale",
+		WaitAfterSearch: 2 * time.Second,
+	},
+	// ── 배달 ─────────────────────────────────────────────────
+	"baemin.com": {
+		ProductListSel:  "li[class*='shop'], div[class*='restaurant']",
+		ProductNameSel:  "div[class*='name'], span[class*='title']",
+		ProductPriceSel: "span[class*='min'], div[class*='price']",
+		WaitAfterSearch: 3 * time.Second,
+	},
 }
 
 func getSiteProfile(url string) (SiteProfile, string) {

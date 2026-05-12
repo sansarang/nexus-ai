@@ -667,53 +667,6 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// normalizeSite: 사이트 이름을 도메인 형식으로 정규화
-func normalizeSite(site string) string {
-	aliases := map[string]string{
-		"youtube":   "youtube.com",
-		"tiktok":    "tiktok.com",
-		"temu":      "temu.com",
-		"coupang":   "coupang.com",
-		"naver":     "naver.com",
-		"google":    "google.com",
-		"danawa":    "danawa.com",
-		"gmarket":   "gmarket.co.kr",
-		"11st":      "11st.co.kr",
-		"11번가":      "11st.co.kr",
-		"auction":   "auction.co.kr",
-		"옥션":        "auction.co.kr",
-		"auto":      "coupang.com",
-		"":          "coupang.com",
-	}
-	if normalized, ok := aliases[site]; ok {
-		return normalized
-	}
-	return site
-}
-
-// buildSearchURL: 사이트별 검색 URL 생성
-func buildSearchURL(site, query string) string {
-	site = normalizeSite(site)
-	encoded := strings.ReplaceAll(query, " ", "+")
-	searchURLs := map[string]string{
-		"coupang.com":    fmt.Sprintf("https://www.coupang.com/np/search?q=%s", encoded),
-		"naver.com":      fmt.Sprintf("https://search.naver.com/search.naver?query=%s", encoded),
-		"google.com":     fmt.Sprintf("https://www.google.com/search?q=%s&hl=ko", encoded),
-		"danawa.com":     fmt.Sprintf("https://search.danawa.com/dsearch.php?query=%s", encoded),
-		"gmarket.co.kr":  fmt.Sprintf("https://browse.gmarket.co.kr/search?keyword=%s", encoded),
-		"youtube.com":    fmt.Sprintf("https://www.youtube.com/results?search_query=%s", encoded),
-		"tiktok.com":     fmt.Sprintf("https://www.tiktok.com/search?q=%s", encoded),
-		"temu.com":       fmt.Sprintf("https://www.temu.com/search_result.html?search_key=%s&refer_page_name=home", encoded),
-		"11st.co.kr":     fmt.Sprintf("https://search.11st.co.kr/Search.tmall?kwd=%s", encoded),
-		"auction.co.kr":  fmt.Sprintf("https://www.auction.co.kr/search/list.aspx?keyword=%s", encoded),
-	}
-	if url, ok := searchURLs[site]; ok {
-		return url
-	}
-	// 알 수 없는 사이트 → 구글 검색
-	return fmt.Sprintf("https://www.google.com/search?q=%s&hl=ko", encoded)
-}
-
 // ──────────────────────────────────────────────────────────────
 // POST /api/browser/close  — 브라우저 닫기
 // ──────────────────────────────────────────────────────────────
