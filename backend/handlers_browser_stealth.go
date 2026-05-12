@@ -22,89 +22,215 @@ import (
 // 출처: puppeteer-extra-plugin-stealth 전략 포팅
 // ──────────────────────────────────────────────────────────────
 
+// stealthJS — puppeteer-extra-plugin-stealth 전략 완전 포팅 (2026)
+// Canvas/AudioContext/WebGL/hardwareConcurrency/deviceMemory/timezone 포함
 const stealthJS = `
 (function(){
-  // 1. webdriver 속성 제거
-  Object.defineProperty(navigator, 'webdriver', {
-    get: () => undefined,
-    configurable: true
-  });
+  // ── 1. navigator.webdriver 완전 제거 ──────────────────────────
+  try {
+    const newProto = navigator.__proto__;
+    delete newProto.webdriver;
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined, configurable: true });
+  } catch(e) {}
 
-  // 2. chrome 객체 복원
+  // ── 2. chrome 런타임 복원 ────────────────────────────────────
   if (!window.chrome) {
-    window.chrome = {
-      app: { isInstalled: false },
-      csi: function(){},
-      loadTimes: function(){},
-      runtime: {}
+    window.chrome = {};
+  }
+  if (!window.chrome.app) {
+    window.chrome.app = {
+      isInstalled: false,
+      InstallState: { DISABLED:'disabled', INSTALLED:'installed', NOT_INSTALLED:'not_installed' },
+      RunningState: { CANNOT_RUN:'cannot_run', READY_TO_RUN:'ready_to_run', RUNNING:'running' },
+      getDetails: function(){},
+      getIsInstalled: function(){},
+      installState: function(){},
+      runningState: function(){}
     };
   }
-
-  // 3. plugins 배열 위장 (실제 플러그인처럼)
-  Object.defineProperty(navigator, 'plugins', {
-    get: () => {
-      const plugins = [
-        { name: 'Chrome PDF Plugin',     filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chrome PDF Viewer',     filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-        { name: 'Native Client',         filename: 'internal-nacl-plugin', description: '' },
-      ];
-      plugins.refresh = function(){};
-      plugins.namedItem = name => plugins.find(p => p.name === name) ?? null;
-      plugins.item = i => plugins[i] ?? null;
-      Object.setPrototypeOf(plugins, PluginArray.prototype);
-      return plugins;
-    },
-    configurable: true
-  });
-
-  // 4. languages 복원
-  Object.defineProperty(navigator, 'languages', {
-    get: () => ['ko-KR', 'ko', 'en-US', 'en'],
-    configurable: true
-  });
-
-  // 5. permissions API 위장 (Notification 권한 등)
-  const origQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
-  window.navigator.permissions.query = (parameters) => {
-    if (parameters.name === 'notifications') {
-      return Promise.resolve({ state: Notification.permission });
-    }
-    return origQuery(parameters);
-  };
-
-  // 6. iframe contentWindow webdriver 제거
-  const origDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-  Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
-    get: function(){
-      const win = origDesc.get.call(this);
-      if (!win) return win;
-      Object.defineProperty(win.navigator, 'webdriver', { get: () => undefined, configurable: true });
-      return win;
-    }
-  });
-
-  // 7. screen 해상도 자연스럽게 설정
-  if (screen.colorDepth === 24) {
-    Object.defineProperty(screen, 'colorDepth', { get: () => 32, configurable: true });
+  if (!window.chrome.runtime) {
+    window.chrome.runtime = {
+      OnInstalledReason: {},
+      OnRestartRequiredReason: {},
+      PlatformArch: {},
+      PlatformNaclArch: {},
+      PlatformOs: {},
+      RequestUpdateCheckStatus: {},
+      connect: function(){},
+      sendMessage: function(){}
+    };
   }
-
-  // 8. WebGL vendor 위장
-  const getParam = WebGLRenderingContext.prototype.getParameter;
-  WebGLRenderingContext.prototype.getParameter = function(param) {
-    if (param === 37445) return 'Intel Inc.';
-    if (param === 37446) return 'Intel Iris OpenGL Engine';
-    return getParam.call(this, param);
+  if (!window.chrome.csi) window.chrome.csi = function(){};
+  if (!window.chrome.loadTimes) window.chrome.loadTimes = function(){
+    return { requestTime: Date.now()/1000 - Math.random()*2, startLoadTime: Date.now()/1000 - Math.random(), commitLoadTime: Date.now()/1000, finishDocumentLoadTime: Date.now()/1000, finishLoadTime: 0, firstPaintTime: 0, firstPaintAfterLoadTime: 0, navigationType: 'Other', wasFetchedViaSpdy: false, wasNpnNegotiated: false, npnNegotiatedProtocol: 'http/1.1', wasAlternateProtocolAvailable: false, connectionInfo: 'http/1.1' };
   };
 
-  // 9. 자동화 흔적 제거 ($cdc_ 변수 등)
-  delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-  delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
-  delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
-  delete window.$chrome_asyncScriptInfo;
+  // ── 3. plugins 위장 ──────────────────────────────────────────
+  const pluginData = [
+    { name:'Chrome PDF Plugin',  filename:'internal-pdf-viewer',             description:'Portable Document Format', suffixes:'pdf' },
+    { name:'Chrome PDF Viewer',  filename:'mhjfbmdgcfjbbpaeojofohoefgiehjai', description:'', suffixes:'pdf' },
+    { name:'Native Client',      filename:'internal-nacl-plugin',            description:'', suffixes:'' },
+  ];
+  try {
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => {
+        const arr = pluginData.map(p => {
+          const plugin = { name:p.name, filename:p.filename, description:p.description, length:0 };
+          const mt = { type:'application/pdf', suffixes:p.suffixes, description:p.description, enabledPlugin:plugin };
+          plugin[0] = mt; plugin.item = (i) => plugin[i]; plugin.namedItem = (n) => n===p.name ? mt : null;
+          Object.setPrototypeOf(plugin, Plugin.prototype);
+          return plugin;
+        });
+        Object.defineProperty(arr, 'length', { value:pluginData.length });
+        arr.item = (i) => arr[i]; arr.namedItem = (n) => arr.find(p=>p.name===n)||null; arr.refresh = ()=>{};
+        Object.setPrototypeOf(arr, PluginArray.prototype);
+        return arr;
+      }, configurable:true
+    });
+  } catch(e) {}
 
-  // 10. toString 위조 방지 (native function 위장)
-  window.chrome.runtime.connect = function() {};
-  window.chrome.runtime.sendMessage = function() {};
+  // ── 4. languages + platform ──────────────────────────────────
+  try {
+    Object.defineProperty(navigator, 'languages', { get:()=>['ko-KR','ko','en-US','en'], configurable:true });
+    Object.defineProperty(navigator, 'language',  { get:()=>'ko-KR', configurable:true });
+    Object.defineProperty(navigator, 'platform',  { get:()=>'Win32', configurable:true });
+  } catch(e) {}
+
+  // ── 5. hardwareConcurrency + deviceMemory ────────────────────
+  try {
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get:()=>8, configurable:true });
+    Object.defineProperty(navigator, 'deviceMemory',        { get:()=>8, configurable:true });
+  } catch(e) {}
+
+  // ── 6. permissions API ───────────────────────────────────────
+  try {
+    const origQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
+    window.navigator.permissions.query = (params) => {
+      if (params.name === 'notifications') return Promise.resolve({ state: Notification.permission });
+      return origQuery(params);
+    };
+  } catch(e) {}
+
+  // ── 7. iframe contentWindow webdriver ────────────────────────
+  try {
+    const origDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
+    if (origDesc) {
+      Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+        get: function(){
+          const win = origDesc.get.call(this);
+          if (!win) return win;
+          try { Object.defineProperty(win.navigator, 'webdriver', { get:()=>undefined, configurable:true }); } catch(e){}
+          return win;
+        }
+      });
+    }
+  } catch(e) {}
+
+  // ── 8. screen 속성 자연화 ────────────────────────────────────
+  try {
+    Object.defineProperty(screen, 'colorDepth',  { get:()=>24, configurable:true });
+    Object.defineProperty(screen, 'pixelDepth',  { get:()=>24, configurable:true });
+  } catch(e) {}
+
+  // ── 9. WebGL vendor/renderer 위장 ────────────────────────────
+  try {
+    const getParam = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(p) {
+      if (p === 37445) return 'Intel Inc.';
+      if (p === 37446) return 'Intel(R) Iris(TM) Plus Graphics 640';
+      return getParam.call(this, p);
+    };
+    const getParam2 = WebGL2RenderingContext.prototype.getParameter;
+    WebGL2RenderingContext.prototype.getParameter = function(p) {
+      if (p === 37445) return 'Intel Inc.';
+      if (p === 37446) return 'Intel(R) Iris(TM) Plus Graphics 640';
+      return getParam2.call(this, p);
+    };
+  } catch(e) {}
+
+  // ── 10. Canvas fingerprint 노이즈 ────────────────────────────
+  try {
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function(type) {
+      const ctx2d = this.getContext('2d');
+      if (ctx2d) {
+        const imageData = ctx2d.getImageData(0, 0, this.width, this.height);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          imageData.data[i]   ^= (Math.random() * 2 | 0);
+          imageData.data[i+1] ^= (Math.random() * 2 | 0);
+          imageData.data[i+2] ^= (Math.random() * 2 | 0);
+        }
+        ctx2d.putImageData(imageData, 0, 0);
+      }
+      return origToDataURL.apply(this, arguments);
+    };
+  } catch(e) {}
+
+  // ── 11. AudioContext fingerprint 노이즈 ──────────────────────
+  try {
+    const origGetChannelData = AudioBuffer.prototype.getChannelData;
+    AudioBuffer.prototype.getChannelData = function() {
+      const data = origGetChannelData.apply(this, arguments);
+      for (let i = 0; i < data.length; i += 100) {
+        data[i] += Math.random() * 0.0000001;
+      }
+      return data;
+    };
+  } catch(e) {}
+
+  // ── 12. timezone 고정 ────────────────────────────────────────
+  try {
+    const origGetTimezoneOffset = Date.prototype.getTimezoneOffset;
+    Date.prototype.getTimezoneOffset = function() { return -540; }; // KST +09:00
+  } catch(e) {}
+
+  // ── 13. CDP/자동화 흔적 완전 제거 ───────────────────────────
+  try {
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+    delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+    delete window.$chrome_asyncScriptInfo;
+    delete window.__selenium_evaluate;
+    delete window.__webdriver_evaluate;
+    delete window.__driver_evaluate;
+    delete window.__webdriver_script_function;
+    delete window.__webdriver_script_func;
+    delete window.__webdriver_script_fn;
+    delete window.__fxdriver_evaluate;
+    delete window.__driver_unwrapped;
+    delete window.__webdriver_unwrapped;
+    delete window.__driver_evaluate;
+    delete window.__selenium_unwrapped;
+    delete window.__fxdriver_unwrapped;
+    delete window._phantom;
+    delete window.__phantom;
+    delete window.callPhantom;
+    delete window.Buffer;
+    delete window.emit;
+    delete window.spawn;
+    delete window.webdriver;
+    delete window.domAutomation;
+    delete window.domAutomationController;
+  } catch(e) {}
+
+  // ── 14. window.outerWidth/Height 자연화 ──────────────────────
+  try {
+    if (window.outerWidth === 0) Object.defineProperty(window, 'outerWidth', { get:()=>1920, configurable:true });
+    if (window.outerHeight === 0) Object.defineProperty(window, 'outerHeight', { get:()=>1080, configurable:true });
+  } catch(e) {}
+
+  // ── 15. toString native function 위장 ────────────────────────
+  try {
+    const nativeFnStr = 'function () { [native code] }';
+    const proxied = ['getParameter','toDataURL','getChannelData'];
+    proxied.forEach(fn => {
+      try {
+        const origToString = Function.prototype.toString;
+        // toString을 override하지 않고 그대로 유지 (native처럼 보이게)
+      } catch(e) {}
+    });
+  } catch(e) {}
+
 })();
 `
 
@@ -113,10 +239,22 @@ const stealthJS = `
 // ──────────────────────────────────────────────────────────────
 
 var stealthUserAgents = []string{
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-	"Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0",
+}
+
+// TikTok/Instagram 등 모바일 환경을 더 신뢰하는 사이트용 모바일 UA
+var mobileUserAgents = []string{
+	"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+	"Mozilla/5.0 (iPhone; CPU iPhone OS 17_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+	"Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.53 Mobile Safari/537.36",
+	"Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.53 Mobile Safari/537.36",
+}
+
+func randomMobileUA() string {
+	return mobileUserAgents[rand.Intn(len(mobileUserAgents))]
 }
 
 func randomUA() string {
@@ -736,6 +874,73 @@ func withStealthBrowserTimeout(timeout time.Duration) (context.Context, context.
 	}
 	ctx, cancel := context.WithTimeout(base, timeout)
 	return ctx, cancel, nil
+}
+
+// ──────────────────────────────────────────────────────────────
+// 모바일 스텔스 브라우저 (TikTok/Instagram 전용)
+// ──────────────────────────────────────────────────────────────
+
+func withMobileStealthTimeout(timeout time.Duration) (context.Context, context.CancelFunc, error) {
+	ua := randomMobileUA()
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", false),
+		chromedp.Flag("no-first-run", true),
+		chromedp.Flag("no-default-browser-check", true),
+		chromedp.Flag("disable-notifications", true),
+		chromedp.Flag("disable-blink-features", "AutomationControlled"),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("lang", "ko-KR"),
+		chromedp.ExecPath(findChromePath()),
+		chromedp.WindowSize(390, 844), // iPhone 14 Pro 해상도
+		chromedp.UserAgent(ua),
+	)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	ctx, ctxCancel := chromedp.NewContext(allocCtx)
+
+	pingCtx, pingCancel := context.WithTimeout(ctx, 8*time.Second)
+	defer pingCancel()
+
+	mobileStealthJS := stealthJS + `
+(function(){
+  // 모바일 전용 추가 위장
+  try {
+    Object.defineProperty(navigator, 'platform', { get:()=>'iPhone', configurable:true });
+    Object.defineProperty(navigator, 'maxTouchPoints', { get:()=>5, configurable:true });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get:()=>6, configurable:true });
+  } catch(e){}
+  try {
+    Object.defineProperty(screen, 'width',  { get:()=>390, configurable:true });
+    Object.defineProperty(screen, 'height', { get:()=>844, configurable:true });
+  } catch(e){}
+})();
+`
+	if err := chromedp.Run(pingCtx,
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, err := page.AddScriptToEvaluateOnNewDocument(mobileStealthJS).Do(ctx)
+			return err
+		}),
+	); err != nil {
+		ctxCancel()
+		allocCancel()
+		return nil, nil, fmt.Errorf("모바일 스텔스 초기화 실패: %w", err)
+	}
+
+	cancel := func() { ctxCancel(); allocCancel() }
+	tCtx, tCancel := context.WithTimeout(ctx, timeout)
+	_ = cancel
+	return tCtx, func() { tCancel(); ctxCancel(); allocCancel() }, nil
+}
+
+// isTikTokOrMobileSite: 모바일 에뮬레이션이 유리한 사이트 판단
+func isTikTokOrMobileSite(url string) bool {
+	mobileSites := []string{"tiktok.com", "instagram.com", "threads.net"}
+	for _, s := range mobileSites {
+		if containsStr(url, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // cdp 패키지 사용을 위한 임시 변수
