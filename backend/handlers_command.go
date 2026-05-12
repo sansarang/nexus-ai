@@ -941,17 +941,19 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		llmMu.RLock()
 		pcTKey := llmTavilyKey
 		llmMu.RUnlock()
-		searchQ := pcQuery
-		if pcSite != "" { searchQ = "site:" + pcSite + " " + pcQuery }
 		var priceItems []map[string]string
 		if pcTKey != "" {
-			if tr, ok := tavilySearch(pcTKey, searchQ, pcMax); ok {
-				for _, it := range tr.Items {
-					if pcSite == "" || strings.Contains(it["url"], strings.Split(pcSite, ".")[0]) {
-						priceItems = append(priceItems, it)
-					}
+			// include_domains 방식 사용 (site: 접두사는 결과 0개 버그 있음)
+			if pcSite != "" {
+				if tr, ok := tavilySearchDomain(pcTKey, pcQuery, pcMax, pcSite); ok {
+					priceItems = tr.Items
 				}
-				if len(priceItems) == 0 { priceItems = tr.Items }
+			}
+			// 도메인 검색 결과 없으면 일반 검색
+			if len(priceItems) == 0 {
+				if tr, ok := tavilySearch(pcTKey, pcQuery, pcMax); ok {
+					priceItems = tr.Items
+				}
 			}
 		}
 		siteName := pcSite; if siteName == "" { siteName = "쇼핑몰" }

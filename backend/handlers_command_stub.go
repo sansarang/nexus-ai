@@ -660,19 +660,16 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		llmMu.RLock()
 		priceTKey := llmTavilyKey
 		llmMu.RUnlock()
-		searchQuery := query
-		if site != "" {
-			searchQuery = "site:" + site + " " + query
-		}
 		var priceItems []map[string]string
 		if priceTKey != "" {
-			if tr, ok := tavilySearch(priceTKey, searchQuery, maxItems); ok {
-				for _, it := range tr.Items {
-					if site == "" || strings.Contains(it["url"], strings.Split(site, ".")[0]) {
-						priceItems = append(priceItems, it)
-					}
+			// include_domains 방식 사용 (site: 접두사는 결과 0개 버그 있음)
+			if site != "" {
+				if tr, ok := tavilySearchDomain(priceTKey, query, maxItems, site); ok {
+					priceItems = tr.Items
 				}
-				if len(priceItems) == 0 {
+			}
+			if len(priceItems) == 0 {
+				if tr, ok := tavilySearch(priceTKey, query, maxItems); ok {
 					priceItems = tr.Items
 				}
 			}
