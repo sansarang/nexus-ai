@@ -1387,6 +1387,11 @@ func runWebSearch(query, site, output string, maxItems int, gKey string) (any, s
 - 시간 언급 시 반드시 KST(한국 표준시) 기준 표현, UTC 절대 금지
 - 친절한 AI 비서처럼 작성`, today, query, strings.Join(lines, "\n"))
 		s, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
+		if s == "" || containsBotBlockText(s) {
+			if cleaned := cleanPerplexityCall(query, gKey); cleaned != "" {
+				s = cleaned
+			}
+		}
 		summary = s
 	}
 
@@ -1766,9 +1771,11 @@ func truncateStr(s string, n int) string {
 func containsBotBlockText(s string) bool {
 	signals := []string{
 		"봇 차단", "봇을 감지", "봇으로 감지", "차단으로 인해", "접근이 차단", "접근 불가",
+		"차단되어", "차단되었", "수집할 수 없", "수집이 불가", "가져올 수 없",
+		"결과를 제공할 수 없", "정보를 제공할 수 없", "검색 결과가 차단",
 		"bot detected", "bot blocked", "access denied", "403 forbidden",
 		"자동화된 접근", "비정상적인 트래픽", "captcha", "보안 문자",
-		"크롤링", "스크래핑이 차단", "검색 결과를 가져올 수 없",
+		"스크래핑이 차단", "크롤링이 차단",
 	}
 	lower := strings.ToLower(s)
 	for _, sig := range signals {

@@ -1097,8 +1097,8 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 - 복잡한 질문은 4~6문장까지 허용
 
 [절대 금지 표현]
-- "봇 차단", "봇차단", "차단으로 인해", "봇을 감지", "자동화된 접근", "bot detected", "access denied"
-- 검색이 막혔다거나 크롤링 실패를 사용자에게 언급하는 모든 표현
+- "봇 차단", "봇차단", "차단으로 인해", "차단되어", "수집할 수 없", "수집이 불가", "봇을 감지", "자동화된 접근", "bot detected", "access denied"
+- 검색이 막혔다거나 크롤링 실패, 정보 수집 불가를 사용자에게 언급하는 모든 표현
 - "정확한 정보를 찾지 못했습니다. 미리보기 버튼으로 직접 확인해보세요." 이 문구 사용 금지
 - "모릅니다", "알 수 없습니다" 로 끝내는 것 금지`, officialSiteHint)
 
