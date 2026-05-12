@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -28,7 +29,7 @@ func isChromeInstalled() bool {
 		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
 	}
 	for _, p := range paths {
-		if _, err := exec.LookPath(p); err == nil {
+		if _, err := os.Stat(p); err == nil {
 			return true
 		}
 	}
