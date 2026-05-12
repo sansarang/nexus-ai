@@ -2196,27 +2196,66 @@ export function FloatingCharacter() {
           id: `think-${msgId}`, role: 'nexus', text: '',
           inlineCard: { type: 'agent_thinking', steps: [`${siteLabel} 검색 중...`, '실시간 결과 수집 중...', '미리보기 준비 중...'] },
         }])
-        const res = await siteSearch(searchQuery, detectedSite, 8)
+
+        // 1차: /api/site-search (새 백엔드) 시도
+        // 2차: /api/llm/deep-search-web (기존 백엔드) 폴백 - 백엔드 재시작 없이 작동
+        let previewItems: Array<{ title: string; url: string }> = []
+        let displayText = ''
+
+        try {
+          const res = await siteSearch(searchQuery, detectedSite, 8)
+          if (res.success && res.results.length > 0) {
+            previewItems = res.results.map((it: { name: string; link: string }) => ({ title: it.name, url: it.link }))
+            displayText = res.summary
+          }
+        } catch {
+          // /api/site-search 없는 구버전 백엔드 → deep-search-web 폴백
+        }
+
+        if (previewItems.length === 0) {
+          const siteQuery = `site:${detectedSite} ${searchQuery}`
+          const dr = await backendAPI.llmDeepSearchWeb(siteQuery, 8)
+          if (dr.success && dr.items && dr.items.length > 0) {
+            previewItems = dr.items
+              .filter((it: { url?: string }) => it.url)
+              .map((it: { title: string; url: string }) => ({ title: it.title, url: it.url }))
+            displayText = dr.summary || `${siteLabel}에서 "${searchQuery}" 결과예요.`
+          }
+        }
+
+        // 그래도 없으면 해당 사이트 검색 직접 링크라도 제공
+        if (previewItems.length === 0) {
+          const enc = encodeURIComponent(searchQuery)
+          const fallbackURLs: Record<string, string> = {
+            'daangn.com': `https://www.daangn.com/search/${enc}`,
+            'bunjang.co.kr': `https://m.bunjang.co.kr/search/products?q=${enc}`,
+            'encar.com': `https://www.encar.com/search/car?searchKey=${enc}`,
+            'heydealer.com': `https://www.heydealer.com/car/search?keyword=${enc}`,
+            'coupang.com': `https://www.coupang.com/np/search?q=${enc}`,
+            'shopping.naver.com': `https://search.shopping.naver.com/search/all?query=${enc}`,
+            'musinsa.com': `https://www.musinsa.com/search/musinsa/integration?q=${enc}`,
+            'danawa.com': `https://search.danawa.com/dsearch.php?query=${enc}`,
+            'yanolja.com': `https://www.yanolja.com/keyword/${enc}`,
+          }
+          const url = fallbackURLs[detectedSite] || `https://www.${detectedSite}/search?q=${enc}`
+          previewItems = [{ title: `${siteLabel}에서 "${searchQuery}" 검색하기`, url }]
+          displayText = `${siteLabel} 앱이나 사이트에서 직접 확인해보세요.`
+        }
+
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
         setTyping(false); typingRef.current = false
-
-        if (res.success && res.results.length > 0) {
-          const previewItems = res.results.map((it: { name: string; link: string }) => ({ title: it.name, url: it.link }))
-          setFloatingPreview(previewItems)
-          setEmotion('happy')
-          const displayText = res.summary || `${siteLabel}에서 "${searchQuery}" 결과예요.`
-          setMessages(prev => [...prev, {
-            id: `${msgId}-res`, role: 'nexus', text: displayText,
-            inlineCard2: { type: 'system_action', icon: '🔍', title: `${siteLabel}: ${searchQuery}`, detail: res.results.slice(0,5).map((it: { name: string }) => `• ${it.name}`).join('\n'), success: true },
-          }])
-          pushModelHistory(trimmed, displayText)
-          speakText(displayText)
-          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
-          setHistoryVersion(v => v + 1)
-          return
-        }
-        // 결과 없으면 아래 /api/command로 계속 진행
-        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+        setFloatingPreview(previewItems)
+        setEmotion('happy')
+        if (!displayText) displayText = `${siteLabel}에서 "${searchQuery}" 결과예요.`
+        setMessages(prev => [...prev, {
+          id: `${msgId}-res`, role: 'nexus', text: displayText,
+          inlineCard2: { type: 'system_action', icon: '🔍', title: `${siteLabel}: ${searchQuery}`, detail: previewItems.slice(0,5).map(it => `• ${it.title}`).join('\n'), success: true },
+        }])
+        pushModelHistory(trimmed, displayText)
+        speakText(displayText)
+        appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
+        setHistoryVersion(v => v + 1)
+        return
       } catch {
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
       }
