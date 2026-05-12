@@ -38,12 +38,16 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: "v3-rust"  # bump to bust stale cache with bad config.toml
 
-      - name: Remove stale cargo config (from previous cache)
+      - name: Remove stale cargo config (BOM 방지)
         shell: pwsh
         run: |
           $cfg = "$env:USERPROFILE\.cargo\config.toml"
           if (Test-Path $cfg) { Remove-Item $cfg -Force; Write-Host "Removed stale config.toml" }
+          # 프로젝트 레벨 cargo config도 확인
+          $projCfg = ".cargo\config.toml"
+          if (Test-Path $projCfg) { Write-Host "Project config exists: $projCfg" }
 
       - name: Find MSVC link.exe and export to GITHUB_ENV
         shell: pwsh
