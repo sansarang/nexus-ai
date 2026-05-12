@@ -13,6 +13,156 @@ import (
 	"time"
 )
 
+// ── 멀티 액션: 출력 포맷 (Windows 빌드용) ────────────────────────
+type outputFormat string
+
+const (
+	outPDF      outputFormat = "pdf"
+	outExcel    outputFormat = "excel"
+	outWord     outputFormat = "word"
+	outMarkdown outputFormat = "markdown"
+	outTXT      outputFormat = "txt"
+	outNone     outputFormat = ""
+)
+
+func detectOutputFormat(msg string) outputFormat {
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "pdf") || strings.Contains(lower, "피디에프"):
+		return outPDF
+	case strings.Contains(lower, "excel") || strings.Contains(lower, "엑셀") || strings.Contains(lower, "xlsx"):
+		return outExcel
+	case strings.Contains(lower, "word") || strings.Contains(lower, "워드") || strings.Contains(lower, "docx"):
+		return outWord
+	case strings.Contains(lower, "마크다운") || strings.Contains(lower, "markdown") || strings.Contains(lower, ".md"):
+		return outMarkdown
+	case strings.Contains(lower, "txt") || strings.Contains(lower, "텍스트 파일") || strings.Contains(lower, "텍스트로 저장"):
+		return outTXT
+	}
+	return outNone
+}
+
+func hasFileSaveVerb(msg string) bool {
+	lower := strings.ToLower(msg)
+	saveVerbs := []string{
+		"저장", "만들어", "작성", "정리", "보고서", "리포트", "report",
+		"파일로", "제품설명서", "설명서", "요약해서", "뽑아줘", "출력",
+	}
+	for _, v := range saveVerbs {
+		if strings.Contains(lower, v) {
+			return true
+		}
+	}
+	return false
+}
+
+func saveResultToFile(format outputFormat, title string, items []map[string]string, summary string) (string, error) {
+	home, _ := os.UserHomeDir()
+	ts := time.Now().Format("20060102_150405")
+	safeName := strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r >= '가' && r <= '힣' {
+			return r
+		}
+		return '_'
+	}, title)
+	if len([]rune(safeName)) > 20 {
+		safeName = string([]rune(safeName)[:20])
+	}
+
+	buildMD := func() string {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("# %s\n\n", title))
+		sb.WriteString(fmt.Sprintf("*생성: %s*\n\n", time.Now().Format("2006-01-02 15:04:05")))
+		if summary != "" {
+			sb.WriteString("## 요약\n\n" + summary + "\n\n")
+		}
+		if len(items) > 0 {
+			sb.WriteString("## 항목\n\n")
+			for i, it := range items {
+				name := it["title"]
+				if name == "" { name = it["name"] }
+				url := it["url"]
+				if url == "" { url = it["link"] }
+				price := it["price"]
+				if price != "" {
+					sb.WriteString(fmt.Sprintf("%d. **%s** — %s\n   %s\n\n", i+1, name, price, url))
+				} else {
+					sb.WriteString(fmt.Sprintf("%d. [%s](%s)\n\n", i+1, name, url))
+				}
+			}
+		}
+		return sb.String()
+	}
+
+	switch format {
+	case outMarkdown:
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.md", safeName, ts))
+		return path, os.WriteFile(path, []byte(buildMD()), 0644)
+
+	case outTXT:
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.txt", safeName, ts))
+		var sb strings.Builder
+		sb.WriteString(title + "\n" + strings.Repeat("=", 40) + "\n")
+		sb.WriteString("생성: " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
+		if summary != "" { sb.WriteString("[ 요약 ]\n" + summary + "\n\n") }
+		if len(items) > 0 {
+			sb.WriteString("[ 항목 ]\n")
+			for i, it := range items {
+				name := it["title"]; if name == "" { name = it["name"] }
+				url := it["url"]; if url == "" { url = it["link"] }
+				price := it["price"]
+				if price != "" {
+					sb.WriteString(fmt.Sprintf("%d. %s — %s\n   %s\n\n", i+1, name, price, url))
+				} else {
+					sb.WriteString(fmt.Sprintf("%d. %s\n   %s\n\n", i+1, name, url))
+				}
+			}
+		}
+		return path, os.WriteFile(path, []byte(sb.String()), 0644)
+
+	case outExcel:
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.csv", safeName, ts))
+		var sb strings.Builder
+		sb.WriteString("번호,제목/상품명,가격,링크\n")
+		for i, it := range items {
+			name := it["title"]; if name == "" { name = it["name"] }
+			url := it["url"]; if url == "" { url = it["link"] }
+			price := it["price"]
+			sb.WriteString(fmt.Sprintf("%d,\"%s\",\"%s\",\"%s\"\n", i+1,
+				strings.ReplaceAll(name, `"`, `""`),
+				strings.ReplaceAll(price, `"`, `""`),
+				url))
+		}
+		return path, os.WriteFile(path, []byte(sb.String()), 0644)
+
+	case outPDF:
+		// Windows: HTML → PDF via wkhtmltopdf (있으면), 없으면 MD로 fallback
+		mdContent := buildMD()
+		mdPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.md", safeName, ts))
+		pdfPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.pdf", safeName, ts))
+		_ = os.WriteFile(mdPath, []byte(mdContent), 0644)
+		// wkhtmltopdf 시도
+		if err := exec.Command("wkhtmltopdf", mdPath, pdfPath).Run(); err == nil {
+			_ = os.Remove(mdPath)
+			return pdfPath, nil
+		}
+		return mdPath, nil // fallback to MD
+
+	case outWord:
+		// Windows: pandoc 있으면 docx, 없으면 MD fallback
+		mdContent := buildMD()
+		mdPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.md", safeName, ts))
+		docxPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.docx", safeName, ts))
+		_ = os.WriteFile(mdPath, []byte(mdContent), 0644)
+		if err := exec.Command("pandoc", mdPath, "-o", docxPath).Run(); err == nil {
+			_ = os.Remove(mdPath)
+			return docxPath, nil
+		}
+		return mdPath, nil
+	}
+	return "", fmt.Errorf("지원하지 않는 형식")
+}
+
 // ══════════════════════════════════════════════════════════════════
 //  POST /api/command
 //  사용자가 어떤 자연어로 말해도 Nexus가 알아서 처리합니다.
@@ -314,7 +464,94 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if isTikTokReq && hasVideoVerb {
+		// ── 쇼핑/도메인 사전 라우팅 ─────────────────────────────
+		shoppingSites := map[string]string{
+			// 쇼핑몰
+			"태무": "temu.com", "테무": "temu.com", "temu": "temu.com",
+			"쿠팡": "coupang.com", "coupang": "coupang.com",
+			"네이버쇼핑": "shopping.naver.com", "네이버 쇼핑": "shopping.naver.com",
+			"11번가": "11st.co.kr",
+			"지마켓": "gmarket.co.kr", "gmarket": "gmarket.co.kr",
+			"옥션": "auction.co.kr",
+			"위메프": "wemakeprice.com",
+			"티몬": "tmon.co.kr",
+			"알리": "aliexpress.com", "aliexpress": "aliexpress.com", "알리익스프레스": "aliexpress.com",
+			"아마존": "amazon.com", "amazon": "amazon.com",
+			"무신사": "musinsa.com",
+			"에이블리": "a-bly.com",
+			"지그재그": "zigzag.kr",
+			"브랜디": "brandi.co.kr",
+			"오늘의집": "ohou.se",
+			"이케아": "ikea.com/kr", "ikea": "ikea.com/kr",
+			// 중고차
+			"헤이딜러": "heydealer.com", "heydealer": "heydealer.com",
+			"엔카": "encar.com", "encar": "encar.com",
+			"kb차차차": "kbchachacha.com", "차차차": "kbchachacha.com",
+			"오토피디아": "autopedia.co.kr",
+			"보배드림": "bobaedream.co.kr",
+			"중고차": "encar.com",
+			// 중고거래
+			"당근": "daangn.com", "당근마켓": "daangn.com", "daangn": "daangn.com",
+			"번개장터": "bunjang.co.kr", "번개": "bunjang.co.kr",
+			"중고나라": "joongna.com",
+			// 부동산
+			"직방": "zigbang.com",
+			"다방": "dabangapp.com",
+			"호갱노노": "hogangnono.com",
+			"네이버부동산": "land.naver.com", "네이버 부동산": "land.naver.com",
+			"부동산114": "r114.com",
+			// 음식/배달
+			"배민": "baemin.com", "배달의민족": "baemin.com",
+			"요기요": "yogiyo.co.kr",
+			"쿠팡이츠": "coupangeats.com",
+			// 여행/숙박
+			"야놀자": "yanolja.com",
+			"여기어때": "goodchoice.kr",
+			"에어비앤비": "airbnb.co.kr", "airbnb": "airbnb.com",
+			// 전자기기 가격비교
+			"다나와": "danawa.com",
+			"에누리": "enuri.com",
+			"컴퓨존": "compuzone.co.kr",
+		}
+		priceVerbs := []string{"찾아", "검색", "최저가", "얼마", "가격", "사고 싶", "구매", "살 수", "추천", "알려줘", "보여줘", "있어"}
+		hasPriceVerb := false
+		for _, kw := range priceVerbs {
+			if strings.Contains(msgLower, kw) {
+				hasPriceVerb = true
+				break
+			}
+		}
+		detectedShopSite := ""
+		for keyword, domain := range shoppingSites {
+			if strings.Contains(msgLower, strings.ToLower(keyword)) {
+				detectedShopSite = domain
+				break
+			}
+		}
+
+		outFmt := detectOutputFormat(req.Message)
+		isMultiAct := outFmt != outNone && hasFileSaveVerb(req.Message)
+
+		if detectedShopSite != "" && hasPriceVerb {
+			q := req.Message
+			for kw := range shoppingSites {
+				q = strings.ReplaceAll(q, kw, "")
+			}
+			for _, rm := range []string{"에서", "찾아줘", "검색해줘", "최저가", "가격", "얼마야", "구매", "사고 싶어"} {
+				q = strings.ReplaceAll(q, rm, "")
+			}
+			q = strings.TrimSpace(q)
+			if q == "" {
+				q = req.Message
+			}
+			if isMultiAct {
+				intentAction = "multi_action"
+				intentParams = map[string]any{"sub_action": "price_compare", "query": q, "site": detectedShopSite, "max_items": 8, "format": string(outFmt)}
+			} else {
+				intentAction = "price_compare"
+				intentParams = map[string]any{"query": q, "site": detectedShopSite, "max_items": 8}
+			}
+		} else if isTikTokReq && hasVideoVerb {
 			query := req.Message
 			for _, rm := range []string{"틱톡에서", "틱톡", "tiktok", "찾아줘", "검색해줘", "보여줘", "영상", "추천해줘"} {
 				query = strings.ReplaceAll(query, rm, "")
@@ -622,6 +859,107 @@ func dispatchAction(action string, params map[string]any, original, gKey string,
 		}
 		ytSummary := fmt.Sprintf("YouTube에서 \"%s\" 영상 %d개를 찾았어요!", query, len(ytItems))
 		return map[string]any{"query": query, "platform": "youtube", "items": ytItems, "total": len(ytItems), "summary": ytSummary}, ytSummary
+
+	// ── 가격/쇼핑 검색 ───────────────────────────────────────
+	case "price_compare":
+		pcQuery := str("query")
+		if pcQuery == "" { pcQuery = original }
+		pcSite := str("site")
+		pcMax := intVal("max_items", 8)
+		llmMu.RLock()
+		pcTKey := llmTavilyKey
+		llmMu.RUnlock()
+		searchQ := pcQuery
+		if pcSite != "" { searchQ = "site:" + pcSite + " " + pcQuery }
+		var priceItems []map[string]string
+		if pcTKey != "" {
+			if tr, ok := tavilySearch(pcTKey, searchQ, pcMax); ok {
+				for _, it := range tr.Items {
+					if pcSite == "" || strings.Contains(it["url"], strings.Split(pcSite, ".")[0]) {
+						priceItems = append(priceItems, it)
+					}
+				}
+				if len(priceItems) == 0 { priceItems = tr.Items }
+			}
+		}
+		siteName := pcSite; if siteName == "" { siteName = "쇼핑몰" }
+		if len(priceItems) == 0 {
+			enc := strings.ReplaceAll(pcQuery, " ", "+")
+			priceItems = []map[string]string{{"title": pcQuery + " 검색", "url": "https://www." + pcSite + "/search?q=" + enc}}
+		}
+		results := make([]map[string]string, 0, len(priceItems))
+		for _, it := range priceItems {
+			results = append(results, map[string]string{"site": siteName, "name": it["title"], "price": "", "link": it["url"]})
+		}
+		pcSummary := fmt.Sprintf("%s에서 \"%s\" 상품 %d개를 찾았어요!", siteName, pcQuery, len(results))
+		return map[string]any{"query": pcQuery, "site": pcSite, "summary": pcSummary, "results": results, "total": len(results)}, pcSummary
+
+	// ── 멀티 액션: 검색 + 파일 저장 ────────────────────────────
+	case "multi_action":
+		maSubAction := str("sub_action")
+		maQuery := str("query"); if maQuery == "" { maQuery = original }
+		maSite := str("site")
+		maPlatform := str("platform")
+		maFmtStr := str("format")
+		maMax := intVal("max_items", 8)
+		maFmt := outputFormat(maFmtStr)
+		llmMu.RLock()
+		maTKey := llmTavilyKey
+		llmMu.RUnlock()
+
+		var maItems []map[string]string
+		var maActionSummary string
+
+		switch maSubAction {
+		case "price_compare":
+			searchQ := maQuery
+			if maSite != "" { searchQ = "site:" + maSite + " " + maQuery }
+			if maTKey != "" {
+				if tr, ok := tavilySearch(maTKey, searchQ, maMax); ok {
+					for _, it := range tr.Items {
+						if maSite == "" || strings.Contains(it["url"], strings.Split(maSite, ".")[0]) {
+							maItems = append(maItems, map[string]string{"title": it["title"], "url": it["url"], "price": ""})
+						}
+					}
+				}
+			}
+			sn := maSite; if sn == "" { sn = "쇼핑몰" }
+			maActionSummary = fmt.Sprintf("%s에서 \"%s\" 상품 %d개 검색 결과", sn, maQuery, len(maItems))
+		case "video_search":
+			prefix := "site:youtube.com"
+			if maPlatform == "tiktok" { prefix = "site:tiktok.com" }
+			if maTKey != "" {
+				if tr, ok := tavilySearch(maTKey, prefix+" "+maQuery, maMax); ok {
+					maItems = tr.Items
+				}
+			}
+			pn := "YouTube"; if maPlatform == "tiktok" { pn = "TikTok" }
+			maActionSummary = fmt.Sprintf("%s에서 \"%s\" 영상 %d개 검색 결과", pn, maQuery, len(maItems))
+		default:
+			if maTKey != "" {
+				if tr, ok := tavilySearch(maTKey, maQuery, maMax); ok { maItems = tr.Items }
+			}
+			maActionSummary = fmt.Sprintf("\"%s\" 검색 결과 %d개", maQuery, len(maItems))
+		}
+
+		maTitle := maQuery
+		if len([]rune(maTitle)) > 20 { maTitle = string([]rune(maTitle)[:20]) }
+		maFilePath, maSaveErr := saveResultToFile(maFmt, maTitle, maItems, maActionSummary)
+		var maFileMsg string
+		if maSaveErr != nil {
+			maFileMsg = "⚠️ 파일 저장 실패: " + maSaveErr.Error()
+		} else {
+			ext := strings.ToUpper(maFmtStr)
+			maFileMsg = fmt.Sprintf("📄 %s 파일로 저장됨: %s", ext, maFilePath)
+		}
+		maResults := make([]map[string]string, 0, len(maItems))
+		for _, it := range maItems {
+			maResults = append(maResults, map[string]string{"site": maSite, "name": it["title"], "price": it["price"], "link": it["url"]})
+		}
+		return map[string]any{
+			"query": maQuery, "summary": maActionSummary, "results": maResults, "total": len(maResults),
+			"file_path": maFilePath, "file_msg": maFileMsg, "format": maFmtStr, "sub_action": maSubAction,
+		}, maActionSummary + "\n" + maFileMsg
 
 	// ── 파일 검색 ────────────────────────────────────────────
 	case "file_search":

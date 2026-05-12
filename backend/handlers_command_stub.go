@@ -340,16 +340,61 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 	var preRoutedAction string
 	var preRoutedParams map[string]any
-	// 가격/쇼핑 사전 라우팅
+	// 가격/쇼핑/도메인 사전 라우팅
 	shoppingSites := map[string]string{
+		// ── 쇼핑몰 ──────────────────────────────────────
 		"태무": "temu.com", "테무": "temu.com", "temu": "temu.com",
 		"쿠팡": "coupang.com", "coupang": "coupang.com",
 		"네이버쇼핑": "shopping.naver.com", "네이버 쇼핑": "shopping.naver.com",
-		"11번가": "11st.co.kr", "지마켓": "gmarket.co.kr",
-		"알리": "aliexpress.com", "ali": "aliexpress.com",
+		"11번가": "11st.co.kr",
+		"지마켓": "gmarket.co.kr", "gmarket": "gmarket.co.kr",
+		"옥션": "auction.co.kr", "auction": "auction.co.kr",
+		"위메프": "wemakeprice.com",
+		"티몬": "tmon.co.kr",
+		"알리": "aliexpress.com", "aliexpress": "aliexpress.com", "알리익스프레스": "aliexpress.com",
 		"아마존": "amazon.com", "amazon": "amazon.com",
+		"무신사": "musinsa.com",
+		"에이블리": "a-bly.com",
+		"지그재그": "zigzag.kr",
+		"브랜디": "brandi.co.kr",
+		"오늘의집": "ohou.se",
+		"이케아": "ikea.com/kr", "ikea": "ikea.com/kr",
+		// ── 중고차 ──────────────────────────────────────
+		"헤이딜러": "heydealer.com", "heydealer": "heydealer.com",
+		"엔카": "encar.com", "encar": "encar.com",
+		"kb차차차": "kbchachacha.com", "차차차": "kbchachacha.com",
+		"sk엔카": "encar.com",
+		"오토피디아": "autopedia.co.kr",
+		"보배드림": "bobaedream.co.kr",
+		"중고차": "encar.com",
+		// ── 중고거래 ────────────────────────────────────
+		"당근": "daangn.com", "당근마켓": "daangn.com", "daangn": "daangn.com",
+		"번개장터": "bunjang.co.kr", "번개": "bunjang.co.kr",
+		"중고나라": "joongna.com",
+		"헬로마켓": "hellomarket.com",
+		// ── 부동산 ──────────────────────────────────────
+		"직방": "zigbang.com", "zigbang": "zigbang.com",
+		"다방": "dabangapp.com",
+		"호갱노노": "hogangnono.com",
+		"네이버부동산": "land.naver.com", "네이버 부동산": "land.naver.com",
+		"부동산114": "r114.com",
+		// ── 음식/배달 ────────────────────────────────────
+		"배민": "baemin.com", "배달의민족": "baemin.com",
+		"요기요": "yogiyo.co.kr",
+		"쿠팡이츠": "coupangeats.com",
+		// ── 여행/숙박 ────────────────────────────────────
+		"야놀자": "yanolja.com",
+		"여기어때": "goodchoice.kr",
+		"에어비앤비": "airbnb.co.kr", "airbnb": "airbnb.com",
+		"호텔스닷컴": "hotels.com",
+		"익스피디아": "expedia.co.kr",
+		// ── 전자기기 ─────────────────────────────────────
+		"다나와": "danawa.com",
+		"에누리": "enuri.com",
+		"컴퓨존": "compuzone.co.kr",
+		"아이셋톱": "isettop.com",
 	}
-	priceVerbs := []string{"찾아", "검색", "최저가", "얼마", "가격", "사고 싶", "구매", "살 수"}
+	priceVerbs := []string{"찾아", "검색", "최저가", "얼마", "가격", "사고 싶", "구매", "살 수", "추천", "알려줘", "보여줘", "있어"}
 	hasPriceVerb := false
 	for _, kw := range priceVerbs {
 		if strings.Contains(msgLower, kw) {
