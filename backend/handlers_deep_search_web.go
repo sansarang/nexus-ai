@@ -37,7 +37,7 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		items   []map[string]string
 	}
 
-	ch := make(chan source, 3)
+	ch := make(chan source, 5)
 	var wg sync.WaitGroup
 
 	// ── 소스 1: Tavily 일반 검색 ──────────────────────────────
@@ -63,7 +63,31 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	// ── 소스 3: 플랫폼 브라우저 검색 ────────────────────────
+	// ── 소스 3: YouTube 영상 검색 ────────────────────────────
+	if tKey != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ytQuery := req.Query + " site:youtube.com"
+			if r, ok := tavilySearchDomain(tKey, req.Query, req.MaxResults/2+2, "youtube.com"); ok {
+				_ = ytQuery
+				ch <- source{name: "youtube", items: r.Items}
+			}
+		}()
+	}
+
+	// ── 소스 4: 네이버 TV·VOD 검색 ──────────────────────────
+	if tKey != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if r, ok := tavilySearchDomain(tKey, req.Query, req.MaxResults/2+2, "tv.naver.com"); ok {
+				ch <- source{name: "video", items: r.Items}
+			}
+		}()
+	}
+
+	// ── 소스 5: 플랫폼 브라우저 검색 ────────────────────────
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -78,7 +102,7 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		close(ch)
 	}()
 
-	// ── 결과 수집 + URL 중복 제거 ────────────────────────────
+	// ── 결과 수집 + URL 중복 제거 + 타입 태깅 ───────────────
 	seen := map[string]bool{}
 	var allItems []map[string]string
 	var summaries []string
@@ -94,6 +118,8 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 			}
 			seen[url] = true
 			item["source"] = s.name
+			// 타입 자동 태깅
+			item["type"] = classifyItemType(url, s.name)
 			allItems = append(allItems, item)
 		}
 	}

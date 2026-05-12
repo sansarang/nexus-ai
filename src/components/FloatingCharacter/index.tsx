@@ -2369,11 +2369,19 @@ export function FloatingCharacter() {
 
           // ── 어떤 액션이든 미리보기 없으면 항상 Tavily로 자동 보완 ──
           if (!previewSet) {
-            backendAPI.llmDeepSearchWeb(trimmed, 6).then(dr => {
+            backendAPI.llmDeepSearchWeb(trimmed, 10).then(dr => {
               if (dr.success && dr.items && dr.items.length > 0) {
                 const items = dr.items
                   .filter((it: { url?: string }) => it.url)
-                  .map((it: { title: string; url: string }) => ({ title: it.title, url: it.url }))
+                  .map((it: { title: string; url: string; type?: string; source?: string }) => ({
+                    title: it.title,
+                    url: it.url,
+                    isVideo: it.type === 'video' ||
+                      it.source === 'youtube' || it.source === 'video' ||
+                      it.url.includes('youtube.com') || it.url.includes('youtu.be') ||
+                      it.url.includes('tv.naver.com') || it.url.includes('tving.com') ||
+                      it.url.includes('wavve.com'),
+                  }))
                 if (items.length > 0) setFloatingPreview(items)
               }
             }).catch(() => {})
@@ -2764,21 +2772,39 @@ export function FloatingCharacter() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 12, color: primaryColor, fontWeight: 800, letterSpacing: '0.05em' }}>
-              {floatingPreview[0]?.isVideo ? '🎬 영상 검색 결과' : '🔍 검색 결과 미리보기'}
+              {floatingPreview.some(x => x.isVideo) && floatingPreview.some(x => !x.isVideo)
+                ? '🔍 웹 검색 결과'
+                : floatingPreview[0]?.isVideo ? '🎬 영상 검색 결과' : '🔍 검색 결과 미리보기'}
             </span>
             <button
               onClick={() => setFloatingPreview(null)}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
             >✕</button>
           </div>
-          {floatingPreview.slice(0, 8).map((item, i) => (
+          {floatingPreview.slice(0, 8).map((item, i) => {
+            const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
+            const isNaverTV = item.url.includes('tv.naver.com')
+            const isStream = item.url.includes('tving.com') || item.url.includes('wavve.com')
+            const typeBadge = isYt ? { label: 'YT', color: '#e53e3e' }
+              : isNaverTV ? { label: 'TV', color: '#03c75a' }
+              : isStream ? { label: '스트림', color: '#7c3aed' }
+              : item.isVideo ? { label: '영상', color: '#e53e3e' }
+              : null
+            return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 8) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, background: `${primaryColor}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontSize: 9, color: primaryColor, fontWeight: 700 }}>{i + 1}</span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                  {item.title}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {typeBadge && (
+                    <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', background: typeBadge.color, borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                      {typeBadge.label}
+                    </span>
+                  )}
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                    {item.title}
+                  </div>
                 </div>
                 <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
                   {item.url.replace(/^https?:\/\//, '').slice(0, 40)}
@@ -2824,7 +2850,8 @@ export function FloatingCharacter() {
                 >미리보기</button>
               )}
             </div>
-          ))}
+            )
+          })}
         </motion.div>
       )}
     </AnimatePresence>

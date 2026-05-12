@@ -5,6 +5,33 @@ import (
 	"strings"
 )
 
+// classifyItemType: URL과 소스명으로 콘텐츠 타입 판별
+func classifyItemType(url, source string) string {
+	lower := strings.ToLower(url)
+	switch {
+	case strings.Contains(lower, "youtube.com") || strings.Contains(lower, "youtu.be"):
+		return "video"
+	case strings.Contains(lower, "tv.naver.com") || strings.Contains(lower, "vod.mbc.co.kr") ||
+		strings.Contains(lower, "vodmall.imbc.com") || strings.Contains(lower, "sbs.co.kr/news/video") ||
+		strings.Contains(lower, "tving.com") || strings.Contains(lower, "wavve.com") ||
+		strings.Contains(lower, "netflix.com") || strings.Contains(lower, "laftel.net") ||
+		strings.Contains(lower, "vimeo.com") || strings.Contains(lower, "dailymotion.com"):
+		return "video"
+	case source == "youtube" || source == "video":
+		return "video"
+	case strings.Contains(lower, "news") || strings.Contains(lower, "/article/") ||
+		strings.Contains(lower, "yna.co.kr") || strings.Contains(lower, "chosun.com") ||
+		strings.Contains(lower, "joongang.co.kr") || strings.Contains(lower, "hani.co.kr") ||
+		strings.Contains(lower, "donga.com") || strings.Contains(lower, "mbc.co.kr/news") ||
+		strings.Contains(lower, "kbs.co.kr/news") || strings.Contains(lower, "sbs.co.kr/news"):
+		return "news"
+	case strings.Contains(lower, ".pdf"):
+		return "document"
+	default:
+		return "article"
+	}
+}
+
 // queryKeywords: 쿼리에서 2글자 이상 유의미한 단어 추출
 func queryKeywords(query string) []string {
 	stopWords := map[string]bool{
