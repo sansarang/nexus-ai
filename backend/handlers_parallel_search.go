@@ -1034,24 +1034,50 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 	// 카테고리별 공식 사이트 안내 문구
 	officialSiteHint := buildOfficialSiteHint(cat)
 
+	// 쇼핑/SNS/맛집 등 봇차단이 잦은 카테고리에서 Tavily content가 비어있으면
+	// Perplexity 자체 실시간 웹 검색으로 직접 전환 (Tavily context 없이 쿼리만 전달)
+	needsDirectSearch := len(titleLines) == 0 && tavilySummary == "" &&
+		(cat == catShopping || cat == catFood || cat == catEntertainment || cat == catTravel || cat == catNews)
+
 	var summary string
 	if gKey != "" {
 		kst := time.FixedZone("KST", 9*3600)
 		nowKST := time.Now().In(kst)
 		today := nowKST.Format("2006-01-02 15:04 KST")
-		context := strings.Join(titleLines, "\n")
-		if context == "" {
-			context = "(검색 결과 없음)"
-		}
-		tavilyHint := ""
-		if tavilySummary != "" {
-			hint := tavilySummary
-			if len([]rune(hint)) > 300 {
-				hint = string([]rune(hint)[:300])
+
+		var msgs []groqMsg
+
+		if needsDirectSearch {
+			// Perplexity sonar-online의 자체 웹 검색 활용
+			// — Tavily content 전달하지 않고 쿼리만 던져서 직접 검색하게 함
+			directSys := `당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 정보를 찾아 답하세요.
+
+[규칙]
+- 자연스러운 한국어 2~4문장으로 답하세요
+- URL, 링크, 출처명 포함 금지
+- 마크다운 헤더(##), 과도한 불릿 금지
+- 가격·수치 등 구체적 정보 반드시 포함
+- "봇 차단", "차단으로 인해", "접근 불가" 등 표현 절대 금지
+- 정보를 찾지 못했을 때는 공식 사이트 이용 안내로 마무리`
+			directUser := fmt.Sprintf("현재 시각(KST): %s\n\n%s", today, query)
+			msgs = []groqMsg{
+				{Role: "system", Content: directSys},
+				{Role: "user", Content: directUser},
 			}
-			tavilyHint = "\nTavily 요약: " + hint
-		}
-		sysMsg := fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
+		} else {
+			context := strings.Join(titleLines, "\n")
+			if context == "" {
+				context = "(검색 결과 없음)"
+			}
+			tavilyHint := ""
+			if tavilySummary != "" {
+				hint := tavilySummary
+				if len([]rune(hint)) > 300 {
+					hint = string([]rune(hint)[:300])
+				}
+				tavilyHint = "\nTavily 요약: " + hint
+			}
+			sysMsg := fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
 
 [최우선 규칙]
 1. 검색 결과를 바탕으로 자연스러운 한국어로 답하세요
@@ -1069,21 +1095,19 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 - 구체적 수치(가격, 시간, 요금 등) 있으면 반드시 포함
 - 복잡한 질문은 4~6문장까지 허용
 
-[절대 금지 표현 — 이 단어들은 절대 사용 불가]
+[절대 금지 표현]
 - "봇 차단", "봇차단", "차단으로 인해", "봇을 감지", "자동화된 접근", "bot detected", "access denied"
 - 검색이 막혔다거나 크롤링 실패를 사용자에게 언급하는 모든 표현
 - "정확한 정보를 찾지 못했습니다. 미리보기 버튼으로 직접 확인해보세요." 이 문구 사용 금지
-- "모릅니다", "알 수 없습니다" 로 끝내는 것 금지
+- "모릅니다", "알 수 없습니다" 로 끝내는 것 금지`, officialSiteHint)
 
-[쇼핑 결과 없을 때]
-- "쿠팡/네이버쇼핑에서 직접 검색하시면 최저가를 확인할 수 있습니다" 형식으로 안내
-- 절대 크롤링 실패 이유를 언급하지 마세요`, officialSiteHint)
-
-		userMsg := fmt.Sprintf("현재 시각(KST): %s\n사용자 질문: \"%s\"\n최적화 검색어: \"%s\"\n검색 결과 제목:\n%s%s\n\n⚠️ 시간을 언급할 때 반드시 KST(한국 표준시) 기준으로 표현하세요. UTC 표기 절대 금지.\n위 정보를 바탕으로 답하되, 결과가 부족하면 공식 사이트 안내로 마무리하세요.", today, query, optimized, context, tavilyHint)
-		msgs := []groqMsg{
-			{Role: "system", Content: sysMsg},
-			{Role: "user", Content: userMsg},
+			userMsg := fmt.Sprintf("현재 시각(KST): %s\n사용자 질문: \"%s\"\n최적화 검색어: \"%s\"\n검색 결과 제목:\n%s%s\n\n⚠️ 시간을 언급할 때 반드시 KST 기준으로 표현하세요. UTC 표기 절대 금지.\n위 정보를 바탕으로 답하되, 결과가 부족하면 공식 사이트 안내로 마무리하세요.", today, query, optimized, context, tavilyHint)
+			msgs = []groqMsg{
+				{Role: "system", Content: sysMsg},
+				{Role: "user", Content: userMsg},
+			}
 		}
+
 		refined, _, err := callGroq(gKey, groqChatModel, msgs, 600, false)
 		if err == nil && refined != "" {
 			summary = refined
