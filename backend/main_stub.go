@@ -27,6 +27,9 @@ func main() {
 	// ── 자연어 명령 라우터 (핵심) ────────────────────────────
 	mux.HandleFunc("POST /api/command", handleCommand)
 
+	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
+	mux.HandleFunc("POST /api/site-search", handleSiteSearch)
+
 	// ── Browser / 크롤링 ─────────────────────────────────────
 	mux.HandleFunc("GET /api/browser/status", handleBrowserStatus)
 	mux.HandleFunc("POST /api/browser/navigate", handleBrowserNavigate)

@@ -49,6 +49,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   taskList, taskCancel,
   multiAgentRun, multiAgentPlan,
   searchAndPDF,
+  siteSearch,
 } from '../../lib/nexus/backendAPI'
 import type { PersonaDef } from '../../lib/nexus/backendAPI'
 import {
@@ -2132,6 +2133,94 @@ export function FloatingCharacter() {
     }
 
 
+
+    // ── 0.8순위: 사이트 직접 검색 (LLM 우회 → 항상 링크+미리보기 보장) ──
+    const SITE_MAP: Record<string, string> = {
+      '헤이딜러': 'heydealer.com', 'heydealer': 'heydealer.com',
+      '엔카': 'encar.com', 'encar': 'encar.com',
+      'kb차차차': 'kbchachacha.com', '차차차': 'kbchachacha.com',
+      '보배드림': 'bobaedream.co.kr',
+      '당근': 'daangn.com', '당근마켓': 'daangn.com',
+      '번개장터': 'bunjang.co.kr', '번개': 'bunjang.co.kr',
+      '중고나라': 'joongna.com',
+      '쿠팡': 'coupang.com', 'coupang': 'coupang.com',
+      '네이버쇼핑': 'shopping.naver.com',
+      '11번가': '11st.co.kr',
+      '지마켓': 'gmarket.co.kr',
+      '옥션': 'auction.co.kr',
+      '무신사': 'musinsa.com',
+      '에이블리': 'a-bly.com',
+      '지그재그': 'zigzag.kr',
+      '오늘의집': 'ohou.se',
+      '태무': 'temu.com', '테무': 'temu.com', 'temu': 'temu.com',
+      '알리': 'aliexpress.com', '알리익스프레스': 'aliexpress.com',
+      '아마존': 'amazon.com', 'amazon': 'amazon.com',
+      '직방': 'zigbang.com',
+      '다방': 'dabangapp.com',
+      '야놀자': 'yanolja.com',
+      '여기어때': 'goodchoice.kr',
+      '다나와': 'danawa.com',
+      '에누리': 'enuri.com',
+      '배민': 'baemin.com', '배달의민족': 'baemin.com',
+    }
+    const msgLower = trimmed.toLowerCase()
+    let detectedSite = ''
+    // 긴 키워드 먼저 체크 (당근마켓 > 당근)
+    const sortedKeys = Object.keys(SITE_MAP).sort((a, b) => b.length - a.length)
+    for (const kw of sortedKeys) {
+      if (msgLower.includes(kw.toLowerCase())) {
+        detectedSite = SITE_MAP[kw]
+        break
+      }
+    }
+
+    if (detectedSite && backendStatus === 'connected' && !clarifyPendingIntent) {
+      // 사이트 이름 제거 후 검색어 추출
+      let searchQuery = trimmed
+      for (const kw of Object.keys(SITE_MAP)) {
+        searchQuery = searchQuery.replace(new RegExp(kw, 'gi'), '')
+      }
+      searchQuery = searchQuery.replace(/에서|찾아줘|검색해줘|보여줘|알려줘|추천해줘/g, '').trim() || trimmed
+
+      const siteLabel = detectedSite.replace('heydealer.com','헤이딜러').replace('encar.com','엔카')
+        .replace('kbchachacha.com','KB차차차').replace('daangn.com','당근마켓')
+        .replace('bunjang.co.kr','번개장터').replace('joongna.com','중고나라')
+        .replace('coupang.com','쿠팡').replace('shopping.naver.com','네이버쇼핑')
+        .replace('temu.com','테무').replace('musinsa.com','무신사')
+        .replace('danawa.com','다나와').replace('yanolja.com','야놀자')
+        .replace('baemin.com','배달의민족').replace('zigbang.com','직방')
+        || detectedSite
+
+      try {
+        setMessages(prev => [...prev, {
+          id: `think-${msgId}`, role: 'nexus', text: '',
+          inlineCard: { type: 'agent_thinking', steps: [`${siteLabel} 검색 중...`, '실시간 결과 수집 중...', '미리보기 준비 중...'] },
+        }])
+        const res = await siteSearch(searchQuery, detectedSite, 8)
+        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+        setTyping(false); typingRef.current = false
+
+        if (res.success && res.results.length > 0) {
+          const previewItems = res.results.map((it: { name: string; link: string }) => ({ title: it.name, url: it.link }))
+          setFloatingPreview(previewItems)
+          setEmotion('happy')
+          const displayText = res.summary || `${siteLabel}에서 "${searchQuery}" 결과예요.`
+          setMessages(prev => [...prev, {
+            id: `${msgId}-res`, role: 'nexus', text: displayText,
+            inlineCard2: { type: 'system_action', icon: '🔍', title: `${siteLabel}: ${searchQuery}`, detail: res.results.slice(0,5).map((it: { name: string }) => `• ${it.name}`).join('\n'), success: true },
+          }])
+          pushModelHistory(trimmed, displayText)
+          speakText(displayText)
+          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
+          setHistoryVersion(v => v + 1)
+          return
+        }
+        // 결과 없으면 아래 /api/command로 계속 진행
+        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+      } catch {
+        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+      }
+    }
 
     // ── 1순위: Go 백엔드 /api/command (LLM 자동 라우팅 + 멀티턴) ─
     if (backendStatus === 'connected') {

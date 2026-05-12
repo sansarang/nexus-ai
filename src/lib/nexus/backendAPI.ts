@@ -800,6 +800,12 @@ export const briefingConfig = () => request<{ enabled: boolean; hour: number; we
 export const briefingSetConfig = (cfg: { enabled: boolean; hour?: number; weather_city?: string }) =>
   request<{ success: boolean; message: string }>('POST', '/api/briefing/config', cfg)
 
+/* ── 사이트 직접 검색 (LLM 우회) ── */
+export const siteSearch = (query: string, site: string, maxItems = 8) =>
+  request<{ success: boolean; query: string; site: string; summary: string; results: Array<{ name: string; link: string; price: string; site: string }>; total: number }>(
+    'POST', '/api/site-search', { query, site, max_items: maxItems }
+  )
+
 /* ── 개발환경 더미 데이터 ── */
 export function mockStats(): StatsData {
   return {

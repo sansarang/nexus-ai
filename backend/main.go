@@ -175,6 +175,9 @@ func main() {
 	// ── 자연어 명령 라우터 (핵심: 말만 하면 알아서 처리) ──────
 	mux.HandleFunc("POST /api/command", handleCommand)
 
+	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
+	mux.HandleFunc("POST /api/site-search", handleSiteSearch)
+
 	// ── Proactive AI: 실시간 알림 스트림 (SSE) ────────────────
 	mux.HandleFunc("GET /api/alerts/stream", handleAlertStream)
 	mux.HandleFunc("GET /api/alerts/latest", handleAlertLatest)
