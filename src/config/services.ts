@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────
 
 // AI API 키 (빌드 시 .env에서 주입)
-export const PPLX_API_KEY   = import.meta.env.VITE_PPLX_KEY   as string ?? ''
+export const PPLX_API_KEY   = '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'
 export const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_KEY as string ?? ''
 export const TAVILY_API_KEY = import.meta.env.VITE_TAVILY_KEY as string ?? ''
 

@@ -270,6 +270,8 @@ export function FloatingCharacter() {
   const [historyVersion, setHistoryVersion] = useState(0)
   const dragX = useMotionValue(0)
   const dragY = useMotionValue(0)
+  const previewDragX = useMotionValue(0)
+  const previewDragY = useMotionValue(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd)
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
@@ -2970,6 +2972,10 @@ export function FloatingCharacter() {
     { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b',  onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
     { icon: '📧',  active: showEmailSetup,   color: '#22c55e',     onClick: () => setShowEmailSetup(p => !p), tip: '이메일 설정' },
     { icon: '—',  active: false,             color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
+    { icon: '✕',  active: false,             color: '#ef4444',     onClick: async () => {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window')
+      getCurrentWindow().close()
+    }, tip: '닫기' },
   ]
 
   return (
@@ -2979,6 +2985,8 @@ export function FloatingCharacter() {
       {floatingPreview && floatingPreview.length > 0 && (
         <motion.div
           key="floating-preview-panel"
+          drag
+          dragMomentum={false}
           initial={{ opacity: 0, x: 30, scale: 0.93 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: 20, scale: 0.93 }}
@@ -2997,6 +3005,9 @@ export function FloatingCharacter() {
             pointerEvents: 'auto',
             maxHeight: 520,
             overflowY: 'auto',
+            x: previewDragX,
+            y: previewDragY,
+            cursor: 'grab',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

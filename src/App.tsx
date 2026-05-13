@@ -11,8 +11,9 @@ export default function App() {
         width: '100vw',
         height: '100vh',
         background: 'transparent',
-        overflow: 'hidden',
+        overflow: 'visible',
         position: 'relative',
+        pointerEvents: 'none',
       }}
     >
       <FloatingCharacter />

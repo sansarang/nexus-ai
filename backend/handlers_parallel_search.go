@@ -900,7 +900,24 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 		if isKorean {
 			extraDomains = []domainSearch{
 				{"letskorail.com", "transit"}, {"kobus.co.kr", "transit"},
+				{"map.naver.com", "transit"}, {"youtube.com", "youtube"},
+			}
+		} else {
+			extraDomains = []domainSearch{
+				{"rome2rio.com", "transit"}, {"google.com/maps", "transit"},
 				{"youtube.com", "youtube"},
+			}
+		}
+	case catWeather:
+		if isKorean {
+			extraDomains = []domainSearch{
+				{"weather.go.kr", "weather"}, {"kweather.co.kr", "weather"},
+				{"weather.naver.com", "weather"},
+			}
+		} else {
+			extraDomains = []domainSearch{
+				{"weather.com", "weather"}, {"accuweather.com", "weather"},
+				{"weather.gov", "weather"},
 			}
 		}
 	}

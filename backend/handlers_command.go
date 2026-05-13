@@ -1005,25 +1005,33 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 
 		switch maSubAction {
 		case "price_compare":
-			searchQ := maQuery
-			if maSite != "" { searchQ = "site:" + maSite + " " + maQuery }
+			// site: prefix는 Tavily에서 0결과 → include_domains 방식 사용
 			if maTKey != "" {
-				if tr, ok := tavilySearch(maTKey, searchQ, maMax); ok {
-					for _, it := range tr.Items {
-						if maSite == "" || strings.Contains(it["url"], strings.Split(maSite, ".")[0]) {
-							maItems = append(maItems, map[string]string{"title": it["title"], "url": it["url"], "price": ""})
-						}
+				if maSite != "" {
+					if tr, ok := tavilySearchDomain(maTKey, maQuery, maMax, maSite); ok {
+						maItems = tr.Items
+					}
+				}
+				if len(maItems) == 0 {
+					if tr, ok := tavilySearch(maTKey, maQuery, maMax); ok {
+						maItems = tr.Items
 					}
 				}
 			}
 			sn := maSite; if sn == "" { sn = "쇼핑몰" }
 			maActionSummary = fmt.Sprintf("%s에서 \"%s\" 상품 %d개 검색 결과", sn, maQuery, len(maItems))
 		case "video_search":
-			prefix := "site:youtube.com"
-			if maPlatform == "tiktok" { prefix = "site:tiktok.com" }
+			// site: prefix는 Tavily에서 0결과 → include_domains 방식 사용
+			targetDomain := "youtube.com"
+			if maPlatform == "tiktok" { targetDomain = "tiktok.com" }
 			if maTKey != "" {
-				if tr, ok := tavilySearch(maTKey, prefix+" "+maQuery, maMax); ok {
+				if tr, ok := tavilySearchDomain(maTKey, maQuery, maMax, targetDomain); ok {
 					maItems = tr.Items
+				}
+				if len(maItems) == 0 {
+					if tr, ok := tavilySearch(maTKey, maQuery+" "+targetDomain, maMax); ok {
+						maItems = tr.Items
+					}
 				}
 			}
 			pn := "YouTube"; if maPlatform == "tiktok" { pn = "TikTok" }
