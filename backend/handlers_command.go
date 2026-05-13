@@ -822,9 +822,11 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		query = resolveWithHistory(query, history)
 		site := str("site")
 		output := str("output")
-		maxItems := intVal("max_items", 5)
-		// output 없는 단순 검색 쿼리 → 병렬 검색으로 빠른 응답
-		if output == "" {
+		maxItems := intVal("max_items", 8)
+		// 사용자 메시지에 명시적 파일 저장 요청이 있을 때만 runWebSearch 호출
+		// LLM이 임의로 output 파라미터를 생성해도 무시
+		userWantsFile := detectOutputFormat(original) != outNone && hasFileSaveVerb(original)
+		if !userWantsFile {
 			cat := detectCategory(query)
 			pr := parallelWebSearch(query, maxItems)
 			items := pr.Items
@@ -872,16 +874,24 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			strings.Contains(strings.ToLower(original), "tiktok")
 
 		if isTikTok {
-			// TikTok: chromedp 봇차단으로 직접 접근 불가
-			// → Tavily/Perplexity로 site:tiktok.com 검색 후 tiktok.com URL만 필터링
-			tiktokQuery := "site:tiktok.com " + query
+			// TikTok: site: 접두사는 Tavily에서 0결과 → include_domains 방식 사용
 			var items []map[string]string
 
 			if videoTKey != "" {
-				if tr, ok := tavilySearch(videoTKey, tiktokQuery, maxItems); ok {
+				if tr, ok := tavilySearchDomain(videoTKey, query, maxItems, "tiktok.com"); ok {
 					for _, it := range tr.Items {
 						if strings.Contains(it["url"], "tiktok.com") {
 							items = append(items, it)
+						}
+					}
+				}
+				// include_domains로 결과 없으면 일반 검색 후 tiktok.com URL 필터
+				if len(items) == 0 {
+					if tr, ok := tavilySearch(videoTKey, query+" tiktok", maxItems); ok {
+						for _, it := range tr.Items {
+							if strings.Contains(it["url"], "tiktok.com") {
+								items = append(items, it)
+							}
 						}
 					}
 				}
@@ -911,14 +921,23 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			return map[string]any{"query": query, "platform": "tiktok", "items": items, "total": len(items), "summary": summary}, summary
 		}
 
-		// YouTube: Tavily로 site:youtube.com 검색
-		ytQuery := "site:youtube.com " + query
+		// YouTube: site: 접두사는 Tavily에서 0결과 → include_domains 방식 사용
 		var ytItems []map[string]string
 		if videoTKey != "" {
-			if tr, ok := tavilySearch(videoTKey, ytQuery, maxItems); ok {
+			if tr, ok := tavilySearchDomain(videoTKey, query, maxItems, "youtube.com"); ok {
 				for _, it := range tr.Items {
 					if strings.Contains(it["url"], "youtube.com/watch") || strings.Contains(it["url"], "youtu.be") {
 						ytItems = append(ytItems, it)
+					}
+				}
+			}
+			// include_domains 결과 없으면 일반 검색 후 youtube URL 필터
+			if len(ytItems) == 0 {
+				if tr, ok := tavilySearch(videoTKey, query+" youtube 영상", maxItems); ok {
+					for _, it := range tr.Items {
+						if strings.Contains(it["url"], "youtube.com/watch") || strings.Contains(it["url"], "youtu.be") {
+							ytItems = append(ytItems, it)
+						}
 					}
 				}
 			}

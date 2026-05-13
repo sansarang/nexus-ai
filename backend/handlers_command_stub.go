@@ -716,12 +716,21 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			strings.Contains(strings.ToLower(req.Message), "tiktok")
 		var videoItems []map[string]string
 		if isTikTok {
-			tiktokQuery := "site:tiktok.com " + query
+			// site: 접두사 0결과 버그 → include_domains 방식 사용
 			if videoTKey != "" {
-				if tr, ok := tavilySearch(videoTKey, tiktokQuery, maxItems); ok {
+				if tr, ok := tavilySearchDomain(videoTKey, query, maxItems, "tiktok.com"); ok {
 					for _, it := range tr.Items {
 						if strings.Contains(it["url"], "tiktok.com") {
 							videoItems = append(videoItems, it)
+						}
+					}
+				}
+				if len(videoItems) == 0 {
+					if tr, ok := tavilySearch(videoTKey, query+" tiktok", maxItems); ok {
+						for _, it := range tr.Items {
+							if strings.Contains(it["url"], "tiktok.com") {
+								videoItems = append(videoItems, it)
+							}
 						}
 					}
 				}
@@ -740,12 +749,21 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 				Duration: dur,
 			})
 		} else {
-			ytQuery := "site:youtube.com " + query
+			// site: 접두사 0결과 버그 → include_domains 방식 사용
 			if videoTKey != "" {
-				if tr, ok := tavilySearch(videoTKey, ytQuery, maxItems); ok {
+				if tr, ok := tavilySearchDomain(videoTKey, query, maxItems, "youtube.com"); ok {
 					for _, it := range tr.Items {
 						if strings.Contains(it["url"], "youtube.com/watch") || strings.Contains(it["url"], "youtu.be") {
 							videoItems = append(videoItems, it)
+						}
+					}
+				}
+				if len(videoItems) == 0 {
+					if tr, ok := tavilySearch(videoTKey, query+" youtube 영상", maxItems); ok {
+						for _, it := range tr.Items {
+							if strings.Contains(it["url"], "youtube.com/watch") || strings.Contains(it["url"], "youtu.be") {
+								videoItems = append(videoItems, it)
+							}
 						}
 					}
 				}
@@ -853,18 +871,15 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 		switch subAction {
 		case "price_compare":
-			searchQuery := query
-			if site != "" {
-				searchQuery = "site:" + site + " " + query
-			}
 			if tKey != "" {
-				if tr, ok := tavilySearch(tKey, searchQuery, maxItems); ok {
-					for _, it := range tr.Items {
-						if site == "" || strings.Contains(it["url"], strings.Split(site, ".")[0]) {
-							collectedItems = append(collectedItems, map[string]string{
-								"title": it["title"], "url": it["url"], "price": "",
-							})
-						}
+				if site != "" {
+					if tr, ok := tavilySearchDomain(tKey, query, maxItems, site); ok {
+						collectedItems = tr.Items
+					}
+				}
+				if len(collectedItems) == 0 {
+					if tr, ok := tavilySearch(tKey, query, maxItems); ok {
+						collectedItems = tr.Items
 					}
 				}
 			}
@@ -875,16 +890,18 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			actionSummary = fmt.Sprintf("%s에서 \"%s\" 상품 %d개 검색 결과", siteName, query, len(collectedItems))
 
 		case "video_search":
-			sitePrefix := "site:youtube.com"
+			targetDomain := "youtube.com"
 			if platform == "tiktok" {
-				sitePrefix = "site:tiktok.com"
+				targetDomain = "tiktok.com"
 			}
 			if tKey != "" {
-				if tr, ok := tavilySearch(tKey, sitePrefix+" "+query, maxItems); ok {
-					for _, it := range tr.Items {
-						collectedItems = append(collectedItems, map[string]string{
-							"title": it["title"], "url": it["url"],
-						})
+				if tr, ok := tavilySearchDomain(tKey, query, maxItems, targetDomain); ok {
+					collectedItems = tr.Items
+				}
+				if len(collectedItems) == 0 {
+					fallbackQ := query + " " + targetDomain
+					if tr, ok := tavilySearch(tKey, fallbackQ, maxItems); ok {
+						collectedItems = tr.Items
 					}
 				}
 			}
