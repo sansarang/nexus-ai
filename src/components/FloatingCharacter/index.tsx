@@ -1257,8 +1257,8 @@ export function FloatingCharacter() {
         /* ── 🌐 뉴스 검색 ── */
         case 'news_search': {
           const query = originalText.replace(/뉴스|검색|최신|오늘|찾아줘/g, '').trim() || '오늘 주요 뉴스'
-          const data = await newsSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '뉴스 검색 실패' }))
-          const articles = data.articles ?? []
+          const data = await newsSearch(query).catch(() => ({ success: false, query, articles: [], items: [], total: 0, summary: '뉴스 검색 실패' })) as any
+          const articles = data.articles ?? data.items ?? []
           if (articles.length > 0) {
             setPreviewType('news')
             setFloatingPreview(articles.slice(0, 8).map((a: { title: string; url: string }) => ({
@@ -2158,17 +2158,22 @@ export function FloatingCharacter() {
         setTyping(false); typingRef.current = false
 
         if (res?.success) {
-          // 교통수단별 지도 링크를 미리보기로 표시 (네이버/카카오 × 5가지 교통수단)
+          // 교통수단별 지도 링크를 미리보기로 표시
           const mapLinks: Array<{ title: string; url: string; type?: string; service?: string; mode?: string; modeKo?: string; modeEmoji?: string }> = res.map_links ?? []
-          // 네이버 지도 링크만 먼저 (중복 제거 — 카카오는 클릭 후 선택)
-          const naverLinks = mapLinks.filter(l => l.service === 'naver' && l.type === 'directions')
-          const otherLinks = mapLinks.filter(l => l.service !== 'naver' || l.type !== 'directions')
+          // Google Maps(directions type) 우선, 카카오 일부, 예매 링크 제외
+          const googleLinks = mapLinks.filter(l => l.service === 'google' && l.type === 'directions')
+          const kakaoLinks  = mapLinks.filter(l => l.service === 'kakao'  && l.type === 'directions')
+          const extraLinks  = mapLinks.filter(l => l.type !== 'directions')
           const previewLinks = [
-            ...naverLinks.map(l => ({
+            ...googleLinks.map(l => ({
               title: l.title ?? '', url: l.url, isMap: true, mapType: 'directions' as const,
-              service: 'naver', mode: l.mode, modeKo: l.modeKo, modeEmoji: l.modeEmoji,
+              service: 'google', mode: l.mode, modeKo: l.modeKo, modeEmoji: l.modeEmoji,
             })),
-            ...otherLinks.slice(0, 2).map(l => ({
+            ...kakaoLinks.slice(0, 3).map(l => ({
+              title: l.title ?? '', url: l.url, isMap: true, mapType: 'directions' as const,
+              service: 'kakao', mode: l.mode, modeKo: l.modeKo, modeEmoji: l.modeEmoji,
+            })),
+            ...extraLinks.slice(0, 2).map(l => ({
               title: l.title ?? '', url: l.url, isMap: true, mapType: (l.type ?? 'directions') as any,
               service: l.service,
             })),

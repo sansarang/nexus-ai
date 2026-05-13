@@ -309,10 +309,10 @@ func buildMapLinks(from, to, mode string) []map[string]string {
 				"modeEmoji": m.emoji,
 			})
 		}
-		// ③ 네이버 지도 앱 딥링크 (앱 설치 시 경로 표시)
+		// ③ 네이버 지도 웹 경로 (브라우저에서 바로 열림)
 		links = append(links, map[string]string{
 			"title":     fmt.Sprintf("%s %s — %s→%s (네이버)", m.emoji, m.ko, from, to),
-			"url":       fmt.Sprintf("nmap://route/public?sname=%s&dname=%s&appname=kr.co.nexus", encFrom, encTo),
+			"url":       fmt.Sprintf("https://map.naver.com/v5/directions/-/-/%s/%s/-/transit", encFrom, encTo),
 			"type":      "directions",
 			"service":   "naver",
 			"mode":      m.id,
