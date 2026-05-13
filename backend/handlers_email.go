@@ -15,15 +15,6 @@ import (
 //  PowerShell COM으로 받은 메일 읽기 + 전송
 // ══════════════════════════════════════════════════════════════════
 
-type EmailItem struct {
-	Subject    string `json:"subject"`
-	Sender     string `json:"sender"`
-	ReceivedAt string `json:"received_at"`
-	Body       string `json:"body"`
-	IsRead     bool   `json:"is_read"`
-	HasAttach  bool   `json:"has_attachments"`
-}
-
 // GET /api/email/inbox — 받은 편지함 최근 N개
 func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")

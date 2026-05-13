@@ -51,6 +51,15 @@ const PROVIDERS: Provider[] = [
     passwordPlaceholder: '앱 비밀번호 (16자리)',
   },
   {
+    id: 'outlook',
+    name: 'Outlook / Hotmail',
+    icon: '🟦',
+    color: '#0078d4',
+    instructions: 'Microsoft 앱 비밀번호 발급:\n1. account.microsoft.com → 보안\n2. 고급 보안 옵션 → 앱 비밀번호\n3. 새 앱 비밀번호 만들기 → "Nexus"\n4. 생성된 비밀번호 입력\n\n※ 2단계 인증이 먼저 활성화되어야 합니다',
+    emailPlaceholder: 'example@outlook.com',
+    passwordPlaceholder: '앱 비밀번호',
+  },
+  {
     id: 'custom',
     name: '커스텀 IMAP',
     icon: '⚙️',
@@ -181,7 +190,7 @@ export function EmailSetup({ onClose, primaryColor = '#7c3aed' }: EmailSetupProp
         background: 'rgba(6,6,18,0.98)', backdropFilter: 'blur(20px)',
         border: `1px solid ${primaryColor}44`, borderRadius: 20,
         boxShadow: `0 24px 64px rgba(0,0,0,0.7)`,
-        zIndex: 10005, overflow: 'hidden', fontFamily: 'inherit',
+        zIndex: 10005, overflow: 'hidden', fontFamily: 'inherit', pointerEvents: 'auto',
       }}
     >
       {/* Header */}

@@ -13,7 +13,6 @@ export default function App() {
         background: 'transparent',
         overflow: 'visible',
         position: 'relative',
-        pointerEvents: 'none',
       }}
     >
       <FloatingCharacter />

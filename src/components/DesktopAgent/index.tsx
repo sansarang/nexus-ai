@@ -177,7 +177,7 @@ export function DesktopAgent({ onClose, primaryColor = '#7c3aed' }: DesktopAgent
         background: 'rgba(6,6,18,0.97)', backdropFilter: 'blur(20px)',
         border: `1px solid ${primaryColor}44`, borderRadius: 20,
         boxShadow: `0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px ${primaryColor}22`,
-        zIndex: 10005, overflow: 'hidden', fontFamily: 'inherit',
+        zIndex: 10005, overflow: 'hidden', fontFamily: 'inherit', pointerEvents: 'auto',
       }}
     >
       {/* Header */}

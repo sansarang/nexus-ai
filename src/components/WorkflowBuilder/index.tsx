@@ -242,7 +242,7 @@ export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed' }: WorkflowB
         border: `1px solid ${primaryColor}44`, borderRadius: 20,
         boxShadow: `0 24px 64px rgba(0,0,0,0.7)`,
         zIndex: 10005, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        fontFamily: 'inherit',
+        fontFamily: 'inherit', pointerEvents: 'auto',
       }}
     >
       {/* Header */}

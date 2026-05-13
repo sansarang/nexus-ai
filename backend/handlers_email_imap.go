@@ -84,11 +84,12 @@ type EmailProvider struct {
 }
 
 var emailProviders = map[string]EmailProvider{
-	"naver":  {IMAPHost: "imap.naver.com", IMAPPort: 993, SMTPHost: "smtp.naver.com", SMTPPort: 587},
-	"daum":   {IMAPHost: "imap.daum.net", IMAPPort: 993, SMTPHost: "smtp.daum.net", SMTPPort: 465},
-	"kakao":  {IMAPHost: "imap.kakao.com", IMAPPort: 993, SMTPHost: "smtp.kakao.com", SMTPPort: 465},
-	"gmail":  {IMAPHost: "imap.gmail.com", IMAPPort: 993, SMTPHost: "smtp.gmail.com", SMTPPort: 587},
-	"custom": {IMAPHost: "", IMAPPort: 993, SMTPHost: "", SMTPPort: 587},
+	"naver":   {IMAPHost: "imap.naver.com", IMAPPort: 993, SMTPHost: "smtp.naver.com", SMTPPort: 587},
+	"daum":    {IMAPHost: "imap.daum.net", IMAPPort: 993, SMTPHost: "smtp.daum.net", SMTPPort: 465},
+	"kakao":   {IMAPHost: "imap.kakao.com", IMAPPort: 993, SMTPHost: "smtp.kakao.com", SMTPPort: 465},
+	"gmail":   {IMAPHost: "imap.gmail.com", IMAPPort: 993, SMTPHost: "smtp.gmail.com", SMTPPort: 587},
+	"outlook": {IMAPHost: "outlook.office365.com", IMAPPort: 993, SMTPHost: "smtp.office365.com", SMTPPort: 587},
+	"custom":  {IMAPHost: "", IMAPPort: 993, SMTPHost: "", SMTPPort: 587},
 }
 
 // ── 계정 데이터 ──────────────────────────────────────────────────
