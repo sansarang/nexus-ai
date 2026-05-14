@@ -43,9 +43,6 @@ func handleDiskCheck(w http.ResponseWriter, r *http.Request)       {}
 func handleBrowserClean(w http.ResponseWriter, r *http.Request)    {}
 func handleProgramsList(w http.ResponseWriter, r *http.Request)    {}
 func handleBootAnalysis(w http.ResponseWriter, r *http.Request)    {}
-func handleFilesSearch(w http.ResponseWriter, r *http.Request)     {}
-func handleFilesOrganize(w http.ResponseWriter, r *http.Request)   {}
-func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {}
 func handleFocusMode(w http.ResponseWriter, r *http.Request)       {}
 func handleClipboard(w http.ResponseWriter, r *http.Request)       {}
 func handleNotes(w http.ResponseWriter, r *http.Request)           {}
@@ -59,7 +56,13 @@ func handleDocFind(w http.ResponseWriter, r *http.Request)         {}
 func handleDeepSearch(w http.ResponseWriter, r *http.Request)      {}
 func handleScreenshot(w http.ResponseWriter, r *http.Request)      {}
 func handleActiveWindow(w http.ResponseWriter, r *http.Request)    {}
-func handleOCRClipboard(w http.ResponseWriter, r *http.Request)    {}
+func handleOCRClipboard(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{
+		"success": false,
+		"message": "OCR 클립보드 기능은 Windows에서만 사용 가능합니다.",
+		"text":    "",
+	})
+}
 
 // handlers_journal.go stubs
 func handleJournalToday(w http.ResponseWriter, r *http.Request)    {}

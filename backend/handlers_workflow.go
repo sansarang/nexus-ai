@@ -33,30 +33,103 @@ type WorkflowPlan struct {
 // LLM에게 목표를 단계별 계획으로 분해 요청
 func planWorkflow(goal string) (*WorkflowPlan, error) {
 	availableAPIs := `
-사용 가능한 API 엔드포인트 목록:
-- POST /api/scan → PC 전체 진단
-- POST /api/clean → 파일 정리
-- GET /api/stats → 실시간 PC 상태
-- GET /api/calendar/today → 오늘 캘린더
-- GET /api/calendar/week → 이번 주 캘린더
-- POST /api/calendar/add → 일정 추가 {subject, start, duration_minutes, location, body}
-- GET /api/email/inbox → 이메일 받은 편지함 {limit:10}
-- POST /api/email/send → 이메일 발송 {to, subject, body}
-- POST /api/email/summarize → 이메일 요약 {limit:5}
-- GET /api/report/generate → PC 건강 리포트 생성
-- POST /api/report/email → 리포트 이메일 발송 {email}
-- POST /api/docs/summary → 문서 요약 {file_path}
-- POST /api/files/search → 파일 검색 {query, path}
-- POST /api/files/organize → 폴더 자동 정리 {path}
-- GET /api/memory/list → 저장된 기억 목록
-- POST /api/memory/search → 기억 검색 {query}
-- POST /api/brain/search → Second Brain 검색 {query, limit}
-- POST /api/notes → 메모 저장 {content}
-- GET /api/notes → 메모 목록
-- GET /api/daily-report → 데일리 리포트
-- POST /api/productivity/focus → 집중 모드 {duration_minutes, blocked_sites}
+[PC 진단·최적화]
+- POST /api/scan → PC 전체 진단 (바이러스·정크·드라이버·성능)
+- POST /api/clean → 정크파일·캐시 정리
+- POST /api/autoclean → 임시파일 자동 정리
+- POST /api/repair → 문제 자동 수리
+- GET /api/stats → 실시간 CPU·메모리·디스크 상태
 - GET /api/history/stats → 성능 이력 통계
 - GET /api/history/anomalies → 성능 이상 탐지
+- GET /api/daily-report → 데일리 PC 리포트
+- GET /api/drivers → 드라이버 목록·업데이트 필요 여부
+- GET /api/power/plans → 전원 플랜 목록
+- POST /api/power/plan → 전원 플랜 변경 {plan: "balanced|performance|powersave"}
+- GET /api/boot/analysis → 부팅 속도 분석
+- GET /api/programs → 설치된 프로그램 목록
+- GET /api/processes/top → CPU·메모리 상위 프로세스
+- POST /api/process/kill → 프로세스 강제 종료 {pid}
+- POST /api/disk/check → 디스크 검사
+- POST /api/registry/clean → 레지스트리 정리
+- GET /api/gpu/stats → GPU 사용량·온도
+- GET /api/network/analysis → 네트워크 분석
+- POST /api/system/wifi → WiFi 제어 {action: "reconnect|disable|enable"}
+- POST /api/system/volume → 볼륨 제어 {action, value}
+- POST /api/system/power → 전원 제어 {action: "sleep|restart|shutdown"}
+- POST /api/privacy → MS 기능 차단·프라이버시 설정
+- POST /api/restore/create → 복원 지점 생성
+
+[보안]
+- GET /api/security/remote → 원격 접속 도구 탐지
+- GET /api/security/processes → 수상한 프로세스 검사
+- GET /api/security/hosts → hosts 파일 이상 검사
+- GET /api/security/startup → 시작 프로그램 목록
+- GET /api/security/defender → Windows Defender 상태
+- GET /api/security/accounts → 계정 보안 점검
+- GET /api/security/audit → 전체 보안 감사
+- POST /api/security/virustotal → 파일 바이러스 검사 {file_path}
+- POST /api/security/check-path → 경로 보안 검사 {path}
+- GET /api/app/permissions → 앱 권한 목록
+
+[파일·문서]
+- POST /api/files/search → 파일 검색 {query, path}
+- POST /api/files/duplicates → 중복 파일 탐지 {path}
+- POST /api/files/organize → 폴더 자동 정리 {path}
+- POST /api/docs/summary → 문서 AI 요약 {file_path}
+- POST /api/docs/compare → 문서 비교 {file_path_a, file_path_b}
+- POST /api/docs/find → 문서 검색 {query, path}
+- POST /api/docs/export-report → 리포트 PDF 저장 {content, title}
+- POST /api/docs/ai-edit → AI 문서 편집 {file_path, instruction}
+- GET /api/excel/list → 엑셀 파일 목록
+- GET /api/excel/read → 엑셀 읽기 {file_path}
+- POST /api/excel/save → 엑셀 저장 {file_path, data}
+- POST /api/vision/ocr-clipboard → 클립보드 이미지 OCR
+- POST /api/vision/screenshot → 화면 캡처 + OCR
+- POST /api/file/process → 파일 변환·처리 {files, action}
+
+[이메일·캘린더]
+- GET /api/imap/inbox → 이메일 받은편지함 {limit}
+- POST /api/imap/classify → 메일 AI 분류 (중요도·카테고리)
+- POST /api/imap/send → 이메일 발송 {to, subject, body}
+- GET /api/imap/reply-suggestions → 답장 초안 자동 생성
+- POST /api/email/draft-reply → 특정 메일 답장 초안 {email_id}
+- POST /api/email/extract-events → 메일에서 일정 추출
+- GET /api/email/config → 이메일 계정 설정
+- GET /api/calendar/today → 오늘 일정
+- GET /api/calendar/week → 이번 주 일정
+- POST /api/calendar/add → 일정 추가 {subject, start, duration_minutes, location}
+- POST /api/calendar/find-slot → 빈 시간 탐색 {duration_minutes, within_days}
+- POST /api/calendar/smart-add → 자연어로 일정 추가 {text}
+
+[웹 검색·크롤링·쇼핑]
+- POST /api/browser/news-collect → 뉴스 수집 {query, site, max_items}
+- POST /api/browser/collect-price → 쇼핑 가격 수집 {query, site}
+- POST /api/browser/smart-agent → AI 브라우저 자동화 {goal}
+- POST /api/browser/extract → 웹페이지 내용 추출 {url}
+- POST /api/browser/search-and-pdf → 검색 후 PDF 저장 {query}
+- POST /api/video/quick-search → 동영상 빠른 검색 {query, platform}
+- POST /api/llm/deep-search-web → 웹 딥서치 {query}
+- POST /api/site-search → 특정 사이트 검색 {query, site}
+- POST /api/directions → 길찾기 {from, to, mode}
+
+[AI·메모리·리포트]
+- POST /api/llm/chat → LLM 대화 {messages}
+- POST /api/llm/deep-search → AI 딥서치 {query}
+- POST /api/llm/doc-summary → 문서 요약 {content}
+- POST /api/memory/search → 기억 검색 {query}
+- GET /api/memory/list → 저장된 기억 목록
+- POST /api/brain/search → Second Brain 검색 {query}
+- POST /api/notes → 메모 저장 {content}
+- GET /api/report/generate → PC 건강 리포트
+- POST /api/report/email → 리포트 이메일 발송 {email}
+- POST /api/briefing/now → 아침 브리핑 즉시 실행
+- GET /api/weather → 날씨 정보
+
+[스케줄·자동화]
+- POST /api/scheduler/add → 스케줄 등록 {command} (자연어)
+- GET /api/scheduler/list → 스케줄 목록
+- POST /api/productivity/focus → 집중 모드 {duration_minutes}
+- POST /api/workflow/plan → 워크플로 계획 수립 {goal}
 `
 
 	prompt := fmt.Sprintf(`당신은 자동화 워크플로 플래너입니다.

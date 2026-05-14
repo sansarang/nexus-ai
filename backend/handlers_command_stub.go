@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -834,9 +835,33 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		if goal == "" {
 			goal = req.Message
 		}
+		// Reflection Loop: /api/workflow/run으로 내부 위임
+		wfReqBody, _ := json.Marshal(map[string]any{"goal": goal, "use_reflection": true})
+		wfResp, wfErr := (&http.Client{Timeout: 120 * time.Second}).Post(
+			"http://127.0.0.1:17891/api/workflow/run", "application/json",
+			bytes.NewReader(wfReqBody),
+		)
+		if wfErr == nil && wfResp != nil {
+			var wfResult map[string]any
+			json.NewDecoder(wfResp.Body).Decode(&wfResult)
+			wfResp.Body.Close()
+			summary, _ := wfResult["summary"].(string)
+			if summary == "" {
+				summary = fmt.Sprintf("'%s' 워크플로우 완료", goal)
+			}
+			json200(w, CommandResponse{
+				Success:  true,
+				Message:  summary,
+				Action:   "workflow_plan",
+				Result:   wfResult,
+				Duration: dur,
+			})
+			return
+		}
+		// fallback: LLM 계획만 반환
 		wMsgs := []groqMsg{
-			{Role: "system", Content: "당신은 효율적인 워크플로우 설계 전문가입니다."},
-			{Role: "user", Content: "다음 목표를 달성하기 위한 구체적인 단계별 계획을 작성해줘: " + goal},
+			{Role: "system", Content: "당신은 자비스 AI입니다. 주어진 목표를 단계별로 실행 완료 보고 형식으로 작성하세요."},
+			{Role: "user", Content: "목표: " + goal},
 		}
 		plan, _, _ := callGroq(gKey, groqChatModel, wMsgs, 800, false)
 		json200(w, CommandResponse{

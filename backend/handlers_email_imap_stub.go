@@ -759,15 +759,74 @@ func handleIMAPReplySuggestions(w http.ResponseWriter, r *http.Request) {
 
 func handleIMAPClassify(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Subject string `json:"subject"`
-		Body    string `json:"body"`
+		Subject   string `json:"subject"`
+		Body      string `json:"body"`
+		AccountID string `json:"account_id"`
+		Limit     int    `json:"limit"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	result := imapClassifyEmail(req.Subject, req.Body)
+
+	// 단일 메일 분류
+	if req.Subject != "" || req.Body != "" {
+		result := imapClassifyEmail(req.Subject, req.Body)
+		json200(w, map[string]any{
+			"success": true, "category": result.Category,
+			"confidence": result.Confidence, "reason": result.Reason,
+		})
+		return
+	}
+
+	// 계정 찾기
+	imapAccountsMu.RLock()
+	var acc *IMAPAccount
+	for i, a := range imapAccounts {
+		if req.AccountID == "" || a.ID == req.AccountID {
+			cp := imapAccounts[i]
+			acc = &cp
+			break
+		}
+	}
+	imapAccountsMu.RUnlock()
+
+	if acc == nil {
+		json200(w, map[string]any{
+			"success": false,
+			"message": "이메일 계정을 먼저 설정해주세요. (설정 → 이메일 계정 추가)",
+			"classified": []any{},
+		})
+		return
+	}
+
+	// 받은편지함 전체 분류
+	limit := req.Limit
+	if limit <= 0 { limit = 20 }
+	emails, err := fetchIMAPInbox(*acc, limit)
+	if err != nil || len(emails) == 0 {
+		json200(w, map[string]any{"success": false, "classified": []any{}, "message": "메일 없음"})
+		return
+	}
+	type ClassifiedEmail struct {
+		Subject    string  `json:"subject"`
+		Sender     string  `json:"sender"`
+		Category   string  `json:"category"`
+		Confidence float64 `json:"confidence"`
+		Priority   string  `json:"priority"`
+	}
+	var classified []ClassifiedEmail
+	for _, e := range emails {
+		result := imapClassifyEmail(e.Subject, e.Body)
+		priority := "normal"
+		if result.Confidence > 0.8 && (result.Category == "urgent" || result.Category == "important") {
+			priority = "high"
+		}
+		classified = append(classified, ClassifiedEmail{
+			Subject: e.Subject, Sender: e.Sender,
+			Category: result.Category, Confidence: result.Confidence, Priority: priority,
+		})
+	}
 	json200(w, map[string]any{
-		"success":    true,
-		"category":   result.Category,
-		"confidence": result.Confidence,
-		"reason":     result.Reason,
+		"success": true, "total": len(classified),
+		"classified": classified,
+		"message": fmt.Sprintf("이메일 %d개를 분류했어요 📧", len(classified)),
 	})
 }

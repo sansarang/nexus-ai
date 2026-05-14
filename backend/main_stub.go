@@ -174,6 +174,23 @@ func main() {
 	mux.HandleFunc("POST /api/caption/stop", winOnly)
 	mux.HandleFunc("GET /api/caption/latest", winOnly)
 
+	// ── 파일 관리 (cross-platform) ──────────────────────────
+	mux.HandleFunc("POST /api/files/search", handleFilesSearch)
+	mux.HandleFunc("POST /api/files/organize", handleFilesOrganize)
+	mux.HandleFunc("POST /api/files/duplicates", handleFilesDuplicates)
+
+	// ── 이메일 IMAP (cross-platform) ────────────────────────
+	mux.HandleFunc("GET /api/imap/accounts", handleIMAPAccountList)
+	mux.HandleFunc("POST /api/imap/accounts", handleIMAPAccountAdd)
+	mux.HandleFunc("DELETE /api/imap/accounts", handleIMAPAccountDelete)
+	mux.HandleFunc("GET /api/imap/inbox", handleIMAPInbox)
+	mux.HandleFunc("POST /api/imap/send", handleIMAPSend)
+	mux.HandleFunc("POST /api/imap/classify", handleIMAPClassify)
+	mux.HandleFunc("GET /api/imap/reply-suggestions", handleIMAPReplySuggestions)
+
+	// ── 비전·OCR stub ────────────────────────────────────────
+	mux.HandleFunc("POST /api/vision/ocr-clipboard", handleOCRClipboard)
+
 	initMemory()
 	initScheduler()
 	loadLLMConfig()

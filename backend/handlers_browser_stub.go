@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -270,14 +271,45 @@ func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 요청"})
 		return
 	}
+
+	// LLM으로 자연어 → cron 표현식 파싱
+	cronExpr := ""
+	taskName := req.Name
+	llmMu.RLock()
+	gKey := llmPerplexityKey
+	llmMu.RUnlock()
+	if gKey != "" && req.Command != "" {
+		prompt := fmt.Sprintf(`자연어 스케줄을 cron 표현식(분 시 일 월 요일)으로 변환하세요.
+입력: "%s"
+JSON만 반환: {"cron": "0 18 * * 5", "name": "작업명"}
+예시: 매주 금요일 저녁 6시 → {"cron":"0 18 * * 5","name":"금요일 저녁 작업"}`, req.Command)
+		raw, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 128, true)
+		if err == nil {
+			var parsed struct {
+				Cron string `json:"cron"`
+				Name string `json:"name"`
+			}
+			if json.Unmarshal([]byte(strings.TrimSpace(raw)), &parsed) == nil {
+				cronExpr = parsed.Cron
+				if taskName == "" {
+					taskName = parsed.Name
+				}
+			}
+		}
+	}
+
 	task := ScheduledTask{
-		ID: fmt.Sprintf("%d", time.Now().UnixMilli()), Name: req.Name,
-		Command: req.Command, Active: true, CreatedAt: time.Now(),
+		ID: fmt.Sprintf("%d", time.Now().UnixMilli()), Name: taskName,
+		Command: req.Command, CronExpr: cronExpr, Active: true, CreatedAt: time.Now(),
 	}
 	schedulerTasksMu.Lock()
 	scheduledTasks = append(scheduledTasks, task)
 	schedulerTasksMu.Unlock()
-	json200(w, map[string]any{"success": true, "task": task})
+	msg := fmt.Sprintf("스케줄 등록됨: %s", taskName)
+	if cronExpr != "" {
+		msg += fmt.Sprintf(" (cron: %s)", cronExpr)
+	}
+	json200(w, map[string]any{"success": true, "task": task, "message": msg, "cron_expr": cronExpr})
 }
 
 func handleSchedulerList(w http.ResponseWriter, r *http.Request) {
