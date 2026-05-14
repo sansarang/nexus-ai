@@ -4,7 +4,6 @@ package main
 
 import (
 	"encoding/base64"
-	"os/exec"
 	"strings"
 )
 
@@ -19,7 +18,7 @@ $bytes = [System.Text.Encoding]::UTF8.GetBytes("` + strings.ReplaceAll(plaintext
 $enc = [System.Security.Cryptography.ProtectedData]::Protect($bytes, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
 [Convert]::ToBase64String($enc)
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return plaintext // 실패 시 평문 유지 (호환성)
 	}
@@ -40,7 +39,7 @@ $enc = [Convert]::FromBase64String("` + encrypted + `")
 $bytes = [System.Security.Cryptography.ProtectedData]::Unprotect($enc, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
 [System.Text.Encoding]::UTF8.GetString($bytes)
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return encrypted // 복호화 실패 시 원본 반환
 	}

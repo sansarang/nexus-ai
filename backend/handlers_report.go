@@ -418,7 +418,7 @@ $diskPct = [math]::Round(($disk.Size - $disk.FreeSpace) / $disk.Size * 100, 1)
 $temp = try { (Get-WmiObject -Namespace "root/wmi" -Class MSAcpi_ThermalZoneTemperature -ErrorAction Stop).CurrentTemperature[0] / 10 - 273.15 } catch { 0 }
 [PSCustomObject]@{cpu=$cpu;mem=$memPct;disk=$diskPct;cpu_temp=[math]::Round($temp,1)} | ConvertTo-Json -Compress
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return map[string]any{"cpu": 35.0, "mem": 55.0, "disk": 60.0, "cpu_temp": 45.0}, nil
 	}

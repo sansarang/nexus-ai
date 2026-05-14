@@ -120,7 +120,7 @@ $procs = Get-Process | Where-Object { $_.MainWindowTitle -ne '' } |
     Select-Object -First 15
 $procs | ConvertTo-Json -Compress
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return sampleAppUsage()
 	}

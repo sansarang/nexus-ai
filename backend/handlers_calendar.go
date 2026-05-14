@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -108,7 +107,7 @@ $appt.Save()
 Write-Output "OK"
 `, req.Subject, req.Start, req.End, req.Location)
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	success := err == nil && strings.Contains(string(out), "OK")
 
 	msg := "일정이 추가됐어요 📅"
@@ -167,7 +166,7 @@ try {
 }
 `, dateFilter)
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return nil, err
 	}

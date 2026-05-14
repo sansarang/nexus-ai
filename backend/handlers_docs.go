@@ -225,7 +225,7 @@ $text = [System.Text.Encoding]::Default.GetString($raw)
 $text -replace '[^\x20-\x7E\r\n]','' | Select-String -Pattern '\S' | ForEach-Object {$_.Line} | Select-Object -First 200
 `, path, path)
 
-	psOut, psErr := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	psOut, psErr := execPS(script)
 	if psErr == nil && len(psOut) > 50 {
 		return strings.TrimSpace(string(psOut)), nil
 	}

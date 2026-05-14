@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -72,7 +73,7 @@ try {
     Write-Output ""
 }
 `
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, _ := execPS(script)
 	ocrText := strings.TrimSpace(string(out))
 
 	entry := RecallEntry{
@@ -200,9 +201,9 @@ func pruneRecallEntries(max int) {
 	}
 }
 
-// startRecallCollector — 60초 간격으로 자동 캡처
+// startRecallCollector — 5분 간격으로 자동 캡처 (60초는 VM 메모리 과부하 원인)
 func startRecallCollector() {
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -239,7 +240,9 @@ try {
     Write-Output ""
 }
 `
-		out, _ := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		out, _ := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
+		cancel()
 		ocrText := strings.TrimSpace(string(out))
 
 		entry := RecallEntry{

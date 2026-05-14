@@ -1665,7 +1665,7 @@ func runSystemControl(control string, value int) (any, string) {
 			value = 50
 		}
 		script := fmt.Sprintf(`Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class V{[DllImport("winmm.dll")]public static extern int waveOutSetVolume(System.IntPtr h,uint v);}';$v=[uint32](%d/100.0*65535);[V]::waveOutSetVolume([System.IntPtr]::Zero,($v -bor ($v -shl 16)))`, value)
-		exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+		execPSRun(script)
 		return map[string]any{"volume": value}, fmt.Sprintf("볼륨을 %d%%로 설정했습니다. 🔊", value)
 
 	case "mute", "음소거":
@@ -1678,7 +1678,7 @@ func runSystemControl(control string, value int) (any, string) {
 			value = 70
 		}
 		script := fmt.Sprintf(`(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1,%d)`, value)
-		exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+		execPSRun(script)
 		return map[string]any{"brightness": value}, fmt.Sprintf("밝기를 %d%%로 설정했습니다. ☀️", value)
 
 	case "wifi", "와이파이":

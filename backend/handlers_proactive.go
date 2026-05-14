@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -71,7 +72,9 @@ var suspiciousProcessKeywords = []string{
 }
 
 func detectSuspiciousProcesses() []string {
-	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command",
 		"Get-Process | Select-Object -ExpandProperty Name").Output()
 	if err != nil {
 		return nil
@@ -183,7 +186,9 @@ try {
   }
 } catch { }
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
 	if err != nil || len(out) == 0 {
 		return
 	}
@@ -228,7 +233,8 @@ func updateLastActivity() {
 // ── 메인 모니터링 루프 ───────────────────────────────────────
 
 func startProactiveMonitor() {
-	ticker := time.NewTicker(30 * time.Second)
+	// 5분 간격으로 변경 — 30초마다 PowerShell 실행 시 VM 메모리 폭발 방지
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	var (
@@ -247,7 +253,7 @@ func startProactiveMonitor() {
 
 		// ── 모닝 브리핑 (08:00 매일) ────────────────────────────
 		today := now.Format("2006-01-02")
-		if now.Hour() == 8 && now.Minute() < 1 && lastBriefingDate != today {
+		if now.Hour() == 8 && now.Minute() < 6 && lastBriefingDate != today {
 			lastBriefingDate = today
 			go func() {
 				briefing := generateProactiveMorningBriefing()
@@ -261,32 +267,29 @@ func startProactiveMonitor() {
 			}()
 		}
 
-		// ── CPU 고부하 감지 (3회 연속 > 85%) ────────────────────
-		mem := getMemoryUsage() // CPU 부하 대리 지표 (WMI 없이)
-		cpuEst := mem           // 메모리 부하가 높으면 CPU도 높을 가능성
+		// ── CPU/메모리 고부하 감지 (3회 연속 > 85%) ─────────────
+		mem := getMemoryUsage()
+		cpuEst := mem
 		if cpuEst > 85 {
 			cpuHighCount++
-			if cpuHighCount >= 3 && now.Sub(lastCPUAlert) > 15*time.Minute {
+			if cpuHighCount >= 3 && now.Sub(lastCPUAlert) > 30*time.Minute {
 				lastCPUAlert = now
 				cpuHighCount = 0
-				// 자동 정리 트리거
-				go func() {
-					freed := autoCleanTempFiles()
-					publishAlert(Alert{
-						ID:      fmt.Sprintf("cpu_high_%d", now.Unix()),
-						Level:   "warn",
-						Title:   "🌡️ CPU/메모리 과부하 감지 — 자동 최적화",
-						Message: fmt.Sprintf("PC가 과부하 상태입니다. 임시 파일 %s를 자동 정리했어요.", formatBytes(freed)),
-						Action:  "clean",
-					})
-				}()
+				// 자동 정리 대신 알림만 — 사용자가 직접 실행하도록
+				publishAlert(Alert{
+					ID:      fmt.Sprintf("cpu_high_%d", now.Unix()),
+					Level:   "warn",
+					Title:   "🌡️ CPU/메모리 과부하 감지",
+					Message: fmt.Sprintf("메모리 %d%% 사용 중입니다. 임시 파일 정리를 권장해요. 정리해드릴까요?", mem),
+					Action:  "clean",
+				})
 			}
 		} else {
 			cpuHighCount = 0
 		}
 
 		// ── 메모리 경고 ──────────────────────────────────────────
-		if mem > 90 && now.Sub(lastMemAlert) > 15*time.Minute {
+		if mem > 90 && now.Sub(lastMemAlert) > 30*time.Minute {
 			lastMemAlert = now
 			publishAlert(Alert{
 				ID:      fmt.Sprintf("mem_%d", now.Unix()),
@@ -297,42 +300,41 @@ func startProactiveMonitor() {
 			})
 		}
 
-		// ── 디스크 > 90% → 자동 정리 ────────────────────────────
+		// ── 디스크 > 90% → 알림만 (자동 삭제 제거) ──────────────
 		free, total := getDiskSpace()
 		if total > 0 {
 			usedPct := (1 - float64(free)/float64(total)) * 100
-			if usedPct > 90 && now.Sub(lastDiskAlert) > 30*time.Minute {
+			if usedPct > 90 && now.Sub(lastDiskAlert) > 60*time.Minute {
 				lastDiskAlert = now
-				go func() {
-					freed := autoCleanTempFiles()
-					publishAlert(Alert{
-						ID:      fmt.Sprintf("disk_full_%d", now.Unix()),
-						Level:   "critical",
-						Title:   fmt.Sprintf("💿 디스크 %.0f%% 사용! 자동 정리 실행", usedPct),
-						Message: fmt.Sprintf("디스크 공간이 부족합니다. 임시 파일 %s를 자동 삭제했어요.", formatBytes(freed)),
-						Action:  "clean",
-					})
-				}()
-			}
-		}
-
-		// ── 의심 프로세스 감지 ───────────────────────────────────
-		if now.Sub(lastSuspAlert) > 5*time.Minute {
-			suspicious := detectSuspiciousProcesses()
-			if len(suspicious) > 0 {
-				lastSuspAlert = now
 				publishAlert(Alert{
-					ID:      fmt.Sprintf("suspicious_%d", now.Unix()),
+					ID:      fmt.Sprintf("disk_full_%d", now.Unix()),
 					Level:   "critical",
-					Title:   "🚨 의심 프로세스 감지!",
-					Message: fmt.Sprintf("의심스러운 프로세스가 실행 중입니다: %s", strings.Join(suspicious, ", ")),
-					Action:  "security",
+					Title:   fmt.Sprintf("💿 디스크 %.0f%% 사용!", usedPct),
+					Message: "디스크 공간이 부족합니다. 임시 파일 정리를 실행할까요?",
+					Action:  "clean",
 				})
 			}
 		}
 
-		// ── 미팅 30분 전 알림 (5분마다 확인) ───────────────────
-		if now.Sub(lastMeetingCheck) > 5*time.Minute {
+		// ── 의심 프로세스 감지 (10분 간격, 별도 goroutine+타임아웃) ──
+		if now.Sub(lastSuspAlert) > 10*time.Minute {
+			lastSuspAlert = now
+			go func() {
+				suspicious := detectSuspiciousProcesses()
+				if len(suspicious) > 0 {
+					publishAlert(Alert{
+						ID:      fmt.Sprintf("suspicious_%d", now.Unix()),
+						Level:   "critical",
+						Title:   "🚨 의심 프로세스 감지!",
+						Message: fmt.Sprintf("의심스러운 프로세스가 실행 중입니다: %s", strings.Join(suspicious, ", ")),
+						Action:  "security",
+					})
+				}
+			}()
+		}
+
+		// ── 미팅 30분 전 알림 (10분마다 확인) ──────────────────
+		if now.Sub(lastMeetingCheck) > 10*time.Minute {
 			lastMeetingCheck = now
 			go checkUpcomingMeetings()
 		}

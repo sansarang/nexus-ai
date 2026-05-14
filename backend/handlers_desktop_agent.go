@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -127,7 +126,7 @@ Start-Sleep -Milliseconds 50
 `
 	}
 
-	return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	return execPSRun(script)
 }
 
 // doubleClick: 더블클릭
@@ -158,7 +157,7 @@ Start-Sleep -Milliseconds 50
 Start-Sleep -Milliseconds 50
 [MouseDrag]::mouse_event(0x0004, 0, 0, 0, 0)
 `, fromX, fromY, toX, toY)
-	return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	return execPSRun(script)
 }
 
 // scrollAt: 스크롤 (delta: 양수=위, 음수=아래)
@@ -175,7 +174,7 @@ public class MouseScroll {
 [MouseScroll]::SetCursorPos(%d, %d)
 [MouseScroll]::mouse_event(0x0800, 0, 0, %d, 0)
 `, x, y, delta*120)
-	return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	return execPSRun(script)
 }
 
 // ── 키보드 제어 ─────────────────────────────────────────────────
@@ -190,7 +189,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Start-Sleep -Milliseconds 100
 [System.Windows.Forms.SendKeys]::SendWait("^v")
 `, escaped)
-	return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	return execPSRun(script)
 }
 
 // pressKey: 단일 키 또는 단축키 입력
@@ -200,7 +199,7 @@ func pressKey(key string) error {
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.SendKeys]::SendWait("%s")
 `, key)
-	return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	return execPSRun(script)
 }
 
 // hotkey: Windows 단축키 (Win+D 등)
@@ -234,7 +233,7 @@ $wshell.SendKeys("^{ESC}")
 Start-Sleep -Milliseconds 200
 $wshell.SendKeys("%s")
 `, key)
-		return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+		return execPSRun(script)
 	}
 
 	return pressKey(combo + key)
@@ -245,7 +244,7 @@ $wshell.SendKeys("%s")
 // launchAndFocus: 앱 실행 후 포커스
 func launchAndFocus(appName string) error {
 	script := fmt.Sprintf(`Start-Process "%s"`, appName)
-	if err := exec.Command("powershell", "-NoProfile", "-Command", script).Run(); err != nil {
+	if err := execPSRun(script); err != nil {
 		return err
 	}
 	time.Sleep(1500 * time.Millisecond)
@@ -272,7 +271,7 @@ if ($proc) {
     Write-Output "NOT_FOUND"
 }
 `, titleKeyword)
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, _ := execPS(script)
 	if strings.TrimSpace(string(out)) == "NOT_FOUND" {
 		return fmt.Errorf("창을 찾을 수 없어요: %s", titleKeyword)
 	}

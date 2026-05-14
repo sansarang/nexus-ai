@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"strings"
 )
 
@@ -84,7 +83,7 @@ try {
 }
 `, escapePSString(req.To), escapePSString(req.Subject), escapePSString(req.Body))
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	success := err == nil && strings.Contains(string(out), "OK")
 
 	msg := fmt.Sprintf("'%s'에게 메일을 보냈어요 📤", req.To)
@@ -144,7 +143,7 @@ try {
   Write-Output "ERROR: $_"
 }
 `, escapePSString(to), escapePSString(subject), escapePSString(body))
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return err
 	}
@@ -179,7 +178,7 @@ func getOutlookInbox(limit int) ([]EmailItem, error) {
 		limit,
 	)
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return nil, err
 	}

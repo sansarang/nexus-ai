@@ -50,7 +50,7 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 			`Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class Vol { [DllImport("winmm.dll")] public static extern int waveOutSetVolume(System.IntPtr h, uint v); }'; $v = [uint32](%d / 100.0 * 65535); [Vol]::waveOutSetVolume([System.IntPtr]::Zero, ($v -bor ($v -shl 16)))`,
 			req.Value,
 		)
-		exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+		execPSRun(script)
 		json200(w, map[string]any{"success": true, "volume": req.Value,
 			"message": fmt.Sprintf("볼륨을 %d%%로 설정했어요 🔊", req.Value)})
 	}
@@ -85,7 +85,7 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 		`(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, %d)`,
 		req.Value,
 	)
-	err := exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	err := execPSRun(script)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": "밝기 조절 실패 (노트북 전용 기능이에요)"})
 		return
@@ -121,7 +121,7 @@ func handleWifi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	script := fmt.Sprintf(`netsh interface set interface "Wi-Fi" %s`, action)
-	exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	execPSRun(script)
 	json200(w, map[string]any{"success": true, "message": msg})
 }
 

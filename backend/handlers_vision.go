@@ -59,7 +59,7 @@ $bmp.Dispose()
 Write-Output "$($screen.Width)x$($screen.Height)"
 `, tmpFile)
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("스크린샷 캡처 실패: %w", err)
 	}
@@ -112,7 +112,7 @@ try {
 }
 `, imagePath)
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		return "", err
 	}
@@ -183,7 +183,7 @@ if ($img -ne $null) {
 }
 `, tmpFile)
 
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, _ := execPS(script)
 	if strings.TrimSpace(string(out)) != "OK" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "클립보드에 이미지가 없어요"})
 		return

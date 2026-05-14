@@ -84,7 +84,7 @@ foreach ($p in $paths) {
 }
 $cleaned
 `
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, _ := execPS(script)
 	cleaned := 0
 	fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &cleaned)
 
@@ -234,7 +234,7 @@ func handleRestoreCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	script := fmt.Sprintf(`Checkpoint-Computer -Description "%s" -RestorePointType "APPLICATION_INSTALL"`, req.Description)
-	err := exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+	err := execPSRun(script)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false,
 			"message": "복구 포인트 생성 실패 (시스템 보호 활성화 필요)"})

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -184,7 +185,9 @@ try {
 }
 
 func execPowerShell(script string) (string, error) {
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
 	return strings.TrimSpace(string(out)), err
 }
 
