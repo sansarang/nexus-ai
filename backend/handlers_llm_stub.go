@@ -220,37 +220,81 @@ func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 		return nil, fmt.Errorf("groq key not set")
 	}
 
-	sysPrompt := `You are a Clarify Specialist for NEXUS AI assistant. Decide if a Korean user request has enough info to execute.
+	sysPrompt := `You classify Korean AI assistant requests as needing clarification or not.
+Output JSON: {"needs_clarify": bool, "clarify_question": "Korean question", "reason": "brief"}
 
-RULE: If ANY essential info is missing → needs_clarify=true. Never guess or infer.
+## ALWAYS clarify these exact requests (no exceptions, highest priority):
+- "선물 뭐가 좋을까" → true (누구에게, 예산 없음)
+- "출장 계획 짜줘" → true (목적지 없음)
+- "할 일 정리해줘" → true (AI가 할 일 목록을 모름, 반드시 물어볼 것)
+- "여행 일정 만들어줘" → true (목적지/날짜 없음)
+- "동남아 여행 가고 싶어" → true (구체적 나라 없음)
 
-clarify=true cases:
-- Gift/shopping: no product name or (recipient+budget) → clarify. "선물 뭐가 좋을까" → clarify
-- Travel: no destination city or date → clarify. "여행 일정 만들어줘", "동남아 여행 가고 싶어" → clarify
-- Place/restaurant: no location → clarify. "맛집 추천해줘", "데이트 코스", "나들이 장소" → clarify. Exception: "근처" = OK
-- Netflix/streaming: no genre → clarify. "넷플릭스 뭐 볼까" → clarify
-- Weather: no city → clarify. "날씨 어때", "오늘 비 와?" → clarify
-- Calendar: no title+date → clarify. "일정 추가해줘" → clarify
-- File: no filename/content → clarify. "파일 찾아줘", "문서 요약해줘" → clarify
-- Email: no recipient+content → clarify. "이메일 보내줘" → clarify
-- Vague: "도와줘", "할 일 정리해줘", "요즘 핫한 거 뭐야", "비교해줘" → clarify
+## ALWAYS execute these patterns (no exceptions):
+- "오늘 오후 N시 치과" or "치과 예약 넣어줘" with time → false (치과 이름 절대 묻지 말 것)
+- "유튜브에서 [주제] 영상" → false (주제가 있으면 바로 실행)
 
-clarify=false cases (execute OK — do NOT ask more):
-- Specific product: "에어팟 프로 2", "갤럭시 S25" → OK
-- Location+food: "강남 한식 맛집" → OK
-- "근처" keyword: "근처 카페", "근처 맛집" → OK (근처 = current location, no need to ask)
-- City+weather: "서울 날씨" → OK
-- Clear commands: "바탕화면 정리", "중복 파일 찾아줘" → OK
-- Both targets: "아이폰 vs 갤럭시 비교" → OK
-- Video with topic: "유튜브에서 주식 투자 영상" → OK (topic = 주식 투자, enough)
-- Trending/popular: "유튜브 인기 영상", "최근 뉴스" → OK (no need to narrow further)
-- Trip with destination+duration: "도쿄 3박 4일" → OK (enough to plan)
-- Calendar/appointment: "오늘 오후 2시 치과", "5월 20일 오후 3시 팀 회의", "내일 저녁 7시 저녁 약속" → OK (event name + date + time = complete. Do NOT ask for hospital name, address, or other details)
-- Email with recipient+reason: "팀장님한테 반차 이메일" → OK (recipient=팀장님, content=반차)
-- Budget+category: "30만원 이하 무선 이어폰" → OK
+## CRITICAL "DO NOT ASK" rules (override everything):
+- If destination+duration exists (도쿄 3박 4일, 제주도 1박 2일, 다음달 제주도) → NEVER ask for exact dates → false
+- If city name exists (서울, 부산, 도쿄) for weather → NEVER ask for date → false
+- If time+event exists (오후 2시 치과, 오전 10시 회의) → NEVER ask for clinic/venue name → false
+- If "근처" appears → NEVER ask for location (근처=GPS) → false
+- If system task (바탕화면 정리, 중복 파일) → NEVER ask for file details → false
+- If named recipient+clear purpose (팀장님한테 반차 이메일) → NEVER ask for content → false
 
-Output ONLY valid JSON:
-{"needs_clarify": bool, "clarify_question": "한국어 질문 (예시 포함)", "reason": "why"}`
+## needs_clarify=true (key info TRULY missing):
+쿠팡에서 찾아줘 → true
+11번가에서 사고 싶어 → true
+노트북 추천해줘 → true (no budget/purpose)
+선물 뭐가 좋을까 → true
+유튜브 찾아줘 → true (no topic)
+틱톡 영상 찾아줘 → true (no topic — same rule as 유튜브 찾아줘)
+넷플릭스 뭐 볼까 → true (no genre)
+출장 계획 짜줘 → true (no destination)
+여행 일정 만들어줘 → true (no destination)
+혼자 여행하기 좋은 곳 추천해줘 → true
+동남아 여행 가고 싶어 → true (no specific country)
+맛집 추천해줘 → true (no location)
+데이트 코스 알려줘 → true (no location)
+주말 가족 나들이 장소 추천 → true (no location)
+날씨 어때 → true (no city)
+오늘 비 와? → true (no city)
+일정 추가해줘 → true
+내일 회의 일정 추가해줘 → true (no time)
+회의 일정 잡아줘 → true (no date/time)
+파일 찾아줘 → true (no filename)
+문서 요약해줘 → true
+이메일 보내줘 → true (no recipient)
+검색해줘 → true
+도와줘 → true
+할 일 정리해줘 → true
+요즘 핫한 거 뭐야 → true
+비교해줘 → true
+
+## needs_clarify=false (sufficient info):
+쿠팡에서 에어팟 프로 2 최저가 찾아줘 → false
+다나와에서 RTX 4070 가격 비교해줘 → false
+30만원 이하 무선 이어폰 추천해줘 → false
+갤럭시 S25 울트라 사고 싶어 → false
+강남 한식 맛집 추천해줘 → false
+근처 카페 찾아줘 → false
+홍대 근처 이탈리안 레스토랑 → false
+서울 날씨 알려줘 → false
+내일 부산 날씨 → false
+도쿄 3박 4일 여행 일정 짜줘 → false
+다음달 제주도 1박 2일 계획 세워줘 → false
+유튜브에서 주식 투자 영상 찾아줘 → false
+틱톡에서 요리 레시피 영상 보여줘 → false
+유튜브 인기 영상 보여줘 → false
+오늘 오후 2시 치과 예약 넣어줘 → false
+5월 20일 오후 3시 팀 회의 일정 잡아줘 → false
+팀장님한테 오늘 오후 반차 이메일 보내줘 → false
+아이폰 16 vs 갤럭시 S25 비교해줘 → false
+바탕화면 정리해줘 → false
+중복 파일 찾아줘 → false
+삼성전자 주가 알려줘 → false
+파이썬 리스트 정렬하는 법 알려줘 → false
+최근 뉴스 보여줘 → false`
 
 	type reqBody struct {
 		Model          string         `json:"model"`
@@ -276,17 +320,35 @@ Output ONLY valid JSON:
 	}
 
 	body, _ := json.Marshal(rb)
-	httpReq, _ := http.NewRequest("POST", groqRealAPIBase, bytes.NewReader(body))
-	httpReq.Header.Set("Authorization", "Bearer "+gKey)
-	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 12 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("groq 연결 실패: %w", err)
+	client := &http.Client{Timeout: 15 * time.Second}
+	var raw []byte
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+		}
+		httpReq, _ := http.NewRequest("POST", groqRealAPIBase, bytes.NewReader(body))
+		httpReq.Header.Set("Authorization", "Bearer "+gKey)
+		httpReq.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			if attempt == 2 {
+				return nil, fmt.Errorf("groq 연결 실패: %w", err)
+			}
+			continue
+		}
+		raw, _ = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode == 429 {
+			// rate limit → retry with short backoff
+			if attempt == 2 {
+				return nil, fmt.Errorf("groq rate limit")
+			}
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
 	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
 
 	var gr struct {
 		Choices []struct {

@@ -521,9 +521,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ── Clarify 판단 ─────────────────────────────────────────────────────
-	// 레이어 A: 핵심 파라미터 비어있음 → 코드로 즉시 clarify (0ms, 확실)
-	// 레이어 B: 의미적으로 모호한 요청 → Groq Structured Outputs 판단
+	// ── Clarify 판단 — 완전 동적 (Groq 단독, 키워드 하드코딩 없음) ──────────
 	if req.PendingIntent == "" {
 		clarifyNow := func(questions []string, pi string, pp map[string]any) {
 			q := ""
@@ -538,209 +536,27 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		// 레이어 A: pre-routing 감지 액션 + 공통 패턴 키워드 검사 (0ms, 확실)
-		msg := req.Message
-		msgLow := strings.ToLower(msg)
-		hasNearby := strings.Contains(msg, "근처") || strings.Contains(msg, "nearby")
-
-		switch preRoutedAction {
-		case "price_compare", "multi_action":
-			if q, _ := preRoutedParams["query"].(string); q == "" {
-				clarifyNow([]string{"어떤 상품 또는 주제를 찾아드릴까요? (예: 에어팟 프로 2, 갤럭시 S25, 2026 주식 전략 영상)"},
-					preRoutedAction, preRoutedParams)
-				return
-			}
-		case "video_search":
-			if q, _ := preRoutedParams["query"].(string); q == "" {
-				platform, _ := preRoutedParams["platform"].(string)
-				if platform == "tiktok" {
-					clarifyNow([]string{"TikTok에서 어떤 영상을 찾아드릴까요? (예: 요리, 댄스, 먹방, 브이로그)"},
-						preRoutedAction, preRoutedParams)
-				} else {
-					clarifyNow([]string{"YouTube에서 어떤 영상을 찾아드릴까요? (예: 주식 투자, 요리 레시피, 운동)"},
-						preRoutedAction, preRoutedParams)
-				}
-				return
-			}
-		case "trip_plan":
-			if dest, _ := preRoutedParams["destination"].(string); dest == "" || dest == req.Message {
-				clarifyNow([]string{"어디로 출장/여행을 가시나요? (예: 도쿄, 뉴욕, 싱가포르, 방콕)"},
-					preRoutedAction, preRoutedParams)
-				return
-			}
-		}
-
-		// ── Layer A 확장: 공통 패턴 키워드 검사 ─────────────────────────
-		cityKeywords := []string{"서울", "부산", "제주", "인천", "대구", "대전", "광주", "수원", "성남",
-			"도쿄", "오사카", "뉴욕", "파리", "런던", "베이징", "상하이", "방콕", "싱가포르", "홍콩"}
-		locationKeywords := []string{"강남", "홍대", "신촌", "이태원", "종로", "명동", "부산", "제주",
-			"서울", "대구", "대전", "인천", "수원", "해운대", "잠실", "여의도", "판교"}
-		hasCityInMsg := hasNearby
-		hasLocationInMsg := hasNearby
-		for _, c := range cityKeywords {
-			if strings.Contains(msg, c) {
-				hasCityInMsg = true
-				hasLocationInMsg = true
-				break
-			}
-		}
-		if !hasLocationInMsg {
-			for _, l := range locationKeywords {
-				if strings.Contains(msg, l) {
-					hasLocationInMsg = true
-					break
-				}
-			}
-		}
-
-		// 날씨: 도시명 없이 날씨만 → clarify
-		isWeatherQuery := strings.Contains(msg, "날씨") || strings.Contains(msg, "비 와") ||
-			strings.Contains(msg, "눈 와") || strings.Contains(msg, "기온") || strings.Contains(msg, "온도")
-		if isWeatherQuery && !hasCityInMsg && preRoutedAction == "" {
-			clarifyNow([]string{"어느 지역의 날씨를 알려드릴까요? (예: 서울, 부산, 제주, 도쿄)"},
-				"weather", nil)
-			return
-		}
-
-		// 맛집/장소: 지역 없음 → clarify (근처 제외)
-		isPlaceQuery := strings.Contains(msg, "맛집") || strings.Contains(msg, "식당") ||
-			strings.Contains(msg, "음식점") || strings.Contains(msg, "데이트 코스") ||
-			strings.Contains(msg, "나들이") || strings.Contains(msg, "놀거리") ||
-			(strings.Contains(msg, "카페") && !strings.Contains(msg, "카페 라")) ||
-			strings.Contains(msg, "관광지") || strings.Contains(msg, "장소 추천")
-		if isPlaceQuery && !hasLocationInMsg && preRoutedAction == "" {
-			clarifyNow([]string{"어느 지역에서 찾아드릴까요? (예: 강남, 홍대, 부산 해운대)"},
-				"web_search", nil)
-			return
-		}
-
-		// 제품 추천: 예산/용도 없이 카테고리만 → clarify
-		vagueProducts := []string{"노트북", "태블릿", "모니터", "키보드", "마우스", "스피커", "청소기", "냉장고", "세탁기", "TV"}
-		hasBudgetOrUse := strings.Contains(msg, "만원") || strings.Contains(msg, "원 이하") ||
-			strings.Contains(msg, "용도") || strings.Contains(msg, "게임") ||
-			strings.Contains(msg, "업무") || strings.Contains(msg, "학생") ||
-			strings.Contains(msg, "대학") || strings.Contains(msg, "사무")
-		for _, vp := range vagueProducts {
-			if strings.Contains(msg, vp) && strings.Contains(msg, "추천") && !hasBudgetOrUse {
-				clarifyNow([]string{vp + " 추천을 위해 예산과 주요 용도를 알려주세요. (예: 50만원 이하, 업무용)"},
-					"web_search", nil)
-				return
-			}
-		}
-
-		// 선물: 대상/예산 없이 → clarify
-		if strings.Contains(msg, "선물") && !strings.Contains(msg, "선물 받") &&
-			!strings.Contains(msg, "선물 드") && !strings.Contains(msg, "만원") &&
-			!strings.Contains(msg, "원 이하") && len([]rune(msg)) < 20 {
-			clarifyNow([]string{"어떤 분께 드릴 선물인가요? 관계(부모님/친구/연인)와 예산을 알려주세요."},
-				"web_search", nil)
-			return
-		}
-
-		// 넷플릭스/OTT: 장르 없이 → clarify
-		isStreaming := strings.Contains(msg, "넷플릭스") || strings.Contains(msg, "왓챠") ||
-			strings.Contains(msg, "웨이브") || strings.Contains(msg, "티빙")
-		hasGenre := strings.Contains(msg, "액션") || strings.Contains(msg, "로맨스") ||
-			strings.Contains(msg, "공포") || strings.Contains(msg, "코미디") ||
-			strings.Contains(msg, "드라마") || strings.Contains(msg, "SF") ||
-			strings.Contains(msg, "다큐") || strings.Contains(msg, "애니")
-		if isStreaming && !hasGenre && (strings.Contains(msg, "뭐 볼") || strings.Contains(msg, "추천")) {
-			clarifyNow([]string{"어떤 장르를 좋아하세요? (예: 액션, 로맨스, SF, 스릴러, 다큐멘터리)"},
-				"chat", nil)
-			return
-		}
-
-		// 여행: 목적지 없음 → clarify (trip_plan 미감지된 경우)
-		isTravel := strings.Contains(msg, "여행") || strings.Contains(msg, "해외") ||
-			strings.Contains(msg, "출국") || strings.Contains(msg, "여행지")
-		if isTravel && !hasCityInMsg && preRoutedAction == "" &&
-			!strings.Contains(msg, "여행 다녀") && !strings.Contains(msg, "여행 갔") {
-			clarifyNow([]string{"어디로 여행을 가시나요? 목적지와 날짜를 알려주세요. (예: 도쿄 5월 20일~23일)"},
-				"trip_plan", nil)
-			return
-		}
-
-		// 일정: 날짜/시간 없이 → clarify (여행/출장 문맥의 "일정"은 제외)
-		isCalendar := (strings.Contains(msg, "일정") && !isTravel) ||
-			strings.Contains(msg, "약속") ||
-			strings.Contains(msg, "스케줄") || strings.Contains(msg, "예약 넣")
-		// "일" 단독은 "일정" 안에 포함되므로 더 구체적 패턴 사용
-		hasDateTime := strings.Contains(msg, "월") ||
-			strings.Contains(msg, "오전") || strings.Contains(msg, "오후") ||
-			strings.Contains(msg, "내일") || strings.Contains(msg, "모레") ||
-			strings.Contains(msg, "다음주") || strings.Contains(msg, "이번주") ||
-			strings.Contains(msg, "시에") || strings.Contains(msg, "시 ") ||
-			(strings.Contains(msg, "일 ") && strings.Contains(msg, "월")) // "20일 오후"처럼
-		if isCalendar && !hasDateTime && preRoutedAction == "" {
-			clarifyNow([]string{"어떤 일정인가요? 제목과 날짜/시간을 알려주세요. (예: 내일 오후 2시 치과)"},
-				"calendar_add", nil)
-			return
-		}
-
-		// 이메일: 수신자 없음 → clarify
-		isEmailSend := strings.Contains(msg, "이메일 보내") || strings.Contains(msg, "메일 보내") ||
-			strings.Contains(msg, "이메일 써") || strings.Contains(msg, "메일 써")
-		hasRecipient := strings.Contains(msg, "님") || strings.Contains(msg, "에게") ||
-			strings.Contains(msg, "한테") || strings.Contains(msg, "@")
-		if isEmailSend && !hasRecipient {
-			clarifyNow([]string{"누구에게 어떤 내용의 이메일을 보낼까요? (예: 팀장님께 반차 이메일)"},
-				"email", nil)
-			return
-		}
-
-		// 검색: 내용 없음 → clarify
-		if strings.TrimSpace(msg) == "검색해줘" || strings.TrimSpace(msg) == "검색해 줘" {
-			clarifyNow([]string{"무엇을 검색해드릴까요? 키워드나 주제를 알려주세요."},
-				"web_search", nil)
-			return
-		}
-
-		// 파일: "중복 파일"은 제외하고, 파일명/내용 없이 찾아줘 → clarify
-		isFileFind := (strings.Contains(msg, "파일 찾") && !strings.Contains(msg, "중복")) ||
-			strings.Contains(msg, "문서 요약") || strings.Contains(msg, "파일 요약")
-		if isFileFind && len([]rune(msg)) < 12 {
-			clarifyNow([]string{"어떤 파일을 찾아드릴까요? 파일명, 종류, 또는 내용을 알려주세요."},
-				"file_search", nil)
-			return
-		}
-
-		// 완전 모호한 의도 → clarify
-		vagueFull := map[string]bool{
-			"도와줘": true, "도와 줘": true, "비교해줘": true, "비교해 줘": true,
-			"요즘 핫한 거 뭐야": true, "핫한 거 뭐야": true, "뭐가 좋을까": true,
-			"할 일 정리해줘": true, "할 일 정리해 줘": true,
-		}
-		if vagueFull[strings.TrimSpace(msg)] {
-			clarifyNow([]string{"무엇을 도와드릴까요? 조금 더 구체적으로 알려주시면 바로 실행할게요!"},
-				"chat", nil)
-			return
-		}
-		// "비교해줘" 단독 (vs/대 없음)
-		if (strings.Contains(msg, "비교해줘") || strings.Contains(msg, "비교해 줘")) &&
-			!strings.Contains(msg, "vs") && !strings.Contains(msg, "VS") &&
-			len([]rune(msg)) < 10 {
-			clarifyNow([]string{"무엇과 무엇을 비교해드릴까요? (예: 아이폰 16 vs 갤럭시 S25)"},
-				"chat", nil)
-			return
-		}
-
-		// ── skip-Groq 가드: 명확히 실행 가능한 패턴은 Groq 호출 생략 ─────────
-		// 명확히 실행 가능한 패턴은 Groq 호출 생략
-		skipGroq := hasNearby || (isWeatherQuery && hasCityInMsg)
-		_ = msgLow
-
-		// 레이어 B: Groq Structured Outputs — pre-routing 미감지 + 의미적 모호함
 		groqCtx := req.Message
 		if preRoutedAction != "" {
 			groqCtx = fmt.Sprintf("[감지된 액션: %s]\n사용자 요청: %s", preRoutedAction, req.Message)
 		}
-		if !skipGroq {
-			if cr, err := callGroqStructured(groqCtx); err == nil && cr.NeedsClarify {
-				pi := preRoutedAction
-				if pi == "" {
-					pi = cr.Action
-				}
-				clarifyNow(cr.ClarifyQuestions, pi, preRoutedParams)
+
+		// Groq 단일 판단
+		cr1, err1 := callGroqStructured(groqCtx)
+		if err1 == nil && cr1.NeedsClarify {
+			pi := preRoutedAction
+			if pi == "" {
+				pi = cr1.Action
+			}
+			clarifyNow(cr1.ClarifyQuestions, pi, preRoutedParams)
+			return
+		}
+		// Groq 에러 시 보수적 처리: 짧고 모호한 메시지면 clarify
+		if err1 != nil {
+			runes := []rune(strings.TrimSpace(req.Message))
+			if len(runes) < 8 {
+				clarifyNow([]string{"무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요."},
+					"chat", nil)
 				return
 			}
 		}
