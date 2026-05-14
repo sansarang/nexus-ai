@@ -510,6 +510,48 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		preRoutedParams = map[string]any{"sub_action": subAction, "query": req.Message, "format": string(outFmt), "max_items": 8}
 	}
 
+	// ── 채팅 페르소나 전환 감지 ────────────────────────────────────
+	if preRoutedAction == "" && req.PendingIntent == "" {
+		personaSwitchMap := map[string]string{
+			"개발자": "developer", "개발자모드": "developer", "개발 모드": "developer", "it 모드": "developer", "코딩 모드": "developer",
+			"마케터": "marketer", "마케팅 모드": "marketer", "마케팅모드": "marketer", "디지털 마케터": "marketer",
+			"영업": "sales", "세일즈": "sales", "영업 모드": "sales", "세일즈 모드": "sales",
+			"pm": "pm", "기획자": "pm", "pm 모드": "pm", "기획 모드": "pm", "프로덕트": "pm",
+			"디자이너": "designer", "크리에이터": "designer", "디자인 모드": "designer", "크리에이티브 모드": "designer",
+			"프리랜서": "freelancer", "1인 사업자": "freelancer", "프리랜서 모드": "freelancer", "사업자 모드": "freelancer",
+			"기본": "developer", "기본 모드": "developer",
+		}
+		switchTriggers := []string{"모드로 바꿔", "모드 바꿔", "모드로 전환", "모드 전환", "페르소나", "으로 바꿔", "로 바꿔줘", "로 전환해"}
+		hasTrigger := false
+		for _, t := range switchTriggers {
+			if strings.Contains(msgLower, t) {
+				hasTrigger = true
+				break
+			}
+		}
+		if hasTrigger {
+			for keyword, pid := range personaSwitchMap {
+				if strings.Contains(msgLower, keyword) {
+					for _, p := range builtinPersonas {
+						if p.ID == pid {
+							personaMu.Lock()
+							activePersonaID = pid
+							personaMu.Unlock()
+							savePersonaConfig()
+							json200(w, CommandResponse{
+								Success:  true,
+								Message:  p.Emoji + " " + p.Name + " 모드로 전환했습니다. 이제 " + p.Description + " 관점으로 답변합니다.",
+								Action:   "persona_switch",
+								Duration: fmt.Sprintf("%.2fs", time.Since(start).Seconds()),
+							})
+							return
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// 출장/여행 준비 pre-routing (액션 감지만)
 	if preRoutedAction == "" && req.PendingIntent == "" {
 		for _, v := range []string{"출장 준비", "여행 준비", "출장 계획", "여행 계획", "출장 가", "출장이야", "출장인데", "출장 있", "여행 있", "trip 준비"} {
@@ -640,7 +682,8 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 				if lang == "en" {
 					sysPrompt = "You are Nexus AI, a helpful assistant. Answer in natural English, 2-4 sentences. No markdown headers."
 				} else {
-					sysPrompt = "당신은 Nexus AI 한국어 비서입니다. 자연스러운 한국어로 2~4문장 답변. 마크다운 헤더 금지."
+					personaPrompt := getPersonaSystemPrompt()
+					sysPrompt = personaPrompt + "\n자연스러운 한국어로 답변하세요. 마크다운 헤더(##, ###) 금지."
 				}
 				msgs := []groqMsg{{Role: "system", Content: sysPrompt}, {Role: "user", Content: req.Message}}
 				answer, _, _ = callGroqWithCitations(gKey, groqChatModel, msgs, 600)
