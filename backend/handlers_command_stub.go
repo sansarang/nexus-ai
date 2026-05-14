@@ -240,6 +240,10 @@ const macSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령을
 "workflow_plan" → 목표 달성 워크플로우 계획
   params: {"goal":"목표"}
 
+"trip_plan" → 출장/여행 자동 준비 (항공권·호텔·날씨·맛집·환율 한 번에)
+  트리거: "출장", "여행 준비", "출장 준비", "trip", "여행 계획"
+  params: {"destination":"목적지","date":"출발일YYYY-MM-DD","days":1,"purpose":"출장|여행"}
+
 "windows_only" → Windows PC 제어 기능 (볼륨, 보안, 프로세스 등)
   params: {"feature":"기능명"}
 
@@ -260,6 +264,7 @@ const macSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령을
   · "비교해줘", "비교해", "비교 정리", "비교표", "vs", "VS", "대비"
   · "표로 만들어", "표로 정리"
   · "보고서", "리포트", "report"
+- "출장", "여행 준비", "출장 준비" → trip_plan (목적지 없으면 clarify)
 - PC제어/보안/최적화/볼륨/밝기 → windows_only
 - 그 외 모든 대화 → chat
 
@@ -517,6 +522,22 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			"query":      req.Message,
 			"format":     string(outFmt),
 			"max_items":  8,
+		}
+	}
+
+	// 출장/여행 준비 pre-routing
+	if preRoutedAction == "" && req.PendingIntent == "" {
+		tripVerbs := []string{"출장 준비", "여행 준비", "출장 계획", "여행 계획", "출장 가", "출장이야", "출장인데", "출장 있", "여행 있", "trip 준비"}
+		for _, v := range tripVerbs {
+			if strings.Contains(msgLower, v) {
+				// 목적지 추출 시도 (LLM에 위임)
+				preRoutedAction = "trip_plan"
+				preRoutedParams = map[string]any{
+					"destination": req.Message,
+					"purpose":     "출장",
+				}
+				break
+			}
 		}
 	}
 
@@ -919,6 +940,122 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			Success:  true,
 			Message:  plan,
 			Action:   "workflow_plan",
+			Duration: dur,
+		})
+
+	case "trip_plan":
+		destination, _ := intent.Params["destination"].(string)
+		date, _ := intent.Params["date"].(string)
+		purpose, _ := intent.Params["purpose"].(string)
+		if destination == "" {
+			destination = req.Message
+		}
+		if date == "" {
+			date = time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+		}
+		if purpose == "" {
+			purpose = "출장"
+		}
+
+		var tripSections []string
+		// 병렬로 정보 수집
+		type section struct {
+			name string
+			body string
+		}
+		ch := make(chan section, 5)
+
+		// 날씨
+		go func() {
+			tr, ok := tavilySearch(llmTavilyKey, destination+" 날씨 "+date, 3)
+			if ok {
+				ch <- section{"날씨", tr.Summary}
+			} else {
+				ch <- section{"날씨", ""}
+			}
+		}()
+		// 항공권
+		go func() {
+			tr, ok := tavilySearch(llmTavilyKey, "서울 "+destination+" 항공권 "+date+" 가격", 3)
+			if ok {
+				ch <- section{"항공권", tr.Summary}
+			} else {
+				ch <- section{"항공권", ""}
+			}
+		}()
+		// 호텔
+		go func() {
+			tr, ok := tavilySearch(llmTavilyKey, destination+" 호텔 추천 "+date, 3)
+			if ok {
+				ch <- section{"호텔", tr.Summary}
+			} else {
+				ch <- section{"호텔", ""}
+			}
+		}()
+		// 맛집
+		go func() {
+			tr, ok := tavilySearch(llmTavilyKey, destination+" 맛집 추천 현지인", 3)
+			if ok {
+				ch <- section{"맛집", tr.Summary}
+			} else {
+				ch <- section{"맛집", ""}
+			}
+		}()
+		// 환율
+		go func() {
+			tr, ok := tavilySearch(llmTavilyKey, destination+" 환율 오늘", 2)
+			if ok {
+				ch <- section{"환율", tr.Summary}
+			} else {
+				ch <- section{"환율", ""}
+			}
+		}()
+
+		collected := map[string]string{}
+		for i := 0; i < 5; i++ {
+			s := <-ch
+			if s.body != "" {
+				collected[s.name] = s.body
+			}
+		}
+
+		for _, key := range []string{"날씨", "항공권", "호텔", "맛집", "환율"} {
+			if v, ok := collected[key]; ok && v != "" {
+				tripSections = append(tripSections, fmt.Sprintf("### %s\n%s", key, v))
+			}
+		}
+
+		prompt := fmt.Sprintf(`%s %s 출장/여행 준비 사항을 다음 정보를 바탕으로 한국어로 깔끔하게 정리해줘.
+
+%s
+
+체크리스트 형식으로 작성해줘:
+1. 날씨 및 준비물
+2. 항공권 정보
+3. 숙소 추천
+4. 현지 맛집
+5. 환율 및 예산
+6. 기타 준비 사항`, destination, date, strings.Join(tripSections, "\n\n"))
+
+		result, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 1000, false)
+
+		// 파일 저장
+		home, _ := os.UserHomeDir()
+		fname := fmt.Sprintf("trip_%s_%s.md", strings.ReplaceAll(destination, " ", "_"), date)
+		fpath := filepath.Join(home, "Desktop", fname)
+		os.WriteFile(fpath, []byte(fmt.Sprintf("# %s %s %s 준비\n\n%s", purpose, destination, date, result)), 0644)
+
+		json200(w, CommandResponse{
+			Success: true,
+			Message: result,
+			Action:  "trip_plan",
+			Result: map[string]any{
+				"destination": destination,
+				"date":        date,
+				"purpose":     purpose,
+				"file":        fpath,
+				"sections":    collected,
+			},
 			Duration: dur,
 		})
 

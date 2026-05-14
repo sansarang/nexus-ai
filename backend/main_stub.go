@@ -202,8 +202,46 @@ func main() {
 	// ── 비전·OCR stub ────────────────────────────────────────
 	mux.HandleFunc("POST /api/vision/ocr-clipboard", handleOCRClipboard)
 
+	// ── 주식 (cross-platform) ─────────────────────────────────
+	mux.HandleFunc("GET /api/stock/quote", handleStockQuote)
+	mux.HandleFunc("GET /api/stock/watchlist", handleStockWatchlist)
+	mux.HandleFunc("POST /api/stock/watchlist", handleStockWatchlistAdd)
+	mux.HandleFunc("DELETE /api/stock/watchlist", handleStockWatchlistDelete)
+
+	// ── cron 실행 엔진 ────────────────────────────────────────
+	mux.HandleFunc("POST /api/cron/add", handleCronAdd)
+	mux.HandleFunc("GET /api/cron/list", handleCronList)
+	mux.HandleFunc("DELETE /api/cron/delete", handleCronDelete)
+	mux.HandleFunc("POST /api/cron/run-now", handleCronRunNow)
+
+	// ── 브라우저 히스토리 ─────────────────────────────────────
+	mux.HandleFunc("GET /api/history/tiktok", handleTikTokHistory)
+	mux.HandleFunc("GET /api/history/youtube", handleYouTubeHistory)
+	mux.HandleFunc("GET /api/history/keywords", handleHistoryKeywords)
+	mux.HandleFunc("GET /api/history/summary", handleHistorySummary)
+
+	// ── YouTube 자동화 ────────────────────────────────────────
+	mux.HandleFunc("GET /api/youtube/subscriptions", handleYouTubeSubscriptions)
+	mux.HandleFunc("POST /api/youtube/playlist/add", handleYouTubePlaylistAdd)
+	mux.HandleFunc("POST /api/youtube/playlist/batch", handleYouTubePlaylistBatch)
+	mux.HandleFunc("POST /api/youtube/search", handleYouTubeSearch)
+
+	// ── TikTok + YouTube Music ────────────────────────────────
+	mux.HandleFunc("GET /api/tiktok/hot-songs", handleTikTokHotSongs)
+	mux.HandleFunc("POST /api/ytmusic/search", handleYTMusicSearch)
+	mux.HandleFunc("POST /api/ytmusic/playlist/add", handleYTMusicPlaylistAdd)
+	mux.HandleFunc("POST /api/tiktok/songs-to-ytmusic", handleTikTokSongsToYTMusic)
+
+	// ── 콘텐츠 추천 ───────────────────────────────────────────
+	mux.HandleFunc("POST /api/recommend/content", handleContentRecommend)
+	mux.HandleFunc("GET /api/netflix/trending", handleNetflixTrending)
+	mux.HandleFunc("GET /api/recall/keywords", handleRecallKeywordsMac)
+	mux.HandleFunc("GET /api/wishlist/content", handleContentWishlist)
+	mux.HandleFunc("POST /api/wishlist/content", handleContentWishlistAdd)
+
 	initMemory()
 	initScheduler()
+	initCronEngine()
 	loadLLMConfig()
 	loadPersonaConfig()
 	loadBrainIndex()
