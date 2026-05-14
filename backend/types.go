@@ -12,6 +12,10 @@ const (
 	groqChatModel = pplxChatModel
 	groqFastModel = pplxFastModel
 
+	// Groq — Structured Outputs 전용 (Clarify 판단)
+	groqRealAPIBase    = "https://api.groq.com/openai/v1/chat/completions"
+	groqStructuredModel = "llama-3.3-70b-versatile" // strict json_schema 지원
+
 	// Claude (Anthropic) — fallback LLM
 	claudeModel   = "claude-sonnet-4-6"
 	claudeAPIBase = "https://api.anthropic.com/v1/messages"

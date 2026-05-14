@@ -693,6 +693,24 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ── 2단계: Groq Structured Outputs Clarify (pre-routing 통과한 케이스 + 미감지 케이스) ──
+	// pre-routing이 잡지 못한 엣지케이스를 LLM이 판단
+	if req.PendingIntent == "" {
+		if cr, err := callGroqStructured(req.Message); err == nil && cr.NeedsClarify {
+			d := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
+			pi := cr.Action
+			if preRoutedAction != "" {
+				pi = preRoutedAction
+			}
+			json200(w, CommandResponse{
+				Success: true, Message: cr.ClarifyQuestion, Action: "clarify",
+				NeedsClarify: true, ClarifyQuestion: cr.ClarifyQuestion,
+				PendingIntent: pi, PendingParams: preRoutedParams, Duration: d,
+			})
+			return
+		}
+	}
+
 	var intent struct {
 		Action  string         `json:"action"`
 		Params  map[string]any `json:"params"`

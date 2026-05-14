@@ -20,12 +20,14 @@ var (
 	llmPerplexityKey string
 	llmClaudeKey     string
 	llmTavilyKey     string
+	llmGroqKey       string // Groq 전용 — Structured Outputs Clarify 판단
 )
 
 type llmConfigFile struct {
 	PerplexityKey string `json:"perplexity_key"`
 	ClaudeKey     string `json:"claude_key"`
 	TavilyKey     string `json:"tavily_key"`
+	GroqKey       string `json:"groq_key"`
 }
 
 func llmConfigPath() string {
@@ -53,6 +55,9 @@ func loadLLMConfig() {
 		if v := raw["tavily_key"]; v != "" {
 			llmTavilyKey = v
 		}
+		if v := raw["groq_key"]; v != "" {
+			llmGroqKey = v
+		}
 		llmMu.Unlock()
 	}
 }
@@ -63,6 +68,7 @@ func saveLLMConfig() {
 		PerplexityKey: llmPerplexityKey,
 		ClaudeKey:     llmClaudeKey,
 		TavilyKey:     llmTavilyKey,
+		GroqKey:       llmGroqKey,
 	}
 	llmMu.RUnlock()
 	data, _ := json.MarshalIndent(cfg, "", "  ")
@@ -184,6 +190,125 @@ func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string,
 	return text, "perplexity", nil
 }
 
+// ClarifyResult: Groq Structured Outputs로 받는 Clarify 판단 결과
+type ClarifyResult struct {
+	NeedsClarify    bool    `json:"needs_clarify"`
+	ClarifyQuestion string  `json:"clarify_question"`
+	Action          string  `json:"action"`
+	Confidence      float64 `json:"confidence"`
+}
+
+// callGroqStructured: Groq json_schema strict mode로 Clarify 여부를 판단
+func callGroqStructured(userMsg string) (*ClarifyResult, error) {
+	llmMu.RLock()
+	gKey := llmGroqKey
+	llmMu.RUnlock()
+	if gKey == "" {
+		return nil, fmt.Errorf("groq key not set")
+	}
+
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"needs_clarify": map[string]any{
+				"type":        "boolean",
+				"description": "true if essential information is missing and user must be asked",
+			},
+			"clarify_question": map[string]any{
+				"type":        "string",
+				"description": "The single friendly question to ask user. Empty string if needs_clarify is false.",
+			},
+			"action": map[string]any{
+				"type":        "string",
+				"description": "Predicted action: price_compare|video_search|trip_plan|web_search|calendar_add|weather|chat|multi_action",
+			},
+			"confidence": map[string]any{
+				"type":        "number",
+				"description": "0.0~1.0. How confident the intent is understood. Below 0.6 should trigger clarify.",
+			},
+		},
+		"required":             []string{"needs_clarify", "clarify_question", "action", "confidence"},
+		"additionalProperties": false,
+	}
+
+	sysPrompt := `당신은 AI 비서의 Clarification 판단 엔진입니다.
+사용자의 요청을 분석해서 반드시 필요한 정보가 빠져 있으면 needs_clarify=true로 설정하고, 친절한 질문을 clarify_question에 작성하세요.
+
+판단 기준:
+- price_compare: 상품명/카테고리 없으면 → needs_clarify=true
+- video_search: 검색 주제/키워드 없으면 → needs_clarify=true
+- trip_plan: 목적지 없으면 → needs_clarify=true, 날짜 없으면 → needs_clarify=true
+- web_search: 맛집인데 지역 없으면 → needs_clarify=true
+- calendar_add: 일정 제목 없거나 날짜 완전히 불명확하면 → needs_clarify=true
+- weather: 도시 맥락이 전혀 없으면 → needs_clarify=true
+- chat: 일반 대화는 needs_clarify=false
+- confidence 0.6 미만: 의도 자체가 불명확 → needs_clarify=true
+
+clarify_question은 한국어로, 1문장, 옵션 예시 포함 (예: "어떤 상품을 찾아드릴까요? (예: 에어팟, 갤럭시)")
+needs_clarify=false이면 clarify_question은 빈 문자열 ""로 설정.`
+
+	type reqBody struct {
+		Model          string         `json:"model"`
+		Messages       []groqMsg      `json:"messages"`
+		Temperature    float64        `json:"temperature"`
+		MaxTokens      int            `json:"max_tokens"`
+		ResponseFormat map[string]any `json:"response_format"`
+	}
+
+	rb := reqBody{
+		Model: groqStructuredModel,
+		Messages: []groqMsg{
+			{Role: "system", Content: sysPrompt},
+			{Role: "user", Content: userMsg},
+		},
+		Temperature: 0.0,
+		MaxTokens:   200,
+		ResponseFormat: map[string]any{
+			"type": "json_schema",
+			"json_schema": map[string]any{
+				"name":   "clarify_check",
+				"strict": true,
+				"schema": schema,
+			},
+		},
+	}
+
+	body, _ := json.Marshal(rb)
+	httpReq, _ := http.NewRequest("POST", groqRealAPIBase, bytes.NewReader(body))
+	httpReq.Header.Set("Authorization", "Bearer "+gKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("groq 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+
+	var gr struct {
+		Choices []struct {
+			Message struct{ Content string `json:"content"` } `json:"message"`
+		} `json:"choices"`
+		Error *struct{ Message string `json:"message"` } `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &gr); err != nil {
+		return nil, fmt.Errorf("groq 응답 파싱 실패: %w", err)
+	}
+	if gr.Error != nil {
+		return nil, fmt.Errorf("groq 오류: %s", gr.Error.Message)
+	}
+	if len(gr.Choices) == 0 {
+		return nil, fmt.Errorf("groq 응답 없음")
+	}
+
+	var result ClarifyResult
+	if err := json.Unmarshal([]byte(gr.Choices[0].Message.Content), &result); err != nil {
+		return nil, fmt.Errorf("clarify JSON 파싱 실패: %w", err)
+	}
+	return &result, nil
+}
+
 func callGroqVision(_, _, _, _ string) (string, error) {
 	return "", fmt.Errorf("Vision 기능은 현재 지원되지 않습니다")
 }
@@ -225,9 +350,9 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 		ApiKey        string `json:"apiKey"`
 		ClaudeKey     string `json:"claude_key"`
 		TavilyKey     string `json:"tavily_key"`
+		GroqKey       string `json:"groq_key"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	// 하위 호환: apiKey / groq_key 필드도 perplexity_key로 처리
 	if req.PerplexityKey == "" && req.ApiKey != "" {
 		req.PerplexityKey = req.ApiKey
 	}
@@ -240,6 +365,9 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if s := strings.TrimSpace(req.TavilyKey); s != "" {
 		llmTavilyKey = s
+	}
+	if s := strings.TrimSpace(req.GroqKey); s != "" {
+		llmGroqKey = s
 	}
 	llmMu.Unlock()
 	saveLLMConfig()
