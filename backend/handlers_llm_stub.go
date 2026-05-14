@@ -245,7 +245,7 @@ clarify=false cases (execute OK — do NOT ask more):
 - Video with topic: "유튜브에서 주식 투자 영상" → OK (topic = 주식 투자, enough)
 - Trending/popular: "유튜브 인기 영상", "최근 뉴스" → OK (no need to narrow further)
 - Trip with destination+duration: "도쿄 3박 4일" → OK (enough to plan)
-- Calendar with title+datetime: "오늘 오후 2시 치과", "5월 20일 오후 3시 팀 회의" → OK (title+date+time all present, do not ask more)
+- Calendar/appointment: "오늘 오후 2시 치과", "5월 20일 오후 3시 팀 회의", "내일 저녁 7시 저녁 약속" → OK (event name + date + time = complete. Do NOT ask for hospital name, address, or other details)
 - Email with recipient+reason: "팀장님한테 반차 이메일" → OK (recipient=팀장님, content=반차)
 - Budget+category: "30만원 이하 무선 이어폰" → OK
 
