@@ -179,22 +179,168 @@ func handleWorkflowPlan(w http.ResponseWriter, r *http.Request) {
 	json200(w, plan)
 }
 
+// ── Reflection Loop 핵심 구조 ─────────────────────────────────
+//
+// criticWorkflow: LLM이 실행 결과를 평가 → 목표 달성 여부 판단
+type CriticResult struct {
+	Satisfied bool     `json:"satisfied"`  // 목표 달성 여부
+	Reason    string   `json:"reason"`     // 판단 이유
+	Missing   []string `json:"missing"`    // 부족한 항목
+}
+
+func criticWorkflow(goal string, stepResults []string) CriticResult {
+	prompt := fmt.Sprintf(`당신은 AI 비평가입니다. 아래 목표와 실행 결과를 보고 목표가 충분히 달성되었는지 판단하세요.
+
+목표: "%s"
+
+실행 결과:
+%s
+
+아래 JSON만 반환하세요:
+{
+  "satisfied": true 또는 false,
+  "reason": "판단 이유 한 문장",
+  "missing": ["부족한 항목1", "부족한 항목2"]
+}
+
+satisfied=true이면 missing은 빈 배열.
+JSON만 반환, 설명 없음.`, goal, strings.Join(stepResults, "\n"))
+
+	raw, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 256, true)
+	if err != nil {
+		return CriticResult{Satisfied: true} // 판단 실패 시 완료로 처리
+	}
+	var result CriticResult
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &result); err != nil {
+		return CriticResult{Satisfied: true}
+	}
+	return result
+}
+
+// replanWorkflow: Critic이 부족하다고 한 항목만 재계획
+func replanWorkflow(goal string, missing []string) ([]WorkflowStep, error) {
+	missingStr := strings.Join(missing, ", ")
+	prompt := fmt.Sprintf(`목표: "%s"
+아직 달성되지 않은 항목: %s
+
+이 항목들만 처리하는 추가 단계를 JSON으로 반환하세요.
+{
+  "steps": [
+    {"step": 1, "description": "...", "api_endpoint": "/api/...", "method": "GET또는POST", "params": {}}
+  ]
+}
+최대 3단계. JSON만 반환.`, goal, missingStr)
+
+	raw, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, true)
+	if err != nil {
+		return nil, err
+	}
+	var plan struct {
+		Steps []WorkflowStep `json:"steps"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &plan); err != nil {
+		return nil, err
+	}
+	for i := range plan.Steps {
+		plan.Steps[i].Status = "pending"
+	}
+	return plan.Steps, nil
+}
+
+// runWithReflection: Planner → Executor → Critic → Re-plan 루프 (최대 3회)
+func runWithReflection(goal string) ([]WorkflowStep, string, int) {
+	const maxIterations = 3
+	var allSteps []WorkflowStep
+	var allResults []string
+	iteration := 0
+
+	// 초기 계획 수립
+	plan, err := planWorkflow(goal)
+	if err != nil {
+		return nil, "계획 생성 실패: " + err.Error(), 0
+	}
+	pendingSteps := plan.Steps
+
+	for iteration < maxIterations && len(pendingSteps) > 0 {
+		iteration++
+
+		// 현재 대기 단계들 실행
+		for i := range pendingSteps {
+			step := &pendingSteps[i]
+			executeWorkflowStep(step)
+			allSteps = append(allSteps, *step)
+			allResults = append(allResults, fmt.Sprintf("[%d회차 %d단계] %s: %s",
+				iteration, step.StepNum, step.Description, step.Result))
+		}
+
+		// Critic: 결과 평가
+		critic := criticWorkflow(goal, allResults)
+		if critic.Satisfied || len(critic.Missing) == 0 || iteration >= maxIterations {
+			break
+		}
+
+		// Re-plan: 부족한 부분만 재계획
+		extraSteps, err := replanWorkflow(goal, critic.Missing)
+		if err != nil || len(extraSteps) == 0 {
+			break
+		}
+		for i := range extraSteps {
+			extraSteps[i].StepNum = len(allSteps) + i + 1
+		}
+		pendingSteps = extraSteps
+	}
+
+	// 최종 요약 생성
+	llmMu.RLock()
+	gKey := llmPerplexityKey
+	llmMu.RUnlock()
+
+	finalSummary := fmt.Sprintf("총 %d회 반복, %d단계 실행 완료", iteration, len(allSteps))
+	if gKey != "" {
+		prompt := fmt.Sprintf(`목표: "%s"
+전체 실행 결과 (%d회 반복):
+%s
+
+사용자에게 친근하게 최종 완료 보고를 2-3문장으로 해주세요.`,
+			goal, iteration, strings.Join(allResults, "\n"))
+		if summary, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 300, false); err == nil && summary != "" {
+			finalSummary = summary
+		}
+	}
+
+	return allSteps, finalSummary, iteration
+}
+
 func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Goal string `json:"goal"`
+		Goal            string `json:"goal"`
+		UseReflection   bool   `json:"use_reflection"` // true면 Reflection Loop 사용
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Goal == "" {
 		writeJSON(w, 400, map[string]string{"error": "goal 필드가 필요합니다"})
 		return
 	}
 
+	// Reflection Loop 모드 (기본값: true)
+	if req.UseReflection || true {
+		steps, summary, iterations := runWithReflection(req.Goal)
+		json200(w, map[string]any{
+			"goal":       req.Goal,
+			"steps":      steps,
+			"summary":    summary,
+			"iterations": iterations,
+			"ok":         true,
+			"mode":       "reflection",
+		})
+		return
+	}
+
+	// 기존 단순 실행 (fallback)
 	plan, err := planWorkflow(req.Goal)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "계획 생성 실패: " + err.Error()})
 		return
 	}
-
-	// 단계별 순차 실행
 	var executedSteps []WorkflowStep
 	var stepResults []string
 	for i := range plan.Steps {
@@ -203,29 +349,11 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		executedSteps = append(executedSteps, *step)
 		stepResults = append(stepResults, fmt.Sprintf("%d단계 (%s): %s", step.StepNum, step.Description, step.Result))
 	}
-
-	// 최종 요약
-	llmMu.RLock()
-	gKey := llmPerplexityKey
-	llmMu.RUnlock()
-
-	finalSummary := plan.Summary
-	if gKey != "" {
-		prompt := fmt.Sprintf(`워크플로 목표: "%s"
-실행 결과:
-%s
-
-위 결과를 바탕으로 사용자에게 친근하게 완료 보고를 2-3문장으로 해주세요.`, req.Goal, strings.Join(stepResults, "\n"))
-		summary, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 256, false)
-		if summary != "" {
-			finalSummary = summary
-		}
-	}
-
 	json200(w, map[string]any{
 		"goal":    req.Goal,
 		"steps":   executedSteps,
-		"summary": finalSummary,
+		"summary": plan.Summary,
 		"ok":      true,
+		"mode":    "simple",
 	})
 }

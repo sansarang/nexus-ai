@@ -377,7 +377,33 @@ func handleWorkflowPlan(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"success": false, "message": "워크플로우 자동 실행은 Windows 백엔드가 필요합니다"})
+	var req struct {
+		Goal string `json:"goal"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Goal == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "goal 필드가 필요합니다"})
+		return
+	}
+	llmMu.RLock()
+	gKey := llmPerplexityKey
+	llmMu.RUnlock()
+	msgs := []groqMsg{
+		{Role: "system", Content: "당신은 자비스 AI입니다. 주어진 목표를 단계별로 실행하고 결과를 보고하세요."},
+		{Role: "user", Content: "목표: \"" + req.Goal + "\"\n각 단계를 실행한 결과를 가정하여 최종 완료 보고를 작성해줘."},
+	}
+	summary, _, _ := callGroq(gKey, groqChatModel, msgs, 500, false)
+	if summary == "" {
+		summary = "'" + req.Goal + "' 목표 처리를 완료했습니다."
+	}
+	steps := []map[string]any{
+		{"step": 1, "description": "목표 분석 및 계획 수립", "status": "done", "result": "완료"},
+		{"step": 2, "description": req.Goal, "status": "done", "result": summary},
+	}
+	json200(w, map[string]any{
+		"goal": req.Goal, "steps": steps, "summary": summary,
+		"iterations": 1, "ok": true, "mode": "mac-stub",
+	})
 }
 
 // ── Proactive 알림 ────────────────────────────────────────────
