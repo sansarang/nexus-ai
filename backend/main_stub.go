@@ -23,6 +23,10 @@ func main() {
 	mux.HandleFunc("POST /api/llm/config", handleLLMConfig)
 	mux.HandleFunc("POST /api/llm/chat", handleLLMChat)
 	mux.HandleFunc("POST /api/llm/deep-search-web", handleLLMDeepSearchWeb)
+	mux.HandleFunc("POST /api/llm/deep-search", handleLLMDeepSearch)
+	mux.HandleFunc("GET /api/notes", handleNotes)
+	mux.HandleFunc("POST /api/notes", handleSaveNote)
+	mux.HandleFunc("POST /api/notes/save", handleSaveNote)
 
 	// ── 자연어 명령 라우터 (핵심) ────────────────────────────
 	mux.HandleFunc("POST /api/command", handleCommand)
@@ -134,6 +138,13 @@ func main() {
 	mux.HandleFunc("GET /api/agent/desktop/screenshot", handleDesktopScreenshot)
 	mux.HandleFunc("POST /api/agent/desktop/approve", handleDesktopApprove)
 
+	// ── Productivity (추가) ───────────────────────────────────
+	mux.HandleFunc("GET /api/productivity/clipboard", handleClipboard)
+	mux.HandleFunc("GET /api/scheduler/tasks", handleSchedulerList)
+	mux.HandleFunc("POST /api/scheduler/run-now", handleSchedulerRunNow)
+	mux.HandleFunc("POST /api/scheduler/parse", handleSchedulerParse)
+
+
 	// ── Privacy & Sandbox ─────────────────────────────────────
 	mux.HandleFunc("GET /api/security/audit", handleAuditLog)
 	mux.HandleFunc("POST /api/security/check-path", handleCheckPath)
@@ -149,13 +160,13 @@ func main() {
 	mux.HandleFunc("POST /api/scan", winOnly)
 	mux.HandleFunc("POST /api/repair", winOnly)
 	mux.HandleFunc("POST /api/clean", winOnly)
-	mux.HandleFunc("GET /api/stats", winOnly)
+	mux.HandleFunc("GET /api/stats", handleStats)
 	mux.HandleFunc("POST /api/system/volume", winOnly)
 	mux.HandleFunc("POST /api/system/brightness", winOnly)
 	mux.HandleFunc("POST /api/system/wifi", winOnly)
 	mux.HandleFunc("POST /api/system/power", winOnly)
 	mux.HandleFunc("POST /api/system/launch", winOnly)
-	mux.HandleFunc("GET /api/processes/top", winOnly)
+	mux.HandleFunc("GET /api/processes/top", handleProcessTop)
 	mux.HandleFunc("GET /api/security/remote", winOnly)
 	mux.HandleFunc("GET /api/security/processes", winOnly)
 	mux.HandleFunc("GET /api/security/startup", winOnly)

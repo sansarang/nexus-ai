@@ -2,7 +2,17 @@
 
 package main
 
-import "net/http"
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
 
 // handlers.go stubs
 func handleScan(w http.ResponseWriter, r *http.Request)            {}
@@ -10,7 +20,67 @@ func handleRepair(w http.ResponseWriter, r *http.Request)          {}
 func handleClean(w http.ResponseWriter, r *http.Request)           {}
 func handleLicenseActivate(w http.ResponseWriter, r *http.Request) {}
 func handleLicenseCheck(w http.ResponseWriter, r *http.Request)    {}
-func handleStats(w http.ResponseWriter, r *http.Request)           {}
+
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	stats := map[string]any{}
+
+	// CPU
+	if out, err := exec.Command("sh", "-c", "top -l 1 -n 0 | grep 'CPU usage'").Output(); err == nil {
+		line := string(out)
+		// "CPU usage: 5.11% user, 9.58% sys, 85.30% idle"
+		if idx := strings.Index(line, "idle"); idx > 0 {
+			parts := strings.Fields(line[:idx])
+			if len(parts) > 0 {
+				idleStr := strings.TrimSuffix(parts[len(parts)-1], "%")
+				if idle, err := strconv.ParseFloat(idleStr, 64); err == nil {
+					stats["cpu_percent"] = 100 - idle
+				}
+			}
+		}
+	}
+
+	// RAM via vm_stat
+	if out, err := exec.Command("vm_stat").Output(); err == nil {
+		pageSize := 16384.0
+		vals := map[string]float64{}
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, ":") {
+				parts := strings.SplitN(line, ":", 2)
+				key := strings.TrimSpace(parts[0])
+				val := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(parts[1]), "."))
+				if n, err := strconv.ParseFloat(val, 64); err == nil {
+					vals[key] = n * pageSize
+				}
+			}
+		}
+		total := vals["Pages free"] + vals["Pages active"] + vals["Pages inactive"] + vals["Pages speculative"] + vals["Pages wired down"]
+		if total > 0 {
+			used := total - vals["Pages free"] - vals["Pages speculative"]
+			stats["memory_percent"] = used / total * 100
+			stats["memory_used_gb"] = used / (1 << 30)
+			stats["memory_total_gb"] = total / (1 << 30)
+		}
+	}
+
+	// Disk
+	if out, err := exec.Command("df", "-H", "/").Output(); err == nil {
+		lines := strings.Split(string(out), "\n")
+		if len(lines) > 1 {
+			fields := strings.Fields(lines[1])
+			if len(fields) >= 5 {
+				pct := strings.TrimSuffix(fields[4], "%")
+				if p, err := strconv.ParseFloat(pct, 64); err == nil {
+					stats["disk_percent"] = p
+				}
+				stats["disk_used"] = fields[2]
+				stats["disk_total"] = fields[1]
+			}
+		}
+	}
+
+	stats["success"] = true
+	json200(w, stats)
+}
 func handleAutoClean(w http.ResponseWriter, r *http.Request)       {}
 func handlePrivacy(w http.ResponseWriter, r *http.Request)         {}
 func handleDailyReport(w http.ResponseWriter, r *http.Request)     {}
@@ -30,7 +100,37 @@ func handleBrightness(w http.ResponseWriter, r *http.Request)      {}
 func handleWifi(w http.ResponseWriter, r *http.Request)            {}
 func handlePower(w http.ResponseWriter, r *http.Request)           {}
 func handleLaunchApp(w http.ResponseWriter, r *http.Request)       {}
-func handleProcessTop(w http.ResponseWriter, r *http.Request)      {}
+func handleProcessTop(w http.ResponseWriter, r *http.Request) {
+	out, err := exec.Command("sh", "-c", "ps aux --sort=-%cpu 2>/dev/null || ps aux | sort -rk3 | head -10").Output()
+	if err != nil {
+		out, err = exec.Command("sh", "-c", "ps aux | sort -rk3 | head -10").Output()
+	}
+	type Proc struct {
+		PID  string `json:"pid"`
+		Name string `json:"name"`
+		CPU  string `json:"cpu"`
+		Mem  string `json:"mem"`
+	}
+	var procs []Proc
+	if err == nil {
+		lines := strings.Split(string(out), "\n")
+		for _, line := range lines[1:] {
+			fields := strings.Fields(line)
+			if len(fields) < 11 {
+				continue
+			}
+			name := fields[10]
+			if idx := strings.LastIndex(name, "/"); idx >= 0 {
+				name = name[idx+1:]
+			}
+			procs = append(procs, Proc{PID: fields[1], CPU: fields[2], Mem: fields[3], Name: name})
+			if len(procs) >= 10 {
+				break
+			}
+		}
+	}
+	json200(w, map[string]any{"processes": procs, "success": true})
+}
 
 // handlers_advanced.go stubs
 func handleDrivers(w http.ResponseWriter, r *http.Request)         {}
@@ -44,9 +144,58 @@ func handleBrowserClean(w http.ResponseWriter, r *http.Request)    {}
 func handleProgramsList(w http.ResponseWriter, r *http.Request)    {}
 func handleBootAnalysis(w http.ResponseWriter, r *http.Request)    {}
 func handleFocusMode(w http.ResponseWriter, r *http.Request)       {}
-func handleClipboard(w http.ResponseWriter, r *http.Request)       {}
-func handleNotes(w http.ResponseWriter, r *http.Request)           {}
-func handleSaveNote(w http.ResponseWriter, r *http.Request)        {}
+func handleNotes(w http.ResponseWriter, r *http.Request) {
+	notes := loadNotesMac()
+	json200(w, map[string]any{"notes": notes, "success": true})
+}
+
+func handleSaveNote(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Content == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "content 필요"})
+		return
+	}
+	notes := loadNotesMac()
+	note := map[string]any{
+		"id":      fmt.Sprintf("%d", time.Now().UnixMilli()),
+		"title":   req.Title,
+		"content": req.Content,
+		"created": time.Now().Format("2006-01-02 15:04"),
+	}
+	notes = append([]map[string]any{note}, notes...)
+	if len(notes) > 100 {
+		notes = notes[:100]
+	}
+	saveNotesMac(notes)
+	json200(w, map[string]any{"success": true, "message": "노트가 저장됐어요", "note": note})
+}
+
+func loadNotesMac() []map[string]any {
+	path := notesPathMac()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []map[string]any{}
+	}
+	var notes []map[string]any
+	json.Unmarshal(data, &notes)
+	return notes
+}
+
+func saveNotesMac(notes []map[string]any) {
+	data, _ := json.Marshal(notes)
+	os.WriteFile(notesPathMac(), data, 0644)
+}
+
+func notesPathMac() string {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".nexus")
+	os.MkdirAll(dir, 0755)
+	return filepath.Join(dir, "notes.json")
+}
 
 // handlers_docs.go stubs
 func handleDocCompare(w http.ResponseWriter, r *http.Request)      {}

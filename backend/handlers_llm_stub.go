@@ -265,3 +265,24 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	}
 	json200(w, map[string]any{"success": true, "text": text, "provider": provider})
 }
+
+func handleLLMDeepSearch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Query string `json:"query"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Query == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		return
+	}
+	// Tavily 웹 검색 후 LLM 요약
+	tvResult, _ := tavilySearch(llmTavilyKey, req.Query, 5)
+	searchResults := tvResult.Summary
+	prompt := "다음 웹 검색 결과를 바탕으로 '" + req.Query + "'에 대해 한국어로 명확하게 요약해줘:\n\n" + searchResults
+	answer, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 800, false)
+	if err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	json200(w, map[string]any{"success": true, "answer": answer, "query": req.Query})
+}

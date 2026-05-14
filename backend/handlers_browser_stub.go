@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -345,3 +346,48 @@ func handleMemoryList(w http.ResponseWriter, r *http.Request)   { json200(w, map
 func handleMemorySearch(w http.ResponseWriter, r *http.Request) { json200(w, map[string]any{"results": []any{}}) }
 func handleMemoryClear(w http.ResponseWriter, r *http.Request)  { json200(w, map[string]any{"success": true}) }
 func handleMemoryStats(w http.ResponseWriter, r *http.Request)  { json200(w, map[string]any{"total": 0}) }
+
+func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
+	var req struct{ ID string `json:"id"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	schedulerTasksMu.RLock()
+	tasksCopy := make([]ScheduledTask, len(scheduledTasks))
+	copy(tasksCopy, scheduledTasks)
+	schedulerTasksMu.RUnlock()
+	for _, t := range tasksCopy {
+		if t.ID == req.ID {
+			json200(w, map[string]any{"success": true, "message": "작업 실행 요청됨: " + t.Name})
+			return
+		}
+	}
+	writeJSON(w, 404, map[string]any{"success": false, "message": "작업을 찾을 수 없어요"})
+}
+
+func handleSchedulerParse(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Text string `json:"text"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Text == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "text 필요"})
+		return
+	}
+	prompt := `자연어 스케줄을 cron 표현식(분 시 일 월 요일)으로 변환해줘.
+입력: "` + req.Text + `"
+JSON으로만 응답: {"cron": "0 9 * * 1-5", "description": "설명"}`
+	result, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 100, true)
+	var parsed map[string]string
+	if json.Unmarshal([]byte(result), &parsed) == nil {
+		json200(w, map[string]any{"success": true, "cron": parsed["cron"], "description": parsed["description"]})
+		return
+	}
+	json200(w, map[string]any{"success": false, "message": "파싱 실패", "raw": result})
+}
+
+func handleClipboard(w http.ResponseWriter, r *http.Request) {
+	out, err := exec.Command("pbpaste").Output()
+	if err != nil {
+		json200(w, map[string]any{"success": false, "message": "클립보드 읽기 실패", "text": ""})
+		return
+	}
+	text := strings.TrimSpace(string(out))
+	json200(w, map[string]any{"success": true, "text": text, "length": len(text)})
+}
