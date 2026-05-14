@@ -187,8 +187,9 @@ type CommandResponse struct {
 	Action          string         `json:"action"`
 	Result          any            `json:"result"`
 	Duration        string         `json:"duration"`
-	NeedsClarify    bool           `json:"needs_clarify,omitempty"`
-	ClarifyQuestion string         `json:"clarify_question,omitempty"`
+	NeedsClarify     bool           `json:"needs_clarify,omitempty"`
+	ClarifyQuestion  string         `json:"clarify_question,omitempty"`
+	ClarifyQuestions []string       `json:"clarify_questions,omitempty"`
 	PendingIntent   string         `json:"pending_intent,omitempty"`
 	PendingParams   map[string]any `json:"pending_params,omitempty"`
 }
@@ -519,11 +520,15 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	// 레이어 A: 핵심 파라미터 비어있음 → 코드로 즉시 clarify (0ms, 확실)
 	// 레이어 B: 의미적으로 모호한 요청 → Groq Structured Outputs 판단
 	if req.PendingIntent == "" {
-		clarifyNow := func(q, pi string, pp map[string]any) {
+		clarifyNow := func(questions []string, pi string, pp map[string]any) {
+			q := ""
+			if len(questions) > 0 {
+				q = questions[0]
+			}
 			d := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
 			json200(w, CommandResponse{
 				Success: true, Message: q, Action: "clarify",
-				NeedsClarify: true, ClarifyQuestion: q,
+				NeedsClarify: true, ClarifyQuestion: q, ClarifyQuestions: questions,
 				PendingIntent: pi, PendingParams: pp, Duration: d,
 			})
 		}
@@ -532,7 +537,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		switch preRoutedAction {
 		case "price_compare", "multi_action":
 			if q, _ := preRoutedParams["query"].(string); q == "" {
-				clarifyNow("어떤 상품 또는 주제를 찾아드릴까요? (예: 에어팟 프로 2, 갤럭시 S25, 2026 주식 전략 영상)",
+				clarifyNow([]string{"어떤 상품 또는 주제를 찾아드릴까요? (예: 에어팟 프로 2, 갤럭시 S25, 2026 주식 전략 영상)"},
 					preRoutedAction, preRoutedParams)
 				return
 			}
@@ -540,17 +545,17 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			if q, _ := preRoutedParams["query"].(string); q == "" {
 				platform, _ := preRoutedParams["platform"].(string)
 				if platform == "tiktok" {
-					clarifyNow("TikTok에서 어떤 영상을 찾아드릴까요? (예: 요리, 댄스, 먹방, 브이로그)",
+					clarifyNow([]string{"TikTok에서 어떤 영상을 찾아드릴까요? (예: 요리, 댄스, 먹방, 브이로그)"},
 						preRoutedAction, preRoutedParams)
 				} else {
-					clarifyNow("YouTube에서 어떤 영상을 찾아드릴까요? (예: 주식 투자, 요리 레시피, 운동)",
+					clarifyNow([]string{"YouTube에서 어떤 영상을 찾아드릴까요? (예: 주식 투자, 요리 레시피, 운동)"},
 						preRoutedAction, preRoutedParams)
 				}
 				return
 			}
 		case "trip_plan":
 			if dest, _ := preRoutedParams["destination"].(string); dest == "" || dest == req.Message {
-				clarifyNow("어디로 출장/여행을 가시나요? (예: 도쿄, 뉴욕, 싱가포르, 방콕)",
+				clarifyNow([]string{"어디로 출장/여행을 가시나요? (예: 도쿄, 뉴욕, 싱가포르, 방콕)"},
 					preRoutedAction, preRoutedParams)
 				return
 			}
@@ -566,7 +571,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			if pi == "" {
 				pi = cr.Action
 			}
-			clarifyNow(cr.ClarifyQuestion, pi, preRoutedParams)
+			clarifyNow(cr.ClarifyQuestions, pi, preRoutedParams)
 			return
 		}
 	}
@@ -616,14 +621,15 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = missing
 		json200(w, CommandResponse{
-			Success:         true,
-			Message:         question,
-			Action:          "clarify",
-			NeedsClarify:    true,
-			ClarifyQuestion: question,
-			PendingIntent:   pendingIntent,
-			PendingParams:   collected,
-			Duration:        dur,
+			Success:          true,
+			Message:          question,
+			Action:           "clarify",
+			NeedsClarify:     true,
+			ClarifyQuestion:  question,
+			ClarifyQuestions: []string{question},
+			PendingIntent:    pendingIntent,
+			PendingParams:    collected,
+			Duration:         dur,
 		})
 
 	case "chat":

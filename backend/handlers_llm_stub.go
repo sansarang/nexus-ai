@@ -192,10 +192,11 @@ func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string,
 
 // ClarifyResult: Groq Structured Outputs로 받는 Clarify 판단 결과
 type ClarifyResult struct {
-	NeedsClarify    bool    `json:"needs_clarify"`
-	ClarifyQuestion string  `json:"clarify_question"`
-	Action          string  `json:"action"`
-	Confidence      float64 `json:"confidence"`
+	NeedsClarify     bool     `json:"needs_clarify"`
+	ClarifyQuestions []string `json:"clarify_questions"`
+	Action           string   `json:"action"`
+	Confidence       float64  `json:"confidence"`
+	Reason           string   `json:"reason"`
 }
 
 // actionRequiredFields: 각 액션별 필수 파라미터와 설명
@@ -225,9 +226,10 @@ func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 				"type":        "boolean",
 				"description": "true if essential information is missing and user must be asked",
 			},
-			"clarify_question": map[string]any{
-				"type":        "string",
-				"description": "The single friendly question to ask user. Empty string if needs_clarify is false.",
+			"clarify_questions": map[string]any{
+				"type":        "array",
+				"description": "List of Korean questions to ask user. Empty array if needs_clarify is false.",
+				"items":       map[string]any{"type": "string"},
 			},
 			"action": map[string]any{
 				"type":        "string",
@@ -237,31 +239,44 @@ func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 				"type":        "number",
 				"description": "0.0~1.0. How confident the intent is understood. Below 0.6 should trigger clarify.",
 			},
+			"reason": map[string]any{
+				"type":        "string",
+				"description": "Internal reason why clarify is needed (for debugging).",
+			},
 		},
-		"required":             []string{"needs_clarify", "clarify_question", "action", "confidence"},
+		"required":             []string{"needs_clarify", "clarify_questions", "action", "confidence", "reason"},
 		"additionalProperties": false,
 	}
 
-	sysPrompt := `당신은 AI 비서의 Clarification 판단 엔진입니다.
-사용자 요청에서 실행에 필수적인 정보가 빠져 있으면 반드시 needs_clarify=true로 설정하세요.
-"최선 추론"은 절대 금지 — 정보가 없으면 항상 물어보세요.
+	sysPrompt := `너는 NEXUS AI의 Clarify Specialist이다.
 
-액션별 필수 정보 (없으면 무조건 clarify):
-- price_compare: 구체적인 상품명 또는 카테고리 (단순히 "찾아줘", "사고싶어"만 있으면 clarify)
-- video_search: 검색할 주제 또는 키워드 (플랫폼만 있고 주제가 없으면 clarify)
-- trip_plan: 목적지 도시명 (없으면 clarify), 날짜 맥락 (없으면 clarify)
-- web_search + 맛집: 지역/동네 (없으면 clarify)
-- web_search + 추천: 추천받을 카테고리/종류 (없으면 clarify)
-- calendar_add: 일정 제목, 날짜 (둘 중 하나라도 없으면 clarify)
-- weather: 도시명 또는 지역 맥락 (없으면 clarify)
-- multi_action + 비교: 비교할 대상 2개 이상 (없으면 clarify)
-- multi_action + 요약: 요약할 주제나 내용 (없으면 clarify)
-- confidence < 0.65: 의도 자체가 불명확 → clarify
+사용자 요청을 분석할 때, 실행에 필수적인 정보가 부족하면 절대 추론하지 말고 반드시 clarify 해야 한다.
 
-[감지된 액션]이 컨텍스트에 있으면 해당 액션의 필수 정보가 있는지 더 엄격하게 확인하세요.
+### 철칙 (반드시 지켜야 함)
+- "최선의 추론"은 절대 금지한다.
+- 정보가 하나라도 부족하거나 불확실하면 needs_clarify = true로 설정하고 사용자에게 명확히 물어본다.
+- 질문은 최대한 구체적이고, 예시를 포함해서 친절하게 작성한다.
+- clarify_questions의 각 항목은 한국어로, 자연스러운 질문 형태로 작성한다.
 
-clarify_question: 한국어, 1문장, 구체적인 예시 포함 (예: "어떤 상품을 찾아드릴까요? (예: 에어팟 프로 2, 갤럭시 S25)")
-needs_clarify=false이면 clarify_question은 ""로 설정.`
+### 판단 기준
+실행하려면 다음 중 하나라도 명확해야 한다:
+- 구체적인 대상(상품명, 장소, 주제, 파일명, 기간 등)
+- 범위나 조건(예산, 지역, 날짜, 스타일, 개수 등)
+- 목적이나 의도(무엇을 위해 하는지, 어떤 결과물을 원하는지)
+- 비교 대상, 요약 대상, 검색 대상 등이 모호할 때
+
+[현재 감지된 액션]이 있다면 그 액션의 특성을 고려해서 더 엄격하게 판단한다.
+
+### 액션별 필수 정보 예시 (판단 기준으로만 사용)
+- price_compare / 쇼핑: 구체적인 상품명 + 예산 or 조건
+- 맛집 / 장소 추천: 지역 or 동네
+- 여행 / 출장: 목적지 + 날짜
+- video_search / 콘텐츠 검색: 구체적인 주제 or 키워드
+- calendar / 일정: 일정 제목 + 날짜/시간
+- 파일 관련: 파일명 or 폴더 or 구체적인 내용
+- 비교 / 요약: 비교 대상이나 요약 대상이 2개 이상이거나 모호할 때
+
+needs_clarify=false이면 clarify_questions는 반드시 빈 배열 []로 설정한다.`
 
 	type reqBody struct {
 		Model          string         `json:"model"`
