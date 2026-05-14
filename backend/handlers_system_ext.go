@@ -102,7 +102,7 @@ if ($micApps) {
 } | ConvertTo-Json -Depth 3
 `
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
@@ -159,7 +159,7 @@ try {
   Write-Output "ERROR: $_"
 }
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
@@ -249,7 +249,7 @@ try {
   Write-Output "ERROR: $_"
 }
 `
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	out, err := execPS(script)
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,

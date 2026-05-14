@@ -198,6 +198,17 @@ type ClarifyResult struct {
 	Confidence      float64 `json:"confidence"`
 }
 
+// actionRequiredFields: 각 액션별 필수 파라미터와 설명
+var actionRequiredFields = map[string]string{
+	"price_compare": "상품명 또는 카테고리 (예: 에어팟 프로 2, 갤럭시 S25, 다이슨 청소기) — 쇼핑몰 이름만으로는 부족함",
+	"video_search":  "검색할 주제/키워드 (예: 요리, 주식 투자 전략, 운동) — 플랫폼 이름만으로는 부족함",
+	"trip_plan":     "목적지 도시명 (예: 도쿄, 뉴욕, 싱가포르) AND 날짜/시기 (예: 내일, 다음주, 5월 20일)",
+	"web_search":    "검색할 구체적인 내용 (맛집이면 지역, 추천이면 카테고리)",
+	"calendar_add":  "일정 제목 AND 날짜",
+	"weather":       "도시명 또는 지역명",
+	"multi_action":  "비교/요약할 구체적인 대상이나 주제",
+}
+
 // callGroqStructured: Groq json_schema strict mode로 Clarify 여부를 판단
 func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 	llmMu.RLock()
@@ -232,20 +243,25 @@ func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 	}
 
 	sysPrompt := `당신은 AI 비서의 Clarification 판단 엔진입니다.
-사용자의 요청을 분석해서 반드시 필요한 정보가 빠져 있으면 needs_clarify=true로 설정하고, 친절한 질문을 clarify_question에 작성하세요.
+사용자 요청에서 실행에 필수적인 정보가 빠져 있으면 반드시 needs_clarify=true로 설정하세요.
+"최선 추론"은 절대 금지 — 정보가 없으면 항상 물어보세요.
 
-판단 기준:
-- price_compare: 상품명/카테고리 없으면 → needs_clarify=true
-- video_search: 검색 주제/키워드 없으면 → needs_clarify=true
-- trip_plan: 목적지 없으면 → needs_clarify=true, 날짜 없으면 → needs_clarify=true
-- web_search: 맛집인데 지역 없으면 → needs_clarify=true
-- calendar_add: 일정 제목 없거나 날짜 완전히 불명확하면 → needs_clarify=true
-- weather: 도시 맥락이 전혀 없으면 → needs_clarify=true
-- chat: 일반 대화는 needs_clarify=false
-- confidence 0.6 미만: 의도 자체가 불명확 → needs_clarify=true
+액션별 필수 정보 (없으면 무조건 clarify):
+- price_compare: 구체적인 상품명 또는 카테고리 (단순히 "찾아줘", "사고싶어"만 있으면 clarify)
+- video_search: 검색할 주제 또는 키워드 (플랫폼만 있고 주제가 없으면 clarify)
+- trip_plan: 목적지 도시명 (없으면 clarify), 날짜 맥락 (없으면 clarify)
+- web_search + 맛집: 지역/동네 (없으면 clarify)
+- web_search + 추천: 추천받을 카테고리/종류 (없으면 clarify)
+- calendar_add: 일정 제목, 날짜 (둘 중 하나라도 없으면 clarify)
+- weather: 도시명 또는 지역 맥락 (없으면 clarify)
+- multi_action + 비교: 비교할 대상 2개 이상 (없으면 clarify)
+- multi_action + 요약: 요약할 주제나 내용 (없으면 clarify)
+- confidence < 0.65: 의도 자체가 불명확 → clarify
 
-clarify_question은 한국어로, 1문장, 옵션 예시 포함 (예: "어떤 상품을 찾아드릴까요? (예: 에어팟, 갤럭시)")
-needs_clarify=false이면 clarify_question은 빈 문자열 ""로 설정.`
+[감지된 액션]이 컨텍스트에 있으면 해당 액션의 필수 정보가 있는지 더 엄격하게 확인하세요.
+
+clarify_question: 한국어, 1문장, 구체적인 예시 포함 (예: "어떤 상품을 찾아드릴까요? (예: 에어팟 프로 2, 갤럭시 S25)")
+needs_clarify=false이면 clarify_question은 ""로 설정.`
 
 	type reqBody struct {
 		Model          string         `json:"model"`
@@ -278,7 +294,7 @@ needs_clarify=false이면 clarify_question은 빈 문자열 ""로 설정.`
 	httpReq.Header.Set("Authorization", "Bearer "+gKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 8 * time.Second}
+	client := &http.Client{Timeout: 12 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("groq 연결 실패: %w", err)
