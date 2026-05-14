@@ -210,7 +210,8 @@ var actionRequiredFields = map[string]string{
 	"multi_action":  "비교/요약할 구체적인 대상이나 주제",
 }
 
-// callGroqStructured: Groq json_schema strict mode로 Clarify 여부를 판단
+// callGroqStructured: Groq json_object 모드로 Clarify 여부를 판단
+// json_schema strict 모드는 Llama의 instruction-following을 억제함 → json_object 사용
 func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 	llmMu.RLock()
 	gKey := llmGroqKey
@@ -219,64 +220,37 @@ func callGroqStructured(userMsg string) (*ClarifyResult, error) {
 		return nil, fmt.Errorf("groq key not set")
 	}
 
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"needs_clarify": map[string]any{
-				"type":        "boolean",
-				"description": "true if essential information is missing and user must be asked",
-			},
-			"clarify_questions": map[string]any{
-				"type":        "array",
-				"description": "List of Korean questions to ask user. Empty array if needs_clarify is false.",
-				"items":       map[string]any{"type": "string"},
-			},
-			"action": map[string]any{
-				"type":        "string",
-				"description": "Predicted action: price_compare|video_search|trip_plan|web_search|calendar_add|weather|chat|multi_action",
-			},
-			"confidence": map[string]any{
-				"type":        "number",
-				"description": "0.0~1.0. How confident the intent is understood. Below 0.6 should trigger clarify.",
-			},
-			"reason": map[string]any{
-				"type":        "string",
-				"description": "Internal reason why clarify is needed (for debugging).",
-			},
-		},
-		"required":             []string{"needs_clarify", "clarify_questions", "action", "confidence", "reason"},
-		"additionalProperties": false,
-	}
+	sysPrompt := `You are a Clarify Specialist for NEXUS AI assistant. Decide if a Korean user request has enough info to execute.
 
-	sysPrompt := `너는 NEXUS AI의 Clarify Specialist이다.
+RULE: If ANY essential info is missing → needs_clarify=true. Never guess or infer.
 
-사용자 요청을 분석할 때, 실행에 필수적인 정보가 부족하면 절대 추론하지 말고 반드시 clarify 해야 한다.
+clarify=true cases:
+- Gift/shopping: no product name or (recipient+budget) → clarify. "선물 뭐가 좋을까" → clarify
+- Travel: no destination city or date → clarify. "여행 일정 만들어줘", "동남아 여행 가고 싶어" → clarify
+- Place/restaurant: no location → clarify. "맛집 추천해줘", "데이트 코스", "나들이 장소" → clarify. Exception: "근처" = OK
+- Netflix/streaming: no genre → clarify. "넷플릭스 뭐 볼까" → clarify
+- Weather: no city → clarify. "날씨 어때", "오늘 비 와?" → clarify
+- Calendar: no title+date → clarify. "일정 추가해줘" → clarify
+- File: no filename/content → clarify. "파일 찾아줘", "문서 요약해줘" → clarify
+- Email: no recipient+content → clarify. "이메일 보내줘" → clarify
+- Vague: "도와줘", "할 일 정리해줘", "요즘 핫한 거 뭐야", "비교해줘" → clarify
 
-### 철칙 (반드시 지켜야 함)
-- "최선의 추론"은 절대 금지한다.
-- 정보가 하나라도 부족하거나 불확실하면 needs_clarify = true로 설정하고 사용자에게 명확히 물어본다.
-- 질문은 최대한 구체적이고, 예시를 포함해서 친절하게 작성한다.
-- clarify_questions의 각 항목은 한국어로, 자연스러운 질문 형태로 작성한다.
+clarify=false cases (execute OK — do NOT ask more):
+- Specific product: "에어팟 프로 2", "갤럭시 S25" → OK
+- Location+food: "강남 한식 맛집" → OK
+- "근처" keyword: "근처 카페", "근처 맛집" → OK (근처 = current location, no need to ask)
+- City+weather: "서울 날씨" → OK
+- Clear commands: "바탕화면 정리", "중복 파일 찾아줘" → OK
+- Both targets: "아이폰 vs 갤럭시 비교" → OK
+- Video with topic: "유튜브에서 주식 투자 영상" → OK (topic = 주식 투자, enough)
+- Trending/popular: "유튜브 인기 영상", "최근 뉴스" → OK (no need to narrow further)
+- Trip with destination+duration: "도쿄 3박 4일" → OK (enough to plan)
+- Calendar with title+datetime: "오늘 오후 2시 치과", "5월 20일 오후 3시 팀 회의" → OK (title+date+time all present, do not ask more)
+- Email with recipient+reason: "팀장님한테 반차 이메일" → OK (recipient=팀장님, content=반차)
+- Budget+category: "30만원 이하 무선 이어폰" → OK
 
-### 판단 기준
-실행하려면 다음 중 하나라도 명확해야 한다:
-- 구체적인 대상(상품명, 장소, 주제, 파일명, 기간 등)
-- 범위나 조건(예산, 지역, 날짜, 스타일, 개수 등)
-- 목적이나 의도(무엇을 위해 하는지, 어떤 결과물을 원하는지)
-- 비교 대상, 요약 대상, 검색 대상 등이 모호할 때
-
-[현재 감지된 액션]이 있다면 그 액션의 특성을 고려해서 더 엄격하게 판단한다.
-
-### 액션별 필수 정보 예시 (판단 기준으로만 사용)
-- price_compare / 쇼핑: 구체적인 상품명 + 예산 or 조건
-- 맛집 / 장소 추천: 지역 or 동네
-- 여행 / 출장: 목적지 + 날짜
-- video_search / 콘텐츠 검색: 구체적인 주제 or 키워드
-- calendar / 일정: 일정 제목 + 날짜/시간
-- 파일 관련: 파일명 or 폴더 or 구체적인 내용
-- 비교 / 요약: 비교 대상이나 요약 대상이 2개 이상이거나 모호할 때
-
-needs_clarify=false이면 clarify_questions는 반드시 빈 배열 []로 설정한다.`
+Output ONLY valid JSON:
+{"needs_clarify": bool, "clarify_question": "한국어 질문 (예시 포함)", "reason": "why"}`
 
 	type reqBody struct {
 		Model          string         `json:"model"`
@@ -286,21 +260,18 @@ needs_clarify=false이면 clarify_questions는 반드시 빈 배열 []로 설정
 		ResponseFormat map[string]any `json:"response_format"`
 	}
 
+	msgs := []groqMsg{
+		{Role: "system", Content: sysPrompt},
+		{Role: "user", Content: userMsg},
+	}
+
 	rb := reqBody{
-		Model: groqStructuredModel,
-		Messages: []groqMsg{
-			{Role: "system", Content: sysPrompt},
-			{Role: "user", Content: userMsg},
-		},
+		Model:       groqStructuredModel,
+		Messages:    msgs,
 		Temperature: 0.0,
-		MaxTokens:   200,
+		MaxTokens:   150,
 		ResponseFormat: map[string]any{
-			"type": "json_schema",
-			"json_schema": map[string]any{
-				"name":   "clarify_check",
-				"strict": true,
-				"schema": schema,
-			},
+			"type": "json_object",
 		},
 	}
 
@@ -333,11 +304,31 @@ needs_clarify=false이면 clarify_questions는 반드시 빈 배열 []로 설정
 		return nil, fmt.Errorf("groq 응답 없음")
 	}
 
-	var result ClarifyResult
-	if err := json.Unmarshal([]byte(gr.Choices[0].Message.Content), &result); err != nil {
+	// json_object 모드: clarify_question (string) 또는 clarify_questions (array) 모두 처리
+	var raw2 struct {
+		NeedsClarify     bool     `json:"needs_clarify"`
+		ClarifyQuestion  string   `json:"clarify_question"`
+		ClarifyQuestions []string `json:"clarify_questions"`
+		Action           string   `json:"action"`
+		Confidence       float64  `json:"confidence"`
+		Reason           string   `json:"reason"`
+	}
+	if err := json.Unmarshal([]byte(gr.Choices[0].Message.Content), &raw2); err != nil {
 		return nil, fmt.Errorf("clarify JSON 파싱 실패: %w", err)
 	}
-	return &result, nil
+	result := &ClarifyResult{
+		NeedsClarify: raw2.NeedsClarify,
+		Action:       raw2.Action,
+		Confidence:   raw2.Confidence,
+		Reason:       raw2.Reason,
+	}
+	// string → array 통합
+	if len(raw2.ClarifyQuestions) > 0 {
+		result.ClarifyQuestions = raw2.ClarifyQuestions
+	} else if raw2.ClarifyQuestion != "" {
+		result.ClarifyQuestions = []string{raw2.ClarifyQuestion}
+	}
+	return result, nil
 }
 
 func callGroqVision(_, _, _, _ string) (string, error) {
