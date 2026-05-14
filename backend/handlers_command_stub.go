@@ -201,8 +201,29 @@ const macSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령을
 "chat" → 일반 대화, 질문, 설명 요청
   params: {}
 
-"web_search" → 쇼핑/최저가/뉴스/맛집/유튜브/틱톡/쿠팡/네이버 검색
+"web_search" → 쇼핑/최저가/뉴스/맛집/유튜브/틱톡/쿠팡/네이버 검색 (파일 저장 없는 단순 검색)
   params: {"query":"검색어","site":"coupang|naver|youtube|tiktok|google|auto","max_items":5}
+
+"multi_action" → 검색/비교/정리 결과를 파일(PDF·Excel·MD·TXT)로 저장하거나, 가격비교·영상검색을 수행할 때
+  트리거 키워드: "정리해줘", "요약해줘", "pdf로", "엑셀로", "엑셀 작성", "파일로 만들어줘", "저장해줘", "보고서 만들어줘", "비교해줘", "비교 정리", "비교표", "vs", "차이점 정리", "표로 만들어줘"
+  params: {
+    "sub_action": "price_compare|video_search|doc_compare|summarize|web_search",
+    "query": "검색/비교/요약 대상",
+    "format": "pdf|excel|markdown|txt",
+    "max_items": 8
+  }
+  sub_action 선택 기준:
+  - "비교해줘" / "vs" / "차이점" → "doc_compare"
+  - "요약해줘" / "정리해줘" (특정 주제) → "summarize"
+  - "가격 비교" / "최저가" → "price_compare"
+  - 유튜브/틱톡 + 저장 → "video_search"
+  - 그 외 검색 + 저장 → "web_search"
+  format 선택 기준:
+  - "pdf로" / "PDF" → "pdf"
+  - "엑셀로" / "xlsx" / "엑셀" → "excel"
+  - "마크다운" / ".md" → "markdown"
+  - "텍스트" / ".txt" → "txt"
+  - 키워드 없으면 → "markdown" (기본값)
 
 "weather" → 날씨 확인
   params: {"city":"도시명"}
@@ -229,8 +250,20 @@ const macSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령을
 - 날씨/기상 → weather (도시 없으면 clarify)
 - 일정/캘린더/스케줄 → calendar_today 또는 calendar_add (날짜 없으면 clarify)
 - 쇼핑/검색/맛집/뉴스/유튜브/틱톡 → web_search (맛집인데 지역 없으면 clarify)
+- 다음 중 하나라도 포함 → 반드시 multi_action:
+  · "정리해줘", "정리해", "정리하여", "정리 좀"
+  · "요약해줘", "요약해", "요약 정리"
+  · "pdf로", "PDF", "피디에프"
+  · "엑셀로", "엑셀에", "엑셀 파일", "xlsx", "Excel"
+  · "마크다운으로", "md로"
+  · "파일로 만들어", "저장해줘", "저장해"
+  · "비교해줘", "비교해", "비교 정리", "비교표", "vs", "VS", "대비"
+  · "표로 만들어", "표로 정리"
+  · "보고서", "리포트", "report"
 - PC제어/보안/최적화/볼륨/밝기 → windows_only
 - 그 외 모든 대화 → chat
+
+⚠️ 중요: "엑셀로 정리해줘", "엑셀 파일로 만들어줘" 처럼 엑셀 키워드가 있으면 무조건 multi_action + format=excel
 
 ━━━ clarify 사용 기준 (2026년 기준 확장판) ━━━
 아래 경우에만 clarify 사용 (나머지는 최선으로 추론해서 즉시 실행)
@@ -466,6 +499,24 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		} else {
 			preRoutedAction = "video_search"
 			preRoutedParams = map[string]any{"query": q, "platform": "youtube", "max_items": 8}
+		}
+	} else if isMultiAction && req.PendingIntent == "" {
+		// 정리/요약/비교/파일 저장 키워드 감지 → pre-route to multi_action
+		lower := strings.ToLower(req.Message)
+		subAction := "summarize"
+		compareVerbs := []string{"비교해줘", "비교해", "비교 정리", "비교표", " vs ", "vs.", "대비"}
+		for _, v := range compareVerbs {
+			if strings.Contains(lower, v) {
+				subAction = "doc_compare"
+				break
+			}
+		}
+		preRoutedAction = "multi_action"
+		preRoutedParams = map[string]any{
+			"sub_action": subAction,
+			"query":      req.Message,
+			"format":     string(outFmt),
+			"max_items":  8,
 		}
 	}
 
@@ -936,6 +987,55 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			}
 			actionSummary = fmt.Sprintf("%s에서 \"%s\" 영상 %d개 검색 결과", pName, query, len(collectedItems))
 
+		case "doc_compare":
+			// 두 대상 비교 - Tavily 검색 후 LLM이 비교표 생성
+			llmMu.RLock()
+			gKey := llmPerplexityKey
+			llmMu.RUnlock()
+			var compareText string
+			if tKey != "" {
+				if tr, ok := tavilySearch(tKey, query, maxItems); ok {
+					contextText := tr.Summary
+					prompt := fmt.Sprintf(`다음 정보를 바탕으로 "%s"를 항목별로 비교 정리해줘.
+비교표 형식으로 깔끔하게 한국어로 작성해줘.
+
+참고 자료:
+%s`, query, contextText)
+					if gKey != "" {
+						compareText, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 1200, false)
+					}
+					collectedItems = tr.Items
+				}
+			}
+			if compareText == "" {
+				compareText = fmt.Sprintf("\"%s\" 비교 결과를 생성했습니다.", query)
+			}
+			actionSummary = compareText
+
+		case "summarize":
+			// 주제 요약 - Tavily 검색 후 LLM 요약
+			llmMu.RLock()
+			gKey := llmPerplexityKey
+			llmMu.RUnlock()
+			var summaryText string
+			if tKey != "" {
+				if tr, ok := tavilySearch(tKey, query, maxItems); ok {
+					prompt := fmt.Sprintf(`다음 정보를 바탕으로 "%s"에 대해 한국어로 명확하게 요약 정리해줘.
+핵심 내용만 항목별로 구조화해서 작성해줘.
+
+참고 자료:
+%s`, query, tr.Summary)
+					if gKey != "" {
+						summaryText, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 1200, false)
+					}
+					collectedItems = tr.Items
+				}
+			}
+			if summaryText == "" {
+				summaryText = fmt.Sprintf("\"%s\" 요약을 완료했습니다.", query)
+			}
+			actionSummary = summaryText
+
 		default:
 			// 일반 web_search
 			if tKey != "" {
@@ -944,6 +1044,11 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			actionSummary = fmt.Sprintf("\"%s\" 검색 결과 %d개", query, len(collectedItems))
+		}
+
+		// format 기본값: markdown
+		if outputFmt == "" {
+			outputFmt = outMarkdown
 		}
 
 		// 파일 저장
