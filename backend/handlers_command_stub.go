@@ -563,6 +563,61 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ── 직업군 워크플로우 프리셋 감지 ─────────────────────────────
+	if preRoutedAction == "" && req.PendingIntent == "" {
+		pid := getActivePersona().ID
+		type presetDef struct {
+			triggers []string
+			preset   string
+		}
+		presetMap := map[string][]presetDef{
+			"developer": {
+				{[]string{"코드 리뷰", "pr 리뷰", "pull request"}, "dev_code_review"},
+				{[]string{"배포 체크", "배포 준비", "릴리즈 체크", "배포 전"}, "dev_deploy_check"},
+				{[]string{"기술 트렌드", "개발 트렌드", "tech 트렌드", "최신 기술"}, "dev_tech_trend"},
+			},
+			"marketer": {
+				{[]string{"경쟁사 분석", "경쟁사 조사", "competitor"}, "mkt_competitor"},
+				{[]string{"콘텐츠 아이디어", "sns 아이디어", "콘텐츠 기획"}, "mkt_content_idea"},
+				{[]string{"주간 리포트", "마케팅 리포트", "주간 마케팅"}, "mkt_weekly_report"},
+			},
+			"sales": {
+				{[]string{"미팅 준비", "고객 미팅", "영업 미팅"}, "sales_meeting_prep"},
+				{[]string{"제안서", "제안 초안", "영업 제안"}, "sales_proposal"},
+				{[]string{"이의 대응", "반론 대응", "objection"}, "sales_objection"},
+			},
+			"pm": {
+				{[]string{"주간 보고", "주간 보고서", "weekly report"}, "pm_weekly_report"},
+				{[]string{"요구사항 정리", "prd", "기획서 초안"}, "pm_prd"},
+				{[]string{"스프린트 계획", "sprint", "우선순위 정리"}, "pm_sprint"},
+			},
+			"designer": {
+				{[]string{"레퍼런스 수집", "레퍼런스 찾아", "디자인 레퍼런스"}, "design_reference"},
+				{[]string{"콘텐츠 아이디어", "sns 콘텐츠", "썸네일 아이디어"}, "design_content"},
+				{[]string{"트렌드 분석", "디자인 트렌드", "ui 트렌드"}, "design_trend"},
+			},
+			"freelancer": {
+				{[]string{"견적서", "견적 초안", "프로젝트 견적"}, "fl_quote"},
+				{[]string{"클라이언트 보고", "진행 보고", "중간 보고"}, "fl_client_report"},
+				{[]string{"세금 계산", "종합소득세", "부가세", "세금 정리"}, "fl_tax"},
+			},
+		}
+		if presets, ok := presetMap[pid]; ok {
+			for _, pd := range presets {
+				for _, t := range pd.triggers {
+					if strings.Contains(msgLower, t) {
+						preRoutedAction = "workflow_preset"
+						preRoutedParams = map[string]any{"preset": pd.preset, "query": req.Message}
+						break
+					}
+				}
+				if preRoutedAction != "" {
+					break
+				}
+			}
+		}
+	}
+
 	// ── Clarify 판단 — 완전 동적 (Groq 단독, 키워드 하드코딩 없음) ──────────
 	if req.PendingIntent == "" {
 		clarifyNow := func(questions []string, pi string, pp map[string]any) {
@@ -1121,6 +1176,341 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 				"file":        fpath,
 				"sections":    collected,
 			},
+			Duration: dur,
+		})
+
+	case "workflow_preset":
+		preset, _ := intent.Params["preset"].(string)
+		query, _ := intent.Params["query"].(string)
+		if query == "" {
+			query = req.Message
+		}
+		llmMu.RLock()
+		tKey := llmTavilyKey
+		gKeyWF := llmGroqKey
+		llmMu.RUnlock()
+
+		type wfSection struct{ name, body string }
+		wfCh := make(chan wfSection, 4)
+
+		type workflowDef struct {
+			title    string
+			searches []struct{ name, q string }
+			prompt   string
+		}
+
+		presetDefs := map[string]workflowDef{
+			// ── 개발자 ──────────────────────────────────────────────
+			"dev_code_review": {
+				title: "코드 리뷰 준비",
+				searches: []struct{ name, q string }{
+					{"코드 리뷰 베스트 프랙티스", "code review best practices 2025"},
+					{"보안 취약점 체크리스트", "code security checklist OWASP"},
+				},
+				prompt: `다음 정보를 바탕으로 코드 리뷰 준비 체크리스트를 작성해줘.
+%s
+형식:
+1. 리뷰 전 확인 사항 (5가지)
+2. 코드 품질 체크포인트 (가독성/성능/보안)
+3. 자주 놓치는 부분
+4. 리뷰 코멘트 작성 팁`,
+			},
+			"dev_deploy_check": {
+				title: "배포 체크리스트",
+				searches: []struct{ name, q string }{
+					{"배포 전 체크리스트", "production deployment checklist 2025"},
+					{"장애 대응 롤백", "deployment rollback strategy"},
+				},
+				prompt: `다음 정보를 바탕으로 배포 체크리스트를 작성해줘.
+%s
+형식:
+1. 배포 전 (코드/테스트/환경변수/DB 마이그레이션)
+2. 배포 중 (모니터링 포인트)
+3. 배포 후 (헬스체크/로그 확인)
+4. 롤백 기준 및 방법`,
+			},
+			"dev_tech_trend": {
+				title: "최신 기술 트렌드",
+				searches: []struct{ name, q string }{
+					{"2025 개발 트렌드", "software development trends 2025"},
+					{"AI 개발 도구 트렌드", "AI developer tools 2025"},
+				},
+				prompt: `다음 정보를 바탕으로 2025년 개발자가 주목해야 할 기술 트렌드를 정리해줘.
+%s
+형식:
+1. 핵심 트렌드 TOP 5 (간결하게)
+2. 당장 배워야 할 기술
+3. 주목할 오픈소스/도구
+4. 한국 개발 시장 시사점`,
+			},
+			// ── 마케터 ──────────────────────────────────────────────
+			"mkt_competitor": {
+				title: "경쟁사 분석",
+				searches: []struct{ name, q string }{
+					{"경쟁사 마케팅 전략", query + " 경쟁사 마케팅 전략 2025"},
+					{"시장 트렌드", query + " 시장 트렌드 소비자 분석"},
+				},
+				prompt: `다음 정보를 바탕으로 경쟁사 분석 리포트를 작성해줘.
+%s
+형식:
+1. 경쟁사 현황 요약
+2. 강점 / 약점 / 차별화 포인트
+3. 소비자 반응 및 인사이트
+4. 우리가 취할 수 있는 전략 3가지`,
+			},
+			"mkt_content_idea": {
+				title: "콘텐츠 아이디어",
+				searches: []struct{ name, q string }{
+					{"SNS 트렌드 콘텐츠", query + " SNS 트렌드 콘텐츠 2025"},
+					{"바이럴 마케팅 사례", "바이럴 콘텐츠 성공 사례 2025"},
+				},
+				prompt: `다음 정보를 바탕으로 SNS 콘텐츠 아이디어를 제안해줘.
+%s
+형식:
+1. 인스타그램 아이디어 3개 (후크 문구 포함)
+2. 유튜브/숏폼 아이디어 3개 (제목 포함)
+3. 블로그/뉴스레터 아이디어 2개
+4. 이번 달 콘텐츠 캘린더 제안`,
+			},
+			"mkt_weekly_report": {
+				title: "주간 마케팅 리포트",
+				searches: []struct{ name, q string }{
+					{"마케팅 KPI 지표", "마케팅 KPI 측정 지표 2025"},
+					{"디지털 마케팅 트렌드", "digital marketing weekly trends"},
+				},
+				prompt: `다음 정보를 바탕으로 주간 마케팅 리포트 템플릿을 작성해줘.
+%s
+형식:
+1. 이번 주 핵심 지표 (CTR/CVR/ROAS 등)
+2. 채널별 성과 요약
+3. 잘된 것 / 개선할 것
+4. 다음 주 액션 플랜 3가지`,
+			},
+			// ── 영업 ──────────────────────────────────────────────
+			"sales_meeting_prep": {
+				title: "미팅 준비",
+				searches: []struct{ name, q string }{
+					{"고객사 정보", query + " 회사 정보 뉴스 2025"},
+					{"영업 미팅 전략", "B2B 영업 미팅 성공 전략"},
+				},
+				prompt: `다음 정보를 바탕으로 영업 미팅 준비 자료를 작성해줘.
+%s
+형식:
+1. 고객사 현황 요약 (업계/규모/최근 뉴스)
+2. 예상 Pain Point 3가지
+3. 준비할 질문 목록 5가지
+4. 미팅 오프닝 스크립트
+5. 다음 단계 클로징 멘트`,
+			},
+			"sales_proposal": {
+				title: "제안서 초안",
+				searches: []struct{ name, q string }{
+					{"성공적인 제안서 구조", "B2B proposal structure best practice"},
+					{"고객 니즈 분석", query + " 고객 니즈 pain point"},
+				},
+				prompt: `다음 정보를 바탕으로 영업 제안서 초안을 작성해줘.
+%s
+형식:
+1. 고객 현황 및 문제 정의
+2. 우리의 솔루션 (핵심 가치 3가지)
+3. 기대 효과 (정량적 수치 포함)
+4. 도입 프로세스 (단계별)
+5. 가격/조건 제안 프레임`,
+			},
+			"sales_objection": {
+				title: "이의 대응 스크립트",
+				searches: []struct{ name, q string }{
+					{"영업 이의 대응", "sales objection handling script"},
+					{"가격 협상 전략", "price negotiation sales strategy"},
+				},
+				prompt: `다음 정보를 바탕으로 주요 이의 대응 스크립트를 작성해줘.
+%s
+형식:
+1. "비싸요" → 공감 + 가치 재정의 + 대안 제시
+2. "지금은 아닌 것 같아요" → 타이밍 이슈 대응
+3. "경쟁사가 더 좋아요" → 차별화 포인트 강조
+4. "내부 검토가 필요해요" → 의사결정 가속화 방법
+5. 각 상황별 클로징 멘트`,
+			},
+			// ── PM ──────────────────────────────────────────────
+			"pm_weekly_report": {
+				title: "주간 보고서",
+				searches: []struct{ name, q string }{
+					{"PM 주간 보고서", "product manager weekly report template"},
+					{"스프린트 리뷰", "sprint review retrospective"},
+				},
+				prompt: `다음 정보를 바탕으로 PM 주간 보고서 템플릿을 작성해줘.
+%s
+형식:
+1. 이번 주 완료 항목 (Done)
+2. 진행 중 항목 및 이슈 (In Progress)
+3. 다음 주 계획 (Todo)
+4. 리스크 및 블로커
+5. 이해관계자 전달 사항`,
+			},
+			"pm_prd": {
+				title: "요구사항 정리 (PRD)",
+				searches: []struct{ name, q string }{
+					{"PRD 작성 방법", "PRD product requirements document template 2025"},
+					{"사용자 스토리", "user story acceptance criteria example"},
+				},
+				prompt: `다음 정보를 바탕으로 PRD(제품 요구사항 문서) 초안 구조를 작성해줘.
+%s
+형식:
+1. 배경 및 목표 (WHY)
+2. 대상 사용자 및 페르소나
+3. 핵심 기능 목록 (Must/Should/Could)
+4. 비기능 요구사항 (성능/보안/UX)
+5. 성공 지표 (KPI)
+6. 제외 범위 (Out of Scope)`,
+			},
+			"pm_sprint": {
+				title: "스프린트 계획",
+				searches: []struct{ name, q string }{
+					{"스프린트 계획 방법", "agile sprint planning best practice"},
+					{"우선순위 매트릭스", "priority matrix RICE scoring"},
+				},
+				prompt: `다음 정보를 바탕으로 스프린트 계획 가이드를 작성해줘.
+%s
+형식:
+1. 스프린트 목표 설정 방법
+2. 백로그 우선순위 기준 (RICE/MoSCoW)
+3. 스프린트 용량 산정 방법
+4. 데일리 스탠드업 진행 방식
+5. 스프린트 리뷰/회고 체크리스트`,
+			},
+			// ── 디자이너 ──────────────────────────────────────────
+			"design_reference": {
+				title: "디자인 레퍼런스 수집",
+				searches: []struct{ name, q string }{
+					{"디자인 레퍼런스", query + " design reference inspiration 2025"},
+					{"UI 디자인 트렌드", "UI UX design trends 2025"},
+				},
+				prompt: `다음 정보를 바탕으로 디자인 레퍼런스 가이드를 작성해줘.
+%s
+형식:
+1. 추천 레퍼런스 사이트/브랜드 5개 (이유 포함)
+2. 키워드별 검색 방법 (Dribbble/Behance/Pinterest)
+3. 현재 트렌드 키워드 5개
+4. 색상 팔레트 방향 제안
+5. 레퍼런스 수집 시 주의사항`,
+			},
+			"design_content": {
+				title: "콘텐츠 아이디어",
+				searches: []struct{ name, q string }{
+					{"SNS 디자인 트렌드", "social media design trend 2025"},
+					{"썸네일 디자인", "thumbnail design best practice YouTube Instagram"},
+				},
+				prompt: `다음 정보를 바탕으로 SNS 콘텐츠 디자인 아이디어를 제안해줘.
+%s
+형식:
+1. 인스타그램 피드/릴스 디자인 방향 3가지
+2. 유튜브 썸네일 디자인 팁 + 예시 아이디어
+3. 틱톡/숏폼 영상 그래픽 방향
+4. 브랜드 일관성 유지 방법
+5. 툴 추천 (Figma/Canva/Adobe)`,
+			},
+			"design_trend": {
+				title: "디자인 트렌드 분석",
+				searches: []struct{ name, q string }{
+					{"2025 디자인 트렌드", "graphic design trends 2025"},
+					{"UI UX 트렌드", "UI UX trends 2025 Korea"},
+				},
+				prompt: `다음 정보를 바탕으로 2025년 디자인 트렌드를 정리해줘.
+%s
+형식:
+1. 그래픽 디자인 트렌드 TOP 5
+2. UI/UX 트렌드 TOP 3
+3. 한국 시장 특화 트렌드
+4. 피해야 할 구식 스타일
+5. 바로 적용할 수 있는 트렌드 팁`,
+			},
+			// ── 프리랜서 ──────────────────────────────────────────
+			"fl_quote": {
+				title: "견적서 초안",
+				searches: []struct{ name, q string }{
+					{"프리랜서 견적 기준", "프리랜서 견적서 작성 기준 2025"},
+					{"프로젝트 단가", query + " 프리랜서 단가 시세"},
+				},
+				prompt: `다음 정보를 바탕으로 프리랜서 견적서 초안을 작성해줘.
+%s
+형식:
+1. 프로젝트 범위 정의 (Scope)
+2. 항목별 견적 구조 (기획/디자인/개발/수정 등)
+3. 시장 단가 기준
+4. 계약 조건 제안 (계약금/중도금/잔금)
+5. 견적서 이메일 문구 초안`,
+			},
+			"fl_client_report": {
+				title: "클라이언트 진행 보고",
+				searches: []struct{ name, q string }{
+					{"클라이언트 보고서", "client progress report freelancer template"},
+				},
+				prompt: `다음 정보를 바탕으로 클라이언트 진행 보고 이메일/문서 초안을 작성해줘.
+%s
+형식:
+1. 이번 주 완료한 작업
+2. 현재 진행 상황 (%)
+3. 다음 주 계획
+4. 클라이언트 확인/결정 필요 사항
+5. 이메일 전송 초안 (바로 복사 가능)`,
+			},
+			"fl_tax": {
+				title: "세금 계산 가이드",
+				searches: []struct{ name, q string }{
+					{"프리랜서 세금", "프리랜서 종합소득세 계산 2025"},
+					{"부가세 신고", "1인사업자 부가세 신고 방법 2025"},
+				},
+				prompt: `다음 정보를 바탕으로 프리랜서/1인 사업자 세금 가이드를 작성해줘.
+%s
+형식:
+1. 종합소득세 신고 일정 및 방법
+2. 부가세 신고 대상 및 방법
+3. 절세 항목 (경비 처리 가능 항목)
+4. 세금 계산 예시 (연 수입 구간별)
+5. 주의사항 및 놓치기 쉬운 부분`,
+			},
+		}
+
+		wfSelected, ok := presetDefs[preset]
+		if !ok {
+			json200(w, CommandResponse{Success: false, Message: "알 수 없는 워크플로우: " + preset, Action: "workflow_preset", Duration: dur})
+			break
+		}
+
+		for i, s := range wfSelected.searches {
+			go func(idx int, name, q string) {
+				tr, ok := tavilySearch(tKey, q, 3)
+				if ok {
+					wfCh <- wfSection{name, tr.Summary}
+				} else {
+					wfCh <- wfSection{name, ""}
+				}
+			}(i, s.name, s.q)
+		}
+
+		wfCollected := []string{}
+		for range wfSelected.searches {
+			s := <-wfCh
+			if s.body != "" {
+				wfCollected = append(wfCollected, fmt.Sprintf("### %s\n%s", s.name, s.body))
+			}
+		}
+
+		finalPrompt := fmt.Sprintf(wfSelected.prompt, strings.Join(wfCollected, "\n\n"))
+		persona := getActivePersona()
+		wfSys := persona.SystemPrompt + "\n답변은 마크다운으로 깔끔하게 작성하세요."
+		wfMsgs := []groqMsg{{Role: "system", Content: wfSys}, {Role: "user", Content: finalPrompt}}
+		result, _, _ := callGroq(gKeyWF, groqChatModel, wfMsgs, 1500, false)
+		if result == "" {
+			result, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: finalPrompt}}, 1500, false)
+		}
+
+		json200(w, CommandResponse{
+			Success:  true,
+			Message:  result,
+			Action:   "workflow_preset",
+			Result:   map[string]any{"preset": preset, "title": wfSelected.title, "persona": persona.ID},
 			Duration: dur,
 		})
 
