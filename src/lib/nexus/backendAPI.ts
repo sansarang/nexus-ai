@@ -15,13 +15,30 @@
 const BASE = 'http://127.0.0.1:17891'
 const TIMEOUT = 8000 // 프로덕션에서 느린 PowerShell 쿼리 고려
 
+// Supabase 세션 JWT를 가져와 Go 백엔드로 전달 (Edge Function 프록시 라우팅용)
+export async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { supabase } = await import('../supabase')
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (token) return { Authorization: `Bearer ${token}` }
+  } catch {
+    // Supabase 미연결 시 무시
+  }
+  return {}
+}
+
 async function request<T>(method: string, path: string, body?: unknown, timeout = TIMEOUT): Promise<T> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeout)
   try {
+    const authHeader = await getAuthHeader()
     const res = await fetch(`${BASE}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: {
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...authHeader,
+      },
       body: body ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
     })

@@ -368,7 +368,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:         port,
-		Handler:      cors(mux),
+		Handler:      cors(jwtMiddleware(mux)),
 		ReadTimeout:  120 * time.Second,
 		WriteTimeout: 120 * time.Second,
 		IdleTimeout:  300 * time.Second,

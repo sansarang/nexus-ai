@@ -4,7 +4,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const PERPLEXITY_KEY = Deno.env.get('PERPLEXITY_KEY')!
+const GROQ_KEY       = Deno.env.get('GROQ_KEY')!
+const PERPLEXITY_KEY = Deno.env.get('PERPLEXITY_KEY') ?? GROQ_KEY  // fallback to Groq
 const CLAUDE_KEY     = Deno.env.get('CLAUDE_KEY')!
 const TAVILY_KEY     = Deno.env.get('TAVILY_KEY')!
 
@@ -101,6 +102,16 @@ Deno.serve(async (req) => {
     let result: unknown
 
     switch (action) {
+      case 'groq_chat': {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        result = await res.json()
+        break
+      }
+
       case 'perplexity_chat': {
         const res = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',

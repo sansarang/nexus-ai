@@ -30,6 +30,11 @@ func isNewsQuery(query string) bool {
 }
 
 func tavilySearch(apiKey, query string, maxItems int) (tavilyResult, bool) {
+	// 1순위: Supabase Edge Function 프록시 (JWT 있을 때)
+	if res, ok := callTavilyViaProxy(query, maxItems); ok {
+		return res, true
+	}
+	// 2순위: 번들 키 직접 호출
 	return tavilySearchDomain(apiKey, query, maxItems, "")
 }
 

@@ -49,6 +49,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   multiAgentRun, multiAgentPlan,
   searchAndPDF,
   siteSearch,
+  getAuthHeader,
 } from '../../lib/nexus/backendAPI'
 import type { PersonaDef } from '../../lib/nexus/backendAPI'
 import {
@@ -2163,7 +2164,7 @@ export function FloatingCharacter() {
         const dirTimer = setTimeout(() => dirCtrl.abort(), 10000)
         const res = await fetch('http://127.0.0.1:17891/api/directions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
           body: JSON.stringify({ query: trimmed }),
           signal: dirCtrl.signal,
         }).then(r => r.json()).catch(() => null).finally(() => clearTimeout(dirTimer))
@@ -2738,7 +2739,7 @@ export function FloatingCharacter() {
         }
         const res = await fetch('http://127.0.0.1:17891/api/file/process', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
           body: JSON.stringify(payload),
         }).then(r => r.json()).catch(() => ({ success: false, message: '파일 처리 실패' }))
 

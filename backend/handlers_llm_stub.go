@@ -303,6 +303,12 @@ func callGroq(apiKey, model string, msgs []groqMsg, maxTokens int, jsonMode bool
 }
 
 func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
+	// 1순위: Supabase Edge Function 프록시
+	if content, err := callGroqViaProxy(msgs, maxTokens, jsonMode); err == nil {
+		return content, "groq-proxy", nil
+	}
+
+	// 2순위: 번들 키 직접 호출
 	llmMu.RLock()
 	key := llmPerplexityKey
 	if key == "" {
