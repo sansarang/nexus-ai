@@ -111,10 +111,10 @@ jobs:
           VITE_PADDLE_CLIENT_TOKEN: ${{ secrets.VITE_PADDLE_CLIENT_TOKEN }}
           VITE_PADDLE_PRICE_ID: ${{ secrets.VITE_PADDLE_PRICE_ID }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Nexus AI ${{ github.ref_name }}'
+          tagName: ${{ github.ref_name != 'main' && github.ref_name || 'v2.5.0' }}
+          releaseName: 'Nexus AI ${{ github.ref_name != ''main'' && github.ref_name || ''v2.5.0'' }}'
           releaseBody: |
-            ## Nexus AI ${{ github.ref_name }} 출시
+            ## Nexus AI 출시
 
             ### 설치 방법
             1. 아래 `Nexus_*_x64-setup.exe` 파일을 다운로드
@@ -133,5 +133,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Nexus-Windows-Installer
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
           retention-days: 14
