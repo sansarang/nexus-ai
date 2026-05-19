@@ -2999,7 +2999,6 @@ export function FloatingCharacter() {
     { icon: '⚙️', active: false,            color: primaryColor,  onClick: () => setSettingsOpen(true), tip: '설정' },
     { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4',     onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
     { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b',  onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
-    { icon: '📧',  active: showEmailSetup,   color: '#22c55e',     onClick: () => setShowEmailSetup(p => !p), tip: '이메일 설정' },
     { icon: '—',  active: false,             color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
     { icon: '✕',  active: false,             color: '#ef4444',     onClick: async () => {
       const { getCurrentWindow } = await import('@tauri-apps/api/window')

@@ -133,13 +133,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [loginError, setLoginError]       = useState('')
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [selectedJobId, setSelectedJobId] = useState<string>('developer')
-  // ── Step 6: 이메일 연동 ──
-  const [emailProvider, setEmailProvider] = useState('')
-  const [emailAddr, setEmailAddr]         = useState('')
-  const [emailPw, setEmailPw]             = useState('')
-  const [emailTesting, setEmailTesting]   = useState(false)
-  const [emailResult, setEmailResult]     = useState<'idle'|'ok'|'fail'>('idle')
-  const [emailError, setEmailError]       = useState('')
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoResult, setDemoResult] = useState('')
   const [demoCmd, setDemoCmd] = useState('')
@@ -178,7 +171,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
     setGoogleLoading(true)
     try {
-      await signInWithGoogle()
+      const hint = localStorage.getItem('nexus-user-email') ?? undefined
+      await signInWithGoogle(hint)
       // OAuth redirect이므로 페이지 이동됨 — handleComplete는 복귀 후 호출
     } catch (e) {
       console.warn('Google OAuth 실패, 체험판 시작:', e)
@@ -1010,6 +1004,22 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* 로그인 영역 */}
             {!googleEmail ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* X 닫기 버튼 */}
+                <button
+                  onClick={async () => {
+                    const { getCurrentWindow } = await import('@tauri-apps/api/window')
+                    getCurrentWindow().close()
+                  }}
+                  style={{
+                    position: 'absolute', top: 16, right: 16,
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                    color: 'rgba(255,255,255,0.5)', fontSize: 14, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    lineHeight: 1,
+                  }}
+                >✕</button>
+
                 {/* Google 로그인 버튼 */}
                 <button
                   onClick={handleGoogleLogin}
@@ -1033,182 +1043,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   {googleLoading ? (isEn ? 'Connecting...' : '연결 중...') : (isEn ? 'Continue with Google' : 'Google 계정으로 시작하기')}
                 </button>
 
-                {/* 구분선 + 메일 연동 안내 문구 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
-                    {isEn ? 'or connect your email' : '또는 메일로 연동'}
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                </div>
-
-                {/* A안 문구 */}
-                <div style={{
-                  padding: '12px 14px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 4 }}>
-                    {isEn ? '📧 Connect your email right now' : '📧 메일도 지금 바로 연결하세요'}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7 }}>
-                    {isEn
-                      ? 'Connect your account and Nexus will read your inbox, summarize emails, and write replies for you.'
-                      : '가입한 메일 계정을 연동하면 Nexus가 받은 편지함을 읽고, 요약하고, 대신 답장까지 써드립니다.'}
-                  </div>
-                </div>
-
-                {/* 네이버 · 다음 · Outlook 버튼 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                  {[
-                    { id: 'naver',   label: '네이버', icon: 'N', color: '#03c75a' },
-                    { id: 'daum',    label: '다음',   icon: 'D', color: '#ff5722' },
-                    { id: 'outlook', label: 'Outlook', icon: '⊞', color: '#0078d4' },
-                  ].map(p => (
-                    <button key={p.id}
-                      onClick={() => { setEmailProvider(emailProvider === p.id ? '' : p.id); setEmailResult('idle'); setEmailError('') }}
-                      style={{
-                        padding: '10px 8px', borderRadius: 10,
-                        border: `1px solid ${emailProvider === p.id ? p.color : 'rgba(255,255,255,0.1)'}`,
-                        background: emailProvider === p.id ? `${p.color}18` : 'rgba(255,255,255,0.04)',
-                        color: emailProvider === p.id ? p.color : 'rgba(255,255,255,0.55)',
-                        cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600,
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      <span style={{
-                        width: 24, height: 24, borderRadius: 6,
-                        background: emailProvider === p.id ? p.color : 'rgba(255,255,255,0.1)',
-                        color: emailProvider === p.id ? '#fff' : 'rgba(255,255,255,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 800,
-                      }}>{p.icon}</span>
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* 선택한 메일 서비스 폼 */}
-                {emailProvider && (() => {
-                  const GUIDES: Record<string, { steps: string[]; ph: string; emailPh: string }> = {
-                    naver: {
-                      steps: isEn ? [
-                        'Go to mail.naver.com → Settings (⚙️)',
-                        'POP3/IMAP Settings → Enable IMAP → Save',
-                        'Naver My Info → Security → Two-Factor Auth → Enable',
-                        'App Password → Create new → Name it "Nexus" → Copy password',
-                        'Enter your Naver email and the app password below',
-                      ] : [
-                        'mail.naver.com → 환경설정(⚙️) 클릭',
-                        'POP3/IMAP 설정 → IMAP 사용 ON → 저장',
-                        '네이버 내 정보 → 보안설정 → 2단계 인증 활성화',
-                        '앱 비밀번호 → 새 앱 비밀번호 생성 → 이름: Nexus → 비밀번호 복사',
-                        '아래에 네이버 이메일과 앱 비밀번호 입력',
-                      ],
-                      ph: isEn ? 'App password (from Naver)' : '앱 비밀번호 (네이버에서 발급)',
-                      emailPh: 'example@naver.com',
-                    },
-                    daum: {
-                      steps: isEn ? [
-                        'Go to mail.daum.net → Settings (⚙️)',
-                        'Mail Management → IMAP/POP3 → Enable IMAP → Save',
-                        'Enter your Daum/Kakao email and account password below',
-                      ] : [
-                        'mail.daum.net → 환경설정(⚙️) 클릭',
-                        '메일 관리 → IMAP/POP3 설정 → IMAP 사용 ON → 저장',
-                        '아래에 다음(카카오) 이메일과 카카오계정 비밀번호 입력',
-                      ],
-                      ph: isEn ? 'Kakao account password' : '카카오계정 비밀번호',
-                      emailPh: 'example@daum.net',
-                    },
-                    outlook: {
-                      steps: isEn ? [
-                        'Go to account.microsoft.com → Security',
-                        'Advanced security → App passwords → Create new',
-                        'Name it "Nexus" → Copy the generated password',
-                        'Enter your Microsoft email and the app password below',
-                      ] : [
-                        'account.microsoft.com → 보안 탭',
-                        '고급 보안 → 앱 비밀번호 → 새로 만들기',
-                        '이름: Nexus → 생성된 비밀번호 복사',
-                        '아래에 Microsoft 이메일과 앱 비밀번호 입력',
-                      ],
-                      ph: isEn ? 'App password (from Microsoft)' : '앱 비밀번호 (Microsoft에서 발급)',
-                      emailPh: 'example@outlook.com',
-                    },
-                  }
-                  const h = GUIDES[emailProvider]
-                  const provColors: Record<string, string> = { naver: '#03c75a', daum: '#ff5722', outlook: '#0078d4' }
-                  const pc = provColors[emailProvider] ?? selectedStyle.primaryColor
-
-                  const handleEmailSave = async () => {
-                    if (!emailAddr || !emailPw) return
-                    setEmailTesting(true); setEmailError(''); setEmailResult('idle')
-                    try {
-                      const res = await fetch('http://127.0.0.1:17891/api/imap/accounts', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: emailAddr, email: emailAddr, password: emailPw, provider: emailProvider }),
-                      })
-                      const data = await res.json() as { success: boolean; message?: string }
-                      if (data.success) { setEmailResult('ok') }
-                      else { setEmailResult('fail'); setEmailError(data.message ?? (isEn ? 'Connection failed' : '연결 실패')) }
-                    } catch {
-                      setEmailResult('fail'); setEmailError(isEn ? 'Backend not running' : '백엔드에 연결할 수 없습니다')
-                    } finally { setEmailTesting(false) }
-                  }
-
-                  return (
-                    <motion.div key={emailProvider} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                      style={{ display: 'flex', flexDirection: 'column', gap: 8,
-                        padding: '12px', borderRadius: 12,
-                        background: `${pc}0c`, border: `1px solid ${pc}25`,
-                      }}
-                    >
-                      {/* 단계별 가이드 */}
-                      <div style={{ fontSize: 11, fontWeight: 700, color: pc, marginBottom: 2 }}>
-                        {isEn ? '📋 Setup Guide' : '📋 연동 방법'}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 4 }}>
-                        {h.steps.map((s, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                            <span style={{
-                              width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                              background: `${pc}33`, color: pc,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 10, fontWeight: 800,
-                            }}>{i + 1}</span>
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{s}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {emailResult === 'ok' ? (
-                        <div style={{ textAlign: 'center', padding: '8px 0', color: '#22c55e', fontWeight: 700, fontSize: 13 }}>
-                          ✅ {isEn ? 'Connected!' : '연동 완료!'} — {emailAddr}
-                        </div>
-                      ) : (
-                        <>
-                          <input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)}
-                            placeholder={h.emailPh}
-                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${emailAddr ? pc + '55' : 'rgba(255,255,255,0.12)'}`, borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
-                          <input type="password" value={emailPw} onChange={e => setEmailPw(e.target.value)}
-                            placeholder={h.ph}
-                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${emailPw ? pc + '55' : 'rgba(255,255,255,0.12)'}`, borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
-                          {emailError && <div style={{ fontSize: 11, color: '#ef4444' }}>❌ {emailError}</div>}
-                          <button onClick={() => void handleEmailSave()} disabled={emailTesting || !emailAddr || !emailPw}
-                            style={{ padding: '9px', borderRadius: 8, border: 'none',
-                              background: emailAddr && emailPw && !emailTesting ? `linear-gradient(135deg, ${pc}, ${pc}bb)` : 'rgba(255,255,255,0.08)',
-                              color: emailAddr && emailPw && !emailTesting ? '#fff' : 'rgba(255,255,255,0.3)',
-                              fontSize: 12, fontWeight: 700, cursor: emailAddr && emailPw && !emailTesting ? 'pointer' : 'not-allowed',
-                            }}>
-                            {emailTesting ? (isEn ? '⟳ Connecting...' : '⟳ 연결 중...') : (isEn ? 'Connect & Test' : '연결 테스트')}
-                          </button>
-                        </>
-                      )}
-                    </motion.div>
-                  )
-                })()}
 
                 {/* 관리자 로그인 토글 */}
                 <button

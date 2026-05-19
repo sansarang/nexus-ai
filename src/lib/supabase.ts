@@ -27,12 +27,16 @@ export interface SubscriptionRow {
 }
 
 /** Google OAuth 팝업 로그인 */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(loginHint?: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: window.location.origin,
-      queryParams: { access_type: 'offline', prompt: 'consent' },
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+        ...(loginHint ? { login_hint: loginHint } : {}),
+      },
     },
   })
   if (error) throw error
