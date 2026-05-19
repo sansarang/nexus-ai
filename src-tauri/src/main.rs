@@ -4,7 +4,7 @@ use std::sync::{Mutex, OnceLock};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    App, Emitter, Manager, Runtime, WebviewWindow,
+    App, Emitter, Listener, Manager, Runtime, WebviewWindow,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
