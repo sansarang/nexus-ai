@@ -262,7 +262,9 @@ func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
 		Platform string `json:"platform"` // "youtube"|"tiktok"|"instagram"|"x"|"all"
 		MaxItems int    `json:"max_items"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return

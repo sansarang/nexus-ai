@@ -65,7 +65,7 @@ func groqFallbackSearch(w http.ResponseWriter, query string) {
 		return
 	}
 	msgs := []groqMsg{{Role: "user", Content: query + " — 알고 있는 정보를 상세하게 알려줘."}}
-	text, _, _ := callGroq(gKey, groqChatModel, msgs, 1024, false)
+	text, _, _ := callGroqWithFallback(msgs, 1024, false)
 	json200(w, map[string]any{
 		"success": true,
 		"summary": text,
@@ -468,7 +468,7 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 
 최대 %d 단계로 구성하세요.`, req.Command, req.MaxSteps)
 
-	planStr, _, err := callGroq(gKey, groqChatModel, []groqMsg{
+	planStr, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "user", Content: planPrompt},
 	}, 1024, true)
 	if err != nil {
@@ -677,7 +677,7 @@ If price comparison, use a table format. If information gathering, use a key con
 				req.Command, strings.Join(collectedData, "\n\n"))
 		}
 
-		summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{
+		summary, _, _ := callGroqWithFallback([]groqMsg{
 			{Role: "user", Content: summaryPrompt},
 		}, 1024, false)
 		finalSummary = summary

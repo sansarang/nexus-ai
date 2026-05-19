@@ -71,7 +71,7 @@ func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
 				lines = append(lines, fmt.Sprintf("%s: %s — %s", p["rank"], p["name"], p["price"]))
 			}
 			summaryPrompt := fmt.Sprintf(`"%s" 제품에 대해 공식 스펙, 주요 특징, 가격대를 포함한 상세 설명서를 작성해줘.`, req.Query)
-			summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 800, false)
+			summary, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: summaryPrompt}}, 800, false)
 			result.Summary = summary
 			_ = lines
 		}
@@ -92,7 +92,7 @@ func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
 		llmMu.RUnlock()
 		if gKey != "" {
 			fallbackPrompt := fmt.Sprintf(`"%s" 제품에 대해 공식 스펙과 주요 특징을 포함한 설명서를 작성해줘.`, req.Query)
-			summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: fallbackPrompt}}, 800, false)
+			summary, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: fallbackPrompt}}, 800, false)
 			result.Summary = summary
 		}
 		result.Duration = fmt.Sprintf("%.2fs", time.Since(start).Seconds())
@@ -134,7 +134,7 @@ Analyze these products and write a 3-4 line buying guide in English. Use lowest 
 위 제품들을 분석해서 구매 추천 가이드를 3-4줄로 한국어로 작성해주세요. 최저가, 최고 성능, 가성비 기준으로.`,
 				req.Query, strings.Join(productLines, "\n"))
 		}
-		summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
+		summary, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 		if summary != "" {
 			result.Summary = summary
 		}

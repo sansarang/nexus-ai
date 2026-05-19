@@ -34,7 +34,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 		llmMu.RUnlock()
 		if gKey != "" {
 			msgs := []groqMsg{{Role: "user", Content: city + " 현재 날씨를 알려줘. 온도, 습도, 상태를 포함해."}}
-			text, _, _ := callGroq(gKey, groqFastModel, msgs, 200, false)
+			text, _, _ := callGroqWithFallback(msgs, 200, false)
 			json200(w, map[string]any{"success": true, "source": "llm", "summary": text})
 			return
 		}
@@ -70,7 +70,7 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 	}
 	prompt := fmt.Sprintf("%s에서 %s까지 대중교통으로 이동 시간을 알려줘.", req.Origin, req.Destination)
 	msgs := []groqMsg{{Role: "user", Content: prompt}}
-	text, _, _ := callGroq(gKey, groqFastModel, msgs, 300, false)
+	text, _, _ := callGroqWithFallback(msgs, 300, false)
 	json200(w, map[string]any{"success": true, "answer": text})
 }
 
@@ -393,7 +393,7 @@ func handleWorkflowPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msgs := []groqMsg{{Role: "user", Content: "다음 목표를 달성하기 위한 단계별 워크플로우를 작성해줘: " + req.Goal}}
-	text, _, err := callGroq(gKey, groqChatModel, msgs, 800, false)
+	text, _, err := callGroqWithFallback(msgs, 800, false)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
 		return
@@ -410,9 +410,6 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "goal 필드가 필요합니다"})
 		return
 	}
-	llmMu.RLock()
-	gKey := llmPerplexityKey
-	llmMu.RUnlock()
 	eng := isEnglishQuery(req.Goal)
 	var sysPr, userMsg string
 	if eng {
@@ -426,7 +423,7 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		{Role: "system", Content: sysPr},
 		{Role: "user", Content: userMsg},
 	}
-	summary, _, _ := callGroq(gKey, groqChatModel, msgs, 500, false)
+	summary, _, _ := callGroqWithFallback(msgs, 500, false)
 	if summary == "" {
 		if eng {
 			summary = "Goal '" + req.Goal + "' has been completed."

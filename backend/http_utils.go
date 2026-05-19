@@ -12,6 +12,15 @@ import (
 
 const maxRequestBody = 32 * 1024 * 1024 // 32MB 요청 상한
 
+// decodeJSON: r.Body를 v에 JSON 디코딩. 실패 시 400 응답 후 false 반환.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "요청 형식 오류: " + err.Error()})
+		return false
+	}
+	return true
+}
+
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

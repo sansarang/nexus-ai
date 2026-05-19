@@ -797,6 +797,9 @@ const macClarifyResolvePrompt = `당신은 Nexus AI 비서입니다. 사용자�
 
 
 func handleCommand(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
 	var req CommandRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Message == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "message required / message 필요"})
@@ -1335,7 +1338,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			{Role: "system", Content: sysPr},
 			{Role: "user", Content: intentPrompt},
 		}
-		raw, _, err := callGroq(gKey, groqFastModel, msgs, 500, true)
+		raw, _, err := callGroqWithFallback(msgs, 500, true)
 		if err != nil {
 			writeJSON(w, 500, map[string]any{"success": false, "message": "LLM 오류: " + err.Error()})
 			return
@@ -1765,7 +1768,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			{Role: "system", Content: wfSys},
 			{Role: "user", Content: wfUser},
 		}
-		plan, _, _ := callGroq(gKey, groqChatModel, wMsgs, 800, false)
+		plan, _, _ := callGroqWithFallback(wMsgs, 800, false)
 		json200(w, CommandResponse{
 			Success:  true,
 			Message:  plan,
@@ -1913,7 +1916,6 @@ Checklist format:
 		}
 		llmMu.RLock()
 		tKey := llmTavilyKey
-		gKeyWF := llmGroqKey
 		llmMu.RUnlock()
 
 		type wfSection struct{ name, body string }
@@ -4504,7 +4506,7 @@ CTA: [댓글 유도]
 			wfSys = persona.SystemPrompt + "\n답변은 마크다운으로 깔끔하게 작성하세요."
 		}
 		wfMsgs := []groqMsg{{Role: "system", Content: wfSys}, {Role: "user", Content: finalPrompt}}
-		result, _, _ := callGroq(gKeyWF, groqChatModel, wfMsgs, 1500, false)
+		result, _, _ := callGroqWithFallback(wfMsgs, 1500, false)
 		if result == "" {
 			result, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: finalPrompt}}, 1500, false)
 		}
@@ -5013,7 +5015,7 @@ Search results:
 				mPrompt = getPersonaSystemPrompt() + "\n회의 관련 질문: " + mQuery + "\n간결하게 한국어로 답변하세요."
 			}
 			mMsgs := []groqMsg{{Role: "user", Content: mPrompt}}
-			mAnswer, _, _ = callGroq(mPKey, groqChatModel, mMsgs, 512, false)
+			mAnswer, _, _ = callGroqWithFallback(mMsgs, 512, false)
 		}
 		if mAnswer == "" {
 			if mEng {
@@ -5397,7 +5399,7 @@ Search results:
 			} else {
 				dsPrompt = "다음 문서를 3-5문장으로 간결하게 요약해주세요:\n\n" + content
 			}
-			dsSummary, _, _ = callGroq(dsPKey, groqChatModel, []groqMsg{{Role: "user", Content: dsPrompt}}, 512, false)
+			dsSummary, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: dsPrompt}}, 512, false)
 		}
 		if dsSummary == "" {
 			if dsEng {
@@ -5834,7 +5836,7 @@ Search results:
 			{Role: "system", Content: sysCtx},
 			{Role: "user", Content: drPrompt},
 		}
-		drAnswer, _, drErr := callGroq(gKey, groqChatModel, drMsgs, 2048, false)
+		drAnswer, _, drErr := callGroqWithFallback(drMsgs, 2048, false)
 		if drErr != nil {
 			if drEng {
 				drAnswer = "Research failed: " + drErr.Error()
@@ -5852,7 +5854,7 @@ Search results:
 			{Role: "system", Content: getPersonaSystemPrompt()},
 			{Role: "user", Content: req.Message},
 		}
-		answer, _, _ := callGroq(gKey, groqChatModel, chatMsgs, 1024, false)
+		answer, _, _ := callGroqWithFallback(chatMsgs, 1024, false)
 		json200(w, CommandResponse{
 			Success:  true,
 			Message:  answer,
@@ -5931,7 +5933,7 @@ User question: "%s"
 - 친절한 AI 비서처럼 작성`, today, query)
 	}
 	msgs := []groqMsg{{Role: "user", Content: prompt}}
-	text, _, err := callGroq(apiKey, groqChatModel, msgs, 512, false)
+	text, _, err := callGroqWithFallback(msgs, 512, false)
 	if err != nil {
 		text = "검색 중 오류가 발생했습니다: " + err.Error()
 	}
@@ -6000,7 +6002,7 @@ Output format: ["query1","query2","query3"]`, goal)
 출력 형식: ["쿼리1","쿼리2","쿼리3"]`, goal)
 	}
 
-	raw, _, err := callGroq(gKey, groqFastModel, []groqMsg{{Role: "user", Content: planPrompt}}, 256, true)
+	raw, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: planPrompt}}, 256, true)
 	if err != nil {
 		raw = fmt.Sprintf(`["%s"]`, goal)
 	}
@@ -6032,7 +6034,7 @@ Output format: ["query1","query2","query3"]`, goal)
 			}
 			if summary == "" {
 				msgs := []groqMsg{{Role: "user", Content: query}}
-				summary, _, _ = callGroq(gKey, groqChatModel, msgs, 400, false)
+				summary, _, _ = callGroqWithFallback(msgs, 400, false)
 			}
 			results[idx] = stepResult{Query: query, Summary: summary}
 		}(i, q)
@@ -6055,7 +6057,7 @@ Output format: ["query1","query2","query3"]`, goal)
 	} else {
 		finalPrompt = fmt.Sprintf("다음 조사 결과들을 목표 '%s'에 대한 최종 답변으로 통합해주세요:\n\n%s", goal, combined)
 	}
-	final, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: finalPrompt}}, 600, false)
+	final, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: finalPrompt}}, 600, false)
 	if final == "" {
 		final = combined
 	}

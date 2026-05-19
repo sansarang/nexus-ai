@@ -663,6 +663,9 @@ const nexusClarifyResolvePrompt = `당신은 Nexus AI 비서입니다. 사용자
 `
 
 func handleCommand(w http.ResponseWriter, r *http.Request) {
+	if !requireAuth(w, r) {
+		return
+	}
 	start := time.Now()
 
 	var req CommandRequest
@@ -674,10 +677,6 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	llmMu.RLock()
 	gKey := llmPerplexityKey; if gKey == "" { gKey = llmGroqKey }
 	llmMu.RUnlock()
-	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "AI 서비스 초기화 중입니다. 잠시 후 다시 시도해주세요."})
-		return
-	}
 
 	// 언어 자동 감지: 클라이언트 lang 우선, 없으면 메시지 내용으로 판별
 	lang := req.Lang
@@ -700,7 +699,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			req.PendingQuestion,
 			req.Message,
 		)
-		raw, _, err := callGroq(gKey, groqFastModel, []groqMsg{
+		raw, _, err := callGroqWithFallback([]groqMsg{
 			{Role: "user", Content: resolvePrompt},
 		}, 256, true)
 		if err != nil || raw == "" {
@@ -873,7 +872,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			}
 			intentMsgs = append(intentMsgs, groqMsg{Role: "user", Content: req.Message})
 
-			raw, _, err := callGroq(gKey, groqFastModel, intentMsgs, 512, true)
+			raw, _, err := callGroqWithFallback(intentMsgs, 512, true)
 			if err != nil {
 				raw = `{"action":"chat","params":{}}`
 			}
@@ -1175,7 +1174,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			// Tavily 결과가 없으면 LLM으로 보완
 			if len(items) == 0 && gKey != "" {
 				pplxPrompt := fmt.Sprintf(`TikTok에서 "%s" 관련 실제 영상 링크를 최대 %d개 찾아줘. 반드시 tiktok.com URL만 포함. JSON 배열로만 출력: [{"title":"...", "url":"https://tiktok.com/..."}]`, query, maxItems)
-				raw, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: pplxPrompt}}, 512, true)
+				raw, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: pplxPrompt}}, 512, true)
 				var parsed []map[string]string
 				if json.Unmarshal([]byte(raw), &parsed) == nil {
 					for _, it := range parsed {
@@ -1457,7 +1456,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			} else {
 				ep = fmt.Sprintf(`파일 검색 쿼리에서 핵심 키워드만 추출: "%s"\nJSON: {"keywords":["k1","k2"]}`, query)
 			}
-			raw, _, _ := callGroq(gKey, groqFastModel, []groqMsg{{Role: "user", Content: ep}}, 128, true)
+			raw, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: ep}}, 128, true)
 			var kw struct {
 				Keywords []string `json:"keywords"`
 			}
@@ -1531,7 +1530,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 {"summary":"요약","total_differences":숫자,"differences":[{"type":"added|deleted|modified","description":"설명","severity":"low|medium|high"}],"risk_level":"low|medium|high","recommendation":"권고사항"}`,
 				fileA, textA, fileB, textB)
 		}
-		ans, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 2048, true)
+		ans, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 2048, true)
 		if err != nil {
 			if lang == "en" { return nil, "Document comparison failed: " + err.Error() }
 			return nil, "문서 비교 실패: " + err.Error()
@@ -1573,7 +1572,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		} else {
 			docMsg = fmt.Sprintf("문서:\n%s\n\n요청: %s", text, question)
 		}
-		ans, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: docMsg}}, 2048, false)
+		ans, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: docMsg}}, 2048, false)
 		if err != nil {
 			if lang == "en" { return nil, "Summary failed: " + err.Error() }
 			return nil, "요약 실패: " + err.Error()
@@ -1913,7 +1912,7 @@ Search results:
 - 시간 언급 시 반드시 KST(한국 표준시) 기준 표현, UTC 절대 금지
 - 친절한 AI 비서처럼 작성`, today, query, strings.Join(lines, "\n"))
 		}
-		s, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
+		s, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, false)
 		if s == "" || containsBotBlockText(s) {
 			if cleaned := cleanPerplexityCall(query, gKey); cleaned != "" {
 				s = cleaned
@@ -2025,7 +2024,7 @@ func buildJournalData(gKey string, lang string) map[string]any {
 			prompt = fmt.Sprintf("오늘 %s에 사용한 앱: %s\n오늘 작업한 파일: %d개\n\n오늘 업무를 자연스럽게 일지로 작성해주세요. (3-5줄)",
 				today, strings.Join(appNames, ", "), len(recentFiles))
 		}
-		aiSummary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
+		aiSummary, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, false)
 		if aiSummary != "" {
 			summary = aiSummary
 		}
@@ -2059,7 +2058,7 @@ func generateHealthReport(gKey string, lang string) (string, error) {
 			prompt = fmt.Sprintf("PC 점수: %d점\n메모리: %d%%\n디스크: %d%%\n문제: %d개\n\n간단한 PC 건강 진단 보고서를 3-4줄로 작성해주세요.",
 				sr.Score, mem, diskPct, len(sr.Issues))
 		}
-		aiAnalysis, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
+		aiAnalysis, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, false)
 	}
 
 	issueRows := ""
@@ -2405,7 +2404,7 @@ func cleanPerplexityCall(query, gKey string) string {
 		{Role: "system", Content: sys},
 		{Role: "user", Content: fmt.Sprintf("Current time: %s\n%s", today, query)},
 	}
-	text, _, err := callGroq(gKey, groqChatModel, msgs, 512, false)
+	text, _, err := callGroqWithFallback(msgs, 512, false)
 	if err != nil || text == "" {
 		return ""
 	}

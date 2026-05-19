@@ -387,7 +387,7 @@ Return JSON only with this structure:
   "notification": {"channel": "bubble", "message": "<completion message>"}
 }`
 
-	raw, _, err := callGroq(gKey, groqChatModel, []groqMsg{
+	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysMsg},
 		{Role: "user", Content: req.Text},
 	}, 500, true)

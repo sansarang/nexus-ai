@@ -1234,7 +1234,7 @@ func parallelWebSearch(query string, maxItems int, extra ...interface{}) paralle
 			}
 		}
 
-		refined, _, err := callGroq(gKey, groqChatModel, msgs, 600, false)
+		refined, _, err := callGroqWithFallback(msgs, 600, false)
 		if err == nil && refined != "" {
 			summary = refined
 		}

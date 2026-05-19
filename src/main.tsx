@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 import { supabase, fetchSubscription, createTrialSubscription, resolveStatus } from './lib/supabase'
 import { initPaddle } from './lib/paddle'
@@ -96,11 +97,32 @@ async function bootstrap() {
   }
 }
 
+async function checkForUpdates() {
+  try {
+    const { check } = await import('@tauri-apps/plugin-updater')
+    const update = await check()
+    if (update?.available) {
+      const yes = window.confirm(
+        `새 버전 ${update.version}이 출시되었습니다.\n지금 업데이트하시겠습니까?`
+      )
+      if (yes) {
+        await update.downloadAndInstall()
+        const { relaunch } = await import('@tauri-apps/plugin-process')
+        await relaunch()
+      }
+    }
+  } catch { /* 개발 환경 / 오프라인 — 무시 */ }
+}
+
 setupTauriEvents()
 bootstrap()
+// 업데이트 체크는 앱 준비 후 백그라운드로 실행 (5초 딜레이)
+setTimeout(checkForUpdates, 5000)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )

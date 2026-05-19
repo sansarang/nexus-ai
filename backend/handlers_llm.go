@@ -25,11 +25,12 @@ var (
 	llmUserLang      string // "ko" | "en" — persisted user language preference
 )
 
-// ── 번들 기본 API 키 (설치 즉시 작동 — 사용자 설정 불필요) ──────────────
+// ── 번들 기본 API 키 — Supabase 프록시 우선, 미로그인 시 fallback ──────────
+// 키는 Supabase Secrets에 저장됨. 번들 키는 비워두면 미인증 사용자는 프록시 없이 작동 안 함.
 const (
-	bundledGroqKey   = "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"
-	bundledTavilyKey = "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"
-	bundledOpenAIKey = "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"
+	bundledGroqKey   = ""
+	bundledTavilyKey = ""
+	bundledOpenAIKey = ""
 )
 
 func injectBundledKeys() {
@@ -693,7 +694,7 @@ func handleLLMDeepSearch(w http.ResponseWriter, r *http.Request) {
 쿼리: "%s"
 JSON 응답: {"keywords": ["키워드1","키워드2"]}`, req.Query)
 
-		raw, _, _ := callGroq(gKey, groqFastModel, []groqMsg{
+		raw, _, _ := callGroqWithFallback([]groqMsg{
 			{Role: "user", Content: extractPrompt},
 		}, 128, true)
 
@@ -727,7 +728,7 @@ JSON 응답: {"keywords": ["키워드1","키워드2"]}`, req.Query)
 %s
 JSON: {"ranked":[{"path":"경로","score":85},...]}`, req.Query, string(hitJSON))
 
-		raw, _, _ := callGroq(gKey, groqFastModel, []groqMsg{
+		raw, _, _ := callGroqWithFallback([]groqMsg{
 			{Role: "user", Content: rankPrompt},
 		}, 512, true)
 

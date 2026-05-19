@@ -35,10 +35,16 @@ Deno.serve(async (req) => {
       return json({ error: '로그인이 필요합니다.' }, 401)
     }
 
+    // 사용자 인증: anon key + user JWT
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } }
+    )
+    // 관리 작업(usage_logs 쓰기): service_role key — RLS 우회
+    const adminSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -47,7 +53,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 2. 구독 상태 확인 ────────────────────────────────────
-    const { data: sub } = await supabase
+    const { data: sub } = await adminSupabase
       .from('subscriptions')
       .select('status, current_period_end')
       .eq('user_id', user.id)
@@ -71,7 +77,7 @@ Deno.serve(async (req) => {
     const dailyLimit = tier === 'premium' ? DAILY_PREMIUM_LIMIT : DAILY_FREE_LIMIT
 
     const today = new Date().toISOString().split('T')[0]
-    const { data: usage } = await supabase
+    const { data: usage } = await adminSupabase
       .from('usage_logs')
       .select('free_count, premium_count')
       .eq('user_id', user.id)
@@ -90,8 +96,8 @@ Deno.serve(async (req) => {
       }, 429)
     }
 
-    // ── 4. 사용량 카운트 증가 ────────────────────────────────
-    await supabase.from('usage_logs').upsert({
+    // ── 4. 사용량 카운트 증가 (service_role — RLS 우회) ────────────────────
+    await adminSupabase.from('usage_logs').upsert({
       user_id: user.id,
       date: today,
       [limitCol]: (currentCount as number) + 1,

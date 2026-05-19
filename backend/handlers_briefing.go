@@ -120,7 +120,7 @@ Keep it concise (3-5 sentences). Be friendly and helpful. No markdown.`
 		userMsg := fmt.Sprintf("오늘 날짜: %s\n\n데이터:\n%s\n\n위 정보를 바탕으로 자연스러운 아침 브리핑을 작성해주세요.",
 			time.Now().Format("2006년 1월 2일 (Monday)"), rawData)
 
-		briefing, _, err := callGroq(gKey, groqChatModel, []groqMsg{
+		briefing, _, err := callGroqWithFallback([]groqMsg{
 			{Role: "system", Content: sysMsg},
 			{Role: "user", Content: userMsg},
 		}, 300, false)
@@ -303,7 +303,9 @@ func handleBriefingConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req BriefingConfig
-	json.NewDecoder(r.Body).Decode(&req)
+	if !decodeJSON(w, r, &req) {
+		return
+	}
 	briefingMu.Lock()
 	if req.Hour > 0 {
 		briefingCfg.Hour = req.Hour

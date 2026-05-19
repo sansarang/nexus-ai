@@ -560,7 +560,7 @@ func getEmailReplySuggestions(subject, body string) ([]string, error) {
 JSON으로만 응답하세요:
 {"replies": ["답장1", "답장2", "답장3"]}`, subject, body)
 
-	raw, _, err := callGroq(pKey, groqChatModel, []groqMsg{
+	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "user", Content: prompt},
 	}, 400, true)
 	if err != nil {

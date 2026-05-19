@@ -85,7 +85,7 @@ func handleDirections(w http.ResponseWriter, r *http.Request) {
 					{Role: "system", Content: transSys},
 					{Role: "user", Content: transUser},
 				}
-				ans, _, _ := callGroq(gKey, groqChatModel, msgs, 300, false)
+				ans, _, _ := callGroqWithFallback(msgs, 300, false)
 				travelSummary = ans
 			}
 		}()

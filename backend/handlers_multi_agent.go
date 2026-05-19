@@ -123,7 +123,7 @@ Rules:
 3. depends_on lists step orders that must complete first
 4. Keep sub_goals specific and actionable`
 
-	raw, _, err := callGroq(gKey, groqFastModel, []groqMsg{
+	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysMsg},
 		{Role: "user", Content: "Goal: " + goal},
 	}, 600, true)
@@ -227,7 +227,7 @@ func executeAgentStep(step *AgentStep, previousResults map[int]string, gKey stri
 		if context != "" {
 			userMsg = step.SubGoal + "\n\n이전 결과 참고:" + context
 		}
-		ans, _, err := callGroq(gKey, groqChatModel, []groqMsg{
+		ans, _, err := callGroqWithFallback([]groqMsg{
 			{Role: "system", Content: agentDef.SystemPrompt},
 			{Role: "user", Content: userMsg},
 		}, 600, false)
@@ -327,7 +327,7 @@ func runMultiAgentPlan(task *AgentTask, plan AgentPlan, gKey string) {
 			synthSys = "You are Nexus AI. Synthesize the results from multiple agents into a clear, concise Korean summary for the user."
 			synthUser = fmt.Sprintf("목표: %s\n\n에이전트 결과:\n%s\n\n위 결과를 종합해서 사용자에게 자연스러운 한국어로 보고해주세요.", plan.Goal, combined)
 		}
-		summary, _, err := callGroq(gKey, groqChatModel, []groqMsg{
+		summary, _, err := callGroqWithFallback([]groqMsg{
 			{Role: "system", Content: synthSys},
 			{Role: "user", Content: synthUser},
 		}, 500, false)

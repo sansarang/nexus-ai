@@ -9,6 +9,10 @@ import (
 
 func jwtMiddleware(next http.Handler) http.Handler { return next }
 
+func requireAuth(w http.ResponseWriter, r *http.Request) bool { return true }
+
+func getJWT() string { return "" }
+
 func callGroqViaProxy(msgs []groqMsg, maxTokens int, jsonMode bool) (string, error) {
 	return "", fmt.Errorf("proxy not available on non-Windows")
 }

@@ -128,7 +128,7 @@ Subject: %s
 From: %s
 Body: %s`, email.Subject, email.Sender, bodySnippet)
 
-	raw, _, err := callGroq(gKey, groqFastModel, []groqMsg{
+	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "user", Content: prompt},
 	}, 200, true)
 
@@ -197,7 +197,7 @@ Format: Subject line + Body. No markdown.`, toneDesc[req.Tone])
 
 	userMsg := fmt.Sprintf("원본 이메일:\n보낸 사람: %s\n제목: %s\n내용: %s\n\n위 이메일에 대한 답장 초안을 작성해주세요.", req.Sender, req.Subject, bodySnippet)
 
-	draft, _, err := callGroq(gKey, groqChatModel, []groqMsg{
+	draft, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysMsg},
 		{Role: "user", Content: userMsg},
 	}, 400, false)
@@ -253,7 +253,7 @@ Subject: %s
 From: %s
 Body: %s`, today, req.Subject, req.Sender, req.Body)
 
-	raw, _, err := callGroq(gKey, groqFastModel, []groqMsg{
+	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "user", Content: prompt},
 	}, 300, true)
 
@@ -372,7 +372,7 @@ Return JSON only:
 
 Text: %s`, today, req.Text)
 
-	raw, _, err := callGroq(gKey, groqFastModel, []groqMsg{
+	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "user", Content: prompt},
 	}, 150, true)
 

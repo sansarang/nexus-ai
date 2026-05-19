@@ -228,7 +228,7 @@ action 선택:
 현재 시각: %s
 현재 요일: %s`, command, time.Now().Format("2006-01-02 15:04"), koreanWeekday(time.Now().Weekday()))
 
-	response, _, err := callGroq(llmKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, true)
+	response, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, true)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +437,7 @@ func runEmailSummaryTask() (string, error) {
 
 	if gKey != "" && len(output) > 0 {
 		summaryPrompt := fmt.Sprintf("다음 이메일 3개를 핵심만 요약해주세요:\n%s", output)
-		summary, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
+		summary, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 		if err == nil {
 			return summary, nil
 		}
@@ -465,7 +465,7 @@ func runWeeklyReportTask() (string, error) {
 
 	if gKey != "" {
 		prompt := fmt.Sprintf("이번 주 생성/수정된 파일 목록:\n%s\n\n주간 업무 요약 보고서를 작성해주세요.", output)
-		summary, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 1024, false)
+		summary, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 1024, false)
 		if err == nil {
 			return summary, nil
 		}
@@ -495,7 +495,7 @@ func runPCReportTask() (string, error) {
 
 	if gKey != "" {
 		prompt := fmt.Sprintf("%s\n위 PC 현황을 분석하고, 주의사항이나 최적화 제안을 간략히 해주세요.", output)
-		analysis, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
+		analysis, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, false)
 		if err == nil {
 			return output + "\n\n📊 AI 분석:\n" + analysis, nil
 		}
@@ -510,7 +510,7 @@ func runLLMTask(prompt string) (string, error) {
 	if gKey == "" {
 		return "", fmt.Errorf("Groq API 키 미설정")
 	}
-	result, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 1024, false)
+	result, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 1024, false)
 	return result, err
 }
 
@@ -523,7 +523,7 @@ func runBrowserAgentTask(command string) (string, error) {
 		return "", fmt.Errorf("Groq API 키 미설정")
 	}
 	prompt := fmt.Sprintf("스케줄된 작업을 실행합니다: %s\n결과 또는 진행 상황을 보고해주세요.", command)
-	result, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
+	result, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 512, false)
 	return result, err
 }
 

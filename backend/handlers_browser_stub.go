@@ -284,7 +284,7 @@ func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
 입력: "%s"
 JSON만 반환: {"cron": "0 18 * * 5", "name": "작업명"}
 예시: 매주 금요일 저녁 6시 → {"cron":"0 18 * * 5","name":"금요일 저녁 작업"}`, req.Command)
-		raw, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 128, true)
+		raw, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 128, true)
 		if err == nil {
 			var parsed struct {
 				Cron string `json:"cron"`

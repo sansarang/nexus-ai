@@ -222,7 +222,7 @@ func handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 			lines = append(lines, "• "+e.Timestamp[:10]+": "+e.Command+" → "+result)
 		}
 		prompt := "'" + req.Keyword + "'에 관한 과거 기록:\n" + strings.Join(lines, "\n") + "\n\n위 기록을 바탕으로 유용한 인사이트를 2-3줄로 요약하세요."
-		summary, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 256, false)
+		summary, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 256, false)
 	}
 
 	json200(w, map[string]any{

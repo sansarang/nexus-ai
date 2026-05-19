@@ -222,7 +222,7 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 			{Role: "system", Content: sysMsg},
 			{Role: "user", Content: userMsg},
 		}
-		finalSummary, _, _ = callGroq(gKey, groqChatModel, msgs, 512, false)
+		finalSummary, _, _ = callGroqWithFallback(msgs, 512, false)
 	}
 
 	if finalSummary == "" {

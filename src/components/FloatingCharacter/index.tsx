@@ -383,11 +383,12 @@ export function FloatingCharacter() {
     historyRef.current = []
     if (isOnboarded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
-      setTimeout(() => {
+      const tid = setTimeout(() => {
         const preview = greeting.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
         setBubbleText(preview + (greeting.length > 60 ? '...' : ''))
         speak(greeting, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) })
       }, 800)
+      return () => clearTimeout(tid)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantName, userName, userLang, isOnboarded])
@@ -435,8 +436,9 @@ export function FloatingCharacter() {
       }
       return status
     }
+    let active = true
     connectAndSync()
-    personaCurrent().then((r) => setActivePersona(r.persona)).catch(() => {})
+    personaCurrent().then((r) => { if (active) setActivePersona(r.persona) }).catch(() => {})
 
     // ⑩ 백엔드 자동 재연결: disconnected 상태면 30초마다 재시도
     let wasDisconnected = false
@@ -455,7 +457,7 @@ export function FloatingCharacter() {
         return prev
       })
     }, 30000)
-    return () => clearInterval(reconnectId)
+    return () => { active = false; clearInterval(reconnectId) }
   }, [])
 
   /* ── SSE 연결: Proactive 알림 + Task Queue 실시간 수신 ── */

@@ -179,7 +179,7 @@ Keep it short and friendly, include emojis, under 300 words.`, pcHealth)
 짧고 친근하게, 이모지 포함, 500자 이내로 작성하세요.`, pcHealth)
 	}
 
-	briefing, _, err := callGroq(pKey, groqChatModel, []groqMsg{
+	briefing, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "user", Content: prompt},
 	}, 400, false)
 	if err != nil {

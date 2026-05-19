@@ -355,7 +355,7 @@ func handleCompare(w http.ResponseWriter, files []fileInput, query string) {
 		{Role: "system", Content: sysPr},
 		{Role: "user", Content: prompt},
 	}
-	result, _, _ := callGroq(gKey, groqChatModel, msgs, 2048, false)
+	result, _, _ := callGroqWithFallback(msgs, 2048, false)
 	if result == "" {
 		result = fmt.Sprintf("📄 %s vs %s 비교 분석이 완료되었습니다.", files[0].Name, files[1].Name)
 	}

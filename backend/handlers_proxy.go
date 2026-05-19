@@ -165,3 +165,12 @@ func callTavilyViaProxy(query string, maxResults int) (tavilyResult, bool) {
 	}
 	return res, true
 }
+
+// requireAuth: 인증 필요 엔드포인트 — JWT 없으면 401
+func requireAuth(w http.ResponseWriter, r *http.Request) bool {
+	if getJWT() == "" {
+		writeJSON(w, 401, map[string]any{"success": false, "message": "로그인이 필요합니다.", "code": "auth_required"})
+		return false
+	}
+	return true
+}

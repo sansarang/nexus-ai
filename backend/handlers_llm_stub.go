@@ -51,13 +51,11 @@ func llmConfigPath() string {
 	return filepath.Join(home, ".nexus", "llm_config.json")
 }
 
-// ── 번들 기본 API 키 (설치 즉시 작동 — 사용자 설정 불필요) ──────────────
-// Nexus 서비스 계정 키. 사용자별 quota는 handlers_usage.go에서 관리.
-// llmPerplexityKey = Groq 키 공유 (pplxAPIBase → Groq API endpoint 사용)
+// ── 번들 기본 API 키 — Supabase 프록시 우선, 미로그인 시 fallback ──────────
 const (
-	bundledGroqKey   = "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"
-	bundledTavilyKey = "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"
-	bundledOpenAIKey = "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"
+	bundledGroqKey   = ""
+	bundledTavilyKey = ""
+	bundledOpenAIKey = ""
 )
 
 // injectBundledKeys: 사용자 키 미설정 시 번들 기본 키 자동 주입

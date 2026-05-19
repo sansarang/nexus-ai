@@ -108,7 +108,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 
 최대 10단계로 구성. 쿠팡/네이버는 anti-bot이 강하므로 search 단계 사용.`, req.Command)
 
-	planStr, _, planErr := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: planPrompt}}, 1024, true)
+	planStr, _, planErr := callGroqWithFallback([]groqMsg{{Role: "user", Content: planPrompt}}, 1024, true)
 	if planErr != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": "계획 수립 실패: " + planErr.Error()})
 		return
@@ -405,7 +405,7 @@ Based on the above data, write a complete answer to the user's request in Englis
 - 숫자/데이터라면: 주요 수치 하이라이트`, req.Command, dataForSummary)
 		}
 
-		summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 1024, false)
+		summary, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: summaryPrompt}}, 1024, false)
 		result.Summary = summary
 	}
 
@@ -576,7 +576,7 @@ Sort by lowest price and recommend the best product in English.`, req.ProductQue
 최저가 순으로 정리하고, 구매 추천 상품을 한국어로 설명해주세요.`, req.ProductQuery, strings.Join(dataLines, "\n"))
 		}
 
-		summary, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
+		summary, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 	}
 
 	json200(w, map[string]any{
@@ -687,7 +687,7 @@ Summarize the main trends and key points from these news articles in 3-5 lines i
 
 위 뉴스들의 주요 트렌드와 핵심 내용을 3-5줄로 한국어로 요약해주세요.`, req.Query, strings.Join(titles, "\n"))
 		}
-		summary, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
+		summary, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 	}
 
 	json200(w, map[string]any{

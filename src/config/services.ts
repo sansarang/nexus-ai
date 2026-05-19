@@ -2,14 +2,14 @@
 //  서비스 설정 — 실제 키는 .env 파일에서 관리 (절대 커밋 금지)
 // ─────────────────────────────────────────────────────────
 
-// AI API 키 (빌드 시 .env에서 주입)
-export const PPLX_API_KEY   = import.meta.env.VITE_PPLX_KEY   as string ?? ''
-export const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_KEY  as string ?? ''
-export const TAVILY_API_KEY = import.meta.env.VITE_TAVILY_KEY  as string ?? ''
+// AI API 키 — Supabase Edge Function Secrets에 저장. 프론트는 항상 빈 값.
+export const PPLX_API_KEY   = ''
+export const OPENAI_API_KEY = ''
+export const TAVILY_API_KEY = ''
 
-// 관리자 계정
+// 관리자 계정 (패스워드 프론트 노출 금지 — Supabase Auth 사용)
 export const ADMIN_EMAIL    = import.meta.env.VITE_ADMIN_EMAIL    as string ?? 'admin@nexus.kr'
-export const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD as string ?? ''
+export const ADMIN_PASSWORD = '' // 프론트에서 admin bypass 비활성화
 
 // Supabase (배포 전 설정)
 export const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      as string ?? ''
