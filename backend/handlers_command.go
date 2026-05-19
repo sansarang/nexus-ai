@@ -444,29 +444,7 @@ func saveResultToFile(format outputFormat, title string, items []map[string]stri
 // ══════════════════════════════════════════════════════════════════
 
 
-type CommandRequest struct {
-	Message         string            `json:"message"`
-	Context         string            `json:"context"`
-	History         []ConvHistoryMsg  `json:"history"`
-	Lang            string            `json:"lang"`             // "ko" | "en" (default "ko")
-	// 멀티턴: 이전 clarify에서 넘어온 컨텍스트
-	PendingIntent   string            `json:"pending_intent"`
-	PendingParams   map[string]any    `json:"pending_params"`
-	PendingQuestion string            `json:"pending_question"`
-}
 
-type CommandResponse struct {
-	Success         bool           `json:"success"`
-	Message         string         `json:"message"`
-	Action          string         `json:"action"`
-	Result          any            `json:"result"`
-	Duration        string         `json:"duration"`
-	// clarify 액션 전용
-	NeedsClarify    bool           `json:"needs_clarify,omitempty"`
-	ClarifyQuestion string         `json:"clarify_question,omitempty"`
-	PendingIntent   string         `json:"pending_intent,omitempty"`
-	PendingParams   map[string]any `json:"pending_params,omitempty"`
-}
 
 // Nexus가 할 수 있는 모든 일을 LLM에게 알려줍니다.
 // 사용자가 어떤 말을 해도 이 중 가장 적합한 action을 고릅니다.

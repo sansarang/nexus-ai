@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,7 +21,10 @@ const (
 	edgeFunctionURL    = supabaseProjectURL + "/functions/v1/ai-proxy"
 )
 
-// ── 현재 요청 JWT (단일 사용자 데스크탑 앱 전용) ────────────────────────────
+// jwtContextKey is the context key type for JWT storage (unexported to prevent collisions).
+type jwtContextKey struct{}
+
+// ── 글로벌 JWT 폴백 (단일 사용자 데스크탑 앱 — 딥 콜체인용) ─────────────────
 var (
 	jwtMu      sync.RWMutex
 	currentJWT string
@@ -38,11 +42,22 @@ func getJWT() string {
 	return currentJWT
 }
 
-// jwtMiddleware: Authorization: Bearer <token> 헤더에서 JWT 추출 후 저장
+// getJWTFromCtx extracts the JWT from context (preferred) or falls back to the global.
+func getJWTFromCtx(ctx context.Context) string {
+	if v, ok := ctx.Value(jwtContextKey{}).(string); ok && v != "" {
+		return v
+	}
+	return getJWT()
+}
+
+// jwtMiddleware: Authorization: Bearer <token> 헤더에서 JWT 추출 →
+// request context와 글로벌 변수 양쪽에 저장.
 func jwtMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if auth := r.Header.Get("Authorization"); len(auth) > 7 && auth[:7] == "Bearer " {
-			setJWT(auth[7:])
+			token := auth[7:]
+			setJWT(token)
+			r = r.WithContext(context.WithValue(r.Context(), jwtContextKey{}, token))
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -56,9 +71,9 @@ type proxyResp struct {
 	Code    string                 `json:"code"`
 }
 
-// callProxy: Supabase Edge Function (ai-proxy) 호출
-func callProxy(action string, payload map[string]interface{}) (*proxyResp, error) {
-	jwt := getJWT()
+// callProxyCtx: Supabase Edge Function (ai-proxy) 호출 — request-scoped JWT 우선.
+func callProxyCtx(ctx context.Context, action string, payload map[string]interface{}) (*proxyResp, error) {
+	jwt := getJWTFromCtx(ctx)
 	if jwt == "" {
 		return nil, fmt.Errorf("jwt not set")
 	}
@@ -71,7 +86,7 @@ func callProxy(action string, payload map[string]interface{}) (*proxyResp, error
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", edgeFunctionURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", edgeFunctionURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +113,11 @@ func callProxy(action string, payload map[string]interface{}) (*proxyResp, error
 		return nil, fmt.Errorf("proxy HTTP %d", resp.StatusCode)
 	}
 	return &pr, nil
+}
+
+// callProxy: backward-compatible wrapper using background context.
+func callProxy(action string, payload map[string]interface{}) (*proxyResp, error) {
+	return callProxyCtx(context.Background(), action, payload)
 }
 
 // callGroqViaProxy: Edge Function을 통해 Groq 호출
@@ -168,7 +188,7 @@ func callTavilyViaProxy(query string, maxResults int) (tavilyResult, bool) {
 
 // requireAuth: 인증 필요 엔드포인트 — JWT 없으면 401
 func requireAuth(w http.ResponseWriter, r *http.Request) bool {
-	if getJWT() == "" {
+	if getJWTFromCtx(r.Context()) == "" {
 		writeJSON(w, 401, map[string]any{"success": false, "message": "로그인이 필요합니다.", "code": "auth_required"})
 		return false
 	}
