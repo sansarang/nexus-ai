@@ -34,21 +34,20 @@ interface OnboardingFlowProps {
   onComplete: (config: AvatarConfig) => void
 }
 
-// ── 언어 감지 ──
-const isEn = navigator.language.startsWith('en')
-
 const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', 'Nova', 'Nexus', 'Eve']
-const USER_NAMES = isEn ? ['Boss', 'User', 'Partner', 'Chief'] : ['주인님', '사용자', '선생님', '파트너']
+const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
+const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
 const STEPS_TOTAL = 6
 
-const DEMO_ACTIONS = isEn ? [
+const DEMO_ACTIONS_EN = [
   { emoji: '🔐', label: 'PC Security Scan',  cmd: 'Is my PC hacked? Run a security scan.' },
   { emoji: '🔬', label: 'Deep Research',     cmd: 'Deep research: quantum computing.' },
   { emoji: '🗺️', label: 'Multi-task Query', cmd: "Today's weather + bus from Seoul to Busan?" },
   { emoji: '⚖️', label: 'Compare Analysis', cmd: 'Compare iPhone 16 vs Galaxy S25.' },
   { emoji: '▶️', label: 'Video Search',      cmd: 'Find trending AI videos on YouTube.' },
-] : [
+]
+const DEMO_ACTIONS_KO = [
   { emoji: '🔐', label: 'PC 해킹 점검', cmd: '내 PC 해킹당했어? 보안 점검해줘' },
   { emoji: '🔬', label: '딥서치',        cmd: '양자컴퓨터에 대해 깊게 조사해줘' },
   { emoji: '🗺️', label: '복합 질문',    cmd: '오늘 날씨도 알려주고 경주에서 대전 가는 버스 시간표 알려줘' },
@@ -56,7 +55,7 @@ const DEMO_ACTIONS = isEn ? [
   { emoji: '▶️', label: '영상 검색',    cmd: '요즘 유튜브에서 핫한 AI 영상 찾아줘' },
 ]
 
-const DEMO_SIMULATIONS: Record<string, { steps: string[]; result: string }> = isEn ? {
+const DEMO_SIMULATIONS: Record<string, { steps: string[]; result: string }> = {
   'Is my PC hacked? Run a security scan.': {
     steps: ['🔍 Scanning network connections...', '🛡️ Detecting malicious processes...', '🔒 Checking firewall & open ports...'],
     result: `✅ Security Scan Complete\n\n🟢 Suspicious outbound connections: 0\n🟢 Firewall: Active & healthy\n🟢 Malicious processes: None detected\n🟡 Warning: 2 outdated drivers found\n\nYour PC is safe. Driver updates recommended.`,
@@ -77,7 +76,6 @@ const DEMO_SIMULATIONS: Record<string, { steps: string[]; result: string }> = is
     steps: ['▶️ Crawling YouTube trends...', '📊 Ranking by views & upload date...'],
     result: `🔥 Top 5 AI Videos This Week\n\n1. "GPT-5 Full Breakdown" — 8.47M views\n2. "Claude 4 vs ChatGPT Real Test" — 3.12M views\n3. "2026 AI Trends Complete Guide" — 2.89M views\n4. "10 Free AI Tools You Need" — 2.01M views\n5. "Earn $3K/mo with AI" — 1.78M views\n\nSave as a report file?`,
   },
-} : {
   '내 PC 해킹당했어? 보안 점검해줘': {
     steps: ['🔍 네트워크 연결 스캔 중...', '🛡️ 악성 프로세스 탐지 중...', '🔒 방화벽·포트 점검 중...'],
     result: `✅ 보안 점검 완료\n\n🟢 외부 의심 연결: 0건\n🟢 방화벽: 정상 활성화\n🟢 악성 프로세스: 미탐지\n🟡 주의: 미업데이트 드라이버 2개\n\n전반적으로 안전합니다. 드라이버 업데이트를 권장합니다.`,
@@ -102,14 +100,15 @@ const DEMO_SIMULATIONS: Record<string, { steps: string[]; result: string }> = is
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
 
-const JOB_PERSONAS = isEn ? [
-  { id: 'developer',  emoji: '💻', name: 'Developer / IT Engineer',   desc: 'Code · Debug · Architecture · Terminal', color: '#6366f1' },
+const JOB_PERSONAS_EN = [
+  { id: 'developer',  emoji: '💻', name: 'Developer / IT Engineer',    desc: 'Code · Debug · Architecture · Terminal', color: '#6366f1' },
   { id: 'marketer',   emoji: '📊', name: 'Marketer / Digital Marketer', desc: 'Trends · SNS · Competitors · Content',   color: '#f59e0b' },
-  { id: 'sales',      emoji: '🤝', name: 'Sales / Account Executive',  desc: 'Email drafts · Meetings · Pitching',      color: '#10b981' },
-  { id: 'pm',         emoji: '📋', name: 'PM / Product Planner',       desc: 'Docs · Roadmap · Decision logs',          color: '#0ea5e9' },
-  { id: 'designer',   emoji: '🎨', name: 'Designer / Creator',         desc: 'References · File org · Content',         color: '#ec4899' },
-  { id: 'freelancer', emoji: '🚀', name: 'Freelancer / Solopreneur',   desc: 'Quotes · Clients · Tax · Efficiency',     color: '#8b5cf6' },
-] : [
+  { id: 'sales',      emoji: '🤝', name: 'Sales / Account Executive',   desc: 'Email drafts · Meetings · Pitching',     color: '#10b981' },
+  { id: 'pm',         emoji: '📋', name: 'PM / Product Planner',        desc: 'Docs · Roadmap · Decision logs',         color: '#0ea5e9' },
+  { id: 'designer',   emoji: '🎨', name: 'Designer / Creator',          desc: 'References · File org · Content',        color: '#ec4899' },
+  { id: 'freelancer', emoji: '🚀', name: 'Freelancer / Solopreneur',    desc: 'Quotes · Clients · Tax · Efficiency',    color: '#8b5cf6' },
+]
+const JOB_PERSONAS_KO = [
   { id: 'developer',  emoji: '💻', name: '개발자 / IT 엔지니어',      desc: '코드·디버깅·아키텍처·터미널',   color: '#6366f1' },
   { id: 'marketer',   emoji: '📊', name: '마케터 / 디지털 마케터',    desc: '트렌드·SNS·경쟁사·콘텐츠',      color: '#f59e0b' },
   { id: 'sales',      emoji: '🤝', name: '영업 / 세일즈',             desc: '이메일 초안·미팅·고객 설득',    color: '#10b981' },
@@ -119,14 +118,19 @@ const JOB_PERSONAS = isEn ? [
 ]
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const { isLoggedIn, userEmail } = useAppStore()
+  const { isLoggedIn, userEmail, setUserLang } = useAppStore()
   const didAutoComplete = useRef(false)
+  const [lang, setLang]               = useState<'ko' | 'en'>('ko')
+  const isEn                          = lang === 'en'
+  const DEMO_ACTIONS                  = isEn ? DEMO_ACTIONS_EN : DEMO_ACTIONS_KO
+  const JOB_PERSONAS                  = isEn ? JOB_PERSONAS_EN : JOB_PERSONAS_KO
+  const USER_NAMES                    = isEn ? USER_NAMES_EN : USER_NAMES_KO
   const [step, setStep]               = useState(0)
   const [styleId, setStyleId]         = useState<RealisticStyleId>('kpop_star')
-  const [assistantName, setName]      = useState(isEn ? 'Nexus' : '넥서스')
-  const [nameInput, setNameInput]     = useState(isEn ? 'Nexus' : '넥서스')
+  const [assistantName, setName]      = useState('')
+  const [nameInput, setNameInput]     = useState('')
   const [userInput, setUserInput]     = useState('')
-  const [userName, setUserName]       = useState(isEn ? 'Boss' : '주인님')
+  const [userName, setUserName]       = useState('')
   const [hoverStyle, setHoverStyle]   = useState<RealisticStyleId | null>(null)
   const [openaiKey, setOpenaiKey]     = useState(() => localStorage.getItem('nexus-openai-key') ?? '')
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -389,6 +393,34 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
               <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
                 {isEn ? 'Nexus AI — No other AI can do this' : 'Nexus AI — 다른 AI는 못 합니다'}
+              </div>
+              {/* 언어 토글 */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['ko', 'en'] as const).map(l => (
+                  <button
+                    key={l}
+                    onClick={() => {
+                      setLang(l)
+                      setUserLang(l)
+                      setName(l === 'en' ? 'Nexus' : '넥서스')
+                      setNameInput(l === 'en' ? 'Nexus' : '넥서스')
+                      setUserName(l === 'en' ? 'Boss' : '주인님')
+                      setDemoChatHistory([])
+                      setDemoResult('')
+                      setDemoCmd('')
+                    }}
+                    style={{
+                      padding: '3px 9px', borderRadius: 8,
+                      background: lang === l ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                      border: lang === l ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.1)',
+                      color: lang === l ? 'white' : 'rgba(255,255,255,0.4)',
+                      fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {l === 'ko' ? '🇰🇷 KO' : '🇺🇸 EN'}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -756,7 +788,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {nextBtn(() => setStep(2))}
-              {backBtn(() => setStep(0))}
+              {backBtn(() => setStep(0), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}
