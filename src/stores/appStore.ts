@@ -161,7 +161,7 @@ interface AppState {
   startMonitoring: () => () => void
 }
 
-const BACKEND = 'http://localhost:17891'
+const BACKEND = 'http://127.0.0.1:17891'
 
 function uid() {
   return Math.random().toString(36).slice(2)
@@ -245,7 +245,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   assistantName: localStorage.getItem('nexus-assistant-name') ?? 'Nexus',
   userName: localStorage.getItem('nexus-user-name') ?? '',
   userLang: (localStorage.getItem('nexus-lang') as 'ko' | 'en') ?? 'ko',
-  characterId: (localStorage.getItem('nexus-character') as 'iron' | 'luna' | 'doc' | 'pixie' | 'kira' | 'nova' | 'sora' | 'hana' | 'custom') ?? 'sora',
+  characterId: (localStorage.getItem('nexus-character') as 'iron' | 'luna' | 'doc' | 'pixie' | 'kira' | 'nova' | 'sora' | 'hana' | 'jin' | 'mira' | 'lumi' | 'joy' | 'custom') ?? 'sora',
   primaryColor: localStorage.getItem('nexus-primary-color') ?? '#a78bfa',
   accentColor: localStorage.getItem('nexus-accent-color') ?? '#f9a8d4',
   pcScore: 0,
@@ -346,7 +346,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     localStorage.setItem('nexus-lang', lang)
     set({ userLang: lang })
     // 백엔드에 영속 저장 — 자동화 기능(모닝 브리핑, 알림 등)이 이 값을 사용
-    fetch('http://localhost:17891/api/settings/lang', {
+    fetch('http://127.0.0.1:17891/api/settings/lang', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lang }),

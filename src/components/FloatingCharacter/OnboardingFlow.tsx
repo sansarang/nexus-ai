@@ -8,7 +8,7 @@
  * Step 4: 직업군 선택
  * Step 5: 구글 로그인 (Supabase)
  */
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar3D } from './Avatar3D'
 import { REALISTIC_STYLE_PRESETS } from './Avatar3D/Presets'
@@ -16,6 +16,7 @@ import type { RealisticStyleId, RealisticStylePreset } from './Avatar3D/Presets'
 import type { CharacterPreset } from './Avatar3D'
 import { signInWithGoogle } from '../../lib/supabase'
 import { ADMIN_EMAIL, ADMIN_PASSWORD, SUPABASE_URL } from '../../config/services'
+import { useAppStore } from '../../stores/appStore'
 
 export type AvatarConfig = {
   assistantName: string
@@ -118,6 +119,8 @@ const JOB_PERSONAS = isEn ? [
 ]
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+  const { isLoggedIn, userEmail } = useAppStore()
+  const didAutoComplete = useRef(false)
   const [step, setStep]               = useState(0)
   const [styleId, setStyleId]         = useState<RealisticStyleId>('kpop_star')
   const [assistantName, setName]      = useState(isEn ? 'Nexus' : '넥서스')
@@ -143,6 +146,15 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const chatEndRef = React.useRef<HTMLDivElement>(null)
 
   const selectedStyle = REALISTIC_STYLE_PRESETS.find(s => s.id === styleId) ?? REALISTIC_STYLE_PRESETS[0]
+
+  // Google OAuth 딥링크 콜백 후 자동 완료
+  useEffect(() => {
+    if (isLoggedIn && userEmail && step >= 4 && !didAutoComplete.current) {
+      didAutoComplete.current = true
+      void handleComplete(userEmail)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, userEmail])
 
   const handleAdminLogin = () => {
     if (loginEmail.trim() === ADMIN_EMAIL && loginPassword === ADMIN_PASSWORD) {

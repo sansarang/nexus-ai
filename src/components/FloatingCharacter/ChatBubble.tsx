@@ -312,7 +312,8 @@ export function ChatBubble({
   const handleFileSelect = useCallback(async (files: FileList | File[]) => {
     setFileLoading(true)
     const arr = Array.from(files).slice(0, 3) // 최대 3개
-    const results = await Promise.all(arr.map(readOneFile))
+    const settled = await Promise.allSettled(arr.map(readOneFile))
+    const results = settled.filter(r => r.status === 'fulfilled').map(r => (r as PromiseFulfilledResult<AttachedFile>).value)
     setAttachedFiles(prev => {
       const combined = [...prev, ...results].slice(0, 3)
       return combined

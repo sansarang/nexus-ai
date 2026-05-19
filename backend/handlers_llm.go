@@ -530,9 +530,15 @@ func handleLLMDocSummary(w http.ResponseWriter, r *http.Request) {
 		FilePath string `json:"file_path"`
 		Question string `json:"question"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-	if req.FilePath == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FilePath == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "file_path 필요"})
+		return
+	}
+
+	// 경로 순회 공격 방지
+	cleaned := filepath.Clean(req.FilePath)
+	if strings.Contains(cleaned, "..") {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 파일 경로"})
 		return
 	}
 
@@ -544,7 +550,7 @@ func handleLLMDocSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, err := extractDocumentText(req.FilePath)
+	text, err := extractDocumentText(cleaned)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": "문서 읽기 실패: " + err.Error()})
 		return
@@ -574,9 +580,15 @@ func handleLLMDocCompare(w http.ResponseWriter, r *http.Request) {
 		FileB string `json:"file_b"`
 		Focus string `json:"focus"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-	if req.FileA == "" || req.FileB == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FileA == "" || req.FileB == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "file_a, file_b 필요"})
+		return
+	}
+	// 경로 순회 방지
+	cleanA := filepath.Clean(req.FileA)
+	cleanB := filepath.Clean(req.FileB)
+	if strings.Contains(cleanA, "..") || strings.Contains(cleanB, "..") {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 파일 경로"})
 		return
 	}
 
@@ -588,8 +600,8 @@ func handleLLMDocCompare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	textA, errA := extractDocumentText(req.FileA)
-	textB, errB := extractDocumentText(req.FileB)
+	textA, errA := extractDocumentText(cleanA)
+	textB, errB := extractDocumentText(cleanB)
 	if errA != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": "파일A 오류: " + errA.Error()})
 		return

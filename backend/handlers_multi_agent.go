@@ -356,7 +356,10 @@ func handleMultiAgentRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Goal string `json:"goal"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json200(w, map[string]any{"success": false, "message": "잘못된 요청"})
+		return
+	}
 	maEng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
 		msg := "goal이 필요합니다"
@@ -422,7 +425,10 @@ func handleMultiAgentPlan(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Goal string `json:"goal"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json200(w, map[string]any{"success": false, "message": "잘못된 요청"})
+		return
+	}
 	planEng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
 		msg := "goal이 필요합니다"; if planEng { msg = "goal is required" }
@@ -448,7 +454,10 @@ func handleMultiAgentRunV2(w http.ResponseWriter, r *http.Request) {
 		Goal   string   `json:"goal"`
 		Agents []string `json:"agents"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json200(w, map[string]any{"success": false, "message": "잘못된 요청"})
+		return
+	}
 	v2Eng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
 		msg := "goal이 필요합니다"; if v2Eng { msg = "goal is required" }

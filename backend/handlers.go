@@ -146,7 +146,10 @@ func handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Key string `json:"key"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, 400, map[string]any{"valid": false, "message": "잘못된 요청"})
+		return
+	}
 	key := strings.ToUpper(strings.TrimSpace(body.Key))
 
 	if verifyOfflineKey(key) {

@@ -157,8 +157,7 @@ func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
 		URL     string `json:"url"`
 		WaitFor string `json:"wait_for"` // selector to wait for
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-	if req.URL == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
 		return
 	}

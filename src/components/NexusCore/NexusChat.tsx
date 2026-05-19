@@ -147,12 +147,9 @@ export function NexusChat() {
       /* 인식된 텍스트가 있으면 자동 전송 */
       setInput(prev => {
         if (prev.trim() && !typingRef.current) {
-          setTimeout(() => {
-            setInput(cur => {
-              if (cur.trim()) void sendText(cur)
-              return ''
-            })
-          }, 100)
+          const captured = prev.trim()
+          setTimeout(() => void sendText(captured), 100)
+          return ''
         }
         return prev
       })

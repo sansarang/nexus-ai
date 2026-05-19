@@ -10,15 +10,18 @@ import (
 	"time"
 )
 
+const maxRequestBody = 32 * 1024 * 1024 // 32MB 요청 상한
+
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 		next.ServeHTTP(w, r)
 	})
 }
