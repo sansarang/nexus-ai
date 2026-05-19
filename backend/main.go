@@ -323,6 +323,9 @@ func main() {
 	// ── 💳 Paddle 구독 웹훅 ──────────────────────────────────────
 	mux.HandleFunc("POST /api/paddle/webhook", handlePaddleWebhook)
 
+	// ── 📊 사용량 추적 ────────────────────────────────────────────
+	mux.HandleFunc("GET /api/usage", handleUsageStatus)
+
 	// ── 🔍 신규 기능: 메타데이터 / Wayback / 보안 / 영상 / 익명검색 ──
 	mux.HandleFunc("POST /api/file/metadata", handleFileMetadata)
 	mux.HandleFunc("POST /api/wayback/snapshots", handleWaybackSnapshots)

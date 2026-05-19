@@ -274,7 +274,7 @@ export function FloatingCharacter() {
   const previewDragX = useMotionValue(0)
   const previewDragY = useMotionValue(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
-  const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd)
+  const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd())
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
 
@@ -345,7 +345,7 @@ export function FloatingCharacter() {
 
   /* nexus-groq-key → nexus-pplx-key 마이그레이션 */
   useEffect(() => {
-    const old = localStorage.getItem('nexus-pplx-key')
+    const old = localStorage.getItem('nexus-groq-key')
     if (old && !localStorage.getItem('nexus-pplx-key')) {
       localStorage.setItem('nexus-pplx-key', old)
     }
@@ -2874,7 +2874,7 @@ export function FloatingCharacter() {
           : `[첨부 파일: ${file.name} — 텍스트 추출 불가]\n\n사용자 질문: ${userQ}`
 
         // Perplexity/Groq API 호출
-        const pplxKey = localStorage.getItem('nexus-perplexity-key') ?? ''
+        const pplxKey = localStorage.getItem('nexus-pplx-key') ?? ''
         const openaiKey = localStorage.getItem('nexus-openai-key') ?? ''
 
         if (pplxKey) {

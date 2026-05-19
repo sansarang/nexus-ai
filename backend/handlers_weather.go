@@ -27,7 +27,13 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 	apiURL := "https://wttr.in/" + url.PathEscape(city) + "?format=j1"
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		msg := "날씨 요청 생성 실패: " + err.Error()
+		if eng { msg = "Failed to create weather request: " + err.Error() }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
+		return
+	}
 	req.Header.Set("User-Agent", "NexusAssistant/1.0")
 
 	resp, err := client.Do(req)
@@ -172,7 +178,13 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 		originCoords[0], originCoords[1], destCoords[0], destCoords[1],
 	)
 
-	osrmReq, _ := http.NewRequest("GET", osrmURL, nil)
+	osrmReq, err := http.NewRequest("GET", osrmURL, nil)
+	if err != nil {
+		msg := "경로 요청 생성 실패: " + err.Error()
+		if tEng { msg = "Route request creation failed: " + err.Error() }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
+		return
+	}
 	osrmReq.Header.Set("User-Agent", "NexusAssistant/1.0")
 	osrmResp, err := client.Do(osrmReq)
 	if err != nil {
@@ -237,7 +249,10 @@ type Coords [2]float64 // [lon, lat]
 
 func geocode(client *http.Client, place string) (Coords, error) {
 	apiURL := "https://nominatim.openstreetmap.org/search?q=" + url.QueryEscape(place) + "&format=json&limit=1"
-	req, _ := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return Coords{}, fmt.Errorf("geocode 요청 생성 실패: %w", err)
+	}
 	req.Header.Set("User-Agent", "NexusAssistant/1.0")
 
 	resp, err := client.Do(req)

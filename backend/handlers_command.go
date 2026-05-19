@@ -1586,13 +1586,13 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		home, _ := os.UserHomeDir()
 		switch strings.ToLower(folder) {
 		case "downloads", "다운로드":
-			folder = home + `\Downloads`
+			folder = filepath.Join(home, "Downloads")
 		case "desktop", "바탕화면":
-			folder = home + `\Desktop`
+			folder = filepath.Join(home, "Desktop")
 		case "documents", "문서":
-			folder = home + `\Documents`
+			folder = filepath.Join(home, "Documents")
 		default:
-			if folder == "" { folder = home + `\Downloads` }
+			if folder == "" { folder = filepath.Join(home, "Downloads") }
 		}
 		freed, fileCount := organizeFolder(folder)
 		if lang == "en" {
@@ -2305,10 +2305,10 @@ func organizeFolder(folder string) (float64, int) {
 		if !ok {
 			subDir = "기타"
 		}
-		targetDir := folder + `\` + subDir
+		targetDir := filepath.Join(folder, subDir)
 		os.MkdirAll(targetDir, 0755)
-		src := folder + `\` + e.Name()
-		dst := targetDir + `\` + e.Name()
+		src := filepath.Join(folder, e.Name())
+		dst := filepath.Join(targetDir, e.Name())
 		if err := os.Rename(src, dst); err == nil {
 			count++
 		}
@@ -2319,9 +2319,9 @@ func organizeFolder(folder string) (float64, int) {
 // saveQuickNote: 빠른 메모 저장
 func saveQuickNote(content string) string {
 	home, _ := os.UserHomeDir()
-	notesDir := home + `\Documents\Nexus메모`
+	notesDir := filepath.Join(home, "Documents", "Nexus메모")
 	os.MkdirAll(notesDir, 0755)
-	path := fmt.Sprintf(`%s\메모_%s.txt`, notesDir, time.Now().Format("20060102_150405"))
+	path := filepath.Join(notesDir, "메모_"+time.Now().Format("20060102_150405")+".txt")
 	os.WriteFile(path, []byte(content), 0644)
 	return path
 }

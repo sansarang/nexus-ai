@@ -773,7 +773,7 @@ func deepSearchFiles(query, folder string, maxResults int) []DeepSearchResult {
 		if err != nil || info.IsDir() || len(results) >= maxResults {
 			return nil
 		}
-		for _, skip := range []string{`\Windows\`, `\AppData\Local\Temp\`, `node_modules`, `.git`} {
+		for _, skip := range []string{"Windows", "AppData", "node_modules", ".git", "Temp"} {
 			if strings.Contains(p, skip) {
 				return nil
 			}
