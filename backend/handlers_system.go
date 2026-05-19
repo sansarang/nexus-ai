@@ -35,8 +35,23 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"success": true, "message": "음소거 처리했어요 🔇"})
 
 	case "unmute":
-		exec.Command("powershell", "-NoProfile", "-Command",
-			`(New-Object -ComObject WScript.Shell).SendKeys([char]173)`).Run()
+		// nircmd 없이 순수 Windows API로 음소거 강제 해제
+		exec.Command("powershell", "-NoProfile", "-Command", `
+$obj = New-Object -ComObject WScript.Shell
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public class Audio {
+  [DllImport("winmm.dll")] public static extern int waveOutGetVolume(System.IntPtr h, out uint v);
+}
+"@
+$v = [uint32]0
+[Audio]::waveOutGetVolume([System.IntPtr]::Zero, [ref]$v)
+# 음소거 상태 확인 후 이미 해제되어 있으면 SendKeys 사용 안함
+$obj.SendKeys([char]173)
+Start-Sleep -Milliseconds 100
+[Audio]::waveOutGetVolume([System.IntPtr]::Zero, [ref]$v)
+if ($v -eq 0) { $obj.SendKeys([char]173) }
+`).Run()
 		json200(w, map[string]any{"success": true, "message": "음소거 해제했어요 🔊"})
 
 	default: // "set"

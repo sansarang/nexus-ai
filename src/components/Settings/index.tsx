@@ -131,7 +131,7 @@ export function SettingsView() {
   const [emailSaved, setEmailSaved] = useState(false)
 
   useEffect(() => {
-    fetch('http://localhost:17891/api/email/imap/config')
+    fetch('http://127.0.0.1:17891/api/email/imap/config')
       .then(r => r.json())
       .then((d: Record<string, string>) => {
         if (d.imap_host) setEmailHost(d.imap_host)
@@ -145,7 +145,7 @@ export function SettingsView() {
 
   const saveEmailConfig = async () => {
     setEmailSaving(true)
-    await fetch('http://localhost:17891/api/email/imap/config', {
+    await fetch('http://127.0.0.1:17891/api/email/imap/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

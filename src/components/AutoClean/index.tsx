@@ -73,7 +73,7 @@ export function AutoCleanView() {
         await new Promise((r) => setTimeout(r, 200))
       }
 
-      const res = await fetch('http://localhost:17891/api/autoclean', {
+      const res = await fetch('http://127.0.0.1:17891/api/autoclean', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: ids }),

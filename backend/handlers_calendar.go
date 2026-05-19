@@ -111,6 +111,10 @@ func handleCalendarAdd(w http.ResponseWriter, r *http.Request) {
 		req.End = time.Now().Add(2 * time.Hour).Format("2006-01-02 15:04")
 	}
 
+	// PowerShell 인젝션 방지: 따옴표 이스케이핑
+	esc := func(s string) string {
+		return strings.ReplaceAll(strings.ReplaceAll(s, `"`, `\"`), "`", "'")
+	}
 	script := fmt.Sprintf(`
 $ol = New-Object -ComObject Outlook.Application
 $appt = $ol.CreateItem(1) # AppointmentItem
@@ -120,7 +124,7 @@ $appt.End = "%s"
 $appt.Location = "%s"
 $appt.Save()
 Write-Output "OK"
-`, req.Subject, req.Start, req.End, req.Location)
+`, esc(req.Subject), esc(req.Start), esc(req.End), esc(req.Location))
 
 	out, err := execPS(script)
 	success := err == nil && strings.Contains(string(out), "OK")
@@ -131,7 +135,10 @@ Write-Output "OK"
 			ID:       fmt.Sprintf("%d", time.Now().UnixMilli()),
 			Title:    req.Subject,
 			Date:     req.Start[:10],
-			Time:     func() string { if len(req.Start) > 10 { return req.Start[11:] }; return "09:00" }(),
+			Time: func() string {
+			if len(req.Start) >= 16 { return req.Start[11:16] }
+			return "09:00"
+		}(),
 			Location: req.Location,
 		}
 		evs := loadEvents()

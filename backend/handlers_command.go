@@ -1028,11 +1028,10 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 				} else {
 					chatSys = "당신은 Nexus AI 한국어 비서입니다. 자연스러운 한국어로 2~4문장 답변. 마크다운 헤더 금지. 이전 대화 컨텍스트 참고."
 				}
-				kst := time.FixedZone("KST", 9*3600)
 				if lang == "en" {
-					chatSys += fmt.Sprintf("\nCurrent time: %s (local)", time.Now().In(kst).Format("2006-01-02 15:04"))
+					chatSys += fmt.Sprintf("\nCurrent time: %s (local)", time.Now().Format("2006-01-02 15:04"))
 				} else {
-					chatSys += fmt.Sprintf("\n현재 시각: %s KST (UTC 표기 금지)", time.Now().In(kst).Format("2006-01-02 15:04"))
+					chatSys += fmt.Sprintf("\n현재 시각: %s (로컬)", time.Now().Format("2006-01-02 15:04"))
 				}
 				chatMsgs := []groqMsg{{Role: "system", Content: chatSys}}
 				for _, h := range history {
@@ -2140,7 +2139,7 @@ td{padding:8px;border-bottom:1px solid #dee2e6}
 		aiLabel, aiAnalysis, detailTitle, colItem, colSeverity, colDesc, issueRows)
 
 	home, _ := os.UserHomeDir()
-	htmlPath := fmt.Sprintf(`%s\Desktop\nexus_health_report_%s.html`, home, time.Now().Format("20060102_150405"))
+	htmlPath := filepath.Join(home, "Desktop", "nexus_health_report_"+time.Now().Format("20060102_150405")+".html")
 	pdfPath := strings.Replace(htmlPath, ".html", ".pdf", 1)
 
 	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {

@@ -425,7 +425,7 @@ export function FloatingCharacter() {
         // 백엔드에 현재 localStorage 언어 설정 동기화 (자동화 기능이 올바른 언어 사용하도록)
         try {
           const savedLang = localStorage.getItem('nexus-lang') ?? 'ko'
-          await fetch('http://localhost:17891/api/settings/lang', {
+          await fetch('http://127.0.0.1:17891/api/settings/lang', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lang: savedLang }),
@@ -1038,9 +1038,9 @@ export function FloatingCharacter() {
           }
           // Gemini Flash에 이미지 + 질문 전달
           const { callGeminiWithImage } = await import('../../lib/nexus/gemini_engine')
-          const answer = await callGeminiWithImage(ss.base64, question).catch(() => (ss as { ocr_text?: string }).ocr_text || '(분석 불가)')
+          const answer = (await callGeminiWithImage(ss.base64, question).catch(() => null)) ?? (ss as { ocr_text?: string }).ocr_text ?? '(분석 불가)'
           return {
-            text: answer.slice(0, 120),
+            text: (answer || '(분석 불가)').slice(0, 120),
             card3: { type: 'vision_result', data: { question, answer, screenshot_b64: ss.base64 } },
             emotion: 'happy',
           }
@@ -2025,8 +2025,8 @@ export function FloatingCharacter() {
           const ss = await backendAPI.screenshot(true).catch(() => ({ success: false, base64: '', width: 0, height: 0, mime: 'image/png', captured: '', ocr_text: '' }))
           if (!ss.success) return { emotion: 'concerned' }
           const { callGeminiWithImage } = await import('../../lib/nexus/gemini_engine')
-          const answer = await callGeminiWithImage(ss.base64, trimmed).catch(() => (ss as { ocr_text?: string }).ocr_text || '분석 불가')
-          return { card3: { type: 'vision_result', data: { question: trimmed, answer, screenshot_b64: ss.base64 } }, emotion: 'happy' }
+          const answer = (await callGeminiWithImage(ss.base64, trimmed).catch(() => null)) ?? (ss as { ocr_text?: string }).ocr_text ?? '분석 불가'
+          return { card3: { type: 'vision_result', data: { question: trimmed, answer: answer || '분석 불가', screenshot_b64: ss.base64 } }, emotion: 'happy' }
         }
         default:
           return { emotion: 'neutral' }
@@ -2159,11 +2159,14 @@ export function FloatingCharacter() {
           id: `think-${msgId}`, role: 'nexus', text: '',
           inlineCard: { type: 'agent_thinking', steps: isEnglishQuery(trimmed) ? ['Analyzing route...', 'Connecting to map services...', 'Searching transit options...'] : ['경로 분석 중...', '지도 앱 연결 중...', '버스 노선 검색 중...'] },
         }])
-        const res = await fetch('http://localhost:17891/api/directions', {
+        const dirCtrl = new AbortController()
+        const dirTimer = setTimeout(() => dirCtrl.abort(), 10000)
+        const res = await fetch('http://127.0.0.1:17891/api/directions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: trimmed }),
-        }).then(r => r.json()).catch(() => null)
+          signal: dirCtrl.signal,
+        }).then(r => r.json()).catch(() => null).finally(() => clearTimeout(dirTimer))
 
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
         setTyping(false); typingRef.current = false
@@ -2218,7 +2221,7 @@ export function FloatingCharacter() {
           id: `think-${msgId}`, role: 'nexus', text: '',
           inlineCard: { type: 'agent_thinking', steps: isEnglishQuery(trimmed) ? ['Searching location...', 'Generating street view links...', 'Preparing map info...'] : ['장소 검색 중...', '로드뷰 링크 생성 중...', '지도 정보 준비 중...'] },
         }])
-        const res = await fetch('http://localhost:17891/api/place-view', {
+        const res = await fetch('http://127.0.0.1:17891/api/place-view', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: trimmed }),
@@ -2733,7 +2736,7 @@ export function FloatingCharacter() {
           query: text,
           params: {},
         }
-        const res = await fetch('http://localhost:17891/api/file/process', {
+        const res = await fetch('http://127.0.0.1:17891/api/file/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

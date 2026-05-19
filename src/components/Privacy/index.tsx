@@ -30,7 +30,7 @@ export function PrivacyView() {
     setLoading((l) => ({ ...l, [id]: true }))
     setPrivacy(id, newVal)
     // fire-and-forget
-    fetch('http://localhost:17891/api/privacy', {
+    fetch('http://127.0.0.1:17891/api/privacy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feature: id, enabled: newVal }),

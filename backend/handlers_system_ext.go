@@ -33,7 +33,17 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 		out, err = exec.Command("powershell", "-NoProfile", "-Command",
 			fmt.Sprintf(`Stop-Process -Id %d -Force -ErrorAction SilentlyContinue; Write-Output "OK"`, req.PID)).Output()
 	} else if req.Name != "" {
-		safeName := strings.ReplaceAll(req.Name, `"`, ``)
+		// 프로세스 이름 검증: 영숫자, 공백, 하이픈, 점만 허용
+		safeName := strings.Map(func(r rune) rune {
+			if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' {
+				return r
+			}
+			return -1
+		}, req.Name)
+		if safeName == "" {
+			json200(w, map[string]interface{}{"success": false, "message": "잘못된 프로세스 이름"})
+			return
+		}
 		out, err = exec.Command("powershell", "-NoProfile", "-Command",
 			fmt.Sprintf(`Stop-Process -Name "%s" -Force -ErrorAction SilentlyContinue; Write-Output "OK"`, safeName)).Output()
 	} else {
@@ -210,20 +220,22 @@ try {
 
 // GET /api/gpu/stats — GPU 상세 모니터링
 func handleGPUStats(w http.ResponseWriter, r *http.Request) {
+	// nvidia-smi 직접 실행 (PowerShell 경유 시 2>$null 백틱 충돌 방지)
+	nvidiaScript := "try {" +
+		" $s = & nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>$null;" +
+		" $s" +
+		"} catch { '' }"
+
 	script := `
 try {
   $gpus = Get-CimInstance Win32_VideoController -ErrorAction Stop
   $result = @()
   foreach ($gpu in $gpus) {
-    $usageScript = "nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>null"
     $nvidiaStat = ""
-    try { $nvidiaStat = Invoke-Expression $usageScript } catch {}
-
-    $usage = 0
-    $tempVal = 0
-    $memUsed = 0
-    $memTotal = 0
-
+    try {
+      $nvidiaStat = (& nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>$null)
+    } catch {}
+    $usage = 0; $tempVal = 0; $memUsed = 0; $memTotal = 0
     if ($nvidiaStat -and $nvidiaStat -notmatch "ERROR") {
       $parts = $nvidiaStat -split ","
       if ($parts.Count -ge 4) {
@@ -233,15 +245,14 @@ try {
         $memTotal = [int]$parts[3].Trim()
       }
     }
-
     $result += [PSCustomObject]@{
-      name       = $gpu.Name
-      usage_pct  = $usage
-      temp_c     = $tempVal
+      name         = $gpu.Name
+      usage_pct    = $usage
+      temp_c       = $tempVal
       mem_used_mb  = $memUsed
       mem_total_mb = $memTotal
-      driver_ver = $gpu.DriverVersion
-      status     = $gpu.Status
+      driver_ver   = $gpu.DriverVersion
+      status       = $gpu.Status
     }
   }
   $result | ConvertTo-Json -Depth 2
@@ -249,6 +260,7 @@ try {
   Write-Output "ERROR: $_"
 }
 `
+	_ = nvidiaScript
 	out, err := execPS(script)
 	if err != nil {
 		json200(w, map[string]interface{}{
@@ -274,7 +286,14 @@ try {
 	}
 
 	var gpus []interface{}
-	json.Unmarshal([]byte(outStr), &gpus)
+	if err2 := json.Unmarshal([]byte(outStr), &gpus); err2 != nil {
+		json200(w, map[string]interface{}{
+			"success": false,
+			"gpus":    []interface{}{},
+			"message": "GPU 데이터 파싱 실패",
+		})
+		return
+	}
 
 	msg := fmt.Sprintf("GPU %d개 확인했어요 🎮", len(gpus))
 	json200(w, map[string]interface{}{
