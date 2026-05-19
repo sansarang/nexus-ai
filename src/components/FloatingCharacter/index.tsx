@@ -3007,6 +3007,10 @@ export function FloatingCharacter() {
     }, tip: '닫기' },
   ]
 
+  if (!isOnboarded) {
+    return <OnboardingFlow onComplete={handleOnboardingComplete} />
+  }
+
   return (
     <>
     {/* ── 미리보기 플로팅 패널 (화면 고정, 항상 보임) ── */}
@@ -3690,11 +3694,6 @@ export function FloatingCharacter() {
         ))}
       </AnimatePresence>
     </div>
-
-    {/* 온보딩 플로우 */}
-    {!isOnboarded && (
-      <OnboardingFlow onComplete={handleOnboardingComplete} />
-    )}
 
     {/* 구독 만료 배너 */}
     {isOnboarded && isLoggedIn && (subscriptionStatus === 'expired' || subscriptionStatus === 'none') && (
