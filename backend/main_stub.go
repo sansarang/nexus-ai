@@ -18,6 +18,13 @@ func main() {
 		json200(w, map[string]string{"status": "ok", "platform": "mac-dev"})
 	})
 
+	// ── 설치 후 의존성 상태 체크 ─────────────────────────────
+	mux.HandleFunc("GET /api/setup/status", handleSetupStatus)
+
+	// ── 사용자 언어 설정 (영속) ──────────────────────────────
+	mux.HandleFunc("GET /api/settings/lang", handleSettingsLang)
+	mux.HandleFunc("POST /api/settings/lang", handleSettingsLang)
+
 	// ── LLM ──────────────────────────────────────────────────
 	mux.HandleFunc("GET /api/llm/config", handleLLMConfig)
 	mux.HandleFunc("POST /api/llm/config", handleLLMConfig)
@@ -30,6 +37,9 @@ func main() {
 
 	// ── 자연어 명령 라우터 (핵심) ────────────────────────────
 	mux.HandleFunc("POST /api/command", handleCommand)
+
+	// ── 사용량 관리 ──────────────────────────────────────────
+	mux.HandleFunc("GET /api/usage", handleUsageStatus)
 
 	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
 	mux.HandleFunc("POST /api/site-search", handleSiteSearch)
@@ -214,6 +224,24 @@ func main() {
 	mux.HandleFunc("DELETE /api/cron/delete", handleCronDelete)
 	mux.HandleFunc("POST /api/cron/run-now", handleCronRunNow)
 
+	// ── 🔴 환율/주가 실시간 API ──────────────────────────────
+	mux.HandleFunc("POST /api/exchange-rate", handleExchangeRate)
+
+	// ── 🟠 파일 시스템 조작 ───────────────────────────────────
+	mux.HandleFunc("POST /api/file/organize", handleFileOrganize)
+	mux.HandleFunc("POST /api/file/duplicates", handleFileDuplicates)
+	mux.HandleFunc("POST /api/file/large", handleFileLarge)
+
+	// ── 🟠 조건부 알림 트리거 ─────────────────────────────────
+	mux.HandleFunc("POST /api/trigger/add", handleTriggerAdd)
+	mux.HandleFunc("GET /api/trigger/list", handleTriggerList)
+	mux.HandleFunc("DELETE /api/trigger/delete", handleTriggerDelete)
+	mux.HandleFunc("GET /api/trigger/events", handleTriggerEvents)
+
+	// ── 🟡 화면 캡처 + Vision ─────────────────────────────────
+	mux.HandleFunc("POST /api/screenshot/analyze", handleScreenshotAnalyze)
+	mux.HandleFunc("POST /api/screenshot/translate", handleScreenshotTranslate)
+
 	// ── 브라우저 히스토리 ─────────────────────────────────────
 	mux.HandleFunc("GET /api/history/tiktok", handleTikTokHistory)
 	mux.HandleFunc("GET /api/history/youtube", handleYouTubeHistory)
@@ -239,12 +267,36 @@ func main() {
 	mux.HandleFunc("GET /api/wishlist/content", handleContentWishlist)
 	mux.HandleFunc("POST /api/wishlist/content", handleContentWishlistAdd)
 
+	// ── 메타데이터 분석 ───────────────────────────────────────
+	mux.HandleFunc("POST /api/file/metadata", handleFileMetadata)
+
+	// ── Wayback Machine ───────────────────────────────────────
+	mux.HandleFunc("POST /api/wayback/snapshots", handleWaybackSnapshots)
+	mux.HandleFunc("GET /api/wayback/available", handleWaybackAvailable)
+
+	// ── 익명 검색 (SearXNG/DDG) ──────────────────────────────
+	mux.HandleFunc("POST /api/search/anonymous", handleAnonymousSearch)
+
+	// ── 보안 감사 (Shodan/ipinfo) ─────────────────────────────
+	mux.HandleFunc("POST /api/security/shodan", handleShodanAudit)
+	mux.HandleFunc("GET /api/security/myip", handleMyIPAudit)
+
+	// ── 영상 수집 강화 ────────────────────────────────────────
+	mux.HandleFunc("POST /api/video/search-enhanced", handleVideoSearchEnhanced)
+	mux.HandleFunc("POST /api/video/download-with-cookie", handleVideoDownloadCookie)
+	mux.HandleFunc("POST /api/video/set-cookie", handleVideoSetCookie)
+	mux.HandleFunc("GET /api/video/cookie-status", handleVideoCookieStatus)
+	mux.HandleFunc("POST /api/video/ytdlp-info", handleVideoInfo)
+
 	initMemory()
 	initScheduler()
 	initCronEngine()
+	initTriggerEngine()
 	loadLLMConfig()
 	loadPersonaConfig()
 	loadBrainIndex()
+	go startBriefingScheduler()
+	go startMacProactiveMonitor()
 
 	srv := &http.Server{
 		Addr:    "127.0.0.1:17891",

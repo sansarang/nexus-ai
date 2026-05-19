@@ -254,6 +254,8 @@ export function NexusChat() {
   const isFirstMessage = messages.length <= 1
   const displayInput = voiceInterim || input
 
+
+
   return (
     <div
       style={{
@@ -334,6 +336,11 @@ export function NexusChat() {
       {/* 퀵 액션 */}
       <AnimatePresence>
         {isFirstMessage && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <QuickActions onSelect={cmd => send(cmd)} showFeatured />
+          </motion.div>
+        )}
+        {!isFirstMessage && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <QuickActions onSelect={cmd => send(cmd)} />
           </motion.div>

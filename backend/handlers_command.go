@@ -3,6 +3,8 @@
 package main
 
 import (
+	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,18 +14,35 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/xuri/excelize/v2"
 )
+
+// safePS: 타임아웃이 보장된 PowerShell 실행 래퍼 (기본 20초)
+func safePS(timeout time.Duration, script string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
+}
+
+// safePSRun: 출력 없는 safePS
+func safePSRun(timeout time.Duration, script string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Run()
+}
 
 // ── 멀티 액션: 출력 포맷 (Windows 빌드용) ────────────────────────
 type outputFormat string
 
 const (
-	outPDF      outputFormat = "pdf"
-	outExcel    outputFormat = "excel"
-	outWord     outputFormat = "word"
-	outMarkdown outputFormat = "markdown"
-	outTXT      outputFormat = "txt"
-	outNone     outputFormat = ""
+	outPDF        outputFormat = "pdf"
+	outExcel      outputFormat = "excel"
+	outWord       outputFormat = "word"
+	outPowerPoint outputFormat = "pptx"
+	outMarkdown   outputFormat = "markdown"
+	outTXT        outputFormat = "txt"
+	outNone       outputFormat = ""
 )
 
 func detectOutputFormat(msg string) outputFormat {
@@ -35,10 +54,18 @@ func detectOutputFormat(msg string) outputFormat {
 		return outExcel
 	case strings.Contains(lower, "word") || strings.Contains(lower, "워드") || strings.Contains(lower, "docx"):
 		return outWord
+	case strings.Contains(lower, "powerpoint") || strings.Contains(lower, "파워포인트") ||
+		strings.Contains(lower, "pptx") || strings.Contains(lower, "프레젠테이션") ||
+		strings.Contains(lower, "presentation") || strings.Contains(lower, "slides") ||
+		strings.Contains(lower, "슬라이드"):
+		return outPowerPoint
 	case strings.Contains(lower, "마크다운") || strings.Contains(lower, "markdown") || strings.Contains(lower, ".md"):
 		return outMarkdown
-	case strings.Contains(lower, "txt") || strings.Contains(lower, "텍스트 파일") || strings.Contains(lower, "텍스트로 저장"):
+	case strings.Contains(lower, "txt") || strings.Contains(lower, "텍스트 파일") ||
+		strings.Contains(lower, "텍스트로 저장") || strings.Contains(lower, "text file"):
 		return outTXT
+	case hasFileSaveVerb(msg):
+		return outMarkdown
 	}
 	return outNone
 }
@@ -46,8 +73,11 @@ func detectOutputFormat(msg string) outputFormat {
 func hasFileSaveVerb(msg string) bool {
 	lower := strings.ToLower(msg)
 	saveVerbs := []string{
-		"저장", "만들어", "작성", "정리", "보고서", "리포트", "report",
+		"저장", "만들어", "작성", "정리", "보고서", "리포트", "report", "save", "export",
 		"파일로", "제품설명서", "설명서", "요약해서", "뽑아줘", "출력",
+		"요약해줘", "요약 해줘", "정리해줘", "정리 해줘", "모아줘",
+		"뉴스 정리", "뉴스요약", "뉴스 요약", "기사 정리", "기사 요약",
+		"summarize", "summary", "compile", "generate report", "make a report",
 	}
 	for _, v := range saveVerbs {
 		if strings.Contains(lower, v) {
@@ -55,6 +85,244 @@ func hasFileSaveVerb(msg string) bool {
 		}
 	}
 	return false
+}
+
+// winWriteZip: zip 파일 생성 (docx/pptx 공통)
+func winWriteZip(path string, files map[string]string) error {
+	f, err := os.Create(path)
+	if err != nil { return err }
+	defer f.Close()
+	w := zip.NewWriter(f)
+	defer w.Close()
+	for name, content := range files {
+		fw, err := w.Create(name)
+		if err != nil { return err }
+		if _, err := fw.Write([]byte(content)); err != nil { return err }
+	}
+	return nil
+}
+
+// winSaveDocx: 실제 .docx 생성 (OOXML)
+func winSaveDocx(path, title, summary string, items []map[string]string) error {
+	now := time.Now().Format("2006-01-02 15:04")
+	var body strings.Builder
+	addPara := func(text, style string) {
+		styleXML := ""
+		if style != "" {
+			styleXML = fmt.Sprintf(`<w:pPr><w:pStyle w:val="%s"/></w:pPr>`, style)
+		}
+		esc := strings.ReplaceAll(text, "&", "&amp;")
+		esc = strings.ReplaceAll(esc, "<", "&lt;")
+		esc = strings.ReplaceAll(esc, ">", "&gt;")
+		body.WriteString(fmt.Sprintf(`<w:p>%s<w:r><w:t xml:space="preserve">%s</w:t></w:r></w:p>`, styleXML, esc))
+	}
+	addPara(title, "Heading1")
+	addPara("Generated: "+now, "")
+	if summary != "" {
+		addPara("AI Summary", "Heading2")
+		for _, line := range strings.Split(summary, "\n") {
+			line = strings.TrimLeft(line, "#- *`")
+			if strings.TrimSpace(line) == "" { continue }
+			addPara(line, "")
+		}
+	}
+	if len(items) > 0 {
+		addPara("Details", "Heading2")
+		for i, it := range items {
+			name := it["title"]; if name == "" { name = it["name"] }
+			content := it["content"]; if content == "" { content = it["snippet"] }
+			url := it["url"]; if url == "" { url = it["link"] }
+			price := it["price"]
+			addPara(fmt.Sprintf("%d. %s", i+1, name), "Heading3")
+			if price != "" { addPara("Price: "+price, "") }
+			if content != "" { addPara(content, "") }
+			if url != "" { addPara("Link: "+url, "") }
+		}
+	}
+	docXML := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>%s<w:sectPr/></w:body></w:document>`, body.String())
+
+	return winWriteZip(path, map[string]string{
+		"[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`,
+		"_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`,
+		"word/document.xml": docXML,
+		"word/_rels/document.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+		"word/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:rPr><w:b/><w:sz w:val="48"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:rPr><w:b/><w:sz w:val="36"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style>
+</w:styles>`,
+	})
+}
+
+// winSavePptx: 실제 .pptx 생성 (OOXML)
+func winSavePptx(path, title, summary string, items []map[string]string) error {
+	cleanText := func(s string) string {
+		s = strings.ReplaceAll(s, "**", "")
+		s = strings.ReplaceAll(s, "__", "")
+		s = strings.ReplaceAll(s, "`", "")
+		s = strings.ReplaceAll(s, "&", "&amp;")
+		s = strings.ReplaceAll(s, "<", "&lt;")
+		s = strings.ReplaceAll(s, ">", "&gt;")
+		s = strings.ReplaceAll(s, "\"", "&quot;")
+		return s
+	}
+	textToParas := func(text, sz string) string {
+		var sb strings.Builder
+		for _, line := range strings.Split(text, "\n") {
+			raw := strings.TrimSpace(line)
+			if raw == "" {
+				sb.WriteString(`<a:p><a:endParaRPr lang="en-US" dirty="0"/></a:p>`)
+				continue
+			}
+			bold := ""
+			if strings.HasPrefix(raw, "#") {
+				bold = "<a:b/>"
+				raw = strings.TrimLeft(raw, "# ")
+			} else if strings.HasPrefix(raw, "- ") || strings.HasPrefix(raw, "• ") {
+				raw = "• " + raw[2:]
+			}
+			sb.WriteString(fmt.Sprintf(`<a:p><a:r><a:rPr lang="en-US" sz="%s" dirty="0">%s</a:rPr><a:t>%s</a:t></a:r></a:p>`, sz, bold, cleanText(raw)))
+		}
+		return sb.String()
+	}
+	makeShape := func(id, x, y, cx, cy int, paras string) string {
+		return fmt.Sprintf(
+			`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="sp%d"/>` +
+			`<p:cNvSpPr txBox="1"><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>` +
+			`<p:spPr><a:xfrm><a:off x="%d" y="%d"/><a:ext cx="%d" cy="%d"/></a:xfrm>` +
+			`<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>` +
+			`<p:txBody><a:bodyPr wrap="square" autofit="normAutofit"/><a:lstStyle/>%s</p:txBody></p:sp>`,
+			id, id, x, y, cx, cy, paras)
+	}
+	makeSlide := func(heading, bodyText string) string {
+		return fmt.Sprintf(
+			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+			`<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"` +
+			` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"` +
+			` xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">` +
+			`<p:cSld><p:spTree>` +
+			`<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
+			`<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>` +
+			`<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` +
+			`%s%s</p:spTree></p:cSld></p:sld>`,
+			makeShape(2, 457200, 274638, 8229600, 1143000, textToParas(heading, "3200")),
+			makeShape(3, 457200, 1600200, 8229600, 4525963, textToParas(bodyText, "1800")))
+	}
+	slideRels := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`
+
+	files := map[string]string{}
+	cleanSummary := ""
+	if summary != "" {
+		var lines []string
+		for _, l := range strings.Split(summary, "\n") {
+			l = strings.TrimSpace(l)
+			if l != "" { lines = append(lines, l) }
+			if len(lines) >= 12 { break }
+		}
+		cleanSummary = strings.Join(lines, "\n")
+	}
+	files["ppt/slides/slide1.xml"] = makeSlide(title, cleanSummary)
+	files["ppt/slides/_rels/slide1.xml.rels"] = slideRels
+
+	slideList := `<p:sldIdLst><p:sldId id="256" r:id="rId1"/>`
+	slideContentTypes := `<Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
+	presRels := `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>`
+
+	for i, it := range items {
+		if i >= 20 { break }
+		name := it["title"]; if name == "" { name = it["name"] }
+		content := it["content"]; if content == "" { content = it["snippet"] }
+		price := it["price"]
+		body := content
+		if price != "" { body = "Price: " + price + "\n\n" + content }
+		sn := i + 2
+		files[fmt.Sprintf("ppt/slides/slide%d.xml", sn)] = makeSlide(fmt.Sprintf("%d. %s", i+1, name), body)
+		files[fmt.Sprintf("ppt/slides/_rels/slide%d.xml.rels", sn)] = slideRels
+		slideList += fmt.Sprintf(`<p:sldId id="%d" r:id="rId%d"/>`, 256+i+1, i+2)
+		slideContentTypes += fmt.Sprintf(`<Override PartName="/ppt/slides/slide%d.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`, sn)
+		presRels += fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide%d.xml"/>`, i+2, sn)
+	}
+	slideList += `</p:sldIdLst>`
+
+	files["[Content_Types].xml"] = fmt.Sprintf(
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+		`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+		`<Default Extension="xml" ContentType="application/xml"/>` +
+		`<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>` +
+		`%s</Types>`, slideContentTypes)
+	files["_rels/.rels"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>` +
+		`</Relationships>`
+	files["ppt/presentation.xml"] = fmt.Sprintf(
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"` +
+		` xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"` +
+		` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+		`<p:sldMasterIdLst/><p:sldSz cx="9144000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/>%s</p:presentation>`,
+		slideList)
+	files["ppt/_rels/presentation.xml.rels"] = fmt.Sprintf(
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">%s</Relationships>`, presRels)
+	return winWriteZip(path, files)
+}
+
+// winSaveHTML: PDF 대용 HTML (브라우저 Ctrl+P → PDF)
+func winSaveHTML(path, title, summary string, items []map[string]string) error {
+	now := time.Now().Format("2006-01-02 15:04")
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>%s</title><style>
+body{font-family:Calibri,Arial,sans-serif;max-width:900px;margin:40px auto;line-height:1.7;color:#222}
+h1{color:#1a1a2e;border-bottom:2px solid #4a90d9;padding-bottom:8px}
+h2{color:#2c3e50;margin-top:2em}h3{color:#34495e}
+.summary{background:#f0f7ff;border-left:4px solid #4a90d9;padding:16px;border-radius:4px;white-space:pre-wrap}
+.item{border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin:12px 0}
+.price{color:#e74c3c;font-weight:bold}a{color:#4a90d9}.meta{color:#888;font-size:0.9em}
+@media print{body{margin:0}.item{break-inside:avoid}}
+</style></head><body>`, title))
+	sb.WriteString(fmt.Sprintf("<h1>%s</h1><p class='meta'>Generated: %s</p>", title, now))
+	if summary != "" {
+		esc := strings.ReplaceAll(summary, "&", "&amp;")
+		esc = strings.ReplaceAll(esc, "<", "&lt;")
+		esc = strings.ReplaceAll(esc, ">", "&gt;")
+		sb.WriteString("<h2>AI Summary</h2><div class='summary'>" + esc + "</div>")
+	}
+	if len(items) > 0 {
+		sb.WriteString("<h2>Details</h2>")
+		for i, it := range items {
+			name := it["title"]; if name == "" { name = it["name"] }
+			content := it["content"]; if content == "" { content = it["snippet"] }
+			url := it["url"]; if url == "" { url = it["link"] }
+			price := it["price"]
+			sb.WriteString(fmt.Sprintf("<div class='item'><h3>%d. %s</h3>", i+1, name))
+			if price != "" { sb.WriteString(fmt.Sprintf("<p class='price'>Price: %s</p>", price)) }
+			if content != "" {
+				esc := strings.ReplaceAll(content, "&", "&amp;")
+				sb.WriteString(fmt.Sprintf("<p>%s</p>", esc))
+			}
+			if url != "" { sb.WriteString(fmt.Sprintf("<p><a href='%s' target='_blank'>View source →</a></p>", url)) }
+			sb.WriteString("</div>")
+		}
+	}
+	sb.WriteString("<p class='meta' style='margin-top:3em;border-top:1px solid #eee;padding-top:1em'>To save as PDF: Open this file in browser → Ctrl+P → Save as PDF</p></body></html>")
+	return os.WriteFile(path, []byte(sb.String()), 0644)
 }
 
 func saveResultToFile(format outputFormat, title string, items []map[string]string, summary string) (string, error) {
@@ -122,44 +390,49 @@ func saveResultToFile(format outputFormat, title string, items []map[string]stri
 		return path, os.WriteFile(path, []byte(sb.String()), 0644)
 
 	case outExcel:
-		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.csv", safeName, ts))
-		var sb strings.Builder
-		sb.WriteString("번호,제목/상품명,가격,링크\n")
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.xlsx", safeName, ts))
+		f := excelize.NewFile()
+		sheet := "Results"
+		f.SetSheetName("Sheet1", sheet)
+		headers := []string{"No", "Title/Product", "Content", "Price", "Link"}
+		for ci, h := range headers {
+			cell, _ := excelize.CoordinatesToCellName(ci+1, 1)
+			f.SetCellValue(sheet, cell, h)
+		}
+		row := 2
+		if summary != "" {
+			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), 0)
+			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), "[AI Summary]")
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), summary)
+			row++
+		}
 		for i, it := range items {
 			name := it["title"]; if name == "" { name = it["name"] }
-			url := it["url"]; if url == "" { url = it["link"] }
-			price := it["price"]
-			sb.WriteString(fmt.Sprintf("%d,\"%s\",\"%s\",\"%s\"\n", i+1,
-				strings.ReplaceAll(name, `"`, `""`),
-				strings.ReplaceAll(price, `"`, `""`),
-				url))
+			url  := it["url"];   if url == ""  { url = it["link"] }
+			price   := it["price"]
+			content := it["content"]; if content == "" { content = it["snippet"] }
+			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
+			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), name)
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), content)
+			f.SetCellValue(sheet, fmt.Sprintf("D%d", row), price)
+			f.SetCellValue(sheet, fmt.Sprintf("E%d", row), url)
+			row++
 		}
-		return path, os.WriteFile(path, []byte(sb.String()), 0644)
-
-	case outPDF:
-		// Windows: HTML → PDF via wkhtmltopdf (있으면), 없으면 MD로 fallback
-		mdContent := buildMD()
-		mdPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.md", safeName, ts))
-		pdfPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.pdf", safeName, ts))
-		_ = os.WriteFile(mdPath, []byte(mdContent), 0644)
-		// wkhtmltopdf 시도
-		if err := exec.Command("wkhtmltopdf", mdPath, pdfPath).Run(); err == nil {
-			_ = os.Remove(mdPath)
-			return pdfPath, nil
-		}
-		return mdPath, nil // fallback to MD
+		f.SetColWidth(sheet, "B", "C", 40)
+		f.SetColWidth(sheet, "E", "E", 50)
+		return path, f.SaveAs(path)
 
 	case outWord:
-		// Windows: pandoc 있으면 docx, 없으면 MD fallback
-		mdContent := buildMD()
-		mdPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.md", safeName, ts))
-		docxPath := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.docx", safeName, ts))
-		_ = os.WriteFile(mdPath, []byte(mdContent), 0644)
-		if err := exec.Command("pandoc", mdPath, "-o", docxPath).Run(); err == nil {
-			_ = os.Remove(mdPath)
-			return docxPath, nil
-		}
-		return mdPath, nil
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.docx", safeName, ts))
+		return path, winSaveDocx(path, title, summary, items)
+
+	case outPowerPoint:
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.pptx", safeName, ts))
+		return path, winSavePptx(path, title, summary, items)
+
+	case outPDF:
+		path := filepath.Join(home, "Desktop", fmt.Sprintf("nexus_%s_%s.html", safeName, ts))
+		return path, winSaveHTML(path, title, summary, items)
 	}
 	return "", fmt.Errorf("지원하지 않는 형식")
 }
@@ -399,10 +672,10 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	llmMu.RLock()
-	gKey := llmPerplexityKey
+	gKey := llmPerplexityKey; if gKey == "" { gKey = llmGroqKey }
 	llmMu.RUnlock()
 	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "Perplexity API 키 미설정. 설정 → API 키에서 Perplexity 키를 입력해주세요."})
+		writeJSON(w, 400, map[string]any{"success": false, "message": "AI 서비스 초기화 중입니다. 잠시 후 다시 시도해주세요."})
 		return
 	}
 
@@ -717,7 +990,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			cat == catMedical || cat == catEntertainment || cat == catTravel ||
 			cat == catRealEstate
 		if realtime {
-			pr := parallelWebSearch(resolvedQuery, 5)
+			pr := parallelWebSearch(resolvedQuery, 5, lang)
 			items := pr.Items
 			if len(items) == 0 {
 				items = categoryFallbackSites(resolvedQuery, cat)
@@ -756,7 +1029,11 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 					chatSys = "당신은 Nexus AI 한국어 비서입니다. 자연스러운 한국어로 2~4문장 답변. 마크다운 헤더 금지. 이전 대화 컨텍스트 참고."
 				}
 				kst := time.FixedZone("KST", 9*3600)
-				chatSys += fmt.Sprintf("\n현재 시각: %s KST (UTC 표기 금지)", time.Now().In(kst).Format("2006-01-02 15:04"))
+				if lang == "en" {
+					chatSys += fmt.Sprintf("\nCurrent time: %s (local)", time.Now().In(kst).Format("2006-01-02 15:04"))
+				} else {
+					chatSys += fmt.Sprintf("\n현재 시각: %s KST (UTC 표기 금지)", time.Now().In(kst).Format("2006-01-02 15:04"))
+				}
 				chatMsgs := []groqMsg{{Role: "system", Content: chatSys}}
 				for _, h := range history {
 					role := "user"
@@ -778,7 +1055,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			defer chatWg.Done()
 			// 전문가 카테고리 힌트 전달 → 전문가 분야에 맞는 상세 페이지 검색
 			expertCat := expertsToCategory(expertList)
-			pr := parallelWebSearch(original, 6, expertCat)
+			pr := parallelWebSearch(original, 6, expertCat, lang)
 			if len(pr.Items) > 0 {
 				chatSearchItems = pr.Items
 			} else {
@@ -828,7 +1105,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		userWantsFile := detectOutputFormat(original) != outNone && hasFileSaveVerb(original)
 		if !userWantsFile {
 			cat := detectCategory(query)
-			pr := parallelWebSearch(query, maxItems)
+			pr := parallelWebSearch(query, maxItems, lang)
 			items := pr.Items
 			if len(items) == 0 {
 				items = buildFallbackURLs(query, site)
@@ -996,6 +1273,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		maFmtStr := str("format")
 		maMax := intVal("max_items", 8)
 		maFmt := outputFormat(maFmtStr)
+		if maFmt == "" { maFmt = outMarkdown }
 		llmMu.RLock()
 		maTKey := llmTavilyKey
 		llmMu.RUnlock()
@@ -1005,23 +1283,20 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 
 		switch maSubAction {
 		case "price_compare":
-			// site: prefix는 Tavily에서 0결과 → include_domains 방식 사용
-			if maTKey != "" {
-				if maSite != "" {
-					if tr, ok := tavilySearchDomain(maTKey, maQuery, maMax, maSite); ok {
-						maItems = tr.Items
-					}
-				}
-				if len(maItems) == 0 {
-					if tr, ok := tavilySearch(maTKey, maQuery, maMax); ok {
-						maItems = tr.Items
-					}
+			if maSite != "" {
+				if tr, ok := tavilySearchDomain(maTKey, maQuery, maMax, maSite); ok {
+					maItems = tr.Items
 				}
 			}
-			sn := maSite; if sn == "" { sn = "쇼핑몰" }
-			maActionSummary = fmt.Sprintf("%s에서 \"%s\" 상품 %d개 검색 결과", sn, maQuery, len(maItems))
+			if len(maItems) == 0 {
+				if tr, ok := webSearchWithFallback(maTKey, maQuery, maMax); ok {
+					maItems = tr.Items
+				}
+			}
+			sn := maSite; if sn == "" { sn = "store" }
+			maActionSummary = fmt.Sprintf("%s: \"%s\" — %d results", sn, maQuery, len(maItems))
+
 		case "video_search":
-			// site: prefix는 Tavily에서 0결과 → include_domains 방식 사용
 			targetDomain := "youtube.com"
 			if maPlatform == "tiktok" { targetDomain = "tiktok.com" }
 			if maTKey != "" {
@@ -1035,12 +1310,108 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 				}
 			}
 			pn := "YouTube"; if maPlatform == "tiktok" { pn = "TikTok" }
-			maActionSummary = fmt.Sprintf("%s에서 \"%s\" 영상 %d개 검색 결과", pn, maQuery, len(maItems))
-		default:
-			if maTKey != "" {
-				if tr, ok := tavilySearch(maTKey, maQuery, maMax); ok { maItems = tr.Items }
+			maActionSummary = fmt.Sprintf("%s: \"%s\" — %d results", pn, maQuery, len(maItems))
+
+		case "doc_compare":
+			llmMu.RLock()
+			gKey := llmPerplexityKey; if gKey == "" { gKey = llmGroqKey }
+			llmMu.RUnlock()
+			var compareText string
+			if tr, ok := webSearchWithFallback(maTKey, maQuery, maMax); ok {
+				maItems = tr.Items
+				var articleLines strings.Builder
+				for i, item := range tr.Items {
+					t := item["title"]; c := item["content"]
+					if c == "" { c = item["snippet"] }
+					articleLines.WriteString(fmt.Sprintf("[%d] %s\n%s\n\n", i+1, t, c))
+				}
+				if tr.Summary != "" {
+					articleLines.WriteString("\n[Summary]\n" + tr.Summary)
+				}
+				prompt := fmt.Sprintf(`Compare "%s" in a structured markdown table (| Feature | A | B |) in English based on:\n%s`, maQuery, articleLines.String())
+				if gKey != "" {
+					compareText, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 2000, false)
+				} else if llmClaudeKey != "" {
+					compareText, _ = callClaude(llmClaudeKey, []groqMsg{{Role: "user", Content: prompt}}, 2000)
+				}
 			}
-			maActionSummary = fmt.Sprintf("\"%s\" 검색 결과 %d개", maQuery, len(maItems))
+			if compareText == "" {
+				llmMu.RLock()
+				gKey2 := llmPerplexityKey; cKey2 := llmClaudeKey
+				llmMu.RUnlock()
+				prompt := fmt.Sprintf(`Compare "%s" in a detailed markdown table (| Feature | A | B |) in English.`, maQuery)
+				if gKey2 != "" {
+					compareText, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 2000, false)
+				} else if cKey2 != "" {
+					compareText, _ = callClaude(cKey2, []groqMsg{{Role: "user", Content: prompt}}, 2000)
+				}
+			}
+			if compareText == "" {
+				compareText = fmt.Sprintf(`"%s" comparison — no API key configured.`, maQuery)
+			}
+			maActionSummary = compareText
+
+		case "summarize":
+			llmMu.RLock()
+			gKey := llmPerplexityKey; if gKey == "" { gKey = llmGroqKey }
+			llmMu.RUnlock()
+			var summaryText string
+			if tr, ok := webSearchWithFallback(maTKey, maQuery, maMax); ok {
+				maItems = tr.Items
+				var articleLines strings.Builder
+				for i, item := range tr.Items {
+					t := item["title"]; c := item["content"]
+					if c == "" { c = item["snippet"] }
+					if t == "" { continue }
+					articleLines.WriteString(fmt.Sprintf("[%d] %s\n%s\n\n", i+1, t, c))
+				}
+				if tr.Summary != "" {
+					articleLines.WriteString("\n[Overall Summary]\n" + tr.Summary)
+				}
+				prompt := fmt.Sprintf(`Summarize "%s" in English with clear headings (## Section, - bullet points) based on:\n%s`, maQuery, articleLines.String())
+				if gKey != "" {
+					summaryText, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 2000, false)
+				} else if llmClaudeKey != "" {
+					summaryText, _ = callClaude(llmClaudeKey, []groqMsg{{Role: "user", Content: prompt}}, 2000)
+				}
+			}
+			if summaryText == "" {
+				llmMu.RLock()
+				gKey2 := llmPerplexityKey; cKey2 := llmClaudeKey
+				llmMu.RUnlock()
+				prompt := fmt.Sprintf(`Summarize "%s" in English with clear headings (## Section, - bullet points).`, maQuery)
+				if gKey2 != "" {
+					summaryText, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 2000, false)
+				} else if cKey2 != "" {
+					summaryText, _ = callClaude(cKey2, []groqMsg{{Role: "user", Content: prompt}}, 2000)
+				}
+			}
+			if summaryText == "" {
+				summaryText = fmt.Sprintf(`"%s" — search quota exceeded. Register a Brave Search API key for continued access.`, maQuery)
+			}
+			maActionSummary = summaryText
+
+		default:
+			llmMu.RLock()
+			gKey := llmPerplexityKey; if gKey == "" { gKey = llmGroqKey }
+			llmMu.RUnlock()
+			if tr, ok := webSearchWithFallback(maTKey, maQuery, maMax); ok {
+				maItems = tr.Items
+				if gKey != "" {
+					var lines strings.Builder
+					for i, item := range tr.Items {
+						t := item["title"]; c := item["content"]
+						if c == "" { c = item["snippet"] }
+						lines.WriteString(fmt.Sprintf("[%d] %s\n%s\n\n", i+1, t, c))
+					}
+					if tr.Summary != "" { lines.WriteString("\n[Summary]\n" + tr.Summary) }
+					prompt := fmt.Sprintf(`Summarize "%s" in 3-5 key points in English.\n\n%s`, maQuery, lines.String())
+					maActionSummary, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 800, false)
+				}
+			}
+			if maActionSummary == "" {
+				maActionSummary = fmt.Sprintf(`"%s" — %d results`, maQuery, len(maItems))
+			}
 		}
 
 		maTitle := maQuery
@@ -1048,10 +1419,15 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		maFilePath, maSaveErr := saveResultToFile(maFmt, maTitle, maItems, maActionSummary)
 		var maFileMsg string
 		if maSaveErr != nil {
-			maFileMsg = "⚠️ 파일 저장 실패: " + maSaveErr.Error()
+			maFileMsg = "⚠️ Save failed: " + maSaveErr.Error()
 		} else {
-			ext := strings.ToUpper(maFmtStr)
-			maFileMsg = fmt.Sprintf("📄 %s 파일로 저장됨: %s", ext, maFilePath)
+			extMap := map[outputFormat]string{
+				outPDF: "HTML(PDF)", outWord: "DOCX", outExcel: "XLSX",
+				outPowerPoint: "PPTX", outMarkdown: "MARKDOWN", outTXT: "TXT",
+			}
+			ext := extMap[maFmt]
+			if ext == "" { ext = strings.ToUpper(maFmtStr) }
+			maFileMsg = fmt.Sprintf("📄 Saved as %s: %s", ext, maFilePath)
 		}
 		maResults := make([]map[string]string, 0, len(maItems))
 		for _, it := range maItems {
@@ -1076,7 +1452,12 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		// AI 키워드 추출 후 검색
 		keywords := []string{query}
 		if gKey != "" {
-			ep := fmt.Sprintf(`파일 검색 쿼리에서 핵심 키워드만 추출: "%s"\nJSON: {"keywords":["k1","k2"]}`, query)
+			var ep string
+			if lang == "en" {
+				ep = fmt.Sprintf(`Extract key search keywords from this query: "%s"\nJSON only: {"keywords":["k1","k2"]}`, query)
+			} else {
+				ep = fmt.Sprintf(`파일 검색 쿼리에서 핵심 키워드만 추출: "%s"\nJSON: {"keywords":["k1","k2"]}`, query)
+			}
 			raw, _, _ := callGroq(gKey, groqFastModel, []groqMsg{{Role: "user", Content: ep}}, 128, true)
 			var kw struct {
 				Keywords []string `json:"keywords"`
@@ -1087,12 +1468,24 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		hits := deepSearchFiles(strings.Join(keywords, " "), folder, maxResults)
 		if len(hits) == 0 {
+			if lang == "en" {
+				return hits, fmt.Sprintf("No files found matching '%s'.", query)
+			}
 			return hits, fmt.Sprintf("'%s'와 관련된 파일을 찾지 못했습니다.", query)
 		}
-		msg := fmt.Sprintf("'%s' 검색 결과: %d개 파일 발견\n", query, len(hits))
+		var msg string
+		if lang == "en" {
+			msg = fmt.Sprintf("Found %d file(s) for '%s':\n", len(hits), query)
+		} else {
+			msg = fmt.Sprintf("'%s' 검색 결과: %d개 파일 발견\n", query, len(hits))
+		}
 		for i, h := range hits {
 			if i >= 5 {
-				msg += fmt.Sprintf("  ... 외 %d개\n", len(hits)-5)
+				if lang == "en" {
+					msg += fmt.Sprintf("  ... and %d more\n", len(hits)-5)
+				} else {
+					msg += fmt.Sprintf("  ... 외 %d개\n", len(hits)-5)
+				}
 				break
 			}
 			msg += fmt.Sprintf("  • %s\n", h.Path)
@@ -1104,42 +1497,53 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		fileA := str("file_a")
 		fileB := str("file_b")
 		if fileA == "" || fileB == "" {
+			if lang == "en" {
+				return nil, "Please provide two file paths to compare.\nExample: 'Compare contract_v1.pdf and contract_v2.pdf'"
+			}
 			return nil, "비교할 두 파일 경로를 알려주세요.\n예: '계약서_v1.pdf 와 계약서_v2.pdf 비교해줘'"
 		}
 		textA, errA := extractDocumentText(fileA)
 		textB, errB := extractDocumentText(fileB)
 		if errA != nil {
+			if lang == "en" { return nil, "Cannot read File A: " + fileA }
 			return nil, "파일A를 읽을 수 없습니다: " + fileA
 		}
 		if errB != nil {
+			if lang == "en" { return nil, "Cannot read File B: " + fileB }
 			return nil, "파일B를 읽을 수 없습니다: " + fileB
 		}
-		if len(textA) > 4000 {
-			textA = textA[:4000]
-		}
-		if len(textB) > 4000 {
-			textB = textB[:4000]
-		}
-		focus := str("focus")
-		if focus == "" {
-			focus = "both"
-		}
-		prompt := fmt.Sprintf(`두 문서를 비교 분석해서 JSON으로만 응답:
+		if len(textA) > 4000 { textA = textA[:4000] }
+		if len(textB) > 4000 { textB = textB[:4000] }
+		var prompt string
+		if lang == "en" {
+			prompt = fmt.Sprintf(`Compare and analyze the two documents and respond ONLY in JSON:
+=== Document A: %s ===
+%s
+=== Document B: %s ===
+%s
+{"summary":"summary","total_differences":number,"differences":[{"type":"added|deleted|modified","description":"description","severity":"low|medium|high"}],"risk_level":"low|medium|high","recommendation":"recommendation"}`,
+				fileA, textA, fileB, textB)
+		} else {
+			prompt = fmt.Sprintf(`두 문서를 비교 분석해서 JSON으로만 응답:
 === 문서A: %s ===
 %s
 === 문서B: %s ===
 %s
 {"summary":"요약","total_differences":숫자,"differences":[{"type":"added|deleted|modified","description":"설명","severity":"low|medium|high"}],"risk_level":"low|medium|high","recommendation":"권고사항"}`,
-			fileA, textA, fileB, textB)
+				fileA, textA, fileB, textB)
+		}
 		ans, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 2048, true)
 		if err != nil {
+			if lang == "en" { return nil, "Document comparison failed: " + err.Error() }
 			return nil, "문서 비교 실패: " + err.Error()
 		}
 		var parsed map[string]any
 		json.Unmarshal([]byte(ans), &parsed)
-		summary := "문서 비교 완료"
-		if s, ok := parsed["summary"].(string); ok {
-			summary = s
+		var summary string
+		if lang == "en" { summary = "Document comparison complete" } else { summary = "문서 비교 완료" }
+		if s, ok := parsed["summary"].(string); ok { summary = s }
+		if lang == "en" {
+			return parsed, "Document comparison complete!\n" + summary
 		}
 		return parsed, "문서 비교 완료!\n" + summary
 
@@ -1147,23 +1551,32 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	case "doc_summary":
 		filePath := str("file_path")
 		if filePath == "" {
+			if lang == "en" { return nil, "Please provide the file path to summarize." }
 			return nil, "요약할 파일 경로를 알려주세요."
 		}
 		question := str("question")
 		if question == "" {
-			question = "핵심 내용을 5줄로 요약하고 중요 수치·날짜·이름을 정리해주세요."
+			if lang == "en" {
+				question = "Summarize the key content in 5 lines and list important figures, dates, and names."
+			} else {
+				question = "핵심 내용을 5줄로 요약하고 중요 수치·날짜·이름을 정리해주세요."
+			}
 		}
 		text, err := extractDocumentText(filePath)
 		if err != nil {
+			if lang == "en" { return nil, "Failed to read file: " + err.Error() }
 			return nil, "파일 읽기 실패: " + err.Error()
 		}
-		if len(text) > 8000 {
-			text = text[:8000]
+		if len(text) > 8000 { text = text[:8000] }
+		var docMsg string
+		if lang == "en" {
+			docMsg = fmt.Sprintf("Document:\n%s\n\nRequest: %s", text, question)
+		} else {
+			docMsg = fmt.Sprintf("문서:\n%s\n\n요청: %s", text, question)
 		}
-		ans, _, err := callGroq(gKey, groqChatModel, []groqMsg{
-			{Role: "user", Content: fmt.Sprintf("문서:\n%s\n\n요청: %s", text, question)},
-		}, 2048, false)
+		ans, _, err := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: docMsg}}, 2048, false)
 		if err != nil {
+			if lang == "en" { return nil, "Summary failed: " + err.Error() }
 			return nil, "요약 실패: " + err.Error()
 		}
 		return map[string]any{"summary": ans, "file": filePath}, ans
@@ -1172,7 +1585,6 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	case "organize_folder":
 		folder := str("folder")
 		home, _ := os.UserHomeDir()
-		// 자연어 폴더 이름 → 실제 경로 변환
 		switch strings.ToLower(folder) {
 		case "downloads", "다운로드":
 			folder = home + `\Downloads`
@@ -1181,11 +1593,13 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		case "documents", "문서":
 			folder = home + `\Documents`
 		default:
-			if folder == "" {
-				folder = home + `\Downloads`
-			}
+			if folder == "" { folder = home + `\Downloads` }
 		}
 		freed, fileCount := organizeFolder(folder)
+		if lang == "en" {
+			return map[string]any{"folder": folder, "files_organized": fileCount, "freed_mb": freed},
+				fmt.Sprintf("'%s' folder organized!\n%d files sorted", folder, fileCount)
+		}
 		return map[string]any{"folder": folder, "files_organized": fileCount, "freed_mb": freed},
 			fmt.Sprintf("'%s' 폴더 정리 완료!\n%d개 파일 정리됨", folder, fileCount)
 
@@ -1193,14 +1607,24 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	case "vision":
 		question := str("question")
 		if question == "" {
-			question = "지금 화면을 분석해서 무슨 내용인지, 오류가 있으면 원인과 해결법을 한국어로 알려주세요."
+			if lang == "en" {
+				question = "Analyze the current screen and describe what it shows. If there is an error, explain the cause and how to fix it."
+			} else {
+				question = "지금 화면을 분석해서 무슨 내용인지, 오류가 있으면 원인과 해결법을 한국어로 알려주세요."
+			}
 		}
 		b64, _, _, err := captureScreenPowerShell()
 		if err != nil {
+			if lang == "en" {
+				return nil, "Screen capture failed: " + err.Error()
+			}
 			return nil, "화면 캡처 실패: " + err.Error()
 		}
 		ans, err := callGroqVision(gKey, b64, "image/png", question)
 		if err != nil {
+			if lang == "en" {
+				return nil, "Screen analysis failed: " + err.Error()
+			}
 			return nil, "화면 분석 실패: " + err.Error()
 		}
 		return map[string]any{"answer": ans}, ans
@@ -1208,17 +1632,22 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	// ── PC 진단 ─────────────────────────────────────────────
 	case "scan":
 		sr := buildScanResult()
-		msg := fmt.Sprintf("PC 점수: %d점", sr.Score)
-		if len(sr.Issues) == 0 {
-			msg += " — 모두 정상이에요! ✅"
-		} else {
-			titles := make([]string, 0)
-			for _, i := range sr.Issues {
-				titles = append(titles, i.Title)
+		var msg string
+		if lang == "en" {
+			msg = fmt.Sprintf("PC Score: %d/100", sr.Score)
+			if len(sr.Issues) == 0 {
+				msg += " — Everything looks good! ✅"
+			} else {
+				msg += fmt.Sprintf("\n%d issue(s) found:\n", len(sr.Issues))
+				for _, i := range sr.Issues { msg += "  • " + i.Title + "\n" }
 			}
-			msg += fmt.Sprintf("\n발견된 문제 %d개:\n", len(sr.Issues))
-			for _, t := range titles {
-				msg += "  • " + t + "\n"
+		} else {
+			msg = fmt.Sprintf("PC 점수: %d점", sr.Score)
+			if len(sr.Issues) == 0 {
+				msg += " — 모두 정상이에요! ✅"
+			} else {
+				msg += fmt.Sprintf("\n발견된 문제 %d개:\n", len(sr.Issues))
+				for _, i := range sr.Issues { msg += "  • " + i.Title + "\n" }
 			}
 		}
 		return sr, msg
@@ -1227,6 +1656,10 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	case "clean":
 		freed := cleanTempFiles()
 		freedMB := float64(freed) / (1024 * 1024)
+		if lang == "en" {
+			return map[string]any{"freed_mb": freedMB},
+				fmt.Sprintf("PC cleanup complete! %.0f MB freed. 🗑️", freedMB)
+		}
 		return map[string]any{"freed_mb": freedMB},
 			fmt.Sprintf("PC 정리 완료! %.0fMB 확보됐습니다. 🗑️", freedMB)
 
@@ -1236,14 +1669,14 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		riskCount := 0
 		for _, v := range result {
 			if m, ok := v.(map[string]any); ok {
-				if risk, ok := m["risk"].(string); ok && risk != "low" && risk != "none" {
-					riskCount++
-				}
+				if risk, ok := m["risk"].(string); ok && risk != "low" && risk != "none" { riskCount++ }
 			}
 		}
-		if riskCount == 0 {
-			return result, "보안 점검 완료! 위협 요소가 발견되지 않았습니다. 🛡️"
+		if lang == "en" {
+			if riskCount == 0 { return result, "Security scan complete! No threats found. 🛡️" }
+			return result, fmt.Sprintf("⚠️ Security Alert: %d threat(s) detected. Please review the details.", riskCount)
 		}
+		if riskCount == 0 { return result, "보안 점검 완료! 위협 요소가 발견되지 않았습니다. 🛡️" }
 		return result, fmt.Sprintf("⚠️ 보안 경고: %d개 위협 요소가 발견됐습니다. 상세 결과를 확인하세요.", riskCount)
 
 	// ── PC 통계 ──────────────────────────────────────────────
@@ -1251,27 +1684,45 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		mem := getMemoryUsage()
 		free, total := getDiskSpace()
 		diskPct := 0
-		if total > 0 {
-			diskPct = int(100 - float64(free)/float64(total)*100)
-		}
+		if total > 0 { diskPct = int(100 - float64(free)/float64(total)*100) }
 		stats := map[string]any{"mem": mem, "disk": diskPct}
+		if lang == "en" {
+			return stats, fmt.Sprintf("Current PC Status:\n  💾 RAM: %d%% used\n  💿 Disk (C:): %d%% used", mem, diskPct)
+		}
 		return stats, fmt.Sprintf("현재 PC 상태:\n  💾 RAM: %d%% 사용 중\n  💿 디스크(C:): %d%% 사용 중", mem, diskPct)
 
 	// ── 집중 모드 ────────────────────────────────────────────
 	case "focus_mode":
 		enable := boolVal("enable", true)
-		return runFocusMode(enable)
+		r, _ := runFocusMode(enable)
+		if lang == "en" {
+			if enable {
+				return r, "Focus mode ON! 🎯\nNotifications are blocked. Stay focused!"
+			}
+			return r, "Focus mode OFF. Notifications are back on."
+		}
+		if enable {
+			return r, "집중 모드 켜졌습니다! 🎯\n알림이 차단됐습니다. 집중하세요!"
+		}
+		return r, "집중 모드 꺼졌습니다. 알림이 다시 켜졌어요."
 
 	// ── 업무 일지 ────────────────────────────────────────────
 	case "journal":
-		j := buildJournalData(gKey)
+		j := buildJournalData(gKey, lang)
+		if lang == "en" {
+			return j, fmt.Sprintf("Daily work log created! 📝\n%s", j["summary"])
+		}
 		return j, fmt.Sprintf("오늘 업무 일지 작성 완료! 📝\n%s", j["summary"])
 
 	// ── PC 건강 리포트 ───────────────────────────────────────
 	case "health_report":
-		reportPath, err := generateHealthReport(gKey)
+		reportPath, err := generateHealthReport(gKey, lang)
 		if err != nil {
+			if lang == "en" { return nil, "Report generation failed: " + err.Error() }
 			return nil, "리포트 생성 실패: " + err.Error()
+		}
+		if lang == "en" {
+			return map[string]any{"path": reportPath}, "PC health report created! 📊\nFile: " + reportPath
 		}
 		return map[string]any{"path": reportPath}, "PC 건강 리포트 생성 완료! 📊\n파일: " + reportPath
 
@@ -1283,6 +1734,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		parsed, err := parseNaturalSchedule(command, gKey)
 		if err != nil {
+			if lang == "en" { return nil, "Schedule parsing failed: " + err.Error() }
 			return nil, "일정 파싱 실패: " + err.Error()
 		}
 		paramsJSON, _ := json.Marshal(parsed.Params)
@@ -1301,21 +1753,47 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		globalScheduler.tasks[task.ID] = task
 		globalScheduler.mu.Unlock()
 		globalScheduler.save()
+		if lang == "en" {
+			return task, fmt.Sprintf("Schedule registered! ⏰\n'%s' (%s)", task.Name, task.CronExpr)
+		}
 		return task, fmt.Sprintf("일정 등록 완료! ⏰\n'%s' (%s)", task.Name, task.CronExpr)
 
 	// ── 앱 실행 ──────────────────────────────────────────────
 	case "launch_app":
 		appName := str("app_name")
-		if appName == "" {
-			appName = original
+		if appName == "" { appName = original }
+		r, _ := runLaunchApp(appName)
+		if lang == "en" {
+			return r, fmt.Sprintf("Launched %s! 🚀", appName)
 		}
-		return runLaunchApp(appName)
+		return r, fmt.Sprintf("%s 실행했습니다! 🚀", appName)
 
 	// ── 시스템 제어 ──────────────────────────────────────────
 	case "system_control":
 		control := str("control")
 		value := intVal("value", -1)
-		return runSystemControl(control, value)
+		r, koMsg := runSystemControl(control, value)
+		if lang == "en" {
+			switch control {
+			case "volume":
+				return r, fmt.Sprintf("Volume set to %d%%. 🔊", value)
+			case "mute":
+				return r, "Muted. 🔇"
+			case "brightness":
+				return r, fmt.Sprintf("Brightness set to %d%%. ☀️", value)
+			case "wifi":
+				return r, "Wi-Fi turned on. 📶"
+			case "sleep":
+				return r, "Entering sleep mode. 💤"
+			case "restart":
+				return r, "Restarting in 10 seconds. 🔄"
+			case "shutdown":
+				return r, "Shutting down in 10 seconds. ⏻"
+			default:
+				return r, fmt.Sprintf("'%s' control executed.", control)
+			}
+		}
+		return r, koMsg
 
 	// ── 엑셀 저장 ────────────────────────────────────────────
 	case "excel_save":
@@ -1326,30 +1804,36 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			json.Unmarshal(b, &data)
 		}
 		if len(data) == 0 {
+			if lang == "en" { return nil, "No data to save." }
 			return nil, "저장할 데이터가 없어요."
 		}
 		home, _ := os.UserHomeDir()
 		savePath := fmt.Sprintf(`%s\Desktop\nexus_%s_%s.xlsx`,
 			home, sanitizeFilename(title), time.Now().Format("20060102_150405"))
 		if err := saveToExcel(data, savePath, title); err != nil {
+			if lang == "en" { return nil, "Excel save failed: " + err.Error() }
 			return nil, "엑셀 저장 실패: " + err.Error()
+		}
+		if lang == "en" {
+			return map[string]any{"path": savePath}, "Excel saved! 📊\nFile: " + savePath
 		}
 		return map[string]any{"path": savePath}, "엑셀 저장 완료! 📊\n파일: " + savePath
 
 	// ── 메모 저장 ────────────────────────────────────────────
 	case "note":
 		content := str("content")
-		if content == "" {
-			content = original
-		}
+		if content == "" { content = original }
 		notePath := saveQuickNote(content)
+		if lang == "en" {
+			return map[string]any{"path": notePath, "content": content}, "Note saved! 📝"
+		}
 		return map[string]any{"path": notePath, "content": content}, "메모 저장 완료! 📝"
 
 	default:
 		// 분류 안 된 질문 → 이력 보완 후 web_search
 		resolved := resolveWithHistory(original, history)
 		cat := detectCategory(resolved)
-		pr := parallelWebSearch(resolved, 5)
+		pr := parallelWebSearch(resolved, 5, lang)
 		items := pr.Items
 		if len(items) == 0 {
 			items = categoryFallbackSites(resolved, cat)
@@ -1405,7 +1889,20 @@ func runWebSearch(query, site, output string, maxItems int, gKey string) (any, s
 		}
 		kst := time.FixedZone("KST", 9*3600)
 		today := time.Now().In(kst).Format("2006-01-02 15:04 KST")
-		prompt := fmt.Sprintf(`현재 시각(KST): %s
+		var prompt string
+		if isEnglishQuery(query) {
+			prompt = fmt.Sprintf(`Current time: %s
+User question: "%s"
+Search results:
+%s
+
+[Instructions]
+- No URLs, links, or source names
+- Answer the user's question directly in natural English, 2-4 sentences, key points only
+- Include specific figures (price, rank, etc.)
+- Act like a helpful AI assistant`, today, query, strings.Join(lines, "\n"))
+		} else {
+			prompt = fmt.Sprintf(`현재 시각(KST): %s
 사용자 질문: "%s"
 검색 결과:
 %s
@@ -1416,6 +1913,7 @@ func runWebSearch(query, site, output string, maxItems int, gKey string) (any, s
 - 수치(가격, 등수 등)는 포함해도 됨
 - 시간 언급 시 반드시 KST(한국 표준시) 기준 표현, UTC 절대 금지
 - 친절한 AI 비서처럼 작성`, today, query, strings.Join(lines, "\n"))
+		}
 		s, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
 		if s == "" || containsBotBlockText(s) {
 			if cleaned := cleanPerplexityCall(query, gKey); cleaned != "" {
@@ -1467,24 +1965,21 @@ func runWebSearch(query, site, output string, maxItems int, gKey string) (any, s
 func runSecurityScan() map[string]any {
 	result := map[string]any{}
 
-	// 원격 접속 확인
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-NetTCPConnection | Where-Object {$_.State -eq 'Established' -and $_.RemoteAddress -notlike '127.*' -and $_.RemoteAddress -ne '::1'} | Select-Object LocalPort,RemoteAddress,RemotePort,OwningProcess | ConvertTo-Json -Compress -Depth 2`).Output()
+	// 원격 접속 확인 (10초 타임아웃)
+	out, _ := safePS(10*time.Second, `Get-NetTCPConnection | Where-Object {$_.State -eq 'Established' -and $_.RemoteAddress -notlike '127.*' -and $_.RemoteAddress -ne '::1'} | Select-Object LocalPort,RemoteAddress,RemotePort,OwningProcess | ConvertTo-Json -Compress -Depth 2`)
 	var connections []map[string]any
 	json.Unmarshal(out, &connections)
 	result["remote_connections"] = connections
 	result["connection_count"] = len(connections)
 
-	// 의심 프로세스 확인
-	out2, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-Process | Where-Object {$_.CPU -gt 50} | Select-Object Name,Id,CPU | ConvertTo-Json -Compress`).Output()
+	// 의심 프로세스 확인 (10초 타임아웃)
+	out2, _ := safePS(10*time.Second, `Get-Process | Where-Object {$_.CPU -gt 50} | Select-Object Name,Id,CPU | ConvertTo-Json -Compress`)
 	var procs []map[string]any
 	json.Unmarshal(out2, &procs)
 	result["high_cpu_processes"] = procs
 
-	// Windows Defender 상태
-	out3, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-MpComputerStatus | Select-Object -Property AMServiceEnabled,AntispywareEnabled,RealTimeProtectionEnabled | ConvertTo-Json -Compress)`).Output()
+	// Windows Defender 상태 (10초 타임아웃)
+	out3, _ := safePS(10*time.Second, `(Get-MpComputerStatus | Select-Object -Property AMServiceEnabled,AntispywareEnabled,RealTimeProtectionEnabled | ConvertTo-Json -Compress)`)
 	var defender map[string]any
 	json.Unmarshal(out3, &defender)
 	result["defender"] = defender
@@ -1502,18 +1997,15 @@ func runSecurityScan() map[string]any {
 // runFocusMode: 집중 모드 켜기/끄기
 func runFocusMode(enable bool) (any, string) {
 	if enable {
-		// 알림 끄기 (방해 금지 모드)
-		exec.Command("powershell", "-NoProfile", "-Command",
-			`Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 0 -ErrorAction SilentlyContinue`).Run()
+		safePSRun(8*time.Second, `Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 0 -ErrorAction SilentlyContinue`)
 		return map[string]any{"enabled": true}, "집중 모드 켜졌습니다! 🎯\n알림이 차단됐습니다. 집중하세요!"
 	}
-	exec.Command("powershell", "-NoProfile", "-Command",
-		`Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 1 -ErrorAction SilentlyContinue`).Run()
+	safePSRun(8*time.Second, `Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 1 -ErrorAction SilentlyContinue`)
 	return map[string]any{"enabled": false}, "집중 모드 꺼졌습니다. 알림이 다시 켜졌어요."
 }
 
 // buildJournalData: 오늘 업무 일지 생성
-func buildJournalData(gKey string) map[string]any {
+func buildJournalData(gKey string, lang string) map[string]any {
 	today := time.Now().Format("2006-01-02")
 	appUsage := getAppUsageToday()
 	recentFiles := getRecentFiles(time.Now().Truncate(24 * time.Hour))
@@ -1526,8 +2018,14 @@ func buildJournalData(gKey string) map[string]any {
 		for _, a := range appUsage {
 			appNames = append(appNames, a.Name)
 		}
-		prompt := fmt.Sprintf("오늘 %s에 사용한 앱: %s\n오늘 작업한 파일: %d개\n\n오늘 업무를 자연스럽게 일지로 작성해주세요. (3-5줄)",
-			today, strings.Join(appNames, ", "), len(recentFiles))
+		var prompt string
+		if lang == "en" {
+			prompt = fmt.Sprintf("Apps used today (%s): %s\nFiles worked on: %d\n\nWrite a natural work journal entry for today in English. (3-5 sentences)",
+				today, strings.Join(appNames, ", "), len(recentFiles))
+		} else {
+			prompt = fmt.Sprintf("오늘 %s에 사용한 앱: %s\n오늘 작업한 파일: %d개\n\n오늘 업무를 자연스럽게 일지로 작성해주세요. (3-5줄)",
+				today, strings.Join(appNames, ", "), len(recentFiles))
+		}
 		aiSummary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
 		if aiSummary != "" {
 			summary = aiSummary
@@ -1543,7 +2041,7 @@ func buildJournalData(gKey string) map[string]any {
 }
 
 // generateHealthReport: PC 건강 리포트 PDF 생성
-func generateHealthReport(gKey string) (string, error) {
+func generateHealthReport(gKey string, lang string) (string, error) {
 	sr := buildScanResult()
 	mem := getMemoryUsage()
 	free, total := getDiskSpace()
@@ -1554,8 +2052,14 @@ func generateHealthReport(gKey string) (string, error) {
 
 	var aiAnalysis string
 	if gKey != "" {
-		prompt := fmt.Sprintf("PC 점수: %d점\n메모리: %d%%\n디스크: %d%%\n문제: %d개\n\n간단한 PC 건강 진단 보고서를 3-4줄로 작성해주세요.",
-			sr.Score, mem, diskPct, len(sr.Issues))
+		var prompt string
+		if lang == "en" {
+			prompt = fmt.Sprintf("PC Score: %d/100\nMemory: %d%%\nDisk: %d%%\nIssues found: %d\n\nWrite a brief PC health diagnosis in 3-4 sentences in English.",
+				sr.Score, mem, diskPct, len(sr.Issues))
+		} else {
+			prompt = fmt.Sprintf("PC 점수: %d점\n메모리: %d%%\n디스크: %d%%\n문제: %d개\n\n간단한 PC 건강 진단 보고서를 3-4줄로 작성해주세요.",
+				sr.Score, mem, diskPct, len(sr.Issues))
+		}
 		aiAnalysis, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: prompt}}, 512, false)
 	}
 
@@ -1569,11 +2073,43 @@ func generateHealthReport(gKey string) (string, error) {
 			issue.Title, color, issue.Severity, issue.Description)
 	}
 	if issueRows == "" {
-		issueRows = `<tr><td colspan="3" style="text-align:center;color:#28a745">✅ 모든 항목 정상</td></tr>`
+		if lang == "en" {
+			issueRows = `<tr><td colspan="3" style="text-align:center;color:#28a745">✅ All checks passed</td></tr>`
+		} else {
+			issueRows = `<tr><td colspan="3" style="text-align:center;color:#28a745">✅ 모든 항목 정상</td></tr>`
+		}
+	}
+
+	var title, generated, ramLabel, diskLabel, issuesLabel, aiLabel, detailTitle, colItem, colSeverity, colDesc string
+	if lang == "en" {
+		title = "🖥️ Nexus PC Health Report"
+		generated = "Generated: "
+		ramLabel = "💾 RAM Usage"
+		diskLabel = "💿 Disk (C:)"
+		issuesLabel = "⚠️ Issues Found"
+		aiLabel = "AI Diagnosis"
+		detailTitle = "📋 Detailed Scan Results"
+		colItem, colSeverity, colDesc = "Item", "Severity", "Description"
+	} else {
+		title = "🖥️ Nexus PC 건강 리포트"
+		generated = "생성일시: "
+		ramLabel = "💾 RAM 사용률"
+		diskLabel = "💿 디스크(C:)"
+		issuesLabel = "⚠️ 발견된 문제"
+		aiLabel = "AI 진단"
+		detailTitle = "📋 상세 점검 결과"
+		colItem, colSeverity, colDesc = "항목", "심각도", "설명"
+	}
+
+	scoreUnit := "점"
+	issueUnit := "개"
+	if lang == "en" {
+		scoreUnit = "/100"
+		issueUnit = ""
 	}
 
 	html := fmt.Sprintf(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>body{font-family:'맑은 고딕',Arial,sans-serif;margin:40px;color:#333}
+<style>body{font-family:Arial,sans-serif;margin:40px;color:#333}
 h1{color:#2c3e50;border-bottom:3px solid #3498db;padding-bottom:10px}
 .score{font-size:72px;font-weight:bold;color:%s;text-align:center;margin:20px}
 .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin:20px 0}
@@ -1585,22 +2121,23 @@ th{background:#3498db;color:white;padding:10px}
 td{padding:8px;border-bottom:1px solid #dee2e6}
 .analysis{background:#e8f4fd;border-left:4px solid #3498db;padding:15px;margin:20px 0}
 </style></head><body>
-<h1>🖥️ Nexus PC 건강 리포트</h1>
-<p>생성일시: %s</p>
-<div class="score">%d점</div>
+<h1>%s</h1>
+<p>%s%s</p>
+<div class="score">%d%s</div>
 <div class="grid">
-<div class="card"><h3>💾 RAM 사용률</h3><p>%d%%</p></div>
-<div class="card"><h3>💿 디스크(C:)</h3><p>%d%%</p></div>
-<div class="card"><h3>⚠️ 발견된 문제</h3><p>%d개</p></div>
+<div class="card"><h3>%s</h3><p>%d%%</p></div>
+<div class="card"><h3>%s</h3><p>%d%%</p></div>
+<div class="card"><h3>%s</h3><p>%d%s</p></div>
 </div>
-<div class="analysis"><strong>AI 진단:</strong> %s</div>
-<h2>📋 상세 점검 결과</h2>
-<table><thead><tr><th>항목</th><th>심각도</th><th>설명</th></tr></thead>
+<div class="analysis"><strong>%s:</strong> %s</div>
+<h2>%s</h2>
+<table><thead><tr><th>%s</th><th>%s</th><th>%s</th></tr></thead>
 <tbody>%s</tbody></table>
-<p style="color:#999;font-size:12px;text-align:center">Nexus AI 비서 — PC Health Report</p>
+<p style="color:#999;font-size:12px;text-align:center">Nexus AI — PC Health Report</p>
 </body></html>`,
-		scoreColor(sr.Score), time.Now().Format("2006-01-02 15:04:05"),
-		sr.Score, mem, diskPct, len(sr.Issues), aiAnalysis, issueRows)
+		scoreColor(sr.Score), title, generated, time.Now().Format("2006-01-02 15:04:05"),
+		sr.Score, scoreUnit, ramLabel, mem, diskLabel, diskPct, issuesLabel, len(sr.Issues), issueUnit,
+		aiLabel, aiAnalysis, detailTitle, colItem, colSeverity, colDesc, issueRows)
 
 	home, _ := os.UserHomeDir()
 	htmlPath := fmt.Sprintf(`%s\Desktop\nexus_health_report_%s.html`, home, time.Now().Format("20060102_150405"))
@@ -1632,27 +2169,56 @@ func scoreColor(score int) string {
 	return "#dc3545"
 }
 
-// runLaunchApp: 앱 실행
+// runLaunchApp: 앱 실행 (Windows)
 func runLaunchApp(appName string) (any, string) {
+	// exe 이름 → 자연어 별칭 매핑
 	appMap := map[string]string{
-		"크롬": "chrome", "chrome": "chrome",
-		"엣지": "msedge", "edge": "msedge",
-		"워드": "winword", "word": "winword",
-		"엑셀": "excel",
+		// 브라우저
+		"크롬": "chrome", "chrome": "chrome", "구글 크롬": "chrome",
+		"엣지": "msedge", "edge": "msedge", "마이크로소프트 엣지": "msedge",
+		"파이어폭스": "firefox", "firefox": "firefox",
+		// Office
+		"워드": "winword", "word": "winword", "마이크로소프트 워드": "winword",
+		"엑셀": "excel", "마이크로소프트 엑셀": "excel",
+		"파워포인트": "powerpnt", "ppt": "powerpnt", "powerpoint": "powerpnt",
+		"아웃룩": "outlook", "outlook": "outlook",
+		"원노트": "onenote", "onenote": "onenote",
+		"팀즈": "teams", "teams": "teams", "ms teams": "teams",
+		// 시스템
 		"메모장": "notepad", "notepad": "notepad",
-		"탐색기": "explorer", "explorer": "explorer",
-		"계산기": "calc",
-		"파워포인트": "powerpnt", "ppt": "powerpnt",
+		"탐색기": "explorer", "파일탐색기": "explorer", "explorer": "explorer",
+		"계산기": "calc", "calculator": "calc",
+		"작업관리자": "taskmgr", "task manager": "taskmgr",
+		"제어판": "control", "control panel": "control",
+		"설정": "ms-settings:", "settings": "ms-settings:",
+		"cmd": "cmd", "명령프롬프트": "cmd", "command prompt": "cmd",
+		"파워쉘": "powershell", "powershell": "powershell",
+		// 앱
+		"카카오": "KakaoTalk", "카카오톡": "KakaoTalk", "kakaotalk": "KakaoTalk",
+		"슬랙": "slack", "slack": "slack",
+		"줌": "zoom", "zoom": "zoom",
+		"디스코드": "discord", "discord": "discord",
+		"노션": "notion", "notion": "notion",
+		"비주얼스튜디오": "code", "vscode": "code", "vs code": "code",
+		"메모": "notepad",
+		"그림판": "mspaint", "paint": "mspaint",
+		"스팀": "steam", "steam": "steam",
+		"스포티파이": "spotify", "spotify": "spotify",
 	}
 
-	lower := strings.ToLower(appName)
+	lower := strings.ToLower(strings.TrimSpace(appName))
 	for k, v := range appMap {
-		if strings.Contains(lower, k) {
-			exec.Command("cmd", "/c", "start", "", v).Start()
-			return map[string]any{"app": v}, fmt.Sprintf("%s 실행했습니다! 🚀", appName)
+		if strings.Contains(lower, strings.ToLower(k)) {
+			// ms-settings: 는 start 없이 직접 실행
+			if strings.HasPrefix(v, "ms-") {
+				exec.Command("cmd", "/c", "start", v).Start()
+			} else {
+				exec.Command("cmd", "/c", "start", "", v).Start()
+			}
+			return map[string]any{"app": v, "requested": appName}, fmt.Sprintf("%s 실행했습니다! 🚀", appName)
 		}
 	}
-	// 직접 실행 시도
+	// 알 수 없는 앱: 직접 start 시도 (설치된 앱이면 동작)
 	exec.Command("cmd", "/c", "start", "", appName).Start()
 	return map[string]any{"app": appName}, fmt.Sprintf("'%s' 실행을 시도했습니다.", appName)
 }
@@ -1669,8 +2235,7 @@ func runSystemControl(control string, value int) (any, string) {
 		return map[string]any{"volume": value}, fmt.Sprintf("볼륨을 %d%%로 설정했습니다. 🔊", value)
 
 	case "mute", "음소거":
-		exec.Command("powershell", "-NoProfile", "-Command",
-			`(New-Object -ComObject WScript.Shell).SendKeys([char]173)`).Run()
+		safePSRun(5*time.Second, `(New-Object -ComObject WScript.Shell).SendKeys([char]173)`)
 		return map[string]any{"muted": true}, "음소거 처리했습니다. 🔇"
 
 	case "brightness", "밝기":
@@ -1682,21 +2247,32 @@ func runSystemControl(control string, value int) (any, string) {
 		return map[string]any{"brightness": value}, fmt.Sprintf("밝기를 %d%%로 설정했습니다. ☀️", value)
 
 	case "wifi", "와이파이":
-		exec.Command("powershell", "-NoProfile", "-Command",
-			`(Get-NetAdapter | Where-Object {$_.InterfaceDescription -like '*Wi-Fi*' -or $_.Name -like '*Wi-Fi*'} | Enable-NetAdapter -Confirm:$false) 2>$null`).Run()
+		safePSRun(10*time.Second, `(Get-NetAdapter | Where-Object {$_.InterfaceDescription -like '*Wi-Fi*' -or $_.Name -like '*Wi-Fi*'} | Enable-NetAdapter -Confirm:$false) 2>$null`)
 		return map[string]any{"wifi": "enabled"}, "Wi-Fi를 켰습니다. 📶"
 
 	case "sleep", "절전":
-		exec.Command("powershell", "-NoProfile", "-Command",
-			`Add-Type -Assembly System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend',$false,$false)`).Run()
+		safePSRun(8*time.Second, `Add-Type -Assembly System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend',$false,$false)`)
 		return map[string]any{"sleep": true}, "절전 모드로 전환합니다. 💤"
 
 	case "restart", "재시작":
-		exec.Command("shutdown", "/r", "/t", "10").Run()
+		// 안전장치: 백엔드에서 직접 재시작 금지 — 프론트엔드 confirm 필요
+		return map[string]any{"requires_confirm": true, "action": "restart"},
+			"⚠️ 재시작하면 작업 중인 내용이 저장되지 않을 수 있습니다. 프론트엔드에서 확인 후 진행하세요."
+
+	case "restart_confirmed", "재시작_확인됨":
+		ctx10, c10 := context.WithTimeout(context.Background(), 5*time.Second)
+		defer c10()
+		exec.CommandContext(ctx10, "shutdown", "/r", "/t", "10").Run()
 		return map[string]any{"restart": true}, "10초 후 재시작합니다. 🔄"
 
 	case "shutdown", "종료":
-		exec.Command("shutdown", "/s", "/t", "10").Run()
+		return map[string]any{"requires_confirm": true, "action": "shutdown"},
+			"⚠️ 종료하면 작업 중인 내용이 저장되지 않을 수 있습니다. 프론트엔드에서 확인 후 진행하세요."
+
+	case "shutdown_confirmed", "종료_확인됨":
+		ctx10, c10 := context.WithTimeout(context.Background(), 5*time.Second)
+		defer c10()
+		exec.CommandContext(ctx10, "shutdown", "/s", "/t", "10").Run()
 		return map[string]any{"shutdown": true}, "10초 후 종료합니다. ⏻"
 	}
 	return nil, fmt.Sprintf("'%s' 제어를 수행할 수 없습니다.", control)
@@ -1820,10 +2396,15 @@ func containsBotBlockText(s string) bool {
 func cleanPerplexityCall(query, gKey string) string {
 	kst := time.FixedZone("KST", 9*3600)
 	today := time.Now().In(kst).Format("2006-01-02 15:04 KST")
-	sys := "당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 최신 정보를 찾아 자연스러운 한국어로 2~4문장 답변하세요. 마크다운 헤더 금지. '봇 차단', '접근 불가', '차단으로 인해' 같은 표현 절대 금지. 정보 없으면 공식 사이트나 앱 이용을 안내하세요."
+	var sys string
+	if isEnglishQuery(query) {
+		sys = "You are Nexus AI assistant. Use real-time web search to find accurate, up-to-date information and answer in natural English in 2-4 sentences. No markdown headers. Never say 'bot blocked', 'access denied', or 'unable to retrieve'. If no info, guide the user to the official site or app."
+	} else {
+		sys = "당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 최신 정보를 찾아 자연스러운 한국어로 2~4문장 답변하세요. 마크다운 헤더 금지. '봇 차단', '접근 불가', '차단으로 인해' 같은 표현 절대 금지. 정보 없으면 공식 사이트나 앱 이용을 안내하세요."
+	}
 	msgs := []groqMsg{
 		{Role: "system", Content: sys},
-		{Role: "user", Content: fmt.Sprintf("현재 시각: %s\n%s", today, query)},
+		{Role: "user", Content: fmt.Sprintf("Current time: %s\n%s", today, query)},
 	}
 	text, _, err := callGroq(gKey, groqChatModel, msgs, 512, false)
 	if err != nil || text == "" {

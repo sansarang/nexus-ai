@@ -126,7 +126,7 @@ interface AppState {
   /* Actions */
   setView: (view: ViewId) => void
   toggleCommand: () => void
-  setLoggedIn: (email: string, status: 'active' | 'trial' | 'expired' | 'none', expiry: string) => void
+  setLoggedIn: (email: string, status: 'active' | 'trial' | 'expired' | 'none', expiry: string, userId?: string) => void
   setLoggedOut: () => Promise<void>
   refreshSubscription: () => Promise<void>
   setOnboarded: () => void
@@ -300,10 +300,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setView: (view) => set({ currentView: view }),
   toggleCommand: () => set((s) => ({ commandOpen: !s.commandOpen })),
-  setLoggedIn: (email, status, expiry) => {
+  setLoggedIn: (email, status, expiry, userId?: string) => {
     localStorage.setItem('nexus-user-email', email)
     localStorage.setItem('nexus-sub-status', status)
     localStorage.setItem('nexus-sub-expiry', expiry)
+    if (userId) localStorage.setItem('nexus-user-id', userId)
     set({ isLoggedIn: true, userEmail: email, subscriptionStatus: status, subscriptionExpiry: expiry })
   },
   setLoggedOut: async () => {
@@ -311,6 +312,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     localStorage.removeItem('nexus-user-email')
     localStorage.removeItem('nexus-sub-status')
     localStorage.removeItem('nexus-sub-expiry')
+    localStorage.removeItem('nexus-user-id')
     set({ isLoggedIn: false, userEmail: '', subscriptionStatus: 'none', subscriptionExpiry: '' })
   },
   refreshSubscription: async () => {
@@ -319,6 +321,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
+      localStorage.setItem('nexus-user-id', session.user.id)
       const row = await fetchSubscription(session.user.id)
       const status = resolveStatus(row)
       const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
@@ -342,6 +345,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setUserLang: (lang) => {
     localStorage.setItem('nexus-lang', lang)
     set({ userLang: lang })
+    // 백엔드에 영속 저장 — 자동화 기능(모닝 브리핑, 알림 등)이 이 값을 사용
+    fetch('http://localhost:17891/api/settings/lang', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lang }),
+    }).catch(() => {}) // 백엔드 미연결 시 무시
   },
   setCharacterId: (id) => {
     localStorage.setItem('nexus-character', id)

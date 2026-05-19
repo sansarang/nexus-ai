@@ -18,6 +18,10 @@
     "core:window:allow-create",
     "core:window:allow-close",
     "core:window:allow-set-focus",
-    "core:webview:allow-create-webview-window"
+    "core:webview:allow-create-webview-window",
+    "core:webview:allow-set-webview-zoom",
+    "core:window:allow-start-dragging",
+    "core:app:allow-get-name",
+    "core:app:allow-get-version"
   ]
 }

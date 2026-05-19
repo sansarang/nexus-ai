@@ -135,13 +135,13 @@ Keep it concise (3-5 sentences). Be friendly and helpful. No markdown.`
 
 // ── 일정 기반 사전 준비 (Anticipatory Action) ──────────────────
 
-type CalEvent struct {
+type BriefCalEvent struct {
 	Time  string
 	Title string
 	Raw   string
 }
 
-func getCalendarEventsToday() []CalEvent {
+func getCalendarEventsToday() []BriefCalEvent {
 	// Google Calendar API 또는 Windows Calendar 연동
 	// 현재는 handlers_calendar.go의 데이터 재활용
 	script := `
@@ -170,7 +170,7 @@ try {
 		return nil
 	}
 
-	var events []CalEvent
+	var events []BriefCalEvent
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -178,7 +178,7 @@ try {
 		}
 		parts := strings.SplitN(line, "|", 2)
 		if len(parts) == 2 {
-			events = append(events, CalEvent{Time: parts[0], Title: parts[1]})
+			events = append(events, BriefCalEvent{Time: parts[0], Title: parts[1]})
 		}
 	}
 	return events

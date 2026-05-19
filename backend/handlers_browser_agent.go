@@ -384,7 +384,18 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 			dataForSummary = dataForSummary[:3000]
 		}
 
-		summaryPrompt := fmt.Sprintf(`사용자 요청: "%s"
+		var summaryPrompt string
+		if isEnglishQuery(req.Command) {
+			summaryPrompt = fmt.Sprintf(`User request: "%s"
+Collected data:
+%s
+
+Based on the above data, write a complete answer to the user's request in English.
+- If price comparison: sort lowest to highest price in table format
+- If news/info: summarize key content in 3-5 lines
+- If numbers/data: highlight main figures`, req.Command, dataForSummary)
+		} else {
+			summaryPrompt = fmt.Sprintf(`사용자 요청: "%s"
 수집된 데이터:
 %s
 
@@ -392,6 +403,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 - 가격 비교라면: 최저가 → 최고가 순서로 표 형태
 - 뉴스/정보라면: 핵심 내용 3-5줄 요약
 - 숫자/데이터라면: 주요 수치 하이라이트`, req.Command, dataForSummary)
+		}
 
 		summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 1024, false)
 		result.Summary = summary
@@ -549,11 +561,20 @@ func handleBrowserCollectPrice(w http.ResponseWriter, r *http.Request) {
 				dataLines = append(dataLines, fmt.Sprintf("%s | %s | %s", r.Site, r.Name, r.Price))
 			}
 		}
-		summaryPrompt := fmt.Sprintf(`검색: "%s"
+		var summaryPrompt string
+		if isEnglishQuery(req.ProductQuery) {
+			summaryPrompt = fmt.Sprintf(`Search: "%s"
+Price data:
+%s
+
+Sort by lowest price and recommend the best product in English.`, req.ProductQuery, strings.Join(dataLines, "\n"))
+		} else {
+			summaryPrompt = fmt.Sprintf(`검색: "%s"
 가격 데이터:
 %s
 
 최저가 순으로 정리하고, 구매 추천 상품을 한국어로 설명해주세요.`, req.ProductQuery, strings.Join(dataLines, "\n"))
+		}
 
 		summary, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 	}
@@ -652,11 +673,20 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 		for _, a := range articles {
 			titles = append(titles, a["title"])
 		}
-		summaryPrompt := fmt.Sprintf(`검색: "%s"
+		var summaryPrompt string
+		if isEnglishQuery(req.Query) {
+			summaryPrompt = fmt.Sprintf(`Search: "%s"
+News articles:
+%s
+
+Summarize the main trends and key points from these news articles in 3-5 lines in English.`, req.Query, strings.Join(titles, "\n"))
+		} else {
+			summaryPrompt = fmt.Sprintf(`검색: "%s"
 뉴스 기사 목록:
 %s
 
 위 뉴스들의 주요 트렌드와 핵심 내용을 3-5줄로 한국어로 요약해주세요.`, req.Query, strings.Join(titles, "\n"))
+		}
 		summary, _, _ = callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 	}
 

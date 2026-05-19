@@ -33,6 +33,8 @@ func json200(w http.ResponseWriter, v any) {
 	writeJSON(w, http.StatusOK, v)
 }
 
+const maxResponseBody = 8 * 1024 * 1024 // 8MB 응답 상한
+
 // httpGet: 내부 HTTP GET 유틸
 func httpGet(url string) ([]byte, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -41,7 +43,7 @@ func httpGet(url string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 }
 
 // httpPost: 내부 HTTP POST 유틸
@@ -52,7 +54,7 @@ func httpPost(u string, body []byte) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 }
 
 // urlEncode: 쿼리 파라미터 URL 인코딩

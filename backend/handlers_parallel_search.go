@@ -211,31 +211,62 @@ func detectCategory(q string) queryCategory {
 	}
 }
 
-// optimizeQuery: 카테고리에 맞게 검색 쿼리 최적화
+// optimizeQuery: 카테고리에 맞게 검색 쿼리 최적화 (한/영 분기)
 func optimizeQuery(original string, cat queryCategory) string {
-	today := time.Now().Format("2006년 1월")
+	year := time.Now().Format("2006")
+	eng := isEnglishQuery(original)
 	q := original
-	switch cat {
-	case catTransit:
-		if !strings.Contains(q, "시간표") && !strings.Contains(q, "요금") && !strings.Contains(q, "예매") {
-			q += " 시간표 요금"
+
+	if eng {
+		month := time.Now().Format("January 2006")
+		switch cat {
+		case catTransit:
+			if !strings.Contains(strings.ToLower(q), "schedule") && !strings.Contains(strings.ToLower(q), "fare") && !strings.Contains(strings.ToLower(q), "ticket") {
+				q += " schedule fare"
+			}
+			q += " " + year
+		case catFinance:
+			q += " " + month + " live price"
+		case catNews:
+			q += " " + month
+		case catFood:
+			if !strings.Contains(strings.ToLower(q), "recommend") && !strings.Contains(strings.ToLower(q), "best") && !strings.Contains(strings.ToLower(q), "review") {
+				q += " best recommended"
+			}
+		case catMedical:
+			q += " causes symptoms treatment"
+		case catRealEstate:
+			q += " " + month + " price"
+		case catEntertainment:
+			lower := strings.ToLower(q)
+			if strings.Contains(lower, "baseball") || strings.Contains(lower, "soccer") || strings.Contains(lower, "football") || strings.Contains(lower, "basketball") {
+				q += " " + year + " schedule results"
+			}
 		}
-		q += " " + time.Now().Format("2006")
-	case catFinance:
-		q += " " + today + " 실시간"
-	case catNews:
-		q += " " + today
-	case catFood:
-		if !strings.Contains(q, "추천") && !strings.Contains(q, "맛집") {
-			q += " 추천"
-		}
-	case catMedical:
-		q += " 원인 증상 치료"
-	case catRealEstate:
-		q += " " + today
-	case catEntertainment:
-		if strings.Contains(q, "야구") || strings.Contains(q, "축구") || strings.Contains(q, "농구") {
-			q += " " + time.Now().Format("2006") + " 일정 결과"
+	} else {
+		today := time.Now().Format("2006년 1월")
+		switch cat {
+		case catTransit:
+			if !strings.Contains(q, "시간표") && !strings.Contains(q, "요금") && !strings.Contains(q, "예매") {
+				q += " 시간표 요금"
+			}
+			q += " " + year
+		case catFinance:
+			q += " " + today + " 실시간"
+		case catNews:
+			q += " " + today
+		case catFood:
+			if !strings.Contains(q, "추천") && !strings.Contains(q, "맛집") {
+				q += " 추천"
+			}
+		case catMedical:
+			q += " 원인 증상 치료"
+		case catRealEstate:
+			q += " " + today
+		case catEntertainment:
+			if strings.Contains(q, "야구") || strings.Contains(q, "축구") || strings.Contains(q, "농구") {
+				q += " " + year + " 일정 결과"
+			}
 		}
 	}
 	return q
@@ -747,15 +778,26 @@ func isSectionPageURL(u string) bool {
 
 // parallelWebSearch: Tavily + 브라우저(chromedp) 를 goroutine으로 동시 실행
 // catOverride: 전문가 시스템에서 카테고리를 이미 알고 있을 때 전달 (-1이면 자동 감지)
-func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory) parallelSearchResult {
+// parallelWebSearch — variadic: catOverride (queryCategory), then optional lang string "en"/"ko"
+func parallelWebSearch(query string, maxItems int, extra ...interface{}) parallelSearchResult {
 	if cached, ok := getCachedSearch(query); ok {
 		return cached
 	}
-
+	// parse variadic: first queryCategory arg, optional string lang
+	var catArg queryCategory = -1
+	forceLang := ""
+	for _, v := range extra {
+		switch t := v.(type) {
+		case queryCategory:
+			catArg = t
+		case string:
+			forceLang = t
+		}
+	}
 	// 카테고리 감지 + 쿼리 최적화
 	var cat queryCategory
-	if len(catOverride) > 0 && catOverride[0] >= 0 {
-		cat = catOverride[0]
+	if catArg >= 0 {
+		cat = catArg
 	} else {
 		cat = detectCategory(query)
 	}
@@ -772,6 +814,11 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 	llmMu.RUnlock()
 
 	isKorean := !isEnglishQuery(query)
+	if forceLang == "en" {
+		isKorean = false
+	} else if forceLang == "ko" {
+		isKorean = true
+	}
 
 	// 카테고리별 추가 Tavily 도메인 검색 (실제 상세 페이지 + 유튜브 + 문서)
 	type domainSearch struct{ domain, src string }
@@ -1048,8 +1095,13 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 		}
 	}
 
-	// 카테고리별 공식 사이트 안내 문구
-	officialSiteHint := buildOfficialSiteHint(cat)
+	// 카테고리별 공식 사이트 안내 문구 (언어 감지)
+	var officialSiteHint string
+	if isEnglishQuery(query) {
+		officialSiteHint = buildOfficialSiteHint(cat)
+	} else {
+		officialSiteHint = buildOfficialSiteHintKo(cat)
+	}
 
 	// 브라우저 스크래핑(merged)도 비어있고 Tavily content도 없을 때만
 	// Perplexity sonar-online 직접 검색으로 폴백
@@ -1065,10 +1117,26 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 
 		var msgs []groqMsg
 
+		eng := isEnglishQuery(query)
+		if forceLang == "en" {
+			eng = true
+		} else if forceLang == "ko" {
+			eng = false
+		}
 		if needsDirectSearch {
-			// Perplexity sonar-online의 자체 웹 검색 활용
-			// — Tavily content 전달하지 않고 쿼리만 던져서 직접 검색하게 함
-			directSys := `당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 정보를 찾아 답하세요.
+			var directSys string
+			if eng {
+				directSys = `You are Nexus AI assistant. Use real-time web search to find accurate information.
+
+[Rules]
+- Answer in natural English, 2-4 sentences
+- No URLs, links, or source names
+- No markdown headers (##) or excessive bullets
+- Always include specific figures (prices, times, numbers)
+- Never say "bot blocked", "access denied", or "unable to retrieve"
+- If info not found, guide the user to the official website`
+			} else {
+				directSys = `당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 정보를 찾아 답하세요.
 
 [규칙]
 - 자연스러운 한국어 2~4문장으로 답하세요
@@ -1077,7 +1145,8 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 - 가격·수치 등 구체적 정보 반드시 포함
 - "봇 차단", "차단으로 인해", "접근 불가" 등 표현 절대 금지
 - 정보를 찾지 못했을 때는 공식 사이트 이용 안내로 마무리`
-			directUser := fmt.Sprintf("현재 시각(KST): %s\n\n%s", today, query)
+			}
+			directUser := fmt.Sprintf("Current time: %s\n\n%s", today, query)
 			msgs = []groqMsg{
 				{Role: "system", Content: directSys},
 				{Role: "user", Content: directUser},
@@ -1085,7 +1154,11 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 		} else {
 			context := strings.Join(titleLines, "\n")
 			if context == "" {
-				context = "(검색 결과 없음)"
+				if eng {
+					context = "(no search results)"
+				} else {
+					context = "(검색 결과 없음)"
+				}
 			}
 			tavilyHint := ""
 			if tavilySummary != "" {
@@ -1093,9 +1166,38 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 				if len([]rune(hint)) > 300 {
 					hint = string([]rune(hint)[:300])
 				}
-				tavilyHint = "\nTavily 요약: " + hint
+				if eng {
+					tavilyHint = "\nTavily summary: " + hint
+				} else {
+					tavilyHint = "\nTavily 요약: " + hint
+				}
 			}
-			sysMsg := fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
+			var sysMsg string
+			if eng {
+				sysMsg = fmt.Sprintf(`You are Nexus AI assistant.
+
+[Top Rules]
+1. Answer in natural English based on the search results
+2. No URLs, links, or source names (e.g. [tavily])
+3. No markdown headers (##) or excessive bullets
+4. Even if results are limited, never end with "I don't know" or "I couldn't find"
+5. If no results → guide user to the official site for this category
+
+[Fallback guidance by category]
+%s
+
+[Answer format]
+- With results: summarize key info in 2-4 sentences naturally
+- Without results: guide to official channel ("You can check at ...")
+- Always include specific figures (price, time, fare) if available
+- Up to 4-6 sentences for complex questions
+
+[Forbidden phrases]
+- "bot blocked", "access denied", "unable to retrieve", "scraping failed", "bot detected"
+- Any mention of crawling failure or data collection issues
+- Ending with "I don't know" or "I'm unable to answer"`, officialSiteHint)
+			} else {
+				sysMsg = fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
 
 [최우선 규칙]
 1. 검색 결과를 바탕으로 자연스러운 한국어로 답하세요
@@ -1118,8 +1220,14 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 - 검색이 막혔다거나 크롤링 실패, 정보 수집 불가를 사용자에게 언급하는 모든 표현
 - "정확한 정보를 찾지 못했습니다. 미리보기 버튼으로 직접 확인해보세요." 이 문구 사용 금지
 - "모릅니다", "알 수 없습니다" 로 끝내는 것 금지`, officialSiteHint)
+			}
 
-			userMsg := fmt.Sprintf("현재 시각(KST): %s\n사용자 질문: \"%s\"\n최적화 검색어: \"%s\"\n검색 결과 제목:\n%s%s\n\n⚠️ 시간을 언급할 때 반드시 KST 기준으로 표현하세요. UTC 표기 절대 금지.\n위 정보를 바탕으로 답하되, 결과가 부족하면 공식 사이트 안내로 마무리하세요.", today, query, optimized, context, tavilyHint)
+			var userMsg string
+			if eng {
+				userMsg = fmt.Sprintf("Current time: %s\nUser question: \"%s\"\nOptimized query: \"%s\"\nSearch result titles:\n%s%s\n\nAnswer based on the above. If results are insufficient, guide to the official site.", today, query, optimized, context, tavilyHint)
+			} else {
+				userMsg = fmt.Sprintf("현재 시각(KST): %s\n사용자 질문: \"%s\"\n최적화 검색어: \"%s\"\n검색 결과 제목:\n%s%s\n\n⚠️ 시간을 언급할 때 반드시 KST 기준으로 표현하세요. UTC 표기 절대 금지.\n위 정보를 바탕으로 답하되, 결과가 부족하면 공식 사이트 안내로 마무리하세요.", today, query, optimized, context, tavilyHint)
+			}
 			msgs = []groqMsg{
 				{Role: "system", Content: sysMsg},
 				{Role: "user", Content: userMsg},
@@ -1161,8 +1269,41 @@ func parallelWebSearch(query string, maxItems int, catOverride ...queryCategory)
 	return result
 }
 
-// buildOfficialSiteHint: Groq 프롬프트에 삽입할 카테고리별 안내 문구
+// buildOfficialSiteHint: language-aware category fallback guidance for Groq prompt
 func buildOfficialSiteHint(cat queryCategory) string {
+	// English hints (used when query is English)
+	switch cat {
+	case catTransit:
+		return `Transit/Bus/Train/Flight: use Google Maps (maps.google.com), Rome2rio (rome2rio.com), or the airline's official site.`
+	case catFood:
+		return `Restaurants/Food: search on Yelp (yelp.com), Google Maps, or TripAdvisor for nearby options.`
+	case catShopping:
+		return `Shopping/Price comparison: check Amazon, eBay, Google Shopping, or PriceGrabber.`
+	case catFinance:
+		return `Finance/Exchange/Stocks: check Yahoo Finance (finance.yahoo.com), Bloomberg, or CoinGecko for crypto.`
+	case catWeather:
+		return `Weather: check weather.com or AccuWeather (accuweather.com) for accurate forecasts.`
+	case catNews:
+		return `News: search Google News (news.google.com), BBC, Reuters, or AP News.`
+	case catMedical:
+		return `Medical/Health: consult WebMD (webmd.com) or Mayo Clinic (mayoclinic.org). Always see a doctor for personal advice.`
+	case catLegal:
+		return `Legal/Tax: check IRS.gov (US tax), USA.gov, or consult a licensed attorney.`
+	case catEntertainment:
+		return `Movies/Events/Sports: check IMDb (imdb.com), Fandango, Ticketmaster (ticketmaster.com), or ESPN.`
+	case catRecipe:
+		return `Recipes: find recipes on AllRecipes (allrecipes.com), Food Network, or YouTube.`
+	case catTravel:
+		return `Travel/Accommodation: search Booking.com, Airbnb, or TripAdvisor.`
+	case catRealEstate:
+		return `Real estate: browse Zillow (zillow.com), Realtor.com, or Apartments.com.`
+	default:
+		return `If no results: try Google or Bing with more specific keywords (add location, date, or brand name).`
+	}
+}
+
+// buildOfficialSiteHintKo: Korean version
+func buildOfficialSiteHintKo(cat queryCategory) string {
 	switch cat {
 	case catTransit:
 		return `교통/버스/기차/항공:

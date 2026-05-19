@@ -332,15 +332,27 @@ func handleCompare(w http.ResponseWriter, files []fileInput, query string) {
 		return
 	}
 
+	eng := isEnglishQuery(query)
 	parts := make([]string, len(files))
 	for i, f := range files {
-		parts[i] = fmt.Sprintf("=== 파일 %d: %s ===\n%s", i+1, f.Name, texts[i])
+		if eng {
+			parts[i] = fmt.Sprintf("=== File %d: %s ===\n%s", i+1, f.Name, texts[i])
+		} else {
+			parts[i] = fmt.Sprintf("=== 파일 %d: %s ===\n%s", i+1, f.Name, texts[i])
+		}
 	}
-	prompt := fmt.Sprintf("다음 %d개 파일을 비교 분석해줘:\n\n%s\n\n사용자 질문: %s\n\n공통점, 차이점, 특징을 마크다운 표나 리스트로 명확하게 정리해줘.",
-		len(files), strings.Join(parts, "\n\n"), query)
-
+	var sysPr, prompt string
+	if eng {
+		sysPr = "You are a document comparison expert. Analyze structure, content, similarities and differences clearly in English using markdown tables or lists."
+		prompt = fmt.Sprintf("Compare and analyze the following %d files:\n\n%s\n\nUser question: %s\n\nClearly summarize similarities, differences, and key characteristics.",
+			len(files), strings.Join(parts, "\n\n"), query)
+	} else {
+		sysPr = "문서 비교 전문가야. 구조적으로 분석하고 한국어로 답해."
+		prompt = fmt.Sprintf("다음 %d개 파일을 비교 분석해줘:\n\n%s\n\n사용자 질문: %s\n\n공통점, 차이점, 특징을 마크다운 표나 리스트로 명확하게 정리해줘.",
+			len(files), strings.Join(parts, "\n\n"), query)
+	}
 	msgs := []groqMsg{
-		{Role: "system", Content: "문서 비교 전문가야. 구조적으로 분석하고 한국어로 답해."},
+		{Role: "system", Content: sysPr},
 		{Role: "user", Content: prompt},
 	}
 	result, _, _ := callGroq(gKey, groqChatModel, msgs, 2048, false)

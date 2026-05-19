@@ -657,14 +657,26 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 	// Step 3: 수집 데이터 AI 요약
 	finalSummary := ""
 	if gKey != "" && len(collectedData) > 0 {
-		summaryPrompt := fmt.Sprintf(`사용자 요청: "%s"
+		var summaryPrompt string
+		if isEnglishQuery(req.Command) {
+			summaryPrompt = fmt.Sprintf(`User request: "%s"
+
+Collected web data:
+%s
+
+Based on the data above, answer the user's request in English.
+If price comparison, use a table format. If information gathering, use a key content list.`,
+				req.Command, strings.Join(collectedData, "\n\n"))
+		} else {
+			summaryPrompt = fmt.Sprintf(`사용자 요청: "%s"
 
 수집된 웹 데이터:
 %s
 
 위 데이터를 바탕으로 사용자 요청에 대한 답변을 한국어로 정리해주세요.
 가격 비교라면 표 형식으로, 정보 수집이라면 핵심 내용 목록으로 정리하세요.`,
-			req.Command, strings.Join(collectedData, "\n\n"))
+				req.Command, strings.Join(collectedData, "\n\n"))
+		}
 
 		summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{
 			{Role: "user", Content: summaryPrompt},

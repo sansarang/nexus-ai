@@ -1,12 +1,12 @@
 /**
- * OnboardingFlow v4 — Photorealistic Avatar Onboarding
+ * OnboardingFlow v6 — Demo First Onboarding
  *
- * Step 0: 환영 인트로
+ * Step 0: 직접 체험 (5개 버튼 → 바로 실행)
  * Step 1: 아바타 스타일 선택
  * Step 2: 비서 이름 설정
  * Step 3: 사용자 호칭 설정
- * Step 4: OpenAI API 키 입력
- * Step 5: 구글 계정 로그인 (7일 무료 체험)
+ * Step 4: 직업군 선택
+ * Step 5: 구글 로그인 (Supabase)
  */
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -33,27 +33,121 @@ interface OnboardingFlowProps {
   onComplete: (config: AvatarConfig) => void
 }
 
+// ── 언어 감지 ──
+const isEn = navigator.language.startsWith('en')
+
 const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', 'Nova', 'Nexus', 'Eve']
-const USER_NAMES = ['주인님', '사용자', '선생님', '파트너']
+const USER_NAMES = isEn ? ['Boss', 'User', 'Partner', 'Chief'] : ['주인님', '사용자', '선생님', '파트너']
 
 const STEPS_TOTAL = 6
+
+const DEMO_ACTIONS = isEn ? [
+  { emoji: '🔐', label: 'PC Security Scan',  cmd: 'Is my PC hacked? Run a security scan.' },
+  { emoji: '🔬', label: 'Deep Research',     cmd: 'Deep research: quantum computing.' },
+  { emoji: '🗺️', label: 'Multi-task Query', cmd: "Today's weather + bus from Seoul to Busan?" },
+  { emoji: '⚖️', label: 'Compare Analysis', cmd: 'Compare iPhone 16 vs Galaxy S25.' },
+  { emoji: '▶️', label: 'Video Search',      cmd: 'Find trending AI videos on YouTube.' },
+] : [
+  { emoji: '🔐', label: 'PC 해킹 점검', cmd: '내 PC 해킹당했어? 보안 점검해줘' },
+  { emoji: '🔬', label: '딥서치',        cmd: '양자컴퓨터에 대해 깊게 조사해줘' },
+  { emoji: '🗺️', label: '복합 질문',    cmd: '오늘 날씨도 알려주고 경주에서 대전 가는 버스 시간표 알려줘' },
+  { emoji: '⚖️', label: '비교 분석',    cmd: '아이폰 vs 갤럭시 비교해줘' },
+  { emoji: '▶️', label: '영상 검색',    cmd: '요즘 유튜브에서 핫한 AI 영상 찾아줘' },
+]
+
+const DEMO_SIMULATIONS: Record<string, { steps: string[]; result: string }> = isEn ? {
+  'Is my PC hacked? Run a security scan.': {
+    steps: ['🔍 Scanning network connections...', '🛡️ Detecting malicious processes...', '🔒 Checking firewall & open ports...'],
+    result: `✅ Security Scan Complete\n\n🟢 Suspicious outbound connections: 0\n🟢 Firewall: Active & healthy\n🟢 Malicious processes: None detected\n🟡 Warning: 2 outdated drivers found\n\nYour PC is safe. Driver updates recommended.`,
+  },
+  'Deep research: quantum computing.': {
+    steps: ['🌐 Searching 17 sources simultaneously...', '📚 Collecting papers & news...', '🧠 AI synthesis in progress...'],
+    result: `📡 Deep Research — Quantum Computing\n\n• Google Willow: 10 quadrillion× faster than supercomputers\n• IBM 2025 roadmap: 100,000 qubit target\n• South Korea ETRI: 1,000-qubit processor in development\n• Practical use: Expected post-2030\n\n17 sources analyzed · Confidence ★★★★☆`,
+  },
+  "Today's weather + bus from Seoul to Busan?": {
+    steps: ['🌤️ Fetching weather API...', '🚌 Searching intercity bus schedule...'],
+    result: `📍 Today's Weather (Seoul)\n☀️ Clear · High 23°C / Low 14°C · Air quality: Good\n\n🚌 Seoul → Busan Express\n06:00 / 07:30 / 09:00 / 11:00 / 13:30\nDuration: ~4h 10m · Fare: ₩23,900\n\nBoth handled simultaneously.`,
+  },
+  'Compare iPhone 16 vs Galaxy S25.': {
+    steps: ['🔍 Fetching spec data...', '⚖️ Running item-by-item analysis...'],
+    result: `📊 iPhone 16 vs Galaxy S25\n\nCamera      Galaxy wins (200MP sensor)\nBattery     Galaxy wins (5,000mAh)\nPerformance iPhone wins (A18 Pro chip)\nEcosystem   iPhone wins (Apple integration)\nPrice       Galaxy wins (~$80 cheaper)\n\n🏆 Using Apple devices? → iPhone\n   Want customization? → Galaxy`,
+  },
+  'Find trending AI videos on YouTube.': {
+    steps: ['▶️ Crawling YouTube trends...', '📊 Ranking by views & upload date...'],
+    result: `🔥 Top 5 AI Videos This Week\n\n1. "GPT-5 Full Breakdown" — 8.47M views\n2. "Claude 4 vs ChatGPT Real Test" — 3.12M views\n3. "2026 AI Trends Complete Guide" — 2.89M views\n4. "10 Free AI Tools You Need" — 2.01M views\n5. "Earn $3K/mo with AI" — 1.78M views\n\nSave as a report file?`,
+  },
+} : {
+  '내 PC 해킹당했어? 보안 점검해줘': {
+    steps: ['🔍 네트워크 연결 스캔 중...', '🛡️ 악성 프로세스 탐지 중...', '🔒 방화벽·포트 점검 중...'],
+    result: `✅ 보안 점검 완료\n\n🟢 외부 의심 연결: 0건\n🟢 방화벽: 정상 활성화\n🟢 악성 프로세스: 미탐지\n🟡 주의: 미업데이트 드라이버 2개\n\n전반적으로 안전합니다. 드라이버 업데이트를 권장합니다.`,
+  },
+  '양자컴퓨터에 대해 깊게 조사해줘': {
+    steps: ['🌐 17개 소스 동시 검색 중...', '📚 논문·뉴스 수집 중...', '🧠 AI 종합 분석 중...'],
+    result: `📡 딥서치 완료 — 양자컴퓨터\n\n• Google Willow: 기존 슈퍼컴 10조 배 연산 달성\n• IBM 2025 로드맵: 100,000 큐비트 목표\n• 한국 ETRI: 1,000큐비트 프로세서 개발 중\n• 실용화 예상: 2030년 이후\n\n출처 17개 종합 · 신뢰도 ★★★★☆`,
+  },
+  '오늘 날씨도 알려주고 경주에서 대전 가는 버스 시간표 알려줘': {
+    steps: ['🌤️ 날씨 API 조회 중...', '🚌 고속버스 시간표 검색 중...'],
+    result: `📍 오늘 날씨 (서울)\n☀️ 맑음 · 최고 23°C · 최저 14°C · 미세먼지 좋음\n\n🚌 경주 → 대전\n06:40 / 08:20 / 10:10 / 12:30 / 14:00\n소요: 약 2시간 30분 · 요금: 18,500원\n\n두 가지 동시에 처리했습니다.`,
+  },
+  '아이폰 vs 갤럭시 비교해줘': {
+    steps: ['🔍 스펙 데이터 수집 중...', '⚖️ 항목별 비교 분석 중...'],
+    result: `📊 iPhone 16 vs Galaxy S25\n\n카메라    갤럭시 우세 (200MP 센서)\n배터리    갤럭시 우세 (5,000mAh)\n성능      아이폰 우세 (A18 Pro)\n생태계    아이폰 우세 (기기 연동)\n가격      갤럭시 우세 (10만원 저렴)\n\n🏆 애플 기기 쓴다면 → 아이폰\n   커스텀·카메라 원하면 → 갤럭시`,
+  },
+  '요즘 유튜브에서 핫한 AI 영상 찾아줘': {
+    steps: ['▶️ 유튜브 트렌드 크롤링 중...', '📊 조회수·업로드일 분석 중...'],
+    result: `🔥 AI 핫 영상 TOP 5 (이번 주)\n\n1. "GPT-5 완전 분석" — 847만 뷰\n2. "Claude 4 vs ChatGPT 실전 비교" — 312만 뷰\n3. "2026 AI 트렌드 총정리" — 289만 뷰\n4. "무료 AI 툴 10가지" — 201만 뷰\n5. "AI로 월 300만원 버는 법" — 178만 뷰\n\n자료 정리본으로 저장할까요?`,
+  },
+}
+
+const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
+
+const JOB_PERSONAS = isEn ? [
+  { id: 'developer',  emoji: '💻', name: 'Developer / IT Engineer',   desc: 'Code · Debug · Architecture · Terminal', color: '#6366f1' },
+  { id: 'marketer',   emoji: '📊', name: 'Marketer / Digital Marketer', desc: 'Trends · SNS · Competitors · Content',   color: '#f59e0b' },
+  { id: 'sales',      emoji: '🤝', name: 'Sales / Account Executive',  desc: 'Email drafts · Meetings · Pitching',      color: '#10b981' },
+  { id: 'pm',         emoji: '📋', name: 'PM / Product Planner',       desc: 'Docs · Roadmap · Decision logs',          color: '#0ea5e9' },
+  { id: 'designer',   emoji: '🎨', name: 'Designer / Creator',         desc: 'References · File org · Content',         color: '#ec4899' },
+  { id: 'freelancer', emoji: '🚀', name: 'Freelancer / Solopreneur',   desc: 'Quotes · Clients · Tax · Efficiency',     color: '#8b5cf6' },
+] : [
+  { id: 'developer',  emoji: '💻', name: '개발자 / IT 엔지니어',      desc: '코드·디버깅·아키텍처·터미널',   color: '#6366f1' },
+  { id: 'marketer',   emoji: '📊', name: '마케터 / 디지털 마케터',    desc: '트렌드·SNS·경쟁사·콘텐츠',      color: '#f59e0b' },
+  { id: 'sales',      emoji: '🤝', name: '영업 / 세일즈',             desc: '이메일 초안·미팅·고객 설득',    color: '#10b981' },
+  { id: 'pm',         emoji: '📋', name: 'PM / 기획자',               desc: '문서 요약·로드맵·의사결정',     color: '#0ea5e9' },
+  { id: 'designer',   emoji: '🎨', name: '디자이너 / 크리에이터',    desc: '레퍼런스·파일 정리·콘텐츠',    color: '#ec4899' },
+  { id: 'freelancer', emoji: '🚀', name: '프리랜서 / 1인 사업자',    desc: '견적·클라이언트·세금·효율',    color: '#8b5cf6' },
+]
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep]               = useState(0)
   const [styleId, setStyleId]         = useState<RealisticStyleId>('kpop_star')
-  const [assistantName, setName]      = useState('넥서스')
-  const [nameInput, setNameInput]     = useState('넥서스')
+  const [assistantName, setName]      = useState(isEn ? 'Nexus' : '넥서스')
+  const [nameInput, setNameInput]     = useState(isEn ? 'Nexus' : '넥서스')
   const [userInput, setUserInput]     = useState('')
-  const [userName, setUserName]       = useState('주인님')
+  const [userName, setUserName]       = useState(isEn ? 'Boss' : '주인님')
   const [hoverStyle, setHoverStyle]   = useState<RealisticStyleId | null>(null)
   const [openaiKey, setOpenaiKey]     = useState(() => localStorage.getItem('nexus-openai-key') ?? '')
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [googleEmail, setGoogleEmail]     = useState(() => localStorage.getItem('nexus-user-email') ?? '')
+  const [googleEmail, setGoogleEmail]     = useState('')
   const [loginEmail, setLoginEmail]       = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError]       = useState('')
   const [showAdminLogin, setShowAdminLogin] = useState(false)
-
+  const [selectedJobId, setSelectedJobId] = useState<string>('developer')
+  // ── Step 6: 이메일 연동 ──
+  const [emailProvider, setEmailProvider] = useState('')
+  const [emailAddr, setEmailAddr]         = useState('')
+  const [emailPw, setEmailPw]             = useState('')
+  const [emailTesting, setEmailTesting]   = useState(false)
+  const [emailResult, setEmailResult]     = useState<'idle'|'ok'|'fail'>('idle')
+  const [emailError, setEmailError]       = useState('')
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoResult, setDemoResult] = useState('')
+  const [demoCmd, setDemoCmd] = useState('')
+  const [demoThinkStep, setDemoThinkStep] = useState('')
+  const [demoTyping, setDemoTyping] = useState('')
+  const [demoInputTyping, setDemoInputTyping] = useState('')
+  const [demoChatHistory, setDemoChatHistory] = useState<Array<{ role: 'user' | 'ai'; text: string }>>([])
+  const chatEndRef = React.useRef<HTMLDivElement>(null)
 
   const selectedStyle = REALISTIC_STYLE_PRESETS.find(s => s.id === styleId) ?? REALISTIC_STYLE_PRESETS[0]
 
@@ -64,50 +158,90 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-expiry', '2099-12-31T00:00:00.000Z')
       setGoogleEmail(ADMIN_EMAIL)
       setLoginError('')
-      handleComplete(ADMIN_EMAIL)
+      void handleComplete(ADMIN_EMAIL)
     } else {
       setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
     }
   }
 
   const handleGoogleLogin = async () => {
-    // Supabase 미설정 시 → 바로 7일 체험판 시작
+    // Supabase 미설정 시 → 바로 3일 체험판 시작
     if (!SUPABASE_URL || SUPABASE_URL.includes('placeholder')) {
-      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
       const demoEmail = 'user@gmail.com'
       localStorage.setItem('nexus-user-email', demoEmail)
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      handleComplete(demoEmail)
+      void handleComplete(demoEmail)
       return
     }
     setGoogleLoading(true)
     try {
       await signInWithGoogle()
-      // 성공 시 onAuthStateChange → main.tsx bootstrap에서 세션 처리
       // OAuth redirect이므로 페이지 이동됨 — handleComplete는 복귀 후 호출
     } catch (e) {
       console.warn('Google OAuth 실패, 체험판 시작:', e)
-      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
       const demoEmail = 'user@gmail.com'
       localStorage.setItem('nexus-user-email', demoEmail)
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      handleComplete(demoEmail)
+      void handleComplete(demoEmail)
     } finally {
       setGoogleLoading(false)
     }
   }
 
-  const handleComplete = (email?: string) => {
+  const handleComplete = async (email?: string) => {
     if (openaiKey.trim()) localStorage.setItem('nexus-openai-key', openaiKey.trim())
+    localStorage.setItem('nexus-persona-id', selectedJobId)
+
     const resolvedEmail = email ?? googleEmail
     if (resolvedEmail) localStorage.setItem('nexus-user-email', resolvedEmail)
+
+    // ── 백엔드 자동 초기화 (설치 후 즉시 작동) ──────────────────
+    try {
+      const BASE = 'http://127.0.0.1:17891'
+
+      // 1. 페르소나 설정
+      fetch(`${BASE}/api/persona/set`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedJobId }),
+      }).catch(() => {})
+
+      // 2. 사용자 언어 설정
+      fetch(`${BASE}/api/settings/lang`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang: isEn ? 'en' : 'ko' }),
+      }).catch(() => {})
+
+      // 3. 번들 API 키 확인 + 사용자 키 추가 저장
+      const configPayload: Record<string, string> = {}
+      if (openaiKey.trim()) configPayload['claude_key'] = openaiKey.trim()
+      if (Object.keys(configPayload).length > 0) {
+        fetch(`${BASE}/api/llm/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(configPayload),
+        }).catch(() => {})
+      }
+
+      // 4. 의존성 상태 확인 → localStorage에 캐시 (설정 화면에서 활용)
+      fetch(`${BASE}/api/setup/status`)
+        .then(r => r.json())
+        .then((status: unknown) => {
+          localStorage.setItem('nexus-setup-status', JSON.stringify(status))
+        })
+        .catch(() => {})
+    } catch {}
+
     onComplete({
       assistantName,
-      userName: userName || '주인님',
+      userName: userName || (isEn ? 'Boss' : '주인님'),
       glbUrl: selectedStyle.glbUrl,
       previewUrl: null,
       primaryColor: selectedStyle.primaryColor,
@@ -219,63 +353,315 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
       <AnimatePresence mode="wait">
 
-        {/* ── Step 0: 환영 인트로 ── */}
+        {/* ── Step 0: 직접 체험 ── */}
         {step === 0 && (
           <motion.div
-            key="step0"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            style={{ ...card, overflow: 'visible', padding: '24px 44px 36px' }}
+            key="step0-demo"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            style={{
+              width: '100%', maxWidth: 860,
+              background: 'rgba(10,10,20,0.92)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 24,
+              overflow: 'hidden',
+              boxShadow: `0 0 80px ${selectedStyle.primaryColor}22, 0 32px 80px rgba(0,0,0,0.6)`,
+              backdropFilter: 'blur(24px)',
+            }}
           >
-            {/* 상단 3D 아바타 미리보기 */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-              <div style={{ width: 320, height: 320, position: 'relative' }}>
-                <Avatar3D
-                  emotion="happy"
-                  speaking={false}
-                  listening={false}
-                  glbUrl={selectedStyle.glbUrl}
-                  primaryColor={selectedStyle.primaryColor}
-                  accentColor={selectedStyle.accentColor}
-                  preset={styleId as CharacterPreset}
-                  width={320}
-                  height={320}
-                  preview
-                  scale={0.55}
-                  cameraY={0.2}
-                  characterOffsetY={-0.3}
-                />
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <div style={{
-                fontSize: 11, letterSpacing: '0.18em', color: selectedStyle.primaryColor,
-                marginBottom: 10, fontWeight: 600, textTransform: 'uppercase',
-              }}>
-                NEXUS AI · 2026
-              </div>
-              <h1 style={{
-                fontSize: 26, fontWeight: 800, color: 'white',
-                marginBottom: 12, letterSpacing: '-0.02em', lineHeight: 1.3,
-              }}>
-                당신이 말만 하면<br />PC가 알아서 움직이는
-              </h1>
-              <p style={{ fontSize: 16, color: selectedStyle.primaryColor, fontWeight: 700, lineHeight: 1.5 }}>
-                진짜 개인 비서, Nexus 입니다.
-              </p>
-            </div>
-
-            {nextBtn(() => setStep(1), '시작하기 →')}
-
+            {/* 상단 헤더 */}
             <div style={{
-              display: 'flex', justifyContent: 'center', gap: 20,
-              marginTop: 20, fontSize: 11, color: 'rgba(255,255,255,0.25)',
+              padding: '16px 20px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              {['3D 리얼리스틱 아바타', '음성 인식', 'PC AI 관리'].map(t => (
-                <span key={t}>✦ {t}</span>
-              ))}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['#ff5f57','#febc2e','#28c840'].map(c => (
+                  <div key={c} style={{ width: 12, height: 12, borderRadius: '50%', background: c }} />
+                ))}
+              </div>
+              <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>
+                {isEn ? 'Nexus AI — No other AI can do this' : 'Nexus AI — 다른 AI는 못 합니다'}
+              </div>
+            </div>
+
+            {/* 메인 컨텐츠: 아바타 + 채팅 */}
+            <div style={{ display: 'flex', height: 520 }}>
+
+              {/* 왼쪽: 아바타 + 버튼 */}
+              <div style={{
+                width: 220, flexShrink: 0,
+                borderRight: '1px solid rgba(255,255,255,0.06)',
+                display: 'flex', flexDirection: 'column',
+                background: 'rgba(255,255,255,0.02)',
+              }}>
+                {/* 아바타 */}
+                <div style={{
+                  height: 200, flexShrink: 0,
+                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                  position: 'relative',
+                }}>
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+                    width: 100, height: 30,
+                    background: `radial-gradient(ellipse, ${selectedStyle.primaryColor}33 0%, transparent 70%)`,
+                    filter: 'blur(8px)',
+                  }} />
+                  <Avatar3D
+                    glbUrl={selectedStyle.glbUrl}
+                    preset={selectedStyle.id as import('./Avatar3D').CharacterPreset}
+                    emotion="neutral"
+                    speaking={demoLoading}
+                    listening={false}
+                    primaryColor={selectedStyle.primaryColor}
+                    accentColor={selectedStyle.accentColor}
+                    width={200}
+                    height={200}
+                  />
+                </div>
+
+                {/* 이름 */}
+                <div style={{ padding: '8px 14px 4px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>{isEn ? 'Nexus' : '넥서스'}</div>
+                  <div style={{ fontSize: 10, color: selectedStyle.primaryColor, marginTop: 2 }}>{isEn ? '● Online' : '● 온라인'}</div>
+                </div>
+
+                {/* 5개 버튼 */}
+                <div style={{ padding: '10px 10px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {DEMO_ACTIONS.map(a => (
+                    <button
+                      key={a.cmd}
+                      onClick={async () => {
+                        if (demoLoading) return
+                        setDemoCmd(a.cmd)
+                        setDemoResult('')
+                        setDemoTyping('')
+                        setDemoThinkStep('')
+                        setDemoLoading(true)
+                        const sim = DEMO_SIMULATIONS[a.cmd]
+                        if (!sim) { setDemoLoading(false); return }
+
+                        // 1. 입력창에 타이핑
+                        for (let i = 1; i <= a.label.length; i++) {
+                          setDemoInputTyping(a.label.slice(0, i))
+                          await sleep(60)
+                        }
+                        await sleep(300)
+
+                        // 2. 유저 메시지 채팅에 추가
+                        setDemoChatHistory(prev => [...prev, { role: 'user', text: a.cmd }])
+                        setDemoInputTyping('')
+                        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+                        await sleep(400)
+
+                        // 3. thinking steps
+                        for (const s of sim.steps) {
+                          setDemoThinkStep(s)
+                          await sleep(700)
+                        }
+                        setDemoThinkStep('')
+
+                        // 4. AI 타이핑
+                        let typed = ''
+                        for (let i = 1; i <= sim.result.length; i++) {
+                          typed = sim.result.slice(0, i)
+                          setDemoTyping(typed)
+                          await sleep(10)
+                          chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+                        }
+                        setDemoChatHistory(prev => [...prev, { role: 'ai', text: sim.result }])
+                        setDemoTyping('')
+                        setDemoResult(sim.result)
+                        setDemoLoading(false)
+                        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 10px', borderRadius: 10,
+                        cursor: demoLoading ? 'not-allowed' : 'pointer',
+                        background: demoCmd === a.cmd
+                          ? `${selectedStyle.primaryColor}28`
+                          : 'rgba(255,255,255,0.04)',
+                        border: demoCmd === a.cmd
+                          ? `1px solid ${selectedStyle.primaryColor}66`
+                          : '1px solid rgba(255,255,255,0.06)',
+                        color: demoCmd === a.cmd ? 'white' : 'rgba(255,255,255,0.55)',
+                        fontSize: 12, fontWeight: 600, textAlign: 'left',
+                        transition: 'all 0.15s',
+                        opacity: demoLoading && demoCmd !== a.cmd ? 0.4 : 1,
+                      } as React.CSSProperties}
+                    >
+                      <span style={{ fontSize: 14 }}>{a.emoji}</span>
+                      <span>{a.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 오른쪽: 채팅창 */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+
+                {/* 채팅 메시지 영역 */}
+                <div style={{
+                  flex: 1, overflowY: 'auto', padding: '20px 20px 8px',
+                  display: 'flex', flexDirection: 'column', gap: 16,
+                  scrollbarWidth: 'none',
+                } as React.CSSProperties}>
+
+                  {/* 빈 상태 안내 */}
+                  {demoChatHistory.length === 0 && !demoTyping && !demoThinkStep && (
+                    <div style={{
+                      flex: 1, display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      color: 'rgba(255,255,255,0.18)', fontSize: 13, textAlign: 'center',
+                      gap: 10, paddingBottom: 40,
+                    }}>
+                      <div style={{ fontSize: 32 }}>←</div>
+                      <div>{isEn ? 'Click a button to try it' : '버튼을 눌러보세요'}<br /><span style={{ fontSize: 11, opacity: 0.7 }}>{isEn ? 'Nexus executes it in real-time' : 'Nexus가 실시간으로 실행합니다'}</span></div>
+                    </div>
+                  )}
+
+                  {/* 채팅 히스토리 */}
+                  {demoChatHistory.map((msg, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      style={{
+                        display: 'flex',
+                        justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                        gap: 10, alignItems: 'flex-end',
+                      }}
+                    >
+                      {msg.role === 'ai' && (
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          background: `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 14,
+                        }}>✦</div>
+                      )}
+                      <div style={{
+                        maxWidth: '75%',
+                        padding: '10px 14px',
+                        borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
+                        background: msg.role === 'user'
+                          ? `linear-gradient(135deg, ${selectedStyle.primaryColor}cc, ${selectedStyle.accentColor}cc)`
+                          : 'rgba(255,255,255,0.07)',
+                        border: msg.role === 'ai' ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                        fontSize: 12, color: 'rgba(255,255,255,0.92)',
+                        lineHeight: 1.7, whiteSpace: 'pre-wrap',
+                        fontFamily: msg.role === 'ai' ? 'monospace' : 'inherit',
+                      }}>
+                        {msg.text}
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {/* thinking 표시 */}
+                  {demoThinkStep && (
+                    <motion.div
+                      key={demoThinkStep}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                    >
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                        background: `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+                      }}>✦</div>
+                      <div style={{
+                        fontSize: 11, color: selectedStyle.primaryColor,
+                        background: `${selectedStyle.primaryColor}12`,
+                        border: `1px solid ${selectedStyle.primaryColor}33`,
+                        padding: '6px 12px', borderRadius: 20,
+                      }}>{demoThinkStep}</div>
+                    </motion.div>
+                  )}
+
+                  {/* AI 타이핑 중 */}
+                  {demoTyping && (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                        background: `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+                      }}>✦</div>
+                      <div style={{
+                        maxWidth: '75%', padding: '10px 14px',
+                        borderRadius: '4px 16px 16px 16px',
+                        background: 'rgba(255,255,255,0.07)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        fontSize: 12, color: 'rgba(255,255,255,0.92)',
+                        lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'monospace',
+                      }}>
+                        {demoTyping}<span style={{ animation: 'blink 0.8s step-end infinite', opacity: 0.7 }}>▌</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* 입력창 */}
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid rgba(255,255,255,0.06)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{
+                    flex: 1, padding: '10px 14px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${demoLoading ? selectedStyle.primaryColor + '55' : 'rgba(255,255,255,0.1)'}`,
+                    borderRadius: 12, fontSize: 13,
+                    color: demoInputTyping ? 'white' : 'rgba(255,255,255,0.25)',
+                    transition: 'border-color 0.2s',
+                    minHeight: 20,
+                  }}>
+                    {demoInputTyping || (isEn ? 'Click a button to experience Nexus...' : '버튼을 눌러 체험해보세요...')}
+                    {demoInputTyping && <span style={{ animation: 'blink 0.6s step-end infinite', opacity: 0.8 }}>|</span>}
+                  </div>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                    background: demoLoading
+                      ? `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})`
+                      : 'rgba(255,255,255,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 16, transition: 'all 0.2s',
+                  }}>
+                    {demoLoading ? '⚡' : '↑'}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* 하단 CTA */}
+            <div style={{
+              padding: '16px 20px',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <div style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                {demoResult
+                  ? (isEn ? '✦ Impressed? Start now.' : '✦ 어떠셨나요? 지금 바로 시작해보세요.')
+                  : (isEn ? '← Click a button on the left to try it' : '← 좌측 버튼을 눌러 체험해보세요')}
+              </div>
+              <button
+                onClick={() => setStep(1)}
+                style={{
+                  padding: '10px 24px',
+                  background: `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})`,
+                  border: 'none', borderRadius: 12,
+                  color: 'white', fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: `0 4px 20px ${selectedStyle.primaryColor}44`,
+                }}
+              >
+                {demoResult ? (isEn ? 'Get Started →' : '시작하기 →') : (isEn ? 'Skip →' : '건너뛰기 →')}
+              </button>
             </div>
           </motion.div>
         )}
@@ -292,10 +678,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {progressBar}
 
             <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 6 }}>
-              아바타 스타일 선택
+              {isEn ? 'Choose Avatar Style' : '아바타 스타일 선택'}
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', marginBottom: 24, lineHeight: 1.6 }}>
-              Photorealistic 3D 아바타 스타일을 선택하세요.
+              {isEn ? 'Pick your Photorealistic 3D avatar style.' : 'Photorealistic 3D 아바타 스타일을 선택하세요.'}
             </p>
 
             {/* 스타일 카드 그리드 */}
@@ -400,11 +786,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
               <div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-                  비서 이름을 설정해주세요
+                  {isEn ? 'Name Your Assistant' : '비서 이름을 설정해주세요'}
                 </h2>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
-                  "{nameInput || '넥서스'}아, 지금 몇 시야?" 처럼<br />
-                  이름으로 깨울 수 있어요.
+                  {isEn
+                    ? `"Hey ${nameInput || 'Nexus'}, what time is it?" — wake it by name.`
+                    : `"${nameInput || '넥서스'}아, 지금 몇 시야?" 처럼 이름으로 깨울 수 있어요.`}
                 </p>
               </div>
             </div>
@@ -449,8 +836,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {nextBtn(() => { setName(nameInput.trim() || '넥서스'); setStep(3) })}
-              {backBtn(() => setStep(1), '← 캐릭터 다시 선택')}
+              {nextBtn(() => { setName(nameInput.trim() || (isEn ? 'Nexus' : '넥서스')); setStep(3) })}
+              {backBtn(() => setStep(1), isEn ? '← Back to Character' : '← 캐릭터 다시 선택')}
             </div>
           </motion.div>
         )}
@@ -467,11 +854,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {progressBar}
 
             <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-              어떻게 불러드릴까요?
+              {isEn ? 'What should Nexus call you?' : '어떻게 불러드릴까요?'}
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24, lineHeight: 1.6 }}>
-              "{assistantName}이 {userInput || '주인님'}의 PC를 최적화했어요!"<br />
-              처럼 알림을 드릴 때 사용해요.
+              {isEn
+                ? `"${assistantName} optimized your PC, ${userInput || 'Boss'}!" — used in notifications.`
+                : `"${assistantName}이 ${userInput || '주인님'}의 PC를 최적화했어요!" 처럼 알림을 드릴 때 사용해요.`}
             </p>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -512,16 +900,16 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {nextBtn(() => { setUserName(userInput.trim() || '주인님'); setStep(4) }, '다음')}
-              {backBtn(() => setStep(2))}
+              {nextBtn(() => { setUserName(userInput.trim() || (isEn ? 'Boss' : '주인님')); setStep(4) }, isEn ? 'Next' : '다음')}
+              {backBtn(() => setStep(2), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}
 
-        {/* ── Step 4: OpenAI API 키 ── */}
+        {/* ── Step 4: 직업군 선택 ── */}
         {step === 4 && (
           <motion.div
-            key="step4"
+            key="step5"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -534,53 +922,74 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 fontSize: 11, letterSpacing: '0.12em',
                 color: selectedStyle.primaryColor, marginBottom: 8, fontWeight: 600,
               }}>
-                API 키 설정
+                {isEn ? 'AI OPTIMIZATION' : 'AI 최적화'}
               </div>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 6 }}>
-                OpenAI API 키 입력
+                {isEn ? 'What do you do?' : '직업군을 선택해주세요'}
               </h2>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
-                음성(TTS) 기능을 사용하려면 OpenAI 키가 필요합니다.
+                {isEn ? 'AI responses and workflows are optimized for your role.' : '선택한 직업에 맞춰 AI 응답과 워크플로우가 최적화됩니다.'}
               </p>
             </div>
 
-            {/* OpenAI 키 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
-                  🔊 OpenAI API 키 <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(음성 TTS)</span>
-                </label>
-                {openaiKey.startsWith('sk-') && <span style={{ fontSize: 10, color: '#4ade80' }}>✓ 확인됨</span>}
-              </div>
-              <input
-                value={openaiKey}
-                onChange={e => setOpenaiKey(e.target.value)}
-                placeholder="sk-..."
-                type="password"
-                style={{
-                  width: '100%', padding: '11px 14px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${openaiKey.startsWith('sk-') ? '#4ade8066' : 'rgba(255,255,255,0.12)'}`,
-                  borderRadius: 10, color: 'white', fontSize: 13,
-                  outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace',
-                } as React.CSSProperties}
-              />
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', marginTop: 4 }}>
-                platform.openai.com → API Keys
-              </p>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              gap: 10, marginBottom: 24,
+            }}>
+              {JOB_PERSONAS.map(p => {
+                const selected = selectedJobId === p.id
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedJobId(p.id)}
+                    style={{
+                      background: selected
+                        ? `linear-gradient(135deg, ${p.color}28, ${p.color}12)`
+                        : 'rgba(255,255,255,0.04)',
+                      border: selected
+                        ? `1.5px solid ${p.color}88`
+                        : '1.5px solid rgba(255,255,255,0.08)',
+                      borderRadius: 14, padding: '14px 14px',
+                      cursor: 'pointer', textAlign: 'left',
+                      transition: 'all 0.18s', position: 'relative',
+                    } as React.CSSProperties}
+                  >
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>{p.emoji}</div>
+                    <div style={{
+                      fontSize: 12, fontWeight: 700,
+                      color: selected ? 'white' : 'rgba(255,255,255,0.75)',
+                      marginBottom: 3, lineHeight: 1.3,
+                    }}>
+                      {p.name}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>
+                      {p.desc}
+                    </div>
+                    {selected && (
+                      <div style={{
+                        position: 'absolute', top: 8, right: 8,
+                        width: 16, height: 16, borderRadius: '50%',
+                        background: p.color,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 9, color: 'white', fontWeight: 800,
+                      }}>✓</div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {nextBtn(() => setStep(5), openaiKey.startsWith('sk-') ? '다음 →' : '건너뛰기')}
-              {backBtn(() => setStep(3))}
+              {nextBtn(() => setStep(5), isEn ? 'Next →' : '다음 →')}
+              {backBtn(() => setStep(3), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}
 
-        {/* ── Step 5: 구글 로그인 / 7일 무료 체험 ── */}
+        {/* ── Step 5: 구글 로그인 / 3일 무료 체험 ── */}
         {step === 5 && (
           <motion.div
-            key="step5"
+            key="step6"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -591,11 +1000,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
               <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-                시작하기
+                {isEn ? 'Get Started' : '시작하기'}
               </h2>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
-                구글 계정으로 로그인하면<br />
-                7일 무료 체험이 자동으로 시작됩니다.
+                {isEn ? <>Sign in with Google and your<br />3-day free trial starts automatically.</> : <>구글 계정으로 로그인하면<br />3일 무료 체험이 자동으로 시작됩니다.</>}
               </p>
             </div>
 
@@ -622,8 +1030,185 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
-                  {googleLoading ? '연결 중...' : 'Google 계정으로 시작하기'}
+                  {googleLoading ? (isEn ? 'Connecting...' : '연결 중...') : (isEn ? 'Continue with Google' : 'Google 계정으로 시작하기')}
                 </button>
+
+                {/* 구분선 + 메일 연동 안내 문구 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
+                    {isEn ? 'or connect your email' : '또는 메일로 연동'}
+                  </span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                </div>
+
+                {/* A안 문구 */}
+                <div style={{
+                  padding: '12px 14px', borderRadius: 10,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 4 }}>
+                    {isEn ? '📧 Connect your email right now' : '📧 메일도 지금 바로 연결하세요'}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7 }}>
+                    {isEn
+                      ? 'Connect your account and Nexus will read your inbox, summarize emails, and write replies for you.'
+                      : '가입한 메일 계정을 연동하면 Nexus가 받은 편지함을 읽고, 요약하고, 대신 답장까지 써드립니다.'}
+                  </div>
+                </div>
+
+                {/* 네이버 · 다음 · Outlook 버튼 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  {[
+                    { id: 'naver',   label: '네이버', icon: 'N', color: '#03c75a' },
+                    { id: 'daum',    label: '다음',   icon: 'D', color: '#ff5722' },
+                    { id: 'outlook', label: 'Outlook', icon: '⊞', color: '#0078d4' },
+                  ].map(p => (
+                    <button key={p.id}
+                      onClick={() => { setEmailProvider(emailProvider === p.id ? '' : p.id); setEmailResult('idle'); setEmailError('') }}
+                      style={{
+                        padding: '10px 8px', borderRadius: 10,
+                        border: `1px solid ${emailProvider === p.id ? p.color : 'rgba(255,255,255,0.1)'}`,
+                        background: emailProvider === p.id ? `${p.color}18` : 'rgba(255,255,255,0.04)',
+                        color: emailProvider === p.id ? p.color : 'rgba(255,255,255,0.55)',
+                        cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <span style={{
+                        width: 24, height: 24, borderRadius: 6,
+                        background: emailProvider === p.id ? p.color : 'rgba(255,255,255,0.1)',
+                        color: emailProvider === p.id ? '#fff' : 'rgba(255,255,255,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 800,
+                      }}>{p.icon}</span>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 선택한 메일 서비스 폼 */}
+                {emailProvider && (() => {
+                  const GUIDES: Record<string, { steps: string[]; ph: string; emailPh: string }> = {
+                    naver: {
+                      steps: isEn ? [
+                        'Go to mail.naver.com → Settings (⚙️)',
+                        'POP3/IMAP Settings → Enable IMAP → Save',
+                        'Naver My Info → Security → Two-Factor Auth → Enable',
+                        'App Password → Create new → Name it "Nexus" → Copy password',
+                        'Enter your Naver email and the app password below',
+                      ] : [
+                        'mail.naver.com → 환경설정(⚙️) 클릭',
+                        'POP3/IMAP 설정 → IMAP 사용 ON → 저장',
+                        '네이버 내 정보 → 보안설정 → 2단계 인증 활성화',
+                        '앱 비밀번호 → 새 앱 비밀번호 생성 → 이름: Nexus → 비밀번호 복사',
+                        '아래에 네이버 이메일과 앱 비밀번호 입력',
+                      ],
+                      ph: isEn ? 'App password (from Naver)' : '앱 비밀번호 (네이버에서 발급)',
+                      emailPh: 'example@naver.com',
+                    },
+                    daum: {
+                      steps: isEn ? [
+                        'Go to mail.daum.net → Settings (⚙️)',
+                        'Mail Management → IMAP/POP3 → Enable IMAP → Save',
+                        'Enter your Daum/Kakao email and account password below',
+                      ] : [
+                        'mail.daum.net → 환경설정(⚙️) 클릭',
+                        '메일 관리 → IMAP/POP3 설정 → IMAP 사용 ON → 저장',
+                        '아래에 다음(카카오) 이메일과 카카오계정 비밀번호 입력',
+                      ],
+                      ph: isEn ? 'Kakao account password' : '카카오계정 비밀번호',
+                      emailPh: 'example@daum.net',
+                    },
+                    outlook: {
+                      steps: isEn ? [
+                        'Go to account.microsoft.com → Security',
+                        'Advanced security → App passwords → Create new',
+                        'Name it "Nexus" → Copy the generated password',
+                        'Enter your Microsoft email and the app password below',
+                      ] : [
+                        'account.microsoft.com → 보안 탭',
+                        '고급 보안 → 앱 비밀번호 → 새로 만들기',
+                        '이름: Nexus → 생성된 비밀번호 복사',
+                        '아래에 Microsoft 이메일과 앱 비밀번호 입력',
+                      ],
+                      ph: isEn ? 'App password (from Microsoft)' : '앱 비밀번호 (Microsoft에서 발급)',
+                      emailPh: 'example@outlook.com',
+                    },
+                  }
+                  const h = GUIDES[emailProvider]
+                  const provColors: Record<string, string> = { naver: '#03c75a', daum: '#ff5722', outlook: '#0078d4' }
+                  const pc = provColors[emailProvider] ?? selectedStyle.primaryColor
+
+                  const handleEmailSave = async () => {
+                    if (!emailAddr || !emailPw) return
+                    setEmailTesting(true); setEmailError(''); setEmailResult('idle')
+                    try {
+                      const res = await fetch('http://127.0.0.1:17891/api/imap/accounts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: emailAddr, email: emailAddr, password: emailPw, provider: emailProvider }),
+                      })
+                      const data = await res.json() as { success: boolean; message?: string }
+                      if (data.success) { setEmailResult('ok') }
+                      else { setEmailResult('fail'); setEmailError(data.message ?? (isEn ? 'Connection failed' : '연결 실패')) }
+                    } catch {
+                      setEmailResult('fail'); setEmailError(isEn ? 'Backend not running' : '백엔드에 연결할 수 없습니다')
+                    } finally { setEmailTesting(false) }
+                  }
+
+                  return (
+                    <motion.div key={emailProvider} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 8,
+                        padding: '12px', borderRadius: 12,
+                        background: `${pc}0c`, border: `1px solid ${pc}25`,
+                      }}
+                    >
+                      {/* 단계별 가이드 */}
+                      <div style={{ fontSize: 11, fontWeight: 700, color: pc, marginBottom: 2 }}>
+                        {isEn ? '📋 Setup Guide' : '📋 연동 방법'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 4 }}>
+                        {h.steps.map((s, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <span style={{
+                              width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                              background: `${pc}33`, color: pc,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, fontWeight: 800,
+                            }}>{i + 1}</span>
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {emailResult === 'ok' ? (
+                        <div style={{ textAlign: 'center', padding: '8px 0', color: '#22c55e', fontWeight: 700, fontSize: 13 }}>
+                          ✅ {isEn ? 'Connected!' : '연동 완료!'} — {emailAddr}
+                        </div>
+                      ) : (
+                        <>
+                          <input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)}
+                            placeholder={h.emailPh}
+                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${emailAddr ? pc + '55' : 'rgba(255,255,255,0.12)'}`, borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                          <input type="password" value={emailPw} onChange={e => setEmailPw(e.target.value)}
+                            placeholder={h.ph}
+                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${emailPw ? pc + '55' : 'rgba(255,255,255,0.12)'}`, borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' as const }} />
+                          {emailError && <div style={{ fontSize: 11, color: '#ef4444' }}>❌ {emailError}</div>}
+                          <button onClick={() => void handleEmailSave()} disabled={emailTesting || !emailAddr || !emailPw}
+                            style={{ padding: '9px', borderRadius: 8, border: 'none',
+                              background: emailAddr && emailPw && !emailTesting ? `linear-gradient(135deg, ${pc}, ${pc}bb)` : 'rgba(255,255,255,0.08)',
+                              color: emailAddr && emailPw && !emailTesting ? '#fff' : 'rgba(255,255,255,0.3)',
+                              fontSize: 12, fontWeight: 700, cursor: emailAddr && emailPw && !emailTesting ? 'pointer' : 'not-allowed',
+                            }}>
+                            {emailTesting ? (isEn ? '⟳ Connecting...' : '⟳ 연결 중...') : (isEn ? 'Connect & Test' : '연결 테스트')}
+                          </button>
+                        </>
+                      )}
+                    </motion.div>
+                  )
+                })()}
 
                 {/* 관리자 로그인 토글 */}
                 <button
@@ -633,7 +1218,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 0',
                   }}
                 >
-                  {showAdminLogin ? '▲ 닫기' : '관리자 로그인'}
+                  {showAdminLogin ? '▲ Close' : 'Admin Login'}
                 </button>
 
                 {showAdminLogin && (
@@ -644,7 +1229,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   >
                     <input
                       type="email"
-                      placeholder="이메일"
+                      placeholder="Email"
                       value={loginEmail}
                       onChange={e => setLoginEmail(e.target.value)}
                       style={{
@@ -655,7 +1240,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     />
                     <input
                       type="password"
-                      placeholder="비밀번호"
+                      placeholder="Password"
                       value={loginPassword}
                       onChange={e => setLoginPassword(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
@@ -676,7 +1261,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                         fontSize: 13, fontWeight: 700, cursor: 'pointer',
                       }}
                     >
-                      로그인
+                      {isEn ? 'Login' : '로그인'}
                     </button>
                   </motion.div>
                 )}
@@ -688,7 +1273,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               }}>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80' }}>{googleEmail}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>7일 무료 체험 시작 준비 완료</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{isEn ? '3-day free trial ready to start' : '3일 무료 체험 시작 준비 완료'}</div>
               </div>
             )}
 
@@ -699,7 +1284,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               borderRadius: 12, padding: '14px 18px', marginTop: 16, fontSize: 12,
               color: 'rgba(255,255,255,0.6)', lineHeight: 2,
             }}>
-              {['✦ 모든 AI 기능 무제한 사용', '✦ 실시간 웹 검색 (Perplexity)', '✦ 자동 업데이트', '✦ 7일 후 월 9,900원 · 언제든 해지 가능'].map(t => (
+              {(isEn
+                ? ['✦ Unlimited access to all AI features', '✦ Deep Search · Real-time web search', '✦ Auto updates', '✦ Early Bird $12.99/mo after 3 days · Cancel anytime']
+                : ['✦ 모든 AI 기능 무제한 사용', '✦ 딥서치 · 실시간 웹 검색', '✦ 자동 업데이트', '✦ 3일 후 Early Bird 월 14,900원 · 언제든 해지 가능']
+              ).map(t => (
                 <div key={t}>{t}</div>
               ))}
             </div>
@@ -710,20 +1298,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               borderRadius: 12, padding: '14px 18px', marginTop: 12, fontSize: 13,
               color: 'rgba(255,255,255,0.7)', lineHeight: 1.8,
             }}>
-              <div>비서: <strong style={{ color: 'white' }}>{assistantName}</strong></div>
-              <div>호칭: <strong style={{ color: 'white' }}>{userInput || '주인님'}</strong></div>
-              <div>캐릭터: <strong style={{ color: selectedStyle.primaryColor }}>{selectedStyle.name}</strong></div>
-              <div>음성: <strong style={{ color: openaiKey.startsWith('sk-') ? '#4ade80' : 'rgba(255,255,255,0.4)' }}>
-                {openaiKey.startsWith('sk-') ? 'OpenAI TTS ✓' : '기본 음성'}
-              </strong></div>
+              <div>{isEn ? 'Assistant' : '비서'}: <strong style={{ color: 'white' }}>{assistantName}</strong></div>
+              <div>{isEn ? 'Your name' : '호칭'}: <strong style={{ color: 'white' }}>{userInput || (isEn ? 'Boss' : '주인님')}</strong></div>
+              <div>{isEn ? 'Character' : '캐릭터'}: <strong style={{ color: selectedStyle.primaryColor }}>{selectedStyle.name}</strong></div>
+              <div>{isEn ? 'Voice' : '음성'}: <strong style={{ color: 'rgba(255,255,255,0.4)' }}>{isEn ? 'Default voice' : '기본 음성'}</strong></div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
               {googleEmail
-                ? nextBtn(() => handleComplete(), `${assistantName} 시작하기 ✦`)
-                : <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>구글 로그인 후 시작할 수 있습니다</div>
+                ? nextBtn(() => void handleComplete(), isEn ? `Start with ${assistantName} ✦` : `${assistantName} 시작하기 ✦`)
+                : <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{isEn ? 'Sign in with Google to get started' : '구글 로그인 후 시작할 수 있습니다'}</div>
               }
-              {backBtn(() => setStep(4))}
+              {backBtn(() => setStep(4), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}

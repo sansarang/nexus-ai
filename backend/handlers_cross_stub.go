@@ -18,12 +18,6 @@ import (
 // Windows 전용 API(WMI, PowerShell) 없이 작동하는 기능들
 // ══════════════════════════════════════════════════════════════
 
-func nexusDataDir() string {
-	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, ".nexus")
-	os.MkdirAll(dir, 0755)
-	return dir
-}
 
 // ── 날씨 ──────────────────────────────────────────────────────
 
@@ -82,31 +76,6 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 
 // ── 캘린더 (로컬 파일 기반) ────────────────────────────────────
 
-type CalEvent struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Date     string `json:"date"`
-	Time     string `json:"time"`
-	Duration int    `json:"duration"`
-	Location string `json:"location"`
-}
-
-func calendarPath() string { return filepath.Join(nexusDataDir(), "calendar.json") }
-
-func loadEvents() []CalEvent {
-	data, err := os.ReadFile(calendarPath())
-	if err != nil {
-		return []CalEvent{}
-	}
-	var evs []CalEvent
-	json.Unmarshal(data, &evs)
-	return evs
-}
-
-func saveEvents(evs []CalEvent) {
-	data, _ := json.MarshalIndent(evs, "", "  ")
-	os.WriteFile(calendarPath(), data, 0644)
-}
 
 func handleCalendarToday(w http.ResponseWriter, r *http.Request) {
 	today := time.Now().Format("2006-01-02")
@@ -444,16 +413,37 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
+	eng := isEnglishQuery(req.Goal)
+	var sysPr, userMsg string
+	if eng {
+		sysPr = "You are Jarvis AI. Execute the given goal step by step and report the results clearly in English."
+		userMsg = "Goal: \"" + req.Goal + "\"\nSimulate executing each step and write a final completion report."
+	} else {
+		sysPr = "당신은 자비스 AI입니다. 주어진 목표를 단계별로 실행하고 결과를 보고하세요."
+		userMsg = "목표: \"" + req.Goal + "\"\n각 단계를 실행한 결과를 가정하여 최종 완료 보고를 작성해줘."
+	}
 	msgs := []groqMsg{
-		{Role: "system", Content: "당신은 자비스 AI입니다. 주어진 목표를 단계별로 실행하고 결과를 보고하세요."},
-		{Role: "user", Content: "목표: \"" + req.Goal + "\"\n각 단계를 실행한 결과를 가정하여 최종 완료 보고를 작성해줘."},
+		{Role: "system", Content: sysPr},
+		{Role: "user", Content: userMsg},
 	}
 	summary, _, _ := callGroq(gKey, groqChatModel, msgs, 500, false)
 	if summary == "" {
-		summary = "'" + req.Goal + "' 목표 처리를 완료했습니다."
+		if eng {
+			summary = "Goal '" + req.Goal + "' has been completed."
+		} else {
+			summary = "'" + req.Goal + "' 목표 처리를 완료했습니다."
+		}
+	}
+	var step1desc, step2result string
+	if eng {
+		step1desc = "Goal analysis and planning"
+		step2result = "done"
+	} else {
+		step1desc = "목표 분석 및 계획 수립"
+		step2result = "완료"
 	}
 	steps := []map[string]any{
-		{"step": 1, "description": "목표 분석 및 계획 수립", "status": "done", "result": "완료"},
+		{"step": 1, "description": step1desc, "status": "done", "result": step2result},
 		{"step": 2, "description": req.Goal, "status": "done", "result": summary},
 	}
 	json200(w, map[string]any{
@@ -465,5 +455,12 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 // ── Proactive 알림 ────────────────────────────────────────────
 
 func handleAlertLatest(w http.ResponseWriter, r *http.Request) {
-	json200(w, map[string]any{"alerts": []any{}})
+	macAlertMu.RLock()
+	alerts := make([]Alert, len(macLatestAlerts))
+	copy(alerts, macLatestAlerts)
+	macAlertMu.RUnlock()
+	if alerts == nil {
+		alerts = []Alert{}
+	}
+	json200(w, map[string]any{"alerts": alerts})
 }

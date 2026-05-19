@@ -12,13 +12,16 @@ const (
 	groqChatModel = pplxChatModel
 	groqFastModel = pplxFastModel
 
-	// Groq — Structured Outputs 전용 (Clarify 판단)
-	groqRealAPIBase    = "https://api.groq.com/openai/v1/chat/completions"
-	groqStructuredModel = "llama-3.1-8b-instant" // 131k TPM, rate limit 여유
+	// Groq — Structured Outputs 전용 (Clarify 판단) + Vision
+	groqRealAPIBase     = "https://api.groq.com/openai/v1/chat/completions"
+	groqAPIBase         = groqRealAPIBase                         // 테스트 호환 별칭
+	groqStructuredModel = "llama-3.1-8b-instant"                  // 131k TPM, rate limit 여유
+	groqVisionModel     = "meta-llama/llama-4-scout-17b-16e-instruct" // Vision 전용
 
-	// Claude (Anthropic) — fallback LLM
-	claudeModel   = "claude-sonnet-4-6"
-	claudeAPIBase = "https://api.anthropic.com/v1/messages"
+	// Claude (Anthropic)
+	claudeModel        = "claude-sonnet-4-6"
+	claudeHaikuModel   = "claude-haiku-4-5-20251001" // intent 분류 전용 (빠름·저렴)
+	claudeAPIBase      = "https://api.anthropic.com/v1/messages"
 )
 
 // groqMsg: OpenAI 호환 메시지 (Perplexity/Groq/OpenAI 공통 포맷)

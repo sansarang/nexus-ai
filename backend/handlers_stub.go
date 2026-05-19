@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -235,17 +236,7 @@ func handleEmailConfig(w http.ResponseWriter, r *http.Request)     {}
 func handleDocSummary(w http.ResponseWriter, r *http.Request)      {}
 func handleDocExportReport(w http.ResponseWriter, r *http.Request) {}
 
-// handlers_proactive.go stubs (SSE alert stream)
-func handleAlertStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Write([]byte("data: {\"type\":\"connected\"}\n\n"))
-	if f, ok := w.(http.Flusher); ok { f.Flush() }
-	<-r.Context().Done()
-}
-func publishAlert(a Alert) {}
+// handlers_proactive.go stubs (SSE alert stream) — Mac 실제 구현
 
 type Alert struct {
 	ID        string `json:"id"`
@@ -254,4 +245,126 @@ type Alert struct {
 	Message   string `json:"message"`
 	Action    string `json:"action,omitempty"`
 	Dismissed bool   `json:"dismissed"`
+}
+
+var (
+	macAlertClients  = map[chan Alert]struct{}{}
+	macAlertMu       sync.RWMutex
+	macLatestAlerts  []Alert
+)
+
+func publishAlert(a Alert) {
+	macAlertMu.Lock()
+	macLatestAlerts = append([]Alert{a}, macLatestAlerts...)
+	if len(macLatestAlerts) > 20 {
+		macLatestAlerts = macLatestAlerts[:20]
+	}
+	for ch := range macAlertClients {
+		select {
+		case ch <- a:
+		default:
+		}
+	}
+	macAlertMu.Unlock()
+}
+
+func handleAlertStream(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Write([]byte("data: {\"type\":\"connected\"}\n\n"))
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	ch := make(chan Alert, 8)
+	macAlertMu.Lock()
+	macAlertClients[ch] = struct{}{}
+	macAlertMu.Unlock()
+	defer func() {
+		macAlertMu.Lock()
+		delete(macAlertClients, ch)
+		macAlertMu.Unlock()
+	}()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case a := <-ch:
+			data, _ := json.Marshal(a)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
+	}
+}
+
+// startMacProactiveMonitor: Mac 시스템 리소스 모니터링 (30초 간격)
+func startMacProactiveMonitor() {
+	go func() {
+		time.Sleep(10 * time.Second) // 앱 시작 후 10초 대기
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			checkMacSystemStats()
+		}
+	}()
+}
+
+func checkMacSystemStats() {
+	eng := IsUserEng()
+	// CPU 체크
+	out, err := exec.Command("sh", "-c", "top -l 1 -n 0 | grep 'CPU usage'").Output()
+	if err == nil {
+		line := string(out)
+		if idx := strings.Index(line, "idle"); idx > 0 {
+			parts := strings.Fields(line[:idx])
+			if len(parts) > 0 {
+				idleStr := strings.TrimSuffix(parts[len(parts)-1], "%")
+				if idle, err2 := strconv.ParseFloat(idleStr, 64); err2 == nil {
+					cpu := 100 - idle
+					if cpu > 85 {
+						var title, msg string
+						if eng {
+							title = "High CPU Usage"
+							msg = fmt.Sprintf("CPU usage is %.0f%%. Consider closing unused apps.", cpu)
+						} else {
+							title = "CPU 사용량 높음"
+							msg = fmt.Sprintf("CPU 사용량이 %.0f%%입니다. 불필요한 앱을 닫아보세요.", cpu)
+						}
+						publishAlert(Alert{
+							ID: fmt.Sprintf("cpu_%d", time.Now().Unix()),
+							Level: "warning", Title: title, Message: msg,
+						})
+					}
+				}
+			}
+		}
+	}
+	// 디스크 체크
+	out2, err2 := exec.Command("df", "-H", "/").Output()
+	if err2 == nil {
+		lines := strings.Split(string(out2), "\n")
+		if len(lines) > 1 {
+			fields := strings.Fields(lines[1])
+			if len(fields) >= 5 {
+				pctStr := strings.TrimSuffix(fields[4], "%")
+				if pct, err3 := strconv.ParseFloat(pctStr, 64); err3 == nil && pct > 90 {
+					var title, msg string
+					if eng {
+						title = "Low Disk Space"
+						msg = fmt.Sprintf("Disk usage is %.0f%%. Free up space soon.", pct)
+					} else {
+						title = "디스크 공간 부족"
+						msg = fmt.Sprintf("디스크 사용량이 %.0f%%입니다. 정리가 필요합니다.", pct)
+					}
+					publishAlert(Alert{
+						ID: fmt.Sprintf("disk_%d", time.Now().Unix()),
+						Level: "warning", Title: title, Message: msg,
+					})
+				}
+			}
+		}
+	}
 }

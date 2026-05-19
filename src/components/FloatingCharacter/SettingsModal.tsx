@@ -196,7 +196,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                 {/* 구독하기 버튼 — Paddle Checkout */}
                 {(subscriptionStatus === 'expired' || subscriptionStatus === 'none' || subscriptionStatus === 'trial') && (
                   <button
-                    onClick={() => openCheckout(userEmail)}
+                    onClick={() => openCheckout(userEmail, localStorage.getItem('nexus-user-id') ?? undefined)}
                     style={{
                       padding: '12px', borderRadius: 10, border: 'none', cursor: 'pointer',
                       background: `linear-gradient(135deg,${primaryColor},${primaryColor}cc)`,

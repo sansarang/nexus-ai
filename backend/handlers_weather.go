@@ -16,12 +16,14 @@ import (
 //  Weather + Travel Time — 무료 API (키 불필요)
 // ══════════════════════════════════════════════════════════════════
 
-// GET /api/weather?city=서울
+// GET /api/weather?city=서울&lang=en
 func handleWeather(w http.ResponseWriter, r *http.Request) {
 	city := r.URL.Query().Get("city")
+	lang := r.URL.Query().Get("lang")
 	if city == "" {
 		city = "Seoul"
 	}
+	eng := lang == "en" || (lang == "" && isEnglishQuery(city))
 
 	apiURL := "https://wttr.in/" + url.PathEscape(city) + "?format=j1"
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -30,7 +32,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "날씨 데이터 가져오기 실패: " + err.Error()})
+		msg := "날씨 데이터 가져오기 실패: " + err.Error()
+		if eng { msg = "Failed to fetch weather data: " + err.Error() }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 	defer resp.Body.Close()
@@ -39,7 +43,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 	var wttr map[string]interface{}
 	if err := json.Unmarshal(body, &wttr); err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "날씨 데이터 파싱 실패"})
+		msg := "날씨 데이터 파싱 실패"
+		if eng { msg = "Failed to parse weather data" }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 
@@ -90,6 +96,12 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var weatherMsg string
+	if eng {
+		weatherMsg = fmt.Sprintf("%s: %.0f°C, %s", city, tempC, condition)
+	} else {
+		weatherMsg = fmt.Sprintf("%s 현재 %.0f°C, %s", city, tempC, condition)
+	}
 	json200(w, map[string]interface{}{
 		"success":    true,
 		"city":       city,
@@ -99,7 +111,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 		"humidity":   humidity,
 		"wind_kmh":   windKmh,
 		"forecast":   forecast,
-		"message":    fmt.Sprintf("%s 현재 %.0f°C, %s", city, tempC, condition),
+		"message":    weatherMsg,
 	})
 }
 
@@ -128,8 +140,11 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
+	tEng := isEnglishQuery(req.Origin + " " + req.Destination)
 	if req.Origin == "" || req.Destination == "" {
-		json200(w, map[string]interface{}{"success": false, "message": "origin과 destination이 필요해요"})
+		msg := "origin과 destination이 필요해요"
+		if tEng { msg = "origin and destination are required" }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 
@@ -138,12 +153,16 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 	// Geocoding
 	originCoords, err := geocode(client, req.Origin)
 	if err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "출발지 좌표 검색 실패: " + err.Error()})
+		msg := "출발지 좌표 검색 실패: " + err.Error()
+		if tEng { msg = "Failed to locate origin: " + err.Error() }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 	destCoords, err := geocode(client, req.Destination)
 	if err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "목적지 좌표 검색 실패: " + err.Error()})
+		msg := "목적지 좌표 검색 실패: " + err.Error()
+		if tEng { msg = "Failed to locate destination: " + err.Error() }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 
@@ -157,7 +176,9 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 	osrmReq.Header.Set("User-Agent", "NexusAssistant/1.0")
 	osrmResp, err := client.Do(osrmReq)
 	if err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "경로 계산 실패: " + err.Error()})
+		msg := "경로 계산 실패: " + err.Error()
+		if tEng { msg = "Route calculation failed: " + err.Error() }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 	defer osrmResp.Body.Close()
@@ -172,7 +193,9 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(body, &osrmData)
 
 	if len(osrmData.Routes) == 0 {
-		json200(w, map[string]interface{}{"success": false, "message": "경로를 찾을 수 없어요"})
+		msg := "경로를 찾을 수 없어요"
+		if tEng { msg = "No route found" }
+		json200(w, map[string]interface{}{"success": false, "message": msg})
 		return
 	}
 
@@ -192,6 +215,12 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 		arrivalTime = arrival.Format("15:04")
 	}
 
+	var travelMsg string
+	if tEng {
+		travelMsg = fmt.Sprintf("%s → %s: %.1f km, ~%d min, ETA %s", req.Origin, req.Destination, distKm, durMin, arrivalTime)
+	} else {
+		travelMsg = fmt.Sprintf("%s → %s: %.1fkm, 약 %d분 소요, 도착 예상 %s", req.Origin, req.Destination, distKm, durMin, arrivalTime)
+	}
 	json200(w, map[string]interface{}{
 		"success":        true,
 		"origin":         req.Origin,
@@ -200,7 +229,7 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 		"duration_min":   durMin,
 		"departure_time": departureTime,
 		"arrival_time":   arrivalTime,
-		"message":        fmt.Sprintf("%s → %s: %.1fkm, 약 %d분 소요, 도착 예상 %s", req.Origin, req.Destination, distKm, durMin, arrivalTime),
+		"message":        travelMsg,
 	})
 }
 

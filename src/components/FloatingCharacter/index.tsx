@@ -252,6 +252,7 @@ export function FloatingCharacter() {
   const [chatOpen, setChatOpen]           = useState(false)
   const [messages, setMessages]           = useState<ChatMessage[]>([])
   const [typing, setTyping]               = useState(false)
+  const [typingSteps, setTypingSteps]     = useState<string[]>([])
   const [emotion, setEmotion]             = useState<'neutral'|'happy'|'concerned'|'alert'|'humorous'>('neutral')
   const [speaking, setSpeaking]           = useState(false)
   const [listening, setListening]         = useState(false)
@@ -410,7 +411,7 @@ export function FloatingCharacter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantName, micEnabled])
 
-  /* ── 백엔드 연결 상태 초기 체크 + 페르소나 로딩 + API 키 동기화 ── */
+  /* ── 백엔드 연결 상태 초기 체크 + 페르소나 로딩 + API 키 동기화 + 언어 동기화 ── */
   useEffect(() => {
     const connectAndSync = async () => {
       const status = await checkBackendHealth()
@@ -419,6 +420,16 @@ export function FloatingCharacter() {
         try {
           const { syncAPIKeysToBackend } = await import('../../lib/nexus/gemini_engine')
           await syncAPIKeysToBackend()
+        } catch { /* 무시 */ }
+
+        // 백엔드에 현재 localStorage 언어 설정 동기화 (자동화 기능이 올바른 언어 사용하도록)
+        try {
+          const savedLang = localStorage.getItem('nexus-lang') ?? 'ko'
+          await fetch('http://localhost:17891/api/settings/lang', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang: savedLang }),
+          })
         } catch { /* 무시 */ }
       }
       return status
@@ -2415,10 +2426,22 @@ export function FloatingCharacter() {
     // ── 1순위: Go 백엔드 /api/command (LLM 자동 라우팅 + 멀티턴) ─
     if (backendStatus === 'connected') {
       try {
-        const isSearchQuery = /검색|찾아|뉴스|날씨|쇼핑|가격|web_search/i.test(trimmed)
-        const thinkSteps = isSearchQuery
-          ? ['요청 분석 중...', '실시간 검색 중...', 'AI 요약 중...']
-          : ['요청 분석 중...', '실행 중...']
+        const getThinkSteps = (msg: string): string[] => {
+          const m = msg.toLowerCase()
+          if (/주가|코스피|나스닥|비트코인|코인|etf|ticker/i.test(m)) return ['📊 주가 데이터 조회 중...', '실시간 시세 가져오는 중...', '결과 정리 중...']
+          if (/환율|달러|엔화|유로|위안|환전/i.test(m)) return ['💱 환율 데이터 가져오는 중...', '최신 환율 계산 중...']
+          if (/화면|스크린|screenshot|screen/i.test(m)) return ['🖥️ 화면 캡처 중...', 'AI 이미지 분석 중...', '결과 정리 중...']
+          if (/클립보드|복사한|방금 복사/i.test(m)) return ['📋 클립보드 읽는 중...', 'AI 처리 중...', '결과 정리 중...']
+          if (/파일|폴더|정리|downloads|바탕화면/i.test(m)) return ['📁 파일 스캔 중...', '분류 기준 적용 중...', '정리 완료 준비 중...']
+          if (/날씨|기온|미세먼지|비|눈/i.test(m)) return ['🌤️ 날씨 데이터 가져오는 중...', '현재 위치 확인 중...']
+          if (/번역|translat/i.test(m)) return ['🌐 번역 중...', '결과 정리 중...']
+          if (/검색|찾아|뉴스|알려줘|리서치|조사/i.test(m)) return ['🔍 웹 검색 중...', '실시간 결과 수집 중...', 'AI 요약 중...']
+          if (/앱.*켜|열어|실행|launch/i.test(m)) return ['🚀 앱 실행 중...']
+          if (/자세히|깊게|deep|분석/i.test(m)) return ['🔬 심층 리서치 시작...', '여러 소스 검색 중...', 'AI 종합 분석 중...']
+          return ['🤔 요청 분석 중...', '처리 중...']
+        }
+        const thinkSteps = getThinkSteps(trimmed)
+        setTypingSteps(thinkSteps)
         setMessages(prev => [...prev, {
           id: `think-${msgId}`, role: 'nexus', text: '',
           inlineCard: { type: 'agent_thinking', steps: thinkSteps },
@@ -2436,13 +2459,14 @@ export function FloatingCharacter() {
           pendingParams:   clarifyPendingParams   ?? undefined,
           pendingQuestion: clarifyPendingQuestion ?? undefined,
           history:         recentHistory,
+          userEmail:       localStorage.getItem('nexus-user-email') ?? '',
         })
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
 
         if (cmd.success) {
           // ── clarify: 추가 질문 필요 ──────────────────────────
           if (cmd.action === 'clarify' && cmd.needs_clarify) {
-            const question = cmd.clarify_question || cmd.message || '조금 더 알려주세요.'
+            const question = cmd.clarify_question || cmd.message || (detectedLang === 'en' ? 'Could you provide more details?' : '조금 더 알려주세요.')
             setClarifyPendingIntent(cmd.pending_intent ?? null)
             setClarifyPendingParams((cmd.pending_params as Record<string, unknown>) ?? null)
             setClarifyPendingQuestion(question)
@@ -3350,6 +3374,7 @@ export function FloatingCharacter() {
               historyVersion={historyVersion}
               clarifyPending={!!clarifyPendingIntent}
               clarifyQuestion={clarifyPendingQuestion ?? ''}
+              typingSteps={typingSteps}
             />
           </motion.div>
         )}
@@ -3685,7 +3710,7 @@ export function FloatingCharacter() {
           ⚠️ 구독이 만료되었습니다. AI 기능이 제한됩니다.
         </span>
         <button
-          onClick={() => { import('../../lib/paddle').then(m => m.openCheckout(userEmail)) }}
+          onClick={() => { import('../../lib/paddle').then(m => m.openCheckout(userEmail, localStorage.getItem('nexus-user-id') ?? undefined)) }}
           style={{
             padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
             background: '#f87171', color: 'white', fontSize: 12, fontWeight: 700,

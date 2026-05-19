@@ -153,8 +153,14 @@ func handleMeetingSummarize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	systemPrompt := "당신은 회의록 요약 전문가입니다. 다음 회의 내용을 분석하여 JSON으로만 응답하세요:\n" +
-		"{\"summary\": \"회의 전체 요약 (3-5문장)\", \"action_items\": [\"실행 항목\"], \"decisions\": [\"결정 사항\"]}"
+	var systemPrompt string
+	if isEnglishQuery(req.Text) {
+		systemPrompt = "You are a meeting notes expert. Analyze the following meeting content and respond ONLY in JSON:\n" +
+			"{\"summary\": \"Overall meeting summary (3-5 sentences)\", \"action_items\": [\"action item\"], \"decisions\": [\"decision made\"]}"
+	} else {
+		systemPrompt = "당신은 회의록 요약 전문가입니다. 다음 회의 내용을 분석하여 JSON으로만 응답하세요:\n" +
+			"{\"summary\": \"회의 전체 요약 (3-5문장)\", \"action_items\": [\"실행 항목\"], \"decisions\": [\"결정 사항\"]}"
+	}
 
 	msgs := []groqMsg{
 		{Role: "system", Content: systemPrompt},

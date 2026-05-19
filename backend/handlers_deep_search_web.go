@@ -188,7 +188,23 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		kst := time.FixedZone("KST", 9*3600)
 		today := time.Now().In(kst).Format("2006-01-02 15:04 KST")
 		cat := detectCategory(req.Query)
-		sysMsg := fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
+		var sysMsg, userMsg string
+		if isEnglishQuery(req.Query) {
+			sysMsg = fmt.Sprintf(`You are Nexus AI assistant.
+
+[Rules]
+1. No URLs, links, or source names
+2. Do not guess content not in the search results
+3. Answer in natural English, 3-5 sentences
+4. No markdown headers (##), bullets, or emojis
+5. If results are insufficient, guide to the official site (never end with "I don't know")
+
+[Fallback guidance]
+%s`, buildOfficialSiteHint(cat))
+			userMsg = fmt.Sprintf("Current time: %s\nQuestion: \"%s\"\nSearch result titles:\n%s\n\nAnswer based only on the search results above. Do not guess anything not in the results.",
+				today, req.Query, strings.Join(titleLines, "\n"))
+		} else {
+			sysMsg = fmt.Sprintf(`당신은 Nexus AI 한국어 비서입니다.
 
 [규칙]
 1. URL, 링크, 출처명 절대 포함 금지
@@ -198,9 +214,10 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 5. 결과가 부족하면 공식 사이트 안내 (절대 "모른다"로 끝내지 말 것)
 
 [결과 부족 시 안내]
-%s`, buildOfficialSiteHint(cat))
-		userMsg := fmt.Sprintf("현재 시각(KST): %s\n질문: \"%s\"\n검색된 콘텐츠 제목:\n%s\n\n⚠️ 시간을 언급할 때 반드시 KST(한국 표준시) 기준으로 표현하세요. UTC 표기 절대 금지.\n위 검색 결과만 근거로 질문에 직접 답하세요. 결과에 없는 내용은 절대 추측하지 마세요.",
-			today, req.Query, strings.Join(titleLines, "\n"))
+%s`, buildOfficialSiteHintKo(cat))
+			userMsg = fmt.Sprintf("현재 시각(KST): %s\n질문: \"%s\"\n검색된 콘텐츠 제목:\n%s\n\n⚠️ 시간을 언급할 때 반드시 KST(한국 표준시) 기준으로 표현하세요. UTC 표기 절대 금지.\n위 검색 결과만 근거로 질문에 직접 답하세요. 결과에 없는 내용은 절대 추측하지 마세요.",
+				today, req.Query, strings.Join(titleLines, "\n"))
+		}
 		msgs := []groqMsg{
 			{Role: "system", Content: sysMsg},
 			{Role: "user", Content: userMsg},
@@ -209,10 +226,18 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if finalSummary == "" {
-		if len(allItems) > 0 {
-			finalSummary = fmt.Sprintf("검색 결과 %d개를 찾았습니다. 오른쪽 미리보기 버튼으로 직접 확인해보세요.", len(allItems))
+		if isEnglishQuery(req.Query) {
+			if len(allItems) > 0 {
+				finalSummary = fmt.Sprintf("Found %d search results. Click the preview buttons on the right to explore them.", len(allItems))
+			} else {
+				finalSummary = fmt.Sprintf(`No results found for "%s". Try different keywords.`, req.Query)
+			}
 		} else {
-			finalSummary = fmt.Sprintf(`"%s"에 대한 검색 결과를 찾지 못했습니다. 검색어를 바꿔서 다시 시도해보세요.`, req.Query)
+			if len(allItems) > 0 {
+				finalSummary = fmt.Sprintf("검색 결과 %d개를 찾았습니다. 오른쪽 미리보기 버튼으로 직접 확인해보세요.", len(allItems))
+			} else {
+				finalSummary = fmt.Sprintf(`"%s"에 대한 검색 결과를 찾지 못했습니다. 검색어를 바꿔서 다시 시도해보세요.`, req.Query)
+			}
 		}
 	}
 

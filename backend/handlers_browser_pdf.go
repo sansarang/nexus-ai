@@ -118,12 +118,22 @@ func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
 		for _, p := range products {
 			productLines = append(productLines, fmt.Sprintf("%s위: %s — %s", p["rank"], p["name"], p["price"]))
 		}
-		summaryPrompt := fmt.Sprintf(`검색어: "%s"
+		var summaryPrompt string
+		if isEnglishQuery(req.Query) {
+			summaryPrompt = fmt.Sprintf(`Search: "%s"
+Collected products:
+%s
+
+Analyze these products and write a 3-4 line buying guide in English. Use lowest price, best performance, and best value criteria.`,
+				req.Query, strings.Join(productLines, "\n"))
+		} else {
+			summaryPrompt = fmt.Sprintf(`검색어: "%s"
 수집된 제품:
 %s
 
 위 제품들을 분석해서 구매 추천 가이드를 3-4줄로 한국어로 작성해주세요. 최저가, 최고 성능, 가성비 기준으로.`,
-			req.Query, strings.Join(productLines, "\n"))
+				req.Query, strings.Join(productLines, "\n"))
+		}
 		summary, _, _ := callGroq(gKey, groqChatModel, []groqMsg{{Role: "user", Content: summaryPrompt}}, 512, false)
 		if summary != "" {
 			result.Summary = summary

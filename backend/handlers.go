@@ -206,8 +206,15 @@ var (
 	globalMemoryStatus = kernel32.NewProc("GlobalMemoryStatusEx")
 )
 
+func getSystemDrive() string {
+	if d := os.Getenv("SystemDrive"); d != "" {
+		return d + `\`
+	}
+	return `C:\`
+}
+
 func getDiskSpace() (free, total uint64) {
-	drive, _ := syscall.UTF16PtrFromString("C:\\")
+	drive, _ := syscall.UTF16PtrFromString(getSystemDrive())
 	var freeBytes, totalBytes, totalFreeBytes uint64
 	getDiskFreeSpaceEx.Call(
 		uintptr(unsafe.Pointer(drive)),
@@ -444,7 +451,7 @@ func handleAutoClean(w http.ResponseWriter, r *http.Request) {
 }
 
 func cleanWindowsUpdateCacheInline() int64 {
-	dir := `C:\Windows\SoftwareDistribution\Download`
+	dir := getSystemDrive() + `Windows\SoftwareDistribution\Download`
 	freed := dirSize(dir)
 	exec.Command("net", "stop", "wuauserv").Run()
 	entries, _ := os.ReadDir(dir)
@@ -471,7 +478,7 @@ func cleanBrowserCacheInline() int64 {
 }
 
 func cleanPrefetchInline() int64 {
-	dir := `C:\Windows\Prefetch`
+	dir := getSystemDrive() + `Windows\Prefetch`
 	freed := dirSize(dir)
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {

@@ -96,6 +96,7 @@ type AgentStep struct {
 
 // orchestrate: 목표를 분석해 어떤 에이전트들이 어떤 순서로 실행할지 결정
 func orchestrate(goal, gKey string) (AgentPlan, error) {
+	eng := isEnglishQuery(goal)
 	agentList := ""
 	for _, a := range registeredAgents {
 		agentList += fmt.Sprintf("- %s: %s\n", a.Name, a.Capability)
@@ -127,10 +128,11 @@ Rules:
 		{Role: "user", Content: "Goal: " + goal},
 	}, 600, true)
 	if err != nil {
-		return AgentPlan{}, fmt.Errorf("오케스트레이터 실패: %w", err)
+		msg := "오케스트레이터 실패: " + err.Error()
+		if eng { msg = "Orchestrator failed: " + err.Error() }
+		return AgentPlan{}, fmt.Errorf(msg)
 	}
 
-	// JSON 추출
 	clean := strings.TrimSpace(raw)
 	if idx := strings.Index(clean, "{"); idx >= 0 {
 		clean = clean[idx:]
@@ -141,7 +143,9 @@ Rules:
 
 	var plan AgentPlan
 	if err := json.Unmarshal([]byte(clean), &plan); err != nil {
-		return AgentPlan{}, fmt.Errorf("플랜 파싱 실패: %w", err)
+		msg := "플랜 파싱 실패: " + err.Error()
+		if eng { msg = "Plan parsing failed: " + err.Error() }
+		return AgentPlan{}, fmt.Errorf(msg)
 	}
 
 	for i := range plan.Steps {
@@ -160,7 +164,9 @@ func executeAgentStep(step *AgentStep, previousResults map[int]string, gKey stri
 			break
 		}
 	}
+	stepEng := isEnglishQuery(step.SubGoal)
 	if agentDef == nil {
+		if stepEng { return fmt.Sprintf("[%s] agent not found", step.Agent) }
 		return fmt.Sprintf("[%s] 에이전트를 찾을 수 없습니다", step.Agent)
 	}
 
@@ -168,7 +174,11 @@ func executeAgentStep(step *AgentStep, previousResults map[int]string, gKey stri
 	context := ""
 	for _, dep := range step.DependsOn {
 		if res, ok := previousResults[dep]; ok {
-			context += fmt.Sprintf("\n[Step %d 결과]: %s", dep, res)
+			if stepEng {
+				context += fmt.Sprintf("\n[Step %d result]: %s", dep, res)
+			} else {
+				context += fmt.Sprintf("\n[Step %d 결과]: %s", dep, res)
+			}
 		}
 	}
 
@@ -179,7 +189,7 @@ func executeAgentStep(step *AgentStep, previousResults map[int]string, gKey stri
 		return result.Summary
 
 	case "FileAgent":
-		// 파일 검색 실행
+		if stepEng { return fmt.Sprintf("File Agent: '%s' completed", step.SubGoal) }
 		return fmt.Sprintf("파일 에이전트: '%s' 작업 완료", step.SubGoal)
 
 	case "OptimizerAgent":
@@ -189,6 +199,7 @@ func executeAgentStep(step *AgentStep, previousResults map[int]string, gKey stri
 		if total > 0 {
 			diskPct = 100 - float64(free)/float64(total)*100
 		}
+		if stepEng { return fmt.Sprintf("PC status: Memory %d%% used, Disk %.0f%% used", mem, diskPct) }
 		return fmt.Sprintf("PC 상태: 메모리 %d%% 사용, 디스크 %.0f%% 사용", mem, diskPct)
 
 	case "DesktopAgent":
@@ -307,9 +318,18 @@ func runMultiAgentPlan(task *AgentTask, plan AgentPlan, gKey string) {
 	// Groq로 최종 요약
 	combined := strings.Join(finalParts, "\n\n")
 	if gKey != "" && combined != "" {
+		eng := isEnglishQuery(plan.Goal)
+		var synthSys, synthUser string
+		if eng {
+			synthSys = "You are Nexus AI. Synthesize the results from multiple agents into a clear, concise English summary for the user."
+			synthUser = fmt.Sprintf("Goal: %s\n\nAgent results:\n%s\n\nSummarize these results for the user in natural English.", plan.Goal, combined)
+		} else {
+			synthSys = "You are Nexus AI. Synthesize the results from multiple agents into a clear, concise Korean summary for the user."
+			synthUser = fmt.Sprintf("목표: %s\n\n에이전트 결과:\n%s\n\n위 결과를 종합해서 사용자에게 자연스러운 한국어로 보고해주세요.", plan.Goal, combined)
+		}
 		summary, _, err := callGroq(gKey, groqChatModel, []groqMsg{
-			{Role: "system", Content: "You are Nexus. Synthesize the results from multiple agents into a clear, concise Korean summary for the user."},
-			{Role: "user", Content: fmt.Sprintf("목표: %s\n\n에이전트 결과:\n%s\n\n위 결과를 종합해서 사용자에게 자연스러운 한국어로 보고해주세요.", plan.Goal, combined)},
+			{Role: "system", Content: synthSys},
+			{Role: "user", Content: synthUser},
 		}, 500, false)
 		if err == nil && summary != "" {
 			task.Result = map[string]any{
@@ -337,8 +357,11 @@ func handleMultiAgentRun(w http.ResponseWriter, r *http.Request) {
 		Goal string `json:"goal"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	maEng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
-		json200(w, map[string]any{"success": false, "message": "goal이 필요합니다"})
+		msg := "goal이 필요합니다"
+		if maEng { msg = "goal is required" }
+		json200(w, map[string]any{"success": false, "message": msg})
 		return
 	}
 
@@ -347,28 +370,36 @@ func handleMultiAgentRun(w http.ResponseWriter, r *http.Request) {
 	llmMu.RUnlock()
 
 	if gKey == "" {
-		json200(w, map[string]any{"success": false, "message": "Groq API 키가 필요합니다"})
+		msg := "Groq API 키가 필요합니다"
+		if maEng { msg = "Groq API key is required" }
+		json200(w, map[string]any{"success": false, "message": msg})
 		return
 	}
 
 	task := globalTaskQueue.Enqueue("Multi-Agent: "+req.Goal, PriorityNormal, map[string]any{"goal": req.Goal},
 		func(t *AgentTask) {
-			t.UpdateProgress(5, "목표 분석 중...")
+			if maEng { t.UpdateProgress(5, "Analyzing goal...") } else { t.UpdateProgress(5, "목표 분석 중...") }
 			plan, err := orchestrate(req.Goal, gKey)
 			if err != nil {
 				t.Status = TaskFailed
 				t.Error = err.Error()
 				return
 			}
-			t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
+			if maEng {
+				t.UpdateProgress(10, fmt.Sprintf("%d agents assigned", len(plan.Steps)))
+			} else {
+				t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
+			}
 			runMultiAgentPlan(t, plan, gKey)
 		},
 	)
 
+	startMsg := fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal)
+	if maEng { startMsg = fmt.Sprintf("Multi-Agent started: '%s'", req.Goal) }
 	json200(w, map[string]any{
 		"success": true,
 		"task_id": task.ID,
-		"message": fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal),
+		"message": startMsg,
 	})
 }
 
@@ -392,8 +423,10 @@ func handleMultiAgentPlan(w http.ResponseWriter, r *http.Request) {
 		Goal string `json:"goal"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	planEng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
-		json200(w, map[string]any{"success": false, "message": "goal이 필요합니다"})
+		msg := "goal이 필요합니다"; if planEng { msg = "goal is required" }
+		json200(w, map[string]any{"success": false, "message": msg})
 		return
 	}
 
@@ -416,8 +449,10 @@ func handleMultiAgentRunV2(w http.ResponseWriter, r *http.Request) {
 		Agents []string `json:"agents"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	v2Eng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
-		json200(w, map[string]any{"success": false, "message": "goal이 필요합니다"})
+		msg := "goal이 필요합니다"; if v2Eng { msg = "goal is required" }
+		json200(w, map[string]any{"success": false, "message": msg})
 		return
 	}
 
@@ -428,22 +463,28 @@ func handleMultiAgentRunV2(w http.ResponseWriter, r *http.Request) {
 	task := globalTaskQueue.Enqueue("Multi-Agent: "+req.Goal, PriorityNormal,
 		map[string]any{"goal": req.Goal, "agents": req.Agents},
 		func(t *AgentTask) {
-			t.UpdateProgress(5, "목표 분석 중...")
+			if v2Eng { t.UpdateProgress(5, "Analyzing goal...") } else { t.UpdateProgress(5, "목표 분석 중...") }
 			plan, err := orchestrate(req.Goal, gKey)
 			if err != nil {
 				t.Status = TaskFailed
 				t.Error = err.Error()
 				return
 			}
-			t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
+			if v2Eng {
+				t.UpdateProgress(10, fmt.Sprintf("%d agents assigned", len(plan.Steps)))
+			} else {
+				t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
+			}
 			runMultiAgentPlan(t, plan, gKey)
 		},
 	)
 
+	v2Msg := fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal)
+	if v2Eng { v2Msg = fmt.Sprintf("Multi-Agent started: '%s'", req.Goal) }
 	json200(w, map[string]any{
 		"success": true,
 		"task_id": task.ID,
-		"message": fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal),
+		"message": v2Msg,
 	})
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -53,7 +54,7 @@ func tavilySearchImages(apiKey, query string, maxItems int) ([]string, bool) {
 		return nil, false
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
 	var data struct {
 		Images []string `json:"images"`
 	}
@@ -93,7 +94,7 @@ func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavi
 	if resp.StatusCode != 200 {
 		return tavilyResult{}, false
 	}
-	raw, _ := io.ReadAll(resp.Body)
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
 	var data struct {
 		Results []struct {
 			Title   string `json:"title"`
@@ -134,23 +135,27 @@ func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavi
 	items := make([]map[string]string, 0, len(data.Results))
 	contentLines := make([]string, 0, len(data.Results))
 	for _, r := range data.Results {
-		// 봇 차단된 결과는 items에는 추가하되, content는 LLM에 전달하지 않음
-		items = append(items, map[string]string{"title": r.Title, "url": r.URL})
+		item := map[string]string{"title": r.Title, "url": r.URL}
+
 		if isBotBlocked(r.Content) {
+			items = append(items, item)
 			continue
 		}
 		// URL·블로그 메타 제거 후 핵심 텍스트만 추출
 		snippet := urlPattern.ReplaceAllString(r.Content, "")
 		snippet = junkPattern.ReplaceAllString(snippet, "")
-		// 연속 공백/개행 정리
 		snippet = strings.Join(strings.Fields(snippet), " ")
-		if len([]rune(snippet)) > 200 {
+
+		// 파일 저장용: 300자까지 content에 포함
+		if len([]rune(snippet)) > 300 {
 			runes := []rune(snippet)
-			snippet = string(runes[:200])
+			snippet = string(runes[:300]) + "..."
 		}
 		if snippet != "" {
+			item["content"] = snippet
 			contentLines = append(contentLines, fmt.Sprintf("• %s: %s", r.Title, snippet))
 		}
+		items = append(items, item)
 	}
 
 	// Tavily answer가 있으면 그걸 우선 (이미 자연어 요약)
@@ -161,6 +166,87 @@ func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavi
 	}
 
 	return tavilyResult{Summary: summary, Items: items}, true
+}
+
+// ddgSimpleResult: DuckDuckGo 결과 내부 타입 (Windows/Mac 공통)
+type ddgSimpleResult struct {
+	Title   string
+	URL     string
+	Content string
+}
+
+// searchDDGSimple: DuckDuckGo instant API — OS 무관 공통 구현
+func searchDDGSimple(query string, limit int) []ddgSimpleResult {
+	params := url.Values{}
+	params.Set("q", query)
+	params.Set("format", "json")
+	params.Set("no_html", "1")
+	apiURL := "https://api.duckduckgo.com/?" + params.Encode()
+	client := &http.Client{Timeout: 8 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	var raw struct {
+		AbstractText  string `json:"AbstractText"`
+		AbstractURL   string `json:"AbstractURL"`
+		AbstractTitle string `json:"AbstractTitle"`
+		RelatedTopics []struct {
+			Text     string `json:"Text"`
+			FirstURL string `json:"FirstURL"`
+		} `json:"RelatedTopics"`
+	}
+	if json.Unmarshal(body, &raw) != nil {
+		return nil
+	}
+	var results []ddgSimpleResult
+	if raw.AbstractText != "" && raw.AbstractURL != "" {
+		results = append(results, ddgSimpleResult{Title: raw.AbstractTitle, URL: raw.AbstractURL, Content: raw.AbstractText})
+	}
+	for i, t := range raw.RelatedTopics {
+		if i+1 >= limit || t.FirstURL == "" {
+			break
+		}
+		title := t.Text
+		if idx := strings.Index(title, " - "); idx != -1 {
+			title = title[:idx]
+		}
+		results = append(results, ddgSimpleResult{Title: title, URL: t.FirstURL, Content: t.Text})
+	}
+	return results
+}
+
+// webSearchWithFallback: Tavily → DDG 순서 fallback (OS 무관 공통)
+func webSearchWithFallback(tKey, query string, maxItems int) (tavilyResult, bool) {
+	// 1차: Tavily
+	if tKey != "" {
+		if tr, ok := tavilySearch(tKey, query, maxItems); ok && len(tr.Items) > 0 {
+			return tr, true
+		}
+	}
+	// 2차: DuckDuckGo (공통 구현 사용)
+	ddg := searchDDGSimple(query, maxItems)
+	if len(ddg) > 0 {
+		items := make([]map[string]string, 0, len(ddg))
+		var lines []string
+		for _, r := range ddg {
+			item := map[string]string{"title": r.Title, "url": r.URL}
+			if r.Content != "" {
+				item["content"] = r.Content
+				lines = append(lines, "• "+r.Title+": "+r.Content)
+			}
+			items = append(items, item)
+		}
+		return tavilyResult{Summary: strings.Join(lines, "\n"), Items: items}, true
+	}
+	return tavilyResult{}, false
 }
 
 // handleVideoQuickSearch: 카테고리 미리보기용 YouTube/TikTok 영상 빠른 검색

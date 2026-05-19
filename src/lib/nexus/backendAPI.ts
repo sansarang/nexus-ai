@@ -569,6 +569,7 @@ export const sendCommand = (
     pendingParams?: Record<string, unknown>
     pendingQuestion?: string
     history?: Array<{ role: 'user' | 'assistant'; content: string }>
+    userEmail?: string
   }
 ) =>
   request<CommandResult>('POST', '/api/command', {
@@ -579,6 +580,7 @@ export const sendCommand = (
     pending_params: options?.pendingParams,
     pending_question: options?.pendingQuestion,
     history: options?.history ?? [],
+    user_email: options?.userEmail ?? '',
   }, 60000)
 
 /* ── 🖥️ Windows Recall ── */
@@ -860,4 +862,37 @@ export function mockDailyReport(): DailyReport {
       { label: '디스크 여유', value: 118,  trend: 'down'   },
     ],
   }
+}
+
+// ── 설치 후 의존성 상태 체크 ──────────────────────────────────────
+export interface SetupDep {
+  ok: boolean
+  message: string
+}
+export interface SetupStatus {
+  platform: string
+  ready: boolean
+  deps: {
+    api_keys: SetupDep & { tavily: boolean }
+    chrome: SetupDep
+    outlook: SetupDep
+    ytdlp: SetupDep
+  }
+}
+
+export async function getSetupStatus(): Promise<SetupStatus | null> {
+  try {
+    return await request<SetupStatus>('GET', '/setup/status')
+  } catch {
+    return null
+  }
+}
+
+export async function saveLLMConfig(config: {
+  perplexity_key?: string
+  groq_key?: string
+  tavily_key?: string
+  claude_key?: string
+}): Promise<void> {
+  await request('POST', '/llm/config', config)
 }

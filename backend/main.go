@@ -4,10 +4,13 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 
@@ -320,6 +323,20 @@ func main() {
 	// ── 💳 Paddle 구독 웹훅 ──────────────────────────────────────
 	mux.HandleFunc("POST /api/paddle/webhook", handlePaddleWebhook)
 
+	// ── 🔍 신규 기능: 메타데이터 / Wayback / 보안 / 영상 / 익명검색 ──
+	mux.HandleFunc("POST /api/file/metadata", handleFileMetadata)
+	mux.HandleFunc("POST /api/wayback/snapshots", handleWaybackSnapshots)
+	mux.HandleFunc("GET /api/wayback/available", handleWaybackAvailable)
+	mux.HandleFunc("POST /api/search/anonymous", handleAnonymousSearch)
+	mux.HandleFunc("POST /api/security/shodan", handleShodanAudit)
+	mux.HandleFunc("POST /api/security/myip", handleMyIPAudit)
+	mux.HandleFunc("POST /api/video/search-enhanced", handleVideoSearchEnhanced)
+	mux.HandleFunc("POST /api/video/download-with-cookie", handleVideoDownloadCookie)
+	mux.HandleFunc("POST /api/video/set-cookie", handleVideoSetCookie)
+	mux.HandleFunc("GET /api/video/cookie-status", handleVideoCookieStatus)
+	mux.HandleFunc("POST /api/video/ytdlp-info", handleVideoInfo)
+	mux.HandleFunc("GET /api/video/quick-search", handleVideoQuickSearch)
+
 	// 스케줄러 + 메모리 + LLM 키 초기화
 	initScheduler()
 	initMemory()
@@ -335,15 +352,30 @@ func main() {
 	go startRecallCollector()    // Windows Recall 자동 캡처 (60초 간격)
 	go rebuildBrainIndex()       // Second Brain 초기 인덱싱
 
+	const port = "127.0.0.1:17891"
+
+	// 포트 충돌 선제 해결: 이전 인스턴스가 남아있으면 강제 종료
+	if ln, err := net.Listen("tcp", port); err != nil {
+		log.Printf("[Nexus] 포트 17891 이미 사용 중 — 이전 인스턴스 종료 시도")
+		exec.Command("taskkill", "/F", "/IM", "nexus-backend.exe").Run()
+		time.Sleep(1 * time.Second)
+	} else {
+		ln.Close()
+	}
+
 	srv := &http.Server{
-		Addr:    "127.0.0.1:17891",
-		Handler: cors(mux),
+		Addr:         port,
+		Handler:      cors(mux),
+		ReadTimeout:  120 * time.Second,
+		WriteTimeout: 120 * time.Second,
+		IdleTimeout:  300 * time.Second,
 	}
 
 	go func() {
 		log.Println("[Nexus Backend] 시작 :17891")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
+			log.Printf("[Nexus Backend] 서버 시작 실패: %v", err)
+			os.Exit(1)
 		}
 	}()
 

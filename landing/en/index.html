@@ -3,11 +3,71 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NEXUS AI — Your Windows PC, Operated by AI</title>
-  <meta name="description" content="Excel analysis, PC optimization, mail automation, Coupang price comparison. Nexus AI manages your PC 24/7." />
-  <meta property="og:title" content="NEXUS AI — Windows PC AI Assistant" />
-  <meta property="og:description" content="One sentence controls your entire PC. Local execution, zero data leakage." />
+  <script>if (!navigator.language.startsWith('en')) { window.location.replace('../index.html'); }</script>
+  <title>NEXUS AI — The AI That Actually Controls Your PC</title>
+  <meta name="description" content="PC security scan, deep research, multi-task queries, comparison analysis, video search. 5 things no other AI can do. 3-day free trial." />
+  <meta name="keywords" content="AI assistant, Windows AI, PC automation, deep research, AI security scan, Nexus AI, productivity AI, PC optimization, workflow automation" />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="Nexus AI" />
+
+  <!-- Canonical & hreflang -->
+  <link rel="canonical" href="https://nexus-ai.app/en/" />
+  <link rel="alternate" hreflang="en" href="https://nexus-ai.app/en/" />
+  <link rel="alternate" hreflang="ko" href="https://nexus-ai.app/" />
+  <link rel="alternate" hreflang="x-default" href="https://nexus-ai.app/" />
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://nexus-ai.app/en/" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="ko_KR" />
+  <meta property="og:site_name" content="NEXUS AI" />
+  <meta property="og:title" content="NEXUS AI — 5 Things No Other AI Can Do" />
+  <meta property="og:description" content="PC security scan, deep research, multi-task queries, comparison analysis, video search. Local execution, zero data leakage. Try free for 3 days." />
   <meta property="og:image" content="https://raw.githubusercontent.com/sansarang/nexus-ai/main/landing/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Nexus AI — Windows PC AI Assistant" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@nexusai_app" />
+  <meta name="twitter:title" content="NEXUS AI — No Other AI Can Do This" />
+  <meta name="twitter:description" content="PC security scan · Deep research · Multi-task queries. Local execution, zero data leakage. 3-day free trial." />
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/sansarang/nexus-ai/main/landing/og-image.png" />
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "NEXUS AI",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "Windows, macOS",
+    "description": "PC security scan, deep research, multi-task queries, comparison analysis, video search automation. 5 exclusive features no other AI offers. Runs locally with zero data leakage.",
+    "url": "https://nexus-ai.app/en/",
+    "inLanguage": ["en", "ko"],
+    "offers": {
+      "@type": "Offer",
+      "price": "12.99",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2026-12-31",
+      "availability": "https://schema.org/InStock",
+      "description": "3-day free trial, then $12.99/month Early Bird"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "reviewCount": "312"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Nexus AI",
+      "url": "https://nexus-ai.app/"
+    }
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
@@ -129,20 +189,111 @@
     .section-title { font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 1.2; margin-bottom: 16px; }
     .section-sub { font-size: 18px; color: var(--muted); max-width: 580px; }
 
-    /* DEMO */
+    /* ── DEMO ── */
     .demo-wrap {
-      margin-top: 60px; aspect-ratio: 16/9;
-      background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(236,72,153,0.08));
-      border: 1px solid var(--border); border-radius: 24px; overflow: hidden;
-      display: flex; align-items: center; justify-content: center; position: relative;
-      box-shadow: 0 0 80px rgba(168,85,247,0.15);
+      margin-top: 56px;
+      background: rgba(10,10,20,0.9);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 24px; overflow: hidden;
+      box-shadow: 0 0 80px rgba(168,85,247,0.15), 0 32px 80px rgba(0,0,0,0.5);
+      max-width: 900px; margin-left: auto; margin-right: auto;
     }
-    .demo-placeholder { text-align: center; color: var(--muted); }
-    .demo-placeholder .icon { font-size: 64px; margin-bottom: 16px; opacity: 0.4; }
-    .demo-placeholder p { font-size: 16px; font-weight: 600; }
-    .demo-placeholder small { font-size: 13px; opacity: 0.6; }
-    .demo-wrap video { width: 100%; height: 100%; object-fit: cover; display: none; }
-    .demo-wrap video[src] { display: block; }
+    .demo-titlebar {
+      padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 10; background: rgba(255,255,255,0.02);
+    }
+    .demo-dots { display: flex; gap: 6px; }
+    .demo-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .demo-titlebar-label { flex: 1; text-align: center; font-size: 12px; color: rgba(255,255,255,0.3); font-weight: 500; }
+    .demo-body { display: flex; height: 460px; }
+    .demo-sidebar {
+      width: 210px; flex-shrink: 0;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02);
+      display: flex; flex-direction: column;
+    }
+    .demo-avatar-zone {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .demo-avatar-glow {
+      position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100px; height: 30px;
+      background: radial-gradient(ellipse, rgba(168,85,247,0.35) 0%, transparent 70%);
+      filter: blur(8px);
+    }
+    .demo-avatar-name { padding: 8px 14px 4px; text-align: center; font-size: 13px; font-weight: 700; color: #fff; }
+    .demo-avatar-status { font-size: 10px; color: #a855f7; text-align: center; margin-bottom: 8px; }
+    .demo-btns { padding: 6px 10px 16px; display: flex; flex-direction: column; gap: 6px; }
+    .demo-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 10px; border-radius: 10px; cursor: pointer;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.55); font-size: 12px; font-weight: 600; text-align: left;
+      transition: all 0.15s; font-family: inherit; width: 100%;
+    }
+    .demo-btn:hover { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.4); color: #fff; }
+    .demo-btn.active { background: rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.6); color: #fff; }
+    .demo-btn-emoji { font-size: 14px; }
+    .demo-chat-area { flex: 1; display: flex; flex-direction: column; }
+    .demo-messages {
+      flex: 1; overflow-y: auto; padding: 20px 18px 10px;
+      display: flex; flex-direction: column; gap: 14px; scrollbar-width: none;
+    }
+    .demo-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.18); font-size: 13px; text-align: center; gap: 8px; padding-bottom: 40px;
+    }
+    .demo-msg-row { display: flex; gap: 8px; align-items: flex-end; }
+    .demo-msg-row.user { justify-content: flex-end; }
+    .demo-ai-icon {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      display: flex; align-items: center; justify-content: center; font-size: 12px;
+    }
+    .demo-bubble-user {
+      background: linear-gradient(135deg, rgba(168,85,247,0.8), rgba(236,72,153,0.8));
+      border-radius: 16px 16px 4px 16px; padding: 10px 14px;
+      font-size: 13px; color: #fff; font-weight: 500; max-width: 75%;
+      animation: fadeInUp 0.3s ease both;
+    }
+    .demo-bubble-ai {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px 16px 16px 16px; padding: 10px 14px;
+      font-size: 12px; color: rgba(255,255,255,0.9);
+      white-space: pre-wrap; font-family: monospace; line-height: 1.7; max-width: 80%;
+      animation: fadeInUp 0.3s ease both;
+    }
+    .demo-think-row { display: flex; align-items: center; gap: 8px; animation: fadeInUp 0.25s ease both; }
+    .demo-think-badge {
+      font-size: 11px; color: #a855f7;
+      background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.3);
+      padding: 5px 12px; border-radius: 20px;
+    }
+    .demo-input-bar {
+      padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .demo-input-box {
+      flex: 1; padding: 9px 14px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; font-size: 13px; color: rgba(255,255,255,0.35);
+      font-family: inherit; min-height: 20px; transition: border-color 0.2s;
+    }
+    .demo-input-box.typing { color: #fff; border-color: rgba(168,85,247,0.5); }
+    .demo-send-btn {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(255,255,255,0.08); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: rgba(255,255,255,0.4); transition: all 0.2s;
+    }
+    .demo-send-btn.active {
+      background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff;
+      box-shadow: 0 4px 16px rgba(168,85,247,0.4);
+    }
+    .demo-cursor { animation: blink 0.8s step-end infinite; opacity: 0.7; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes avatarFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 
     /* FEATURES */
     .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 28px; margin-top: 60px; }
@@ -305,18 +456,55 @@
   <p class="hero-meta"><span>✓</span> Auto-update included · <span>✓</span> Runs locally · <span>✓</span> Zero data leakage</p>
 </section>
 
-<!-- DEMO VIDEO -->
+<!-- INTERACTIVE DEMO -->
 <div id="demo" style="background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:80px 20px;">
-  <div style="max-width:1000px; margin:0 auto; text-align:center;">
-    <div class="section-label">NEXUS AI DEMO</div>
-    <h2 class="section-title">Understand NEXUS AI in 30 Seconds</h2>
-    <p class="section-sub" style="margin:0 auto;">Real-world footage, no staging</p>
-    <div class="demo-wrap">
-      <video id="main-video" controls preload="none"></video>
-      <div class="demo-placeholder" id="main-placeholder">
-        <div class="icon">▶</div>
-        <p>Main Demo Video</p>
-        <small>30 sec · Full feature highlight</small>
+  <div style="max-width:960px; margin:0 auto; text-align:center;">
+    <div class="section-label">LIVE DEMO</div>
+    <h2 class="section-title">No Other AI Can Do This</h2>
+    <p class="section-sub" style="margin:0 auto;">Click a button. Watch Nexus execute it live.</p>
+
+    <div class="demo-wrap" id="main-demo">
+      <!-- titlebar -->
+      <div class="demo-titlebar">
+        <div class="demo-dots">
+          <div class="demo-dot" style="background:#ff5f57"></div>
+          <div class="demo-dot" style="background:#febc2e"></div>
+          <div class="demo-dot" style="background:#28c840"></div>
+        </div>
+        <div class="demo-titlebar-label">Nexus AI — No other AI can do this</div>
+      </div>
+
+      <div class="demo-body">
+        <!-- sidebar -->
+        <div class="demo-sidebar">
+          <div class="demo-avatar-zone">
+            <div class="demo-avatar-glow"></div>
+            <div style="font-size:88px; line-height:1; filter:drop-shadow(0 0 20px rgba(168,85,247,0.5)); position:relative; z-index:1; animation:avatarFloat 3s ease-in-out infinite;">🧑‍🚀</div>
+          </div>
+          <div class="demo-avatar-name">Nexus</div>
+          <div class="demo-avatar-status">● Online</div>
+          <div class="demo-btns">
+            <button class="demo-btn" id="dbtn-0" onclick="runDemo(0)"><span class="demo-btn-emoji">🔐</span>PC Security Scan</button>
+            <button class="demo-btn" id="dbtn-1" onclick="runDemo(1)"><span class="demo-btn-emoji">🔬</span>Deep Research</button>
+            <button class="demo-btn" id="dbtn-2" onclick="runDemo(2)"><span class="demo-btn-emoji">🗺️</span>Multi-task Query</button>
+            <button class="demo-btn" id="dbtn-3" onclick="runDemo(3)"><span class="demo-btn-emoji">⚖️</span>Compare Analysis</button>
+            <button class="demo-btn" id="dbtn-4" onclick="runDemo(4)"><span class="demo-btn-emoji">▶️</span>Video Search</button>
+          </div>
+        </div>
+
+        <!-- chat area -->
+        <div class="demo-chat-area">
+          <div class="demo-messages" id="demo-messages">
+            <div class="demo-empty" id="demo-empty">
+              <div style="font-size:28px">←</div>
+              <div>Click a button to try it<br /><span style="font-size:11px;opacity:0.6">Nexus executes it in real-time</span></div>
+            </div>
+          </div>
+          <div class="demo-input-bar">
+            <div class="demo-input-box" id="demo-input-box">Click a button to experience Nexus...</div>
+            <button class="demo-send-btn" id="demo-send-btn">↑</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -558,8 +746,9 @@
     <div class="price-card featured">
       <div class="price-badge">🔥 EARLY BIRD</div>
       <div class="price-name">Pro</div>
-      <div class="price-amount">$7</div>
-      <div class="price-period">/month (regular $10)</div>
+      <div class="price-original" style="font-size:14px; color:var(--muted); text-decoration:line-through;">Regular $19.99/mo</div>
+      <div class="price-amount">$12.99</div>
+      <div class="price-period">/month · 25% off Early Bird</div>
       <ul class="price-features">
         <li><span class="check">✓</span> Everything in Free</li>
         <li><span class="check">✓</span> GPT-4o high-performance AI</li>
@@ -569,7 +758,7 @@
         <li><span class="check">✓</span> Proactive AI 24/7</li>
         <li><span class="check">✓</span> 5 AI personas</li>
       </ul>
-      <a href="https://forms.gle/nexus-earlybird" class="btn-plan" onclick="alert('Early Bird registration coming soon.\nContact: nexusai.kr@gmail.com'); return false;">Start Early Bird — $7/mo</a>
+      <a href="https://forms.gle/nexus-earlybird" class="btn-plan" onclick="alert('Early Bird registration coming soon.\nContact: nexusai.kr@gmail.com'); return false;">Start Early Bird — $12.99/mo →</a>
       <small style="display:block; margin-top:10px; color:var(--muted); font-size:12px;">✓ Auto-update included · Cancel anytime</small>
     </div>
   </div>
@@ -667,6 +856,131 @@
 <!-- Google Analytics (GA4) — Replace G-XXXXXXXXXX with your Measurement ID -->
 <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script> -->
 <script>
+  // ── Interactive Demo Simulation ──
+  const DEMO_DATA = [
+    {
+      label: 'Is my PC hacked? Run a security scan.',
+      steps: ['🔍 Scanning network connections...', '🛡️ Detecting malicious processes...', '🔒 Checking firewall & open ports...'],
+      result: `✅ Security Scan Complete\n\n🟢 Suspicious outbound connections: 0\n🟢 Firewall: Active & healthy\n🟢 Malicious processes: None detected\n🟡 Warning: 2 outdated drivers found\n\nYour PC is safe overall. Driver updates recommended.`,
+    },
+    {
+      label: 'Deep research: quantum computing.',
+      steps: ['🌐 Searching 17 sources simultaneously...', '📚 Collecting papers & news...', '🧠 AI synthesis in progress...'],
+      result: `📡 Deep Research — Quantum Computing\n\n• Google Willow: 10 quadrillion× faster than supercomputers\n• IBM 2025 roadmap: 100,000 qubit target\n• South Korea ETRI: 1,000-qubit processor in development\n• Practical use: Expected post-2030\n\n17 sources analyzed · Confidence ★★★★☆`,
+    },
+    {
+      label: "Today's weather + bus from Seoul to Busan?",
+      steps: ['🌤️ Fetching weather API...', '🚌 Searching intercity bus schedule...'],
+      result: `📍 Today's Weather (Seoul)\n☀️ Clear · High 23°C / Low 14°C · Air quality: Good\n\n🚌 Seoul → Busan Express\n06:00 / 07:30 / 09:00 / 11:00 / 13:30\nDuration: ~4h 10m · Fare: ₩23,900\n\nBoth handled simultaneously.`,
+    },
+    {
+      label: 'Compare iPhone 16 vs Galaxy S25.',
+      steps: ['🔍 Fetching spec data...', '⚖️ Running item-by-item analysis...'],
+      result: `📊 iPhone 16 vs Galaxy S25\n\nCamera      Galaxy wins (200MP sensor)\nBattery     Galaxy wins (5,000mAh)\nPerformance iPhone wins (A18 Pro chip)\nEcosystem   iPhone wins (Apple integration)\nPrice       Galaxy wins (~$80 cheaper)\n\n🏆 Using Apple devices? → iPhone\n   Want customization & camera? → Galaxy`,
+    },
+    {
+      label: 'Find trending AI videos on YouTube.',
+      steps: ['▶️ Crawling YouTube trends...', '📊 Ranking by views & upload date...'],
+      result: `🔥 Top 5 AI Videos This Week\n\n1. "GPT-5 Full Breakdown" — 8.47M views\n2. "Claude 4 vs ChatGPT Real Test" — 3.12M views\n3. "2026 AI Trends Complete Guide" — 2.89M views\n4. "10 Free AI Tools You Need" — 2.01M views\n5. "Earn $3K/mo with AI" — 1.78M views\n\nSave as a report file?`,
+    },
+  ]
+
+  let demoRunning = false
+
+  async function runDemo(idx) {
+    if (demoRunning) return
+    demoRunning = true
+
+    const data = DEMO_DATA[idx]
+    const messages = document.getElementById('demo-messages')
+    const inputBox = document.getElementById('demo-input-box')
+    const sendBtn = document.getElementById('demo-send-btn')
+    const empty = document.getElementById('demo-empty')
+
+    for (let i = 0; i < 5; i++) {
+      const b = document.getElementById('dbtn-' + i)
+      b.classList.toggle('active', i === idx)
+    }
+    sendBtn.classList.add('active')
+    sendBtn.textContent = '⚡'
+
+    // 1. Type in input
+    inputBox.className = 'demo-input-box typing'
+    inputBox.textContent = ''
+    for (let i = 1; i <= data.label.length; i++) {
+      inputBox.textContent = data.label.slice(0, i)
+      await delay(45)
+    }
+    await delay(260)
+
+    // 2. User bubble
+    if (empty) empty.style.display = 'none'
+    const userRow = document.createElement('div')
+    userRow.className = 'demo-msg-row user'
+    const userBubble = document.createElement('div')
+    userBubble.className = 'demo-bubble-user'
+    userBubble.textContent = data.label
+    userRow.appendChild(userBubble)
+    messages.appendChild(userRow)
+    messages.scrollTop = messages.scrollHeight
+
+    inputBox.textContent = 'Click a button to experience Nexus...'
+    inputBox.className = 'demo-input-box'
+    await delay(350)
+
+    // 3. Thinking steps
+    let thinkRow = null
+    for (const step of data.steps) {
+      if (thinkRow) messages.removeChild(thinkRow)
+      thinkRow = document.createElement('div')
+      thinkRow.className = 'demo-think-row'
+      const icon = document.createElement('div')
+      icon.className = 'demo-ai-icon'
+      icon.textContent = '✦'
+      const badge = document.createElement('div')
+      badge.className = 'demo-think-badge'
+      badge.textContent = step
+      thinkRow.appendChild(icon)
+      thinkRow.appendChild(badge)
+      messages.appendChild(thinkRow)
+      messages.scrollTop = messages.scrollHeight
+      await delay(680)
+    }
+    if (thinkRow) messages.removeChild(thinkRow)
+
+    // 4. AI typewriter
+    const aiRow = document.createElement('div')
+    aiRow.className = 'demo-msg-row'
+    const aiIcon = document.createElement('div')
+    aiIcon.className = 'demo-ai-icon'
+    aiIcon.textContent = '✦'
+    const aiBubble = document.createElement('div')
+    aiBubble.className = 'demo-bubble-ai'
+    const cursor = document.createElement('span')
+    cursor.className = 'demo-cursor'
+    cursor.textContent = '▌'
+    aiRow.appendChild(aiIcon)
+    aiRow.appendChild(aiBubble)
+    messages.appendChild(aiRow)
+
+    const text = data.result
+    for (let i = 1; i <= text.length; i++) {
+      aiBubble.textContent = text.slice(0, i)
+      aiBubble.appendChild(cursor)
+      if (i % 8 === 0) messages.scrollTop = messages.scrollHeight
+      await delay(10)
+    }
+    cursor.remove()
+    messages.scrollTop = messages.scrollHeight
+
+    sendBtn.classList.remove('active')
+    sendBtn.textContent = '↑'
+    for (let i = 0; i < 5; i++) document.getElementById('dbtn-' + i).classList.remove('active')
+    demoRunning = false
+  }
+
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)) }
+
   window.dataLayer = window.dataLayer || []
   function gtag(){ dataLayer.push(arguments) }
   // gtag('js', new Date())

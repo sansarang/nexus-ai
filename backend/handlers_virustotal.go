@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // ══════════════════════════════════════════════════════════════════
@@ -113,7 +114,7 @@ func queryVirusTotal(hash, apiKey string) (*VTResult, error) {
 	}
 	req.Header.Set("x-apikey", apiKey)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

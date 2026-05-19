@@ -12,11 +12,12 @@ interface PersonaDef {
 }
 
 const PERSONAS: PersonaDef[] = [
-  { id: 'nexus',    name: 'Nexus 기본',   emoji: '🤖', description: '만능 AI 어시스턴트',          color: '#6366f1' },
-  { id: 'expert',   name: '전문가 모드',  emoji: '🧠', description: '심층 분석 · 딥서치 강화',     color: '#f59e0b' },
-  { id: 'research', name: '리서치',       emoji: '🔬', description: '경쟁사 분석 · 시장 조사',     color: '#0ea5e9' },
-  { id: 'creative', name: '크리에이티브', emoji: '🎨', description: '아이디어 · 콘텐츠 기획',      color: '#ec4899' },
-  { id: 'finance',  name: '재무',         emoji: '💰', description: '예산 분석 · 재무 보고서',     color: '#10b981' },
+  { id: 'developer',  name: '개발자 / IT 엔지니어',  emoji: '💻', description: '코드·디버깅·아키텍처·터미널',   color: '#6366f1' },
+  { id: 'marketer',   name: '마케터 / 디지털 마케터', emoji: '📊', description: '트렌드·SNS·경쟁사·콘텐츠',     color: '#f59e0b' },
+  { id: 'sales',      name: '영업 / 세일즈',          emoji: '🤝', description: '이메일 초안·미팅·고객 설득',   color: '#10b981' },
+  { id: 'pm',         name: 'PM / 기획자',            emoji: '📋', description: '문서 요약·로드맵·의사결정',    color: '#0ea5e9' },
+  { id: 'designer',   name: '디자이너 / 크리에이터',  emoji: '🎨', description: '레퍼런스·파일 정리·콘텐츠',   color: '#ec4899' },
+  { id: 'freelancer', name: '프리랜서 / 1인 사업자',  emoji: '🚀', description: '견적·클라이언트·세금·효율',   color: '#8b5cf6' },
 ]
 
 interface Props {

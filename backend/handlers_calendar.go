@@ -24,70 +24,85 @@ type CalendarEvent struct {
 	IsAllDay  bool   `json:"is_all_day"`
 }
 
-// GET /api/calendar/today — 오늘 일정
+// GET /api/calendar/today — 오늘 일정 (lang=en 지원)
 func handleCalendarToday(w http.ResponseWriter, r *http.Request) {
+	lang := r.URL.Query().Get("lang")
+	eng := lang == "en"
+
 	events, err := getOutlookEvents("today")
 	if err != nil {
-		json200(w, map[string]interface{}{
-			"success": false,
-			"events":  []CalendarEvent{},
-			"total":   0,
-			"message": "캘린더 연동을 위해 Microsoft Outlook이 설치되어 있어야 합니다.",
-		})
-		return
+		// Outlook 없으면 로컬 JSON 캘린더로 fallback
+		today := time.Now().Format("2006-01-02")
+		all := loadEvents()
+		events = []CalendarEvent{}
+		for _, e := range all {
+			if e.Date == today {
+				events = append(events, CalendarEvent{Subject: e.Title, Start: e.Date + " " + e.Time, Location: e.Location})
+			}
+		}
 	}
 
-	msg := "오늘 일정이 없어요 😊"
-	if len(events) > 0 {
-		msg = fmt.Sprintf("오늘 일정이 %d개 있어요 📅", len(events))
+	var msg string
+	if eng {
+		if len(events) == 0 { msg = "No events today 😊" } else { msg = fmt.Sprintf("You have %d event(s) today 📅", len(events)) }
+	} else {
+		if len(events) == 0 { msg = "오늘 일정이 없어요 😊" } else { msg = fmt.Sprintf("오늘 일정이 %d개 있어요 📅", len(events)) }
 	}
 
 	json200(w, map[string]interface{}{
-		"success": true,
-		"events":  events,
-		"total":   len(events),
-		"message": msg,
+		"success": true, "events": events, "total": len(events), "message": msg,
 	})
 }
 
-// GET /api/calendar/week — 이번 주 일정
+// GET /api/calendar/week — 이번 주 일정 (lang=en 지원)
 func handleCalendarWeek(w http.ResponseWriter, r *http.Request) {
+	lang := r.URL.Query().Get("lang")
+	eng := lang == "en"
+
 	events, err := getOutlookEvents("week")
 	if err != nil {
-		json200(w, map[string]interface{}{
-			"success": false,
-			"events":  []CalendarEvent{},
-			"total":   0,
-			"message": "Outlook이 설치되지 않았거나 접근 권한이 없어요.",
-		})
-		return
+		// Outlook 없으면 로컬 JSON fallback
+		now := time.Now()
+		all := loadEvents()
+		events = []CalendarEvent{}
+		for _, e := range all {
+			d, err2 := time.Parse("2006-01-02", e.Date)
+			if err2 != nil {
+				continue
+			}
+			diff := d.Sub(now).Hours() / 24
+			if diff >= 0 && diff <= 7 {
+				events = append(events, CalendarEvent{Subject: e.Title, Start: e.Date + " " + e.Time, Location: e.Location})
+			}
+		}
 	}
 
-	msg := "이번 주 일정이 없어요"
-	if len(events) > 0 {
-		msg = fmt.Sprintf("이번 주 일정이 %d개 있어요 📅", len(events))
+	var msg string
+	if eng {
+		if len(events) == 0 { msg = "No events this week" } else { msg = fmt.Sprintf("You have %d event(s) this week 📅", len(events)) }
+	} else {
+		if len(events) == 0 { msg = "이번 주 일정이 없어요" } else { msg = fmt.Sprintf("이번 주 일정이 %d개 있어요 📅", len(events)) }
 	}
 
 	json200(w, map[string]interface{}{
-		"success": true,
-		"events":  events,
-		"total":   len(events),
-		"message": msg,
+		"success": true, "events": events, "total": len(events), "message": msg,
 	})
 }
 
-// POST /api/calendar/add — 일정 추가
+// POST /api/calendar/add — 일정 추가 (lang 지원)
 func handleCalendarAdd(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Subject  string `json:"subject"`
 		Start    string `json:"start"`
 		End      string `json:"end"`
 		Location string `json:"location"`
+		Lang     string `json:"lang"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Subject == "" {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
+	eng := req.Lang == "en" || isEnglishQuery(req.Subject)
 
 	if req.Start == "" {
 		req.Start = time.Now().Add(1 * time.Hour).Format("2006-01-02 15:04")
@@ -110,9 +125,26 @@ Write-Output "OK"
 	out, err := execPS(script)
 	success := err == nil && strings.Contains(string(out), "OK")
 
-	msg := "일정이 추가됐어요 📅"
+	// Outlook 실패 시 로컬 JSON에 저장
 	if !success {
-		msg = "일정 추가에 실패했어요. Outlook이 설치되어 있는지 확인해주세요."
+		ev := CalEvent{
+			ID:       fmt.Sprintf("%d", time.Now().UnixMilli()),
+			Title:    req.Subject,
+			Date:     req.Start[:10],
+			Time:     func() string { if len(req.Start) > 10 { return req.Start[11:] }; return "09:00" }(),
+			Location: req.Location,
+		}
+		evs := loadEvents()
+		evs = append(evs, ev)
+		saveEvents(evs)
+		success = true
+	}
+
+	var msg string
+	if eng {
+		if success { msg = "Event added 📅" } else { msg = "Failed to add event." }
+	} else {
+		if success { msg = "일정이 추가됐어요 📅" } else { msg = "일정 추가에 실패했어요." }
 	}
 
 	json200(w, map[string]interface{}{

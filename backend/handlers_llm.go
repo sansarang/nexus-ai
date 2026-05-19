@@ -18,9 +18,80 @@ import (
 var (
 	llmMu            sync.RWMutex
 	llmPerplexityKey string
+	llmGroqKey       string // Groq 전용 키 (gsk_ 접두어)
 	llmClaudeKey     string
 	llmTavilyKey     string
+	llmShodanKey     string
+	llmUserLang      string // "ko" | "en" — persisted user language preference
 )
+
+// ── 번들 기본 API 키 (설치 즉시 작동 — 사용자 설정 불필요) ──────────────
+const (
+	bundledGroqKey   = "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"
+	bundledTavilyKey = "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"
+	bundledOpenAIKey = "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"
+)
+
+func injectBundledKeys() {
+	llmMu.Lock()
+	defer llmMu.Unlock()
+	if llmGroqKey == "" {
+		llmGroqKey = bundledGroqKey
+	}
+	if llmPerplexityKey == "" {
+		llmPerplexityKey = bundledGroqKey // Groq 키를 양쪽 슬롯에 주입
+	}
+	if llmTavilyKey == "" {
+		llmTavilyKey = bundledTavilyKey
+	}
+	if llmClaudeKey == "" {
+		llmClaudeKey = bundledOpenAIKey
+	}
+}
+
+// resolveEndpointAndModel: API 키 타입에 따라 엔드포인트 + 모델 자동 결정
+// gsk_ → Groq API + Groq 모델  /  pplx- → Perplexity API + Perplexity 모델
+func resolveEndpointAndModel(key, requestedModel string, fast bool) (endpoint, model string) {
+	if strings.HasPrefix(key, "gsk_") {
+		endpoint = groqAPIBase
+		if fast {
+			model = "llama-3.1-8b-instant"
+		} else {
+			model = "llama-3.3-70b-versatile"
+		}
+		switch requestedModel {
+		case "llama-3.3-70b-versatile", "llama-3.1-70b-versatile",
+			"llama-3.1-8b-instant", "llama-3.2-3b-preview",
+			"llama-4-scout-17b-16e-instruct":
+			model = requestedModel
+		}
+	} else {
+		endpoint = pplxAPIBase
+		if fast {
+			model = pplxFastModel
+		} else {
+			model = pplxChatModel
+		}
+		if requestedModel == pplxChatModel || requestedModel == pplxFastModel {
+			model = requestedModel
+		}
+	}
+	return
+}
+
+// GetUserLang returns the persisted user language ("en" or "ko").
+// All features — including background jobs — should call this instead of detecting from input text.
+func GetUserLang() string {
+	llmMu.RLock()
+	defer llmMu.RUnlock()
+	if llmUserLang == "en" {
+		return "en"
+	}
+	return "ko"
+}
+
+// IsUserEng is a convenience wrapper for GetUserLang() == "en".
+func IsUserEng() bool { return GetUserLang() == "en" }
 
 // callOpenAICompat: Perplexity API 호출 (OpenAI 호환 포맷)
 func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens int, jsonMode bool) (string, int, error) {
@@ -56,7 +127,7 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 	}
 	defer resp.Body.Close()
 
-	raw, _ := io.ReadAll(resp.Body)
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024)) // 4MB 상한
 
 	var gr struct {
 		Choices []struct {
@@ -100,20 +171,16 @@ var (
 // callGroqWithCitations: 답변 텍스트 + Perplexity citations URL 목록 반환
 func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) (string, []string, error) {
 	llmMu.RLock()
-	pKey := llmPerplexityKey
+	key := llmPerplexityKey
+	if key == "" {
+		key = llmGroqKey
+	}
 	llmMu.RUnlock()
-	useKey := pKey
-	if useKey == "" {
-		useKey = apiKey
+	if key == "" {
+		key = apiKey
 	}
-	pModel := model
-	switch model {
-	case "llama-3.3-70b-versatile", "llama-3.1-70b-versatile":
-		pModel = pplxChatModel
-	case "llama-3.1-8b-instant", "llama-3.2-3b-preview":
-		pModel = pplxFastModel
-	}
-	text, _, err := callOpenAICompat(useKey, pplxAPIBase, pModel, msgs, maxTokens, false)
+	endpoint, resolvedModel := resolveEndpointAndModel(key, model, false)
+	text, _, err := callOpenAICompat(key, endpoint, resolvedModel, msgs, maxTokens, false)
 	if err != nil {
 		return "", nil, err
 	}
@@ -124,58 +191,58 @@ func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) 
 	return text, cites, nil
 }
 
-// callGroq: Perplexity API 호출 (이름 유지 — 호출부 변경 최소화)
+// callGroq: 키 타입에 따라 Groq 또는 Perplexity API 자동 선택
 func callGroq(apiKey, model string, msgs []groqMsg, maxTokens int, jsonMode bool) (string, int, error) {
 	llmMu.RLock()
-	pKey := llmPerplexityKey
+	key := llmPerplexityKey
+	if key == "" {
+		key = llmGroqKey
+	}
 	llmMu.RUnlock()
-
-	useKey := pKey
-	if useKey == "" {
-		useKey = apiKey
+	if key == "" {
+		key = apiKey
 	}
-
-	// 구 Groq 모델명 → Perplexity 모델로 교정
-	pModel := model
-	switch model {
-	case "llama-3.3-70b-versatile", "llama-3.1-70b-versatile":
-		pModel = pplxChatModel
-	case "llama-3.1-8b-instant", "llama-3.2-3b-preview":
-		pModel = pplxFastModel
-	}
-
-	return callOpenAICompat(useKey, pplxAPIBase, pModel, msgs, maxTokens, jsonMode)
+	endpoint, resolvedModel := resolveEndpointAndModel(key, model, false)
+	return callOpenAICompat(key, endpoint, resolvedModel, msgs, maxTokens, jsonMode)
 }
 
-// callGroqVision: Vision 미지원 (Perplexity는 이미지 입력 불가)
 func callGroqVision(_, _, _, _ string) (string, error) {
 	return "", fmt.Errorf("Vision 기능은 현재 지원되지 않습니다")
 }
 
-// callGroqWithFallback: Perplexity → Claude 순서로 시도
+// callGroqWithFallback: Groq/Perplexity → OpenAI → Claude 순서로 폴백
 func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
 	llmMu.RLock()
 	pKey := llmPerplexityKey
+	if pKey == "" {
+		pKey = llmGroqKey
+	}
 	cKey := llmClaudeKey
 	llmMu.RUnlock()
 
 	if pKey != "" {
-		answer, _, err := callOpenAICompat(pKey, pplxAPIBase, pplxChatModel, msgs, maxTokens, jsonMode)
-		if err == nil {
-			return answer, "perplexity", nil
+		endpoint, model := resolveEndpointAndModel(pKey, "", false)
+		provider := "groq"
+		if strings.HasPrefix(pKey, "pplx-") {
+			provider = "perplexity"
 		}
+		answer, _, err := callOpenAICompat(pKey, endpoint, model, msgs, maxTokens, jsonMode)
+		if err == nil {
+			return answer, provider, nil
+		}
+		// 폴백: OpenAI/Claude
 		if cKey != "" {
 			ans, cErr := callClaude(cKey, msgs, maxTokens)
 			if cErr == nil {
-				return ans, "claude-fallback", nil
+				return ans, "openai-fallback", nil
 			}
 		}
-		return "", "", fmt.Errorf("Perplexity 오류: %v", err)
+		return "", "", fmt.Errorf("AI API 오류: %v", err)
 	}
 	if cKey != "" {
 		ans, err := callClaude(cKey, msgs, maxTokens)
 		if err == nil {
-			return ans, "claude", nil
+			return ans, "openai", nil
 		}
 		return "", "", err
 	}
@@ -266,14 +333,37 @@ type llmConfigFile struct {
 	PerplexityKey string `json:"perplexity_key"`
 	ClaudeKey     string `json:"claude_key"`
 	TavilyKey     string `json:"tavily_key"`
+	UserLang      string `json:"user_lang"` // "ko" | "en"
 }
 
 func loadLLMConfig() {
+	// 1순위: 환경변수 (개발/배포 오버라이드)
+	if v := os.Getenv("GROQ_API_KEY"); v != "" {
+		llmMu.Lock()
+		llmGroqKey = v
+		llmPerplexityKey = v
+		llmMu.Unlock()
+	}
+	if v := os.Getenv("TAVILY_API_KEY"); v != "" {
+		llmMu.Lock()
+		llmTavilyKey = v
+		llmMu.Unlock()
+	}
+	if v := os.Getenv("OPENAI_API_KEY"); v != "" {
+		llmMu.Lock()
+		llmClaudeKey = v
+		llmMu.Unlock()
+	}
+
 	data, err := os.ReadFile(llmConfigPath())
 	if err != nil {
+		// 설정 파일 없으면 언어 자동 감지 + 번들 키 주입
+		llmMu.Lock()
+		llmUserLang = detectSystemLang()
+		llmMu.Unlock()
+		injectBundledKeys()
 		return
 	}
-	// 하위 호환: 기존 groq_key → perplexity_key 마이그레이션
 	var raw map[string]string
 	if json.Unmarshal(data, &raw) == nil {
 		llmMu.Lock()
@@ -288,8 +378,18 @@ func loadLLMConfig() {
 		if v := raw["tavily_key"]; v != "" {
 			llmTavilyKey = decryptDPAPI(v)
 		}
+		if v := raw["shodan_key"]; v != "" {
+			llmShodanKey = v
+		}
+		if v := raw["user_lang"]; v == "en" || v == "ko" {
+			llmUserLang = v
+		} else {
+			llmUserLang = detectSystemLang()
+		}
 		llmMu.Unlock()
 	}
+	// 설정 파일 로드 후에도 빈 키가 있으면 번들 기본 키로 보완
+	injectBundledKeys()
 }
 
 func saveLLMConfig() {
@@ -298,10 +398,32 @@ func saveLLMConfig() {
 		PerplexityKey: encryptDPAPI(llmPerplexityKey),
 		ClaudeKey:     encryptDPAPI(llmClaudeKey),
 		TavilyKey:     encryptDPAPI(llmTavilyKey),
+		UserLang:      llmUserLang,
 	}
 	llmMu.RUnlock()
 	data, _ := json.MarshalIndent(cfg, "", "  ")
 	os.WriteFile(llmConfigPath(), data, 0600)
+}
+
+// GET|POST /api/settings/lang — 사용자 언어 영속 설정
+func handleSettingsLang(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		json200(w, map[string]any{"lang": GetUserLang(), "system_lang": detectSystemLang()})
+		return
+	}
+	var req struct {
+		Lang string `json:"lang"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Lang != "en" && req.Lang != "ko" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "lang must be 'en' or 'ko'"})
+		return
+	}
+	llmMu.Lock()
+	llmUserLang = req.Lang
+	llmMu.Unlock()
+	saveLLMConfig()
+	json200(w, map[string]any{"success": true, "lang": req.Lang})
 }
 
 // GET|POST /api/llm/config
@@ -367,20 +489,24 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 
 	llmMu.RLock()
 	pKey := llmPerplexityKey
+	if pKey == "" {
+		pKey = llmGroqKey
+	}
 	cKey := llmClaudeKey
 	llmMu.RUnlock()
 
-	model := pplxChatModel
-	if req.Fast {
-		model = pplxFastModel
+	if pKey == "" {
+		writeJSON(w, 503, map[string]any{"success": false, "message": "API 키가 설정되지 않았습니다"})
+		return
 	}
 
-	answer, tokens, err := callOpenAICompat(pKey, pplxAPIBase, model, req.Messages, req.MaxTokens, req.JSONMode)
+	endpoint, model := resolveEndpointAndModel(pKey, "", req.Fast)
+	answer, tokens, err := callOpenAICompat(pKey, endpoint, model, req.Messages, req.MaxTokens, req.JSONMode)
 	if err != nil {
 		if cKey != "" {
 			ans, err2 := callClaude(cKey, req.Messages, req.MaxTokens)
 			if err2 == nil {
-				json200(w, map[string]any{"success": true, "answer": ans, "model": "claude-fallback", "tokens": 0})
+				json200(w, map[string]any{"success": true, "answer": ans, "model": "openai-fallback", "tokens": 0})
 				return
 			}
 		}

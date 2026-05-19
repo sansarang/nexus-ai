@@ -1,5 +1,38 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+
+const TYPING_MSGS = ['생각하는 중...', '검색하는 중...', '답변 준비 중...', '분석하는 중...']
+
+function TypingBar({ primaryColor, steps }: { primaryColor: string; steps?: string[] }) {
+  const msgs = steps && steps.length > 0 ? steps : TYPING_MSGS
+  const [idx, setIdx] = useState(0)
+  const [sec, setSec] = useState(0)
+  useEffect(() => {
+    setIdx(0); setSec(0)
+    const t = setInterval(() => {
+      setIdx(i => Math.min(i + 1, msgs.length - 1))
+      setSec(s => s + 2)
+    }, 2000)
+    return () => clearInterval(t)
+  }, [msgs.length])
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.07)', border: `1px solid ${primaryColor}33`,
+      borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
+      display: 'flex', alignItems: 'center', gap: 8, width: 'fit-content',
+    }}>
+      {[0,1,2].map(i => (
+        <div key={i} style={{
+          width: 6, height: 6, borderRadius: '50%', background: primaryColor,
+          animation: `typingDot 1.2s ease-in-out infinite ${i * 0.2}s`,
+        }} />
+      ))}
+      <span style={{ fontSize: 10, color: `${primaryColor}99`, marginLeft: 2 }}>
+        {msgs[idx]}{sec >= 8 ? ` (${sec}s)` : ''}
+      </span>
+    </div>
+  )
+}
 import { InlineCardRenderer } from './InlineCards'
 import type { InlineCardData } from './InlineCards'
 import { InlineCardRenderer2 } from './InlineCards2'
@@ -158,6 +191,26 @@ function HistoryItem({ entry, primaryColor, onDelete }: { entry: HistoryEntry; p
   )
 }
 
+const FEATURED_ACTIONS = [
+  { emoji: '🔐', label: 'PC 해킹 점검', cmd: '내 PC 해킹당했어? 보안 점검해줘' },
+  { emoji: '🔬', label: '딥서치', cmd: '양자컴퓨터에 대해 깊게 조사해줘' },
+  { emoji: '🗺️', label: '복합 질문', cmd: '오늘 날씨도 알려주고 경주에서 대전 가는 버스 시간표 알려줘' },
+  { emoji: '⚖️', label: '비교 분석', cmd: '아이폰 vs 갤럭시 비교해줘' },
+  { emoji: '▶️', label: '영상 검색', cmd: '요즘 유튜브에서 핫한 AI 영상 찾아줘' },
+]
+
+const FOLLOW_UP_MAP: Record<string, Array<{ label: string; cmd: string }>> = {
+  stock:         [{ label: '📰 관련 뉴스', cmd: '관련 뉴스 찾아줘' }, { label: '📊 차트 보기', cmd: '차트 보여줘' }, { label: '🔔 알림 설정', cmd: '가격 알림 설정해줘' }],
+  exchange_rate: [{ label: '💱 다른 통화', cmd: '유로 환율도 알려줘' }, { label: '📈 환율 추이', cmd: '최근 환율 변화 알려줘' }],
+  web_search:    [{ label: '🔍 더 찾기', cmd: '더 자세히 찾아줘' }, { label: '📄 요약', cmd: '요약해줘' }],
+  deep_research: [{ label: '📁 파일 저장', cmd: '파일로 저장해줘' }, { label: '🔍 더 조사', cmd: '더 깊이 조사해줘' }],
+  chat:          [{ label: '🔍 검색', cmd: '웹에서 찾아줘' }, { label: '📝 정리', cmd: '핵심만 정리해줘' }],
+  file_ops:      [{ label: '📂 결과 열기', cmd: '정리된 폴더 열어줘' }, { label: '↩️ 취소', cmd: '방금 정리 취소해줘' }],
+  screen_analyze:[{ label: '📋 텍스트 복사', cmd: '화면 텍스트 복사해줘' }, { label: '🔍 자세히', cmd: '더 자세히 분석해줘' }],
+  clipboard_action: [{ label: '📁 저장', cmd: '파일로 저장해줘' }, { label: '🔄 다시', cmd: '다시 처리해줘' }],
+  weather:       [{ label: '📅 주간 날씨', cmd: '이번 주 날씨 알려줘' }, { label: '🌍 다른 지역', cmd: '서울 날씨 알려줘' }],
+}
+
 interface ChatBubbleProps {
   messages: ChatMessage[]
   typing: boolean
@@ -169,6 +222,7 @@ interface ChatBubbleProps {
   onVoiceToggle: () => void
   onRepair?: (ids: string[]) => void
   assistantName: string
+  typingSteps?: string[]
   lang: 'ko' | 'en'
   primaryColor: string
   historyVersion?: number
@@ -192,6 +246,7 @@ export function ChatBubble({
   lang,
   primaryColor,
   historyVersion = 0,
+  typingSteps,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory())
@@ -407,11 +462,31 @@ export function ChatBubble({
         scrollbarWidth: 'none',
       }}>
         {history.length === 0 && !typing && (
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'rgba(255,255,255,0.2)', fontSize: 12, padding: '20px 0',
-          }}>
-            대화 이력이 없습니다
+          <div style={{ padding: '12px 4px' }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginBottom: 10, textAlign: 'center' }}>
+              이런 걸 물어볼 수 있어요
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {FEATURED_ACTIONS.map(a => (
+                <button
+                  key={a.cmd}
+                  onClick={() => onSend(a.cmd)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${primaryColor}33`,
+                    color: 'rgba(255,255,255,0.8)', fontSize: 12,
+                    textAlign: 'left', transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}18`; e.currentTarget.style.borderColor = `${primaryColor}88` }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = `${primaryColor}33` }}
+                >
+                  <span style={{ fontSize: 15 }}>{a.emoji}</span>
+                  <span>{a.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -449,23 +524,44 @@ export function ChatBubble({
           ))}
         </AnimatePresence>
 
+        {/* 마지막 응답 후 follow-up 액션 */}
+        {!typing && history.length > 0 && (() => {
+          const last = history[history.length - 1]
+          const lastAction = messages.filter(m => m.role === 'nexus').slice(-1)[0]
+          const actionKey = (lastAction as any)?.action ?? ''
+          const suggestions = FOLLOW_UP_MAP[actionKey] ?? FOLLOW_UP_MAP['chat']
+          return (
+            <AnimatePresence>
+              <motion.div
+                key={last.id + '-followup'}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6, marginBottom: 2 }}
+              >
+                {suggestions.map(s => (
+                  <button
+                    key={s.cmd}
+                    onClick={() => onSend(s.cmd)}
+                    style={{
+                      padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${primaryColor}33`,
+                      color: `${primaryColor}cc`, fontSize: 10, fontWeight: 600,
+                      transition: 'all 0.15s', whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}22` }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                  >{s.label}</button>
+                ))}
+              </motion.div>
+            </AnimatePresence>
+          )
+        })()}
+
         {/* 타이핑 인디케이터 */}
         {typing && (
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 8 }}>
-            <div style={{
-              background: 'rgba(255,255,255,0.07)',
-              border: `1px solid ${primaryColor}33`,
-              borderRadius: '4px 14px 14px 14px',
-              padding: '10px 14px',
-              display: 'flex', gap: 4, width: 'fit-content',
-            }}>
-              {[0,1,2].map(i => (
-                <div key={i} style={{
-                  width: 6, height: 6, borderRadius: '50%', background: primaryColor,
-                  animation: `typingDot 1.2s ease-in-out infinite ${i * 0.2}s`,
-                }} />
-              ))}
-            </div>
+            <TypingBar primaryColor={primaryColor} steps={typingSteps} />
           </motion.div>
         )}
         <div ref={bottomRef} />

@@ -144,24 +144,48 @@ func generateProactiveMorningBriefing() string {
 	if total > 0 {
 		diskUsed = (1 - float64(free)/float64(total)) * 100
 	}
-	pcHealth := fmt.Sprintf("메모리: %d%% 사용, 디스크: %.0f%% 사용", mem, diskUsed)
+	eng := IsUserEng()
+
+	var pcHealth string
+	if eng {
+		pcHealth = fmt.Sprintf("Memory: %d%% used, Disk: %.0f%% used", mem, diskUsed)
+	} else {
+		pcHealth = fmt.Sprintf("메모리: %d%% 사용, 디스크: %.0f%% 사용", mem, diskUsed)
+	}
 
 	if pKey == "" {
+		if eng {
+			return fmt.Sprintf("🌅 Good morning! Have a great day.\n\n💻 PC Status: %s", pcHealth)
+		}
 		return fmt.Sprintf("🌅 좋은 아침이에요! 오늘도 좋은 하루 되세요.\n\n💻 PC 상태: %s", pcHealth)
 	}
 
-	prompt := fmt.Sprintf(`오늘 아침 브리핑을 한국어로 작성해주세요. 포함 내용:
+	var prompt string
+	if eng {
+		prompt = fmt.Sprintf(`Write a morning briefing in English. Include:
+1. Today's weather (major cities)
+2. Top 3 news highlights (brief)
+3. PC health summary: %s
+4. An uplifting message for the day
+
+Keep it short and friendly, include emojis, under 300 words.`, pcHealth)
+	} else {
+		prompt = fmt.Sprintf(`오늘 아침 브리핑을 한국어로 작성해주세요. 포함 내용:
 1. 오늘 날씨 (한국 서울 기준)
 2. 오늘의 주요 뉴스 3가지 (간략하게)
 3. PC 건강 요약: %s
 4. 오늘의 한마디 응원 메시지
 
 짧고 친근하게, 이모지 포함, 500자 이내로 작성하세요.`, pcHealth)
+	}
 
 	briefing, _, err := callGroq(pKey, groqChatModel, []groqMsg{
 		{Role: "user", Content: prompt},
 	}, 400, false)
 	if err != nil {
+		if eng {
+			return fmt.Sprintf("🌅 Good morning!\n\n💻 PC Status: %s", pcHealth)
+		}
 		return fmt.Sprintf("🌅 좋은 아침이에요!\n\n💻 PC 상태: %s", pcHealth)
 	}
 	return briefing
@@ -169,7 +193,7 @@ func generateProactiveMorningBriefing() string {
 
 // ── 캘린더 미팅 사전 알림 ────────────────────────────────────
 
-func checkUpcomingMeetings() {
+func checkUpcomingMeetings(eng bool) {
 	// 캘린더 이벤트 확인 (PowerShell Outlook COM)
 	script := `
 try {
@@ -206,11 +230,19 @@ try {
 			subject = parts[0]
 			startTime = parts[1]
 		}
+		var meetTitle, meetMsg string
+		if eng {
+			meetTitle = "📅 Meeting in 30 minutes!"
+			meetMsg = fmt.Sprintf("'%s' is scheduled at %s. Time to prepare!", subject, startTime)
+		} else {
+			meetTitle = "📅 미팅 30분 전!"
+			meetMsg = fmt.Sprintf("'%s' 미팅이 %s에 예정되어 있어요. 준비하세요!", subject, startTime)
+		}
 		publishAlert(Alert{
 			ID:      fmt.Sprintf("meeting_%d", time.Now().UnixNano()),
 			Level:   "warn",
-			Title:   "📅 미팅 30분 전!",
-			Message: fmt.Sprintf("'%s' 미팅이 %s에 예정되어 있어요. 준비하세요!", subject, startTime),
+			Title:   meetTitle,
+			Message: meetMsg,
 			Action:  "calendar",
 		})
 	}
@@ -255,17 +287,27 @@ func startProactiveMonitor() {
 		today := now.Format("2006-01-02")
 		if now.Hour() == 8 && now.Minute() < 6 && lastBriefingDate != today {
 			lastBriefingDate = today
-			go func() {
+			go func(t time.Time, d string) {
+				bEng := IsUserEng()
 				briefing := generateProactiveMorningBriefing()
+				var briefTitle string
+				if bEng {
+					briefTitle = fmt.Sprintf("☀️ Morning Briefing — %s", t.Format("January 2"))
+				} else {
+					briefTitle = fmt.Sprintf("☀️ %s 아침 브리핑", t.Format("1월 2일"))
+				}
 				publishAlert(Alert{
-					ID:      "morning_briefing_" + today,
+					ID:      "morning_briefing_" + d,
 					Level:   "info",
-					Title:   fmt.Sprintf("☀️ %s 아침 브리핑", now.Format("1월 2일")),
+					Title:   briefTitle,
 					Message: briefing,
 					Action:  "briefing",
 				})
-			}()
+			}(now, today)
 		}
+
+		// 저장된 사용자 언어 설정 사용 (입력 없는 자동 알림도 정확하게 처리)
+		proEng := IsUserEng()
 
 		// ── CPU/메모리 고부하 감지 (3회 연속 > 85%) ─────────────
 		mem := getMemoryUsage()
@@ -275,13 +317,17 @@ func startProactiveMonitor() {
 			if cpuHighCount >= 3 && now.Sub(lastCPUAlert) > 30*time.Minute {
 				lastCPUAlert = now
 				cpuHighCount = 0
-				// 자동 정리 대신 알림만 — 사용자가 직접 실행하도록
+				var cpuTitle, cpuMsg string
+				if proEng {
+					cpuTitle = "🌡️ High CPU/Memory Usage"
+					cpuMsg = fmt.Sprintf("Memory usage at %d%%. Recommend cleaning temp files. Clean now?", mem)
+				} else {
+					cpuTitle = "🌡️ CPU/메모리 과부하 감지"
+					cpuMsg = fmt.Sprintf("메모리 %d%% 사용 중입니다. 임시 파일 정리를 권장해요. 정리해드릴까요?", mem)
+				}
 				publishAlert(Alert{
-					ID:      fmt.Sprintf("cpu_high_%d", now.Unix()),
-					Level:   "warn",
-					Title:   "🌡️ CPU/메모리 과부하 감지",
-					Message: fmt.Sprintf("메모리 %d%% 사용 중입니다. 임시 파일 정리를 권장해요. 정리해드릴까요?", mem),
-					Action:  "clean",
+					ID: fmt.Sprintf("cpu_high_%d", now.Unix()), Level: "warn",
+					Title: cpuTitle, Message: cpuMsg, Action: "clean",
 				})
 			}
 		} else {
@@ -291,12 +337,17 @@ func startProactiveMonitor() {
 		// ── 메모리 경고 ──────────────────────────────────────────
 		if mem > 90 && now.Sub(lastMemAlert) > 30*time.Minute {
 			lastMemAlert = now
+			var memTitle, memMsg string
+			if proEng {
+				memTitle = fmt.Sprintf("💾 Memory %d%% Used", mem)
+				memMsg = "Close unused apps to speed up your PC. Clean now?"
+			} else {
+				memTitle = fmt.Sprintf("💾 메모리 %d%% 사용 중", mem)
+				memMsg = "불필요한 프로그램을 종료하면 PC가 빨라질 거예요. 지금 정리해드릴까요?"
+			}
 			publishAlert(Alert{
-				ID:      fmt.Sprintf("mem_%d", now.Unix()),
-				Level:   "warn",
-				Title:   fmt.Sprintf("💾 메모리 %d%% 사용 중", mem),
-				Message: "불필요한 프로그램을 종료하면 PC가 빨라질 거예요. 지금 정리해드릴까요?",
-				Action:  "clean",
+				ID: fmt.Sprintf("mem_%d", now.Unix()), Level: "warn",
+				Title: memTitle, Message: memMsg, Action: "clean",
 			})
 		}
 
@@ -306,37 +357,47 @@ func startProactiveMonitor() {
 			usedPct := (1 - float64(free)/float64(total)) * 100
 			if usedPct > 90 && now.Sub(lastDiskAlert) > 60*time.Minute {
 				lastDiskAlert = now
+				var diskTitle, diskMsg string
+				if proEng {
+					diskTitle = fmt.Sprintf("💿 Disk %.0f%% Full!", usedPct)
+					diskMsg = "Disk space is running low. Clean temp files now?"
+				} else {
+					diskTitle = fmt.Sprintf("💿 디스크 %.0f%% 사용!", usedPct)
+					diskMsg = "디스크 공간이 부족합니다. 임시 파일 정리를 실행할까요?"
+				}
 				publishAlert(Alert{
-					ID:      fmt.Sprintf("disk_full_%d", now.Unix()),
-					Level:   "critical",
-					Title:   fmt.Sprintf("💿 디스크 %.0f%% 사용!", usedPct),
-					Message: "디스크 공간이 부족합니다. 임시 파일 정리를 실행할까요?",
-					Action:  "clean",
+					ID: fmt.Sprintf("disk_full_%d", now.Unix()), Level: "critical",
+					Title: diskTitle, Message: diskMsg, Action: "clean",
 				})
 			}
 		}
 
-		// ── 의심 프로세스 감지 (10분 간격, 별도 goroutine+타임아웃) ──
+		// ── 의심 프로세스 감지 (10분 간격) ──────────────────────
 		if now.Sub(lastSuspAlert) > 10*time.Minute {
 			lastSuspAlert = now
-			go func() {
+			go func(eng bool) {
 				suspicious := detectSuspiciousProcesses()
 				if len(suspicious) > 0 {
+					var suspTitle, suspMsg string
+					if eng {
+						suspTitle = "🚨 Suspicious Process Detected!"
+						suspMsg = fmt.Sprintf("Suspicious processes running: %s", strings.Join(suspicious, ", "))
+					} else {
+						suspTitle = "🚨 의심 프로세스 감지!"
+						suspMsg = fmt.Sprintf("의심스러운 프로세스가 실행 중입니다: %s", strings.Join(suspicious, ", "))
+					}
 					publishAlert(Alert{
-						ID:      fmt.Sprintf("suspicious_%d", now.Unix()),
-						Level:   "critical",
-						Title:   "🚨 의심 프로세스 감지!",
-						Message: fmt.Sprintf("의심스러운 프로세스가 실행 중입니다: %s", strings.Join(suspicious, ", ")),
-						Action:  "security",
+						ID: fmt.Sprintf("suspicious_%d", now.Unix()), Level: "critical",
+						Title: suspTitle, Message: suspMsg, Action: "security",
 					})
 				}
-			}()
+			}(proEng)
 		}
 
 		// ── 미팅 30분 전 알림 (10분마다 확인) ──────────────────
 		if now.Sub(lastMeetingCheck) > 10*time.Minute {
 			lastMeetingCheck = now
-			go checkUpcomingMeetings()
+			go checkUpcomingMeetings(proEng)
 		}
 
 		// ── 업무 시간 2시간 무활동 → 집중 모드 제안 ────────────
@@ -347,24 +408,34 @@ func startProactiveMonitor() {
 
 		if isWorkHour && inactiveDur > 2*time.Hour && now.Sub(lastFocusSuggested) > 2*time.Hour {
 			lastFocusSuggested = now
+			var focusTitle, focusMsg string
+			if proEng {
+				focusTitle = "🎯 Focus Mode Suggested"
+				focusMsg = fmt.Sprintf("No activity for ~%d min. Enable Focus Mode?", int(inactiveDur.Minutes()))
+			} else {
+				focusTitle = "🎯 집중 모드 제안"
+				focusMsg = fmt.Sprintf("약 %d분간 활동이 없었어요. 집중 모드를 활성화할까요?", int(inactiveDur.Minutes()))
+			}
 			publishAlert(Alert{
-				ID:      fmt.Sprintf("focus_%d", now.Unix()),
-				Level:   "info",
-				Title:   "🎯 집중 모드 제안",
-				Message: fmt.Sprintf("약 %d분간 활동이 없었어요. 집중 모드를 활성화할까요?", int(inactiveDur.Minutes())),
-				Action:  "focus",
+				ID: fmt.Sprintf("focus_%d", now.Unix()), Level: "info",
+				Title: focusTitle, Message: focusMsg, Action: "focus",
 			})
 		}
 
 		// ── 대용량 임시 파일 알림 ────────────────────────────────
 		tempSize := getTempSize()
 		if tempSize > 2<<30 { // 2GB
+			var tempTitle, tempMsg string
+			if proEng {
+				tempTitle = fmt.Sprintf("🗑️ %s of Temp Files", formatBytes(tempSize))
+				tempMsg = "Large temp files accumulated. Clean now to free disk space."
+			} else {
+				tempTitle = fmt.Sprintf("🗑️ 임시 파일 %s 누적", formatBytes(tempSize))
+				tempMsg = "임시 파일이 많이 쌓였어요. 지금 정리하면 디스크를 확보할 수 있어요."
+			}
 			publishAlert(Alert{
-				ID:      fmt.Sprintf("temp_%d", now.Unix()),
-				Level:   "info",
-				Title:   fmt.Sprintf("🗑️ 임시 파일 %s 누적", formatBytes(tempSize)),
-				Message: "임시 파일이 많이 쌓였어요. 지금 정리하면 디스크를 확보할 수 있어요.",
-				Action:  "clean",
+				ID: fmt.Sprintf("temp_%d", now.Unix()), Level: "info",
+				Title: tempTitle, Message: tempMsg, Action: "clean",
 			})
 		}
 	}

@@ -93,12 +93,64 @@ async fn repair_all() -> serde_json::Value { serde_json::json!({ "success": true
 // ── 백엔드 준비 상태 확인 (프론트엔드에서 폴링용) ──────────────
 #[tauri::command]
 async fn check_backend_ready() -> bool {
-    // 백엔드 헬스체크: 포트 17891에 연결 가능한지 확인
     match tokio::net::TcpStream::connect("127.0.0.1:17891").await {
         Ok(_) => true,
         Err(_) => false,
     }
 }
+
+// ── 설치 후 의존성 상태 조회 (Go 백엔드에 위임) ─────────────────
+// 프론트엔드에서 fetch("http://127.0.0.1:17891/api/setup/status")로 직접 호출 가능
+// Tauri 커맨드는 백엔드 연결 가능 여부만 확인
+#[tauri::command]
+async fn get_setup_status() -> serde_json::Value {
+    match tokio::net::TcpStream::connect("127.0.0.1:17891").await {
+        Ok(_) => serde_json::json!({ "backend_ready": true }),
+        Err(_) => serde_json::json!({ "backend_ready": false }),
+    }
+}
+
+// ── Chrome 경로 탐색 (Windows 전용) ─────────────────────────────
+#[cfg(target_os = "windows")]
+fn find_chrome_windows() -> Option<String> {
+    let paths = vec![
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    ];
+    for p in &paths {
+        if std::path::Path::new(p).exists() {
+            return Some(p.to_string());
+        }
+    }
+    // 레지스트리 탐색
+    None
+}
+
+// ── Outlook 설치 여부 확인 (Windows 전용) ───────────────────────
+#[tauri::command]
+#[cfg(target_os = "windows")]
+async fn check_outlook_installed() -> bool {
+    let paths = vec![
+        r"C:\Program Files\Microsoft Office\root\Office16\OUTLOOK.EXE",
+        r"C:\Program Files (x86)\Microsoft Office\root\Office16\OUTLOOK.EXE",
+    ];
+    for p in &paths {
+        if std::path::Path::new(p).exists() {
+            return true;
+        }
+    }
+    // New Outlook (UWP) 확인
+    let output = std::process::Command::new("powershell")
+        .args(["-WindowStyle", "Hidden", "-Command",
+            "if (Get-AppxPackage -Name Microsoft.OutlookForWindows -ErrorAction SilentlyContinue) { 'true' } else { 'false' }"])
+        .output();
+    matches!(output, Ok(o) if String::from_utf8_lossy(&o.stdout).trim() == "true")
+}
+
+#[tauri::command]
+#[cfg(not(target_os = "windows"))]
+async fn check_outlook_installed() -> bool { false }
 
 // ═══════════════════════════════════════════════════════════════
 // Go 백엔드 임베드 + 자동 추출 + 실행
@@ -277,6 +329,7 @@ fn setup_shortcut<R: Runtime>(app: &App<R>) -> tauri::Result<()> {
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
@@ -318,6 +371,8 @@ async fn main() {
             repair_issue,
             repair_all,
             check_backend_ready,
+            get_setup_status,
+            check_outlook_installed,
         ])
         .build(tauri::generate_context!())
         .expect("Nexus 실행 실패")

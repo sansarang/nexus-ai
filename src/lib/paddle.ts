@@ -20,11 +20,12 @@ export async function initPaddle(): Promise<Paddle> {
 }
 
 /** 구독 결제 체크아웃 열기 */
-export async function openCheckout(email: string): Promise<void> {
+export async function openCheckout(email: string, userId?: string): Promise<void> {
   const paddle = await initPaddle()
   paddle.Checkout.open({
     items: [{ priceId: PADDLE_PRICE_ID, quantity: 1 }],
     customer: { email },
+    customData: userId ? { user_id: userId } : undefined,
     settings: {
       displayMode: 'overlay',
       theme: 'dark',

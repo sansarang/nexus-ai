@@ -38,7 +38,7 @@ async function bootstrap() {
       }
       const status = resolveStatus(row)
       const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
-      useAppStore.getState().setLoggedIn(email, status, expiry)
+      useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
     }
 
     // 세션 변경 감지 (로그인/로그아웃)
@@ -54,7 +54,7 @@ async function bootstrap() {
           }
           const status = resolveStatus(row)
           const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
-          useAppStore.getState().setLoggedIn(email, status, expiry)
+          useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
         } else if (event === 'SIGNED_OUT') {
           localStorage.removeItem('nexus-user-email')
           localStorage.removeItem('nexus-sub-status')

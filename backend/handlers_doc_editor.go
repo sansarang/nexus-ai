@@ -212,9 +212,13 @@ func aiEditExcel(filePath, instruction, sheetHint, saveAs string) (outPath, summ
 		contentJSON = contentJSON[:12000]
 	}
 
-	systemPrompt := `당신은 Excel 전문 AI 에디터입니다. 사용자 지시에 따라 Excel 파일을 수정하고 반드시 아래 JSON 형식으로만 응답하세요:
+	summaryLang := "수행한 작업을 한국어로 간략히 요약"
+	if isEnglishQuery(instruction) {
+		summaryLang = "Brief summary of the operation performed in English"
+	}
+	systemPrompt := fmt.Sprintf(`You are an Excel AI editor. Follow the user's instructions to modify the Excel file and respond ONLY in the JSON format below:
 {
-  "summary": "수행한 작업을 한국어로 간략히 요약",
+  "summary": "%s",`, summaryLang) + `
   "operations": [
     {"type": "set_cell", "sheet": "시트명", "cell": "A1", "value": "새값"},
     {"type": "set_range", "sheet": "시트명", "start": "A2", "values": [["행1열1","행1열2"],["행2열1","행2열2"]]},
@@ -482,8 +486,14 @@ func aiEditTextDoc(filePath, instruction, saveAs string) (outPath, summary strin
 		original = string(runes[:8000]) + "\n...[이하 내용 생략]..."
 	}
 
-	systemPrompt := `당신은 문서 편집 AI입니다. 사용자 지시에 따라 문서 내용을 수정하고 반드시 아래 JSON으로만 응답하세요:
+	var systemPrompt string
+	if isEnglishQuery(instruction) {
+		systemPrompt = `You are a document editing AI. Follow the user's instructions to edit the document and respond ONLY in the JSON format below:
+{"summary":"Brief summary of the operation in English","new_text":"The complete modified document content"}`
+	} else {
+		systemPrompt = `당신은 문서 편집 AI입니다. 사용자 지시에 따라 문서 내용을 수정하고 반드시 아래 JSON으로만 응답하세요:
 {"summary":"수행한 작업을 한국어로 간략히 요약","new_text":"수정된 전체 문서 내용"}`
+	}
 
 	msgs := []groqMsg{
 		{Role: "system", Content: systemPrompt},
