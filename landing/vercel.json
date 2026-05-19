@@ -1,0 +1,13 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "routes": [
+    { "src": "/en/terms",   "dest": "/en/terms.html"   },
+    { "src": "/en/privacy", "dest": "/en/privacy.html" },
+    { "src": "/en/refund",  "dest": "/en/refund.html"  },
+    { "src": "/terms",      "dest": "/terms.html"      },
+    { "src": "/privacy",    "dest": "/privacy.html"    },
+    { "src": "/refund",     "dest": "/refund.html"     },
+    { "src": "/(.*)",       "dest": "/$1"              }
+  ]
+}
