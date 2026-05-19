@@ -5,13 +5,40 @@ import './index.css'
 import { supabase, fetchSubscription, createTrialSubscription, resolveStatus } from './lib/supabase'
 import { initPaddle } from './lib/paddle'
 
-/* Tauri 이벤트 수신 — Alt+Space 시 Command Palette 열기 */
+/* Tauri 이벤트 수신 — Alt+Space 시 Command Palette 열기 + OAuth 콜백 처리 */
 async function setupTauriEvents() {
   try {
     const { listen } = await import('@tauri-apps/api/event')
     const { useAppStore } = await import('./stores/appStore')
+
     await listen('toggle-command', () => {
       useAppStore.getState().toggleCommand()
+    })
+
+    // Google OAuth 딥링크 콜백 처리
+    await listen('oauth-callback', async (event) => {
+      try {
+        const url = event.payload as string
+        // URL에서 code 파라미터 추출 (PKCE flow)
+        const urlObj = new URL(url.replace('nexus://', 'https://nexus.app/'))
+        const code = urlObj.searchParams.get('code')
+        if (code) {
+          const { supabase, fetchSubscription, createTrialSubscription, resolveStatus } = await import('./lib/supabase')
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          if (!error && data.session?.user) {
+            const user = data.session.user
+            const email = user.email ?? ''
+            let row = await fetchSubscription(user.id)
+            if (!row) {
+              await createTrialSubscription(user.id)
+              row = await fetchSubscription(user.id)
+            }
+            const status = resolveStatus(row)
+            const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
+            useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
+          }
+        }
+      } catch { /* 무시 */ }
     })
   } catch {
     /* 브라우저 개발 환경에선 무시 */

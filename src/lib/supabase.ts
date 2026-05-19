@@ -31,7 +31,7 @@ export async function signInWithGoogle(loginHint?: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: 'https://nexusai.ai.kr',
+      redirectTo: 'nexus://auth/callback',
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',

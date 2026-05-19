@@ -329,6 +329,7 @@ fn setup_shortcut<R: Runtime>(app: &App<R>) -> tauri::Result<()> {
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -352,6 +353,20 @@ async fn main() {
                 let _ = win.set_focus();
                 let _ = win.center();
             }
+
+            // 5. 딥링크 핸들러 (Google OAuth 콜백)
+            let handle = app.handle().clone();
+            app.listen("deep-link://new-url", move |event| {
+                let url = event.payload().to_string();
+                // nexus://auth/callback?code=XXX 수신 시 프론트엔드로 전달
+                if url.contains("auth/callback") || url.contains("access_token") {
+                    if let Some(win) = handle.get_webview_window("main") {
+                        let _ = win.show();
+                        let _ = win.set_focus();
+                        let _ = win.emit("oauth-callback", url);
+                    }
+                }
+            });
 
             Ok(())
         })
