@@ -908,6 +908,9 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	// ── 액션 실행 ────────────────────────────────────────────
 	result, msg := dispatchAction(intentAction, intentParams, req.Message, gKey, lang, req.History)
 
+	// ── LLM 자연어 응답 생성: 실행 결과 → 사람처럼 말하는 답변 ──
+	msg = generateLLMResponse(intentAction, result, msg, req.Message, lang, gKey)
+
 	saveAgentMemory(AgentMemoryEntry{
 		ID:        fmt.Sprintf("cmd_%d", time.Now().Unix()),
 		Timestamp: time.Now().Format(time.RFC3339),
