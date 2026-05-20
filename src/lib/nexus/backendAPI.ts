@@ -592,7 +592,7 @@ export const sendCommand = (
   request<CommandResult>('POST', '/api/command', {
     message,
     context: options?.context,
-    lang: options?.lang ?? 'ko',
+    lang: options?.lang,
     pending_intent: options?.pendingIntent,
     pending_params: options?.pendingParams,
     pending_question: options?.pendingQuestion,

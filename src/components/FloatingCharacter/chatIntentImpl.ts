@@ -49,7 +49,36 @@ interface ConversationTurn {
 
 type CharacterEmotion = NexusEmotion
 
-function buildAgentSteps(intent: Intent): string[] {
+function t(ko: string, en: string, lang: 'ko' | 'en'): string {
+  return lang === 'en' ? en : ko
+}
+
+function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
+  if (lang === 'en') {
+    switch (intent) {
+      case 'pc_status': return ['Fetching PC status...', 'Collecting CPU/Memory/Disk', 'Building status card']
+      case 'security_scan': return ['Starting security scan...', 'Checking remote access', 'Scanning suspicious processes', 'Analyzing results']
+      case 'full_scan': return ['Starting full diagnostic...', 'Searching system issues', 'Classifying severity', 'Generating report']
+      case 'clean': return ['Identifying targets...', 'Checking temp files & cache', 'Running safe cleanup']
+      case 'daily_report': return ['Collecting system data...', 'Analyzing usage', 'Building report']
+      case 'repair': return ['Diagnosing issues...', 'Applying fixes', 'Verifying results']
+      case 'file_search': return ['Starting file search...', 'Collecting results']
+      case 'file_organize': return ['Scanning files...', 'Categorizing', 'Moving to folders']
+      case 'vision_screen': return ['Capturing screen...', 'Sending to AI', 'Generating answer']
+      case 'doc_compare': return ['Opening files...', 'Extracting text', 'Running diff', 'Summarizing differences']
+      case 'deep_search': return ['Collecting files...', 'Indexing content', 'Ranking results']
+      case 'news_search': return ['Searching news...', 'Collecting articles']
+      case 'youtube_search': return ['Searching videos...', 'Collecting results']
+      case 'price_compare': return ['Searching...', 'Checking Coupang', 'Checking Naver', 'Comparing prices']
+      case 'weather': return ['Fetching weather data...', 'Analyzing forecast']
+      case 'calendar_today': return ['Connecting to Outlook...', 'Loading today\'s events']
+      case 'email_inbox': return ['Connecting to Outlook...', 'Fetching inbox']
+      case 'workflow_run': return ['Generating workflow plan...', 'Executing steps...', 'Compiling results']
+      case 'multi_agent': return ['Preparing agents...', 'Deploying team', 'Running in parallel']
+      case 'briefing_now': return ['Checking weather...', 'Fetching calendar...', 'Checking email...', 'Generating briefing']
+      default: return ['Processing...', 'Analyzing', 'Done']
+    }
+  }
   switch (intent) {
     case 'pc_status':
       return ['PC 상태 데이터 요청 중...', 'CPU·메모리·디스크 수집', '시각 카드 생성 중']
@@ -233,7 +262,7 @@ export async function handleBackendIntentImpl(
 
 
     /* Multi-step: 사고 카드 먼저 표시 */
-    const steps = buildAgentSteps(intent)
+    const steps = buildAgentSteps(intent, userLang)
     setMessages(prev => [...prev, {
       id: `think-${msgId}`,
       role: 'nexus',
@@ -305,10 +334,10 @@ export async function handleBackendIntentImpl(
             return { text: ask, emotion: 'neutral' }
           }
           const res = await backendAPI.openFolder(folderName).catch(() => ({
-            success: false, path: '', message: '백엔드 미연결 상태입니다.',
+            success: false, path: '', message: t('백엔드 미연결 상태입니다.', 'Backend not connected.', userLang),
           }))
           return {
-            text: res.success ? `${folderName} 폴더를 열었어요.` : res.message,
+            text: res.success ? t(`${folderName} 폴더를 열었어요.`, `Opened folder: ${folderName}`, userLang) : res.message,
             card: { type: 'folder_open', success: res.success, path: res.path, message: res.message },
             emotion: res.success ? 'happy' : 'concerned',
           }
@@ -380,7 +409,7 @@ export async function handleBackendIntentImpl(
         }
         case 'launch_app': {
           const appName = extractAppName(originalText)
-          if (!appName) return { text: '어떤 앱을 실행할까요?', emotion: 'neutral' }
+          if (!appName) return { text: t('어떤 앱을 실행할까요?', 'Which app would you like to launch?', userLang), emotion: 'neutral' }
           const res = await backendAPI.launchApp(appName).catch(() => ({ success: false, message: `${appName} 실행 실패` }))
           return { text: res.message,
             card2: { type: 'system_action', icon: '🚀', title: res.message, success: res.success },
@@ -388,7 +417,7 @@ export async function handleBackendIntentImpl(
         }
         case 'process_top': {
           const data = await backendAPI.processTop().catch(() => ({ by_cpu: [], by_mem: [] }))
-          return { text: 'CPU·메모리 상위 프로세스예요 📊',
+          return { text: t('CPU·메모리 상위 프로세스예요 📊', 'Top processes by CPU & memory 📊', userLang),
             card2: { type: 'process_top', data }, emotion: 'neutral' }
         }
 
@@ -404,10 +433,11 @@ export async function handleBackendIntentImpl(
             emotion: data.success ? 'happy' : 'concerned' }
         }
         case 'power_plan': {
-          const plans: Record<string, string> = { '고성능': 'performance', '절전': 'powersaver', '균형': 'balanced' }
+          const plans: Record<string, string> = { '고성능': 'performance', '절전': 'powersaver', '균형': 'balanced', 'performance': 'performance', 'high performance': 'performance', 'power saver': 'powersaver', 'balanced': 'balanced', 'battery saver': 'powersaver' }
           let planName = 'balanced'
+          const lowerText = originalText.toLowerCase()
           for (const [k, v] of Object.entries(plans)) {
-            if (originalText.includes(k)) { planName = v; break }
+            if (lowerText.includes(k)) { planName = v; break }
           }
           const res = await backendAPI.setPowerPlan(planName).catch(() => ({ success: false, message: '전원 계획 변경 실패' }))
           return { text: res.message,
@@ -439,7 +469,7 @@ export async function handleBackendIntentImpl(
         }
         case 'programs_list': {
           const data = await backendAPI.programsList().catch(() => ({ programs: [], total: 0 }))
-          return { text: `설치된 프로그램 ${data.total}개 확인했어요 📦`,
+          return { text: t(`설치된 프로그램 ${data.total}개 확인했어요 📦`, `Found ${data.total} installed programs 📦`, userLang),
             card2: { type: 'programs_list', data }, emotion: 'neutral' }
         }
         case 'boot_analysis': {
@@ -469,8 +499,8 @@ export async function handleBackendIntentImpl(
 
         /* ── 생산성 ── */
         case 'focus_mode': {
-          const isOff = /해제|off|끄/.test(originalText)
-          const durMatch = originalText.match(/(\d+)\s*분/)
+          const isOff = /해제|off|끄|disable|stop/.test(originalText)
+          const durMatch = originalText.match(/(\d+)\s*(?:분|min(?:ute)?s?)/)
           const duration = durMatch ? parseInt(durMatch[1]) : 25
           const res = await backendAPI.focusMode(isOff ? 'off' : 'on', duration).catch(() => ({ success: false, active: !isOff, message: isOff ? '집중 모드 해제됨' : `집중 모드 시작! ${duration}분 동안 알림이 차단돼요 🎯` }))
           if (res.active) {
@@ -502,7 +532,7 @@ export async function handleBackendIntentImpl(
             }
           }
           const data = await backendAPI.notes().catch(() => ({ notes: [], total: 0 }))
-          return { text: `메모 ${data.total}개를 가져왔어요 📝`,
+          return { text: t(`메모 ${data.total}개를 가져왔어요 📝`, `Fetched ${data.total} notes 📝`, userLang),
             card2: { type: 'notes', data }, emotion: 'neutral' }
         }
 
@@ -510,7 +540,7 @@ export async function handleBackendIntentImpl(
         case 'doc_compare': {
           const [f1, f2] = extractTwoFilePaths(originalText)
           if (!f1 || !f2) {
-            return { text: '비교할 두 파일 경로를 알려주세요. 예: "report_v1.docx 와 report_v2.docx 비교해줘"', emotion: 'neutral' }
+            return { text: t('비교할 두 파일 경로를 알려주세요. 예: "report_v1.docx 와 report_v2.docx 비교해줘"', 'Please provide two file paths to compare. e.g. "compare report_v1.docx and report_v2.docx"', userLang), emotion: 'neutral' }
           }
           const data = await backendAPI.docsCompare(f1, f2)
           return {
@@ -570,7 +600,7 @@ export async function handleBackendIntentImpl(
         case 'journal_today': {
           const data = await backendAPI.journalToday()
           return {
-            text: `오늘 업무 일지를 정리했어요! ${(data as { app_usage?: unknown[] }).app_usage?.length || 0}개 앱, ${(data as { recent_files?: unknown[] }).recent_files?.length || 0}개 파일 사용 기록이 있어요.`,
+            text: t(`오늘 업무 일지를 정리했어요! ${(data as { app_usage?: unknown[] }).app_usage?.length || 0}개 앱, ${(data as { recent_files?: unknown[] }).recent_files?.length || 0}개 파일 사용 기록이 있어요.`, `Work journal ready! ${(data as { app_usage?: unknown[] }).app_usage?.length || 0} apps, ${(data as { recent_files?: unknown[] }).recent_files?.length || 0} files recorded.`, userLang),
             card4: { type: 'journal_today', data: data as unknown as Parameters<typeof import('./InlineCards4').JournalTodayCard>[0]['data'] },
             emotion: 'happy',
           }
@@ -586,7 +616,7 @@ export async function handleBackendIntentImpl(
         case 'journal_history': {
           const data = await backendAPI.journalHistory()
           return {
-            text: `최근 ${(data as { days?: number }).days || 0}일간의 업무 기록을 찾았어요.`,
+            text: t(`최근 ${(data as { days?: number }).days || 0}일간의 업무 기록을 찾았어요.`, `Work history for the past ${(data as { days?: number }).days || 0} days.`, userLang),
             card4: { type: 'journal_history', data: data as { history: Array<{ date: string; work_hours: number; file_count: number; app_count: number; top_app: string }> } },
             emotion: 'neutral',
           }
@@ -597,8 +627,8 @@ export async function handleBackendIntentImpl(
           const data = await backendAPI.macroList()
           return {
             text: (data as { total?: number }).total === 0
-              ? '아직 등록된 매크로가 없어요. "매일 아침 9시에 크롬 열어줘" 처럼 말해보세요!'
-              : `매크로 ${(data as { total?: number }).total}개가 등록돼 있어요.`,
+              ? t('아직 등록된 매크로가 없어요. "매일 아침 9시에 크롬 열어줘" 처럼 말해보세요!', 'No macros yet. Try saying "open Chrome every morning at 9am"!', userLang)
+              : t(`매크로 ${(data as { total?: number }).total}개가 등록돼 있어요.`, `${(data as { total?: number }).total} macros registered.`, userLang),
             card4: { type: 'macro_list', data: data as { macros: Parameters<typeof import('./InlineCards4').MacroListCard>[0]['data']['macros']; total: number } },
             emotion: 'neutral',
           }
@@ -607,7 +637,7 @@ export async function handleBackendIntentImpl(
           const parsed = await backendAPI.macroParse(originalText)
           const macro = (parsed as { macro?: unknown }).macro
           if (!macro) {
-            return { text: '매크로를 이해하지 못했어요. 조금 더 자세히 말해주세요.', emotion: 'neutral' }
+            return { text: t('매크로를 이해하지 못했어요. 조금 더 자세히 말해주세요.', "I couldn't understand the macro. Please describe it in more detail.", userLang), emotion: 'neutral' }
           }
           const created = await backendAPI.macroCreate(macro)
           return {
@@ -634,7 +664,7 @@ export async function handleBackendIntentImpl(
         case 'pc_report': {
           const data = await backendAPI.reportGenerate()
           return {
-            text: `PC 건강 점수: ${(data as { score?: number }).score || 0}점. 리포트가 바탕화면에 저장됐어요!`,
+            text: t(`PC 건강 점수: ${(data as { score?: number }).score || 0}점. 리포트가 바탕화면에 저장됐어요!`, `PC health score: ${(data as { score?: number }).score || 0}. Report saved to desktop!`, userLang),
             card4: { type: 'pc_report', data: data as unknown as Parameters<typeof import('./InlineCards4').PCReportCard>[0]['data'] },
             emotion: (data as { score?: number }).score && (data as { score?: number }).score! < 60 ? 'concerned' : 'happy',
           }
@@ -652,7 +682,7 @@ export async function handleBackendIntentImpl(
         case 'doc_summary': {
           const filePath = extractTwoFilePaths(originalText)[0] || ''
           if (!filePath) {
-            return { text: '요약할 파일 경로를 알려주세요. 예: "report.pdf 요약해줘"', emotion: 'neutral' }
+            return { text: t('요약할 파일 경로를 알려주세요. 예: "report.pdf 요약해줘"', 'Please provide a file path to summarize. e.g. "summarize report.pdf"', userLang), emotion: 'neutral' }
           }
           const data = await backendAPI.docsSummary(filePath)
           return {
@@ -717,9 +747,9 @@ export async function handleBackendIntentImpl(
         case 'email_send': {
           const toMatch = originalText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
           const to = toMatch?.[1] ?? ''
-          if (!to) return { text: '받는 사람 이메일 주소를 알려주세요. 예: "user@gmail.com에게 메일 보내줘"', emotion: 'neutral' }
-          const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? 'Nexus에서 보낸 메일'
-          const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? ''
+          if (!to) return { text: t('받는 사람 이메일 주소를 알려주세요. 예: "user@gmail.com에게 메일 보내줘"', 'Please provide the recipient email. e.g. "send email to user@gmail.com"', userLang), emotion: 'neutral' }
+          const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? originalText.match(/subject[:\s]+(.+)/i)?.[1] ?? t('Nexus에서 보낸 메일', 'Mail from Nexus', userLang)
+          const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? originalText.match(/(?:body|message|content)[:\s]+(.+)/i)?.[1] ?? ''
           const res = await emailSend(to, subject, body).catch(() => ({ success: false, message: '메일 전송 실패' }))
           return {
             text: res.message,
@@ -740,7 +770,7 @@ export async function handleBackendIntentImpl(
         case 'virus_check': {
           const filePathMatch = originalText.match(/[A-Za-z]:\\[^\s]+/) ?? originalText.match(/["']([^"']+\.[a-z]{2,4})["']/)
           const filePath = filePathMatch?.[0]?.replace(/['"]/g, '') ?? ''
-          if (!filePath) return { text: '검사할 파일 경로를 알려주세요. 예: "C:\\Users\\file.exe 바이러스 확인해줘"', emotion: 'neutral' }
+          if (!filePath) return { text: t('검사할 파일 경로를 알려주세요. 예: "C:\\Users\\file.exe 바이러스 확인해줘"', 'Please provide a file path to scan. e.g. "check C:\\Users\\file.exe for virus"', userLang), emotion: 'neutral' }
           const apiKey = localStorage.getItem('nexus-virustotal-key') ?? ''
           const data = await virusTotalCheck(filePath, apiKey).catch(() => ({ success: false, file_path: filePath, file_hash: '', malicious: 0, suspicious: 0, clean: 0, total_scans: 0, permalink: '', safe_score: 0, verdict: 'error', message: 'VirusTotal 연결 실패' }))
           const em: CharacterEmotion = data.verdict === 'malicious' ? 'alert' : data.verdict === 'suspicious' ? 'concerned' : 'happy'
@@ -774,12 +804,12 @@ export async function handleBackendIntentImpl(
         /* ── 🌐 가격 비교 (chromedp 불필요 — /api/command 결과 사용) ── */
         case 'price_compare': {
           // handleBackendIntent에서 직접 호출되는 경우: /api/command에 위임
-          return { text: '가격을 검색하고 있어요...', emotion: 'neutral' }
+          return { text: t('가격을 검색하고 있어요...', 'Searching for prices...', userLang), emotion: 'neutral' }
         }
 
         /* ── 🌐 뉴스 검색 ── */
         case 'news_search': {
-          const query = originalText.replace(/뉴스|검색|최신|오늘|찾아줘/g, '').trim() || '오늘 주요 뉴스'
+          const query = originalText.replace(/뉴스|검색|최신|오늘|찾아줘|news|search|latest|today|find/gi, '').trim() || t('오늘 주요 뉴스', 'top news today', userLang)
           const data = await newsSearch(query).catch(() => ({ success: false, query, articles: [], items: [], total: 0, summary: '뉴스 검색 실패' })) as any
           const articles = data.articles ?? data.items ?? []
           if (articles.length > 0) {
@@ -798,7 +828,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 🎬 유튜브 검색 ── */
         case 'youtube_search': {
-          const query = originalText.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘|영상/g, '').trim() || originalText
+          const query = originalText.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘|영상|search|find|show me|video/gi, '').trim() || originalText
           const isTiktok = /틱톡|tiktok/i.test(originalText)
           const data = isTiktok
             ? await tiktokSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
@@ -823,7 +853,7 @@ export async function handleBackendIntentImpl(
           const url = urlMatch?.[0] ?? ''
           if (!url) {
             return {
-              text: '다운로드할 영상 URL을 붙여넣어주세요.\n예: "https://www.youtube.com/watch?v=... 다운로드해줘"',
+              text: t('다운로드할 영상 URL을 붙여넣어주세요.\n예: "https://www.youtube.com/watch?v=... 다운로드해줘"', 'Please paste the video URL.\ne.g. "download https://www.youtube.com/watch?v=..."', userLang),
               emotion: 'neutral',
             }
           }
@@ -851,7 +881,7 @@ export async function handleBackendIntentImpl(
         case 'schedule_list': {
           const data = await schedulerList().catch(() => ({ success: false, tasks: [], total: 0 }))
           return {
-            text: data.total === 0 ? '등록된 자동화 스케줄이 없어요. "매일 오전 9시에 PC 진단해줘" 처럼 말해보세요!' : `스케줄 ${data.total}개가 등록돼 있어요.`,
+            text: data.total === 0 ? t('등록된 자동화 스케줄이 없어요. "매일 오전 9시에 PC 진단해줘" 처럼 말해보세요!', 'No schedules yet. Try "run PC scan every day at 9am"!', userLang) : t(`스케줄 ${data.total}개가 등록돼 있어요.`, `${data.total} schedules registered.`, userLang),
             card2: { type: 'system_action', icon: '⏰', title: `스케줄 ${data.total}개`, detail: (data.tasks as Array<{name: string; next_run: string}>).slice(0,3).map(t => `${t.name} — ${t.next_run}`).join('\n'), success: true },
             emotion: 'neutral',
           }
@@ -866,7 +896,7 @@ export async function handleBackendIntentImpl(
         }
         case 'schedule_delete': {
           const idMatch = originalText.match(/\b([a-f0-9-]{10,})\b/)
-          if (!idMatch) return { text: '삭제할 스케줄 ID를 알려주세요. 먼저 "스케줄 목록" 으로 확인해보세요.', emotion: 'neutral' }
+          if (!idMatch) return { text: t('삭제할 스케줄 ID를 알려주세요. 먼저 "스케줄 목록" 으로 확인해보세요.', 'Please provide the schedule ID to delete. Say "show schedules" first.', userLang), emotion: 'neutral' }
           const res = await schedulerDelete(idMatch[1]).catch(() => ({ success: false, message: '삭제 실패' }))
           return {
             text: res.message,
@@ -879,7 +909,7 @@ export async function handleBackendIntentImpl(
         case 'process_kill': {
           const pidMatch = originalText.match(/pid\s*[:#]?\s*(\d+)/i)
           const nameMatch = originalText.replace(/프로세스|종료|강제|앱|죽여|kill/gi, '').trim()
-          if (!pidMatch && !nameMatch) return { text: '종료할 프로세스 이름이나 PID를 알려주세요.', emotion: 'neutral' }
+          if (!pidMatch && !nameMatch) return { text: t('종료할 프로세스 이름이나 PID를 알려주세요.', 'Please provide the process name or PID to terminate.', userLang), emotion: 'neutral' }
           const pid = pidMatch ? parseInt(pidMatch[1]) : undefined
           const name = pid ? undefined : nameMatch
           const res = await processKill(pid, name).catch(() => ({ success: false, name: name ?? '', message: '종료 실패' }))
@@ -913,8 +943,10 @@ export async function handleBackendIntentImpl(
 
         /* ── 🌤️ 날씨 ── */
         case 'weather': {
-          const cityMatch = originalText.match(/([가-힣]{2,5})\s*날씨/) ?? originalText.match(/([가-힣]{2,5})\s*기온/)
-          const city = cityMatch?.[1] ?? '서울'
+          const cityMatch = originalText.match(/([가-힣]{2,5})\s*(?:날씨|기온)/)
+            ?? originalText.match(/weather\s+(?:in|for|at)\s+([a-zA-Z가-힣]+)/i)
+            ?? originalText.match(/(?:in|for|at)\s+([a-zA-Z가-힣]+)\s+weather/i)
+          const city = cityMatch?.[1] ?? (userLang === 'en' ? 'Seoul' : '서울')
           const data = await weatherGet(city).catch(() => ({ success: false, city, temp_c: 0, feels_like: 0, condition: '알 수 없음', humidity: 0, wind_kmh: 0, forecast: [], message: '' }))
           if (!data.success) {
             // 백엔드 없음 → Groq로 동적 응답
@@ -923,10 +955,10 @@ export async function handleBackendIntentImpl(
               const gr = await callGemini(apiKey, originalText, historyRef.current as ConversationTurn[]).catch(() => null)
               if (gr?.text) return { text: gr.text, emotion: gr.emotion ?? 'neutral' }
             }
-            return { text: `날씨 서비스에 연결할 수 없어요. 현재 위치 날씨는 날씨 앱이나 포털 사이트에서 확인해보세요! 🌤️`, emotion: 'neutral' }
+            return { text: t('날씨 서비스에 연결할 수 없어요. 날씨 앱이나 포털 사이트에서 확인해보세요! 🌤️', "Can't connect to weather service. Please check a weather app instead! 🌤️", userLang), emotion: 'neutral' }
           }
           return {
-            text: `${data.city} 현재 ${data.temp_c}°C, ${data.condition}이에요.`,
+            text: t(`${data.city} 현재 ${data.temp_c}°C, ${data.condition}이에요.`, `${data.city}: ${data.temp_c}°C, ${data.condition}`, userLang),
             card2: {
               type: 'system_action', icon: '🌤️',
               title: `${data.city} ${data.temp_c}°C — ${data.condition}`,
@@ -940,9 +972,10 @@ export async function handleBackendIntentImpl(
         /* ── 🚗 교통 시간 ── */
         case 'travel_time': {
           const parts = originalText.match(/(.+?)(?:에서|에서부터)\s*(.+?)(?:까지|로|으로)/)
+            ?? originalText.match(/(?:from|between)\s+(.+?)\s+(?:to|and)\s+(.+?)(?:\s|$)/i)
           const origin = parts?.[1]?.trim() ?? ''
           const destination = parts?.[2]?.trim() ?? ''
-          if (!origin || !destination) return { text: '"어디에서 어디까지 얼마나 걸려?" 형식으로 말해주세요.', emotion: 'neutral' }
+          if (!origin || !destination) return { text: t('"어디에서 어디까지 얼마나 걸려?" 형식으로 말해주세요.', 'Please say "how long from [origin] to [destination]?"', userLang), emotion: 'neutral' }
           const data = await travelTime(origin, destination).catch(() => ({ success: false, origin, destination, distance_km: 0, duration_min: 0, departure_time: '', arrival_time: '', message: '경로를 찾지 못했어요.' }))
           return {
             text: data.message || `${origin} → ${destination}: 약 ${data.duration_min}분`,
@@ -958,14 +991,14 @@ export async function handleBackendIntentImpl(
 
         /* ── 🌐 번역 ── */
         case 'translate': {
-          const targetLang = /영어로|영문/.test(originalText) ? 'English'
-            : /한국어로|한글로/.test(originalText) ? '한국어'
-            : /일본어로/.test(originalText) ? '日本語'
-            : /중국어로/.test(originalText) ? '中文'
-            : 'English'
+          const targetLang = /영어로|영문|to english|into english/i.test(originalText) ? 'English'
+            : /한국어로|한글로|to korean|into korean/i.test(originalText) ? '한국어'
+            : /일본어로|to japanese/i.test(originalText) ? '日本語'
+            : /중국어로|to chinese/i.test(originalText) ? '中文'
+            : userLang === 'en' ? '한국어' : 'English'
           // 클립보드 내용 가져와서 번역
           const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
-          const textToTranslate = clip.current || originalText.replace(/번역.*해줘|번역해|이거.*영어로|translate/gi, '').trim()
+          const textToTranslate = clip.current || originalText.replace(/번역.*해줘|번역해|이거.*영어로|translate.*to|translate/gi, '').trim()
           if (!textToTranslate) return { text: '번역할 내용이 없어요. 텍스트를 먼저 복사해주세요.', emotion: 'neutral' }
 
           const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
@@ -975,14 +1008,14 @@ export async function handleBackendIntentImpl(
             const res = await callGemini(apiKey, `다음 텍스트를 ${targetLang}로 번역해줘. 번역 결과만 출력:\n\n${textToTranslate}`, []).catch(() => null)
             translated = res?.text ?? ''
           }
-          if (!translated) translated = `번역을 위해 Perplexity API 키가 필요해요.`
+          if (!translated) translated = t('번역을 위해 Perplexity API 키가 필요해요.', 'Perplexity API key is required for translation.', userLang)
 
           // 번역 결과를 클립보드에 저장 (paste API 사용)
           if (translated && !translated.includes('API 키')) {
             await dictationPaste(translated).catch(() => {})
           }
           return {
-            text: `번역 완료! 결과가 클립보드에 복사됐어요.`,
+            text: t('번역 완료! 결과가 클립보드에 복사됐어요.', 'Translation complete! Result copied to clipboard.', userLang),
             card2: {
               type: 'system_action', icon: '🌐',
               title: `→ ${targetLang} 번역`,
@@ -996,7 +1029,7 @@ export async function handleBackendIntentImpl(
         /* ── 📋 클립보드 AI ── */
         case 'clipboard_ai': {
           const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
-          if (!clip.current) return { text: '클립보드가 비어있어요. 먼저 텍스트를 복사해주세요.', emotion: 'neutral' }
+          if (!clip.current) return { text: t('클립보드가 비어있어요. 먼저 텍스트를 복사해주세요.', 'Clipboard is empty. Please copy some text first.', userLang), emotion: 'neutral' }
 
           const action = /요약/.test(originalText) ? '3줄로 요약해줘'
             : /교정|다듬어/.test(originalText) ? '문법과 어투를 교정해줘'
@@ -1011,11 +1044,11 @@ export async function handleBackendIntentImpl(
             const res = await callGemini(apiKey, `다음 텍스트를 ${action}. 결과만 출력:\n\n${clip.current.slice(0, 500)}`, []).catch(() => null)
             result = res?.text ?? ''
           }
-          if (!result) return { text: 'AI 처리를 위해 Perplexity API 키가 필요해요.', emotion: 'neutral' }
+          if (!result) return { text: t('AI 처리를 위해 Perplexity API 키가 필요해요.', 'Perplexity API key is required for AI processing.', userLang), emotion: 'neutral' }
 
           await dictationPaste(result).catch(() => {})
           return {
-            text: `클립보드 AI 처리 완료! 결과가 클립보드에 저장됐어요.`,
+            text: t('클립보드 AI 처리 완료! 결과가 클립보드에 저장됐어요.', 'AI processing done! Result saved to clipboard.', userLang),
             card2: {
               type: 'system_action', icon: '📋',
               title: '클립보드 AI 처리',
@@ -1100,7 +1133,7 @@ export async function handleBackendIntentImpl(
         case 'meeting_list': {
           const data = await meetingList().catch(() => ({ success: false, meetings: [], total: 0 }))
           return {
-            text: data.total > 0 ? `회의 녹음 ${data.total}개가 있어요 🎙️` : '저장된 회의 녹음이 없어요.',
+            text: data.total > 0 ? t(`회의 녹음 ${data.total}개가 있어요 🎙️`, `${data.total} meeting recording(s) found 🎙️`, userLang) : t('저장된 회의 녹음이 없어요.', 'No meeting recordings saved.', userLang),
             card2: {
               type: 'system_action', icon: '🎙️',
               title: `회의 목록 ${data.total}개`,
@@ -1113,10 +1146,10 @@ export async function handleBackendIntentImpl(
         case 'meeting_summary': {
           // 가장 최근 녹음 파일 가져와서 전사 + 요약
           const list = await meetingList().catch(() => ({ success: false, meetings: [], total: 0 }))
-          if (!list.total) return { text: '요약할 회의 녹음이 없어요. 먼저 "회의 시작"으로 녹음해주세요.', emotion: 'neutral' }
+          if (!list.total) return { text: t('요약할 회의 녹음이 없어요. 먼저 "회의 시작"으로 녹음해주세요.', 'No meeting recordings found. Say "start meeting" to begin recording.', userLang), emotion: 'neutral' }
           const latest = list.meetings[0]
           const transcribed = await meetingTranscribe(latest.file).catch(() => ({ success: false, text: '', duration_sec: 0, message: '전사 실패' }))
-          if (!transcribed.success || !transcribed.text) return { text: `회의 전사 실패. Perplexity API 키를 확인해주세요.`, emotion: 'concerned' }
+          if (!transcribed.success || !transcribed.text) return { text: t('회의 전사 실패. Perplexity API 키를 확인해주세요.', 'Transcription failed. Please check your Perplexity API key.', userLang), emotion: 'concerned' }
           const summary = await meetingSummarize(transcribed.text).catch(() => ({ success: false, summary: '', action_items: [], decisions: [], message: '요약 실패' }))
           return {
             text: summary.success ? `회의 요약 완료! 액션 아이템 ${summary.action_items.length}개` : '회의 요약에 실패했어요.',
@@ -1135,7 +1168,7 @@ export async function handleBackendIntentImpl(
           const textToDictate = originalText
             .replace(/받아쓰기|dictation|타이핑.*해줘|입력.*해줘|써줘.*지금|적어줘.*지금|대신.*타이핑|대신.*입력|대신.*써줘|자동.*입력/gi, '')
             .trim()
-          if (!textToDictate) return { text: '입력할 내용을 말해주세요. 예: "받아쓰기 안녕하세요 오늘 날씨가 맑네요"', emotion: 'neutral' }
+          if (!textToDictate) return { text: t('입력할 내용을 말해주세요. 예: "받아쓰기 안녕하세요 오늘 날씨가 맑네요"', 'Please say what you want me to type. e.g. "dictate Hello, how are you today"', userLang), emotion: 'neutral' }
           const res = await dictationType(textToDictate).catch(() => ({ success: false, typed_chars: 0, message: '받아쓰기 실패' }))
           return {
             text: res.message,
@@ -1149,7 +1182,7 @@ export async function handleBackendIntentImpl(
           const data = await personaList().catch(() => ({ personas: [], current: 'nexus' }))
           const lines = data.personas.map((p) => `${p.emoji} **${p.name}** — ${p.description}`).join('\n')
           return {
-            text: `현재 페르소나: **${data.current}**\n\n사용 가능한 AI 팀:\n${lines}\n\n"리서치 모드로 바꿔줘" 처럼 말하면 전환해요!`,
+            text: t(`현재 페르소나: **${data.current}**\n\n사용 가능한 AI 팀:\n${lines}\n\n"리서치 모드로 바꿔줘" 처럼 말하면 전환해요!`, `Current persona: **${data.current}**\n\nAvailable AI team:\n${lines}\n\nSay "switch to research mode" to change!`, userLang),
             emotion: 'happy' as const,
           }
         }
@@ -1198,7 +1231,7 @@ export async function handleBackendIntentImpl(
           const plan = await workflowPlan(goal).catch(() => ({ goal, steps: [], summary: '계획 생성 실패', ok: false }))
           const stepLines = plan.steps.map((s) => `${s.step}. ${s.description} → \`${s.api_endpoint}\``).join('\n')
           return {
-            text: `**워크플로 계획**: ${plan.goal}\n\n${stepLines}\n\n실행하려면 "자동으로 실행해줘"라고 하세요.`,
+            text: t(`**워크플로 계획**: ${plan.goal}\n\n${stepLines}\n\n실행하려면 "자동으로 실행해줘"라고 하세요.`, `**Workflow Plan**: ${plan.goal}\n\n${stepLines}\n\nSay "run it automatically" to execute.`, userLang),
             emotion: 'neutral' as const,
           }
         }
@@ -1292,7 +1325,7 @@ export async function handleBackendIntentImpl(
           const data = await workflowList().catch(() => ({ workflows: [], count: 0 }))
           const wfs = (data.workflows as Array<{name?: string; id: string}>)
           return {
-            text: wfs.length === 0 ? '저장된 워크플로가 없어요. "워크플로 만들어줘"로 생성해보세요!' : `워크플로 ${wfs.length}개가 있어요.`,
+            text: wfs.length === 0 ? t('저장된 워크플로가 없어요. "워크플로 만들어줘"로 생성해보세요!', 'No workflows saved. Say "create a workflow" to get started!', userLang) : t(`워크플로 ${wfs.length}개가 있어요.`, `${wfs.length} workflow(s) found.`, userLang),
             card2: { type: 'system_action', icon: '⚡', title: `워크플로 ${wfs.length}개`, detail: wfs.slice(0, 5).map(w => `• ${w.name ?? w.id}`).join('\n'), success: true },
             emotion: 'neutral',
           }
@@ -1314,7 +1347,7 @@ export async function handleBackendIntentImpl(
           const data = await workflowTemplates().catch(() => ({ templates: [], count: 0 }))
           const tpls = (data.templates as Array<{name?: string; description?: string}>)
           return {
-            text: `워크플로 템플릿 ${tpls.length}개를 찾았어요!`,
+            text: t(`워크플로 템플릿 ${tpls.length}개를 찾았어요!`, `Found ${tpls.length} workflow template(s)!`, userLang),
             card2: { type: 'system_action', icon: '📋', title: `템플릿 ${tpls.length}개`, detail: tpls.slice(0, 5).map(t => `• ${t.name ?? ''} — ${t.description ?? ''}`).join('\n'), success: true },
             emotion: 'happy',
           }
@@ -1336,8 +1369,8 @@ export async function handleBackendIntentImpl(
         case 'imap_send': {
           const toMatch = originalText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
           const to = toMatch?.[1] ?? ''
-          if (!to) return { text: '받는 사람 이메일을 알려주세요.', emotion: 'neutral' }
-          const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? 'NEXUS에서 보낸 메일'
+          if (!to) return { text: t('받는 사람 이메일을 알려주세요.', 'Please provide the recipient email address.', userLang), emotion: 'neutral' }
+          const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? originalText.match(/subject[:\s]+(.+)/i)?.[1] ?? t('NEXUS에서 보낸 메일', 'Mail from NEXUS', userLang)
           const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? ''
           const res = await fetch('http://127.0.0.1:17891/api/imap/send', {
             method: 'POST',
@@ -1376,7 +1409,7 @@ export async function handleBackendIntentImpl(
         /* ── ❌ 작업 취소 ── */
         case 'task_cancel': {
           const tasks = await taskList().catch(() => ({ tasks: [], count: 0 }))
-          if (!tasks.count) return { text: '취소할 실행 중 작업이 없어요.', emotion: 'neutral' }
+          if (!tasks.count) return { text: t('취소할 실행 중 작업이 없어요.', 'No running tasks to cancel.', userLang), emotion: 'neutral' }
           const first = (tasks.tasks as Array<{id: string; name?: string}>)[0]
           const res = await taskCancel(first.id).catch(() => ({ success: false, message: '취소 실패' }))
           return {
