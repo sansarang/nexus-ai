@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script>if (navigator.language.startsWith('en')) { window.location.replace('./en/index.html'); }</script>
+  <script>if (navigator.language.startsWith('en') && !sessionStorage.getItem('lang')) { window.location.replace('/en/index.html'); }</script>
   <title>NEXUS AI — 말 한마디로 Windows PC를 통째로 맡기세요</title>
   <meta name="description" content="PC 최적화·딥서치·보안 점검·복합질문 동시처리까지. 다른 AI는 못 하는 5가지를 Nexus는 합니다. 3일 무료 체험." />
   <meta name="keywords" content="AI 비서, Windows AI, PC 자동화, 딥서치, AI 보안점검, 넥서스AI, AI 어시스턴트, PC 최적화, 업무자동화" />
@@ -712,7 +712,7 @@
     <a href="#persona">페르소나</a>
     <a href="#pricing">가격</a>
     <a href="#faq">FAQ</a>
-    <a href="../en/index.html" style="color:var(--muted)">EN</a>
+    <a href="/en/index.html" style="color:var(--muted)" onclick="sessionStorage.setItem('lang','en')">EN</a>
     <a href="#download" class="nav-cta">무료 체험 →</a>
   </div>
   <button class="hamburger" id="hamburger" aria-label="메뉴" onclick="toggleMenu()">
@@ -1275,7 +1275,7 @@
     <a href="https://github.com/sansarang/nexus-ai/issues" target="_blank">버그 신고</a>
     <a href="mailto:nexusai.kr@gmail.com">문의하기</a>
     <a href="#faq">FAQ</a>
-    <a href="../en/index.html">English</a>
+    <a href="/en/index.html">English</a>
     <a href="/terms.html">이용약관</a>
     <a href="/privacy.html">개인정보처리방침</a>
     <a href="/refund.html">환불정책</a>

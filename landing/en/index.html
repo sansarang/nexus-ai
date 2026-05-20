@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script>if (!navigator.language.startsWith('en')) { window.location.replace('../index.html'); }</script>
+  <script>if (!navigator.language.startsWith('en') && !sessionStorage.getItem('lang')) { window.location.replace('/index.html'); }</script>
   <title>NEXUS AI — The AI That Actually Controls Your PC</title>
   <meta name="description" content="PC security scan, deep research, multi-task queries, comparison analysis, video search. 5 things no other AI can do. 3-day free trial." />
   <meta name="keywords" content="AI assistant, Windows AI, PC automation, deep research, AI security scan, Nexus AI, productivity AI, PC optimization, workflow automation" />
@@ -422,7 +422,7 @@
     <a href="#how">How It Works</a>
     <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
-    <a href="../index.html" style="color:var(--muted)">KO</a>
+    <a href="/index.html" style="color:var(--muted)" onclick="sessionStorage.setItem('lang','ko')">KO</a>
     <a href="#download" class="nav-cta">Free Download</a>
   </div>
   <button class="hamburger" id="hamburger" aria-label="Menu" onclick="toggleMenu()">
