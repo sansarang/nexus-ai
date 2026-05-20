@@ -114,6 +114,22 @@ async function checkForUpdates() {
   } catch { /* 개발 환경 / 오프라인 — 무시 */ }
 }
 
+/* 버티컬 테마 복원 — 앱 시작 시 저장된 테마 색상 즉시 적용 */
+function applyStoredVertical() {
+  const THEME_MAP: Record<string, string> = {
+    legal:   '#7c3aed',
+    medical: '#0891b2',
+    finance: '#059669',
+    content: '#dc2626',
+    general: '#cba6f7',
+  }
+  const id = localStorage.getItem('nexus_vertical_id') ?? 'general'
+  const color = THEME_MAP[id] ?? THEME_MAP.general
+  document.documentElement.style.setProperty('--accent-primary', color)
+  document.documentElement.style.setProperty('--accent-glow', color + '40')
+}
+applyStoredVertical()
+
 setupTauriEvents()
 bootstrap()
 // 업데이트 체크는 앱 준비 후 백그라운드로 실행 (5초 딜레이)

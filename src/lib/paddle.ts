@@ -1,12 +1,15 @@
 import { initializePaddle, Paddle } from '@paddle/paddle-js'
 import { PADDLE_CLIENT_TOKEN, PADDLE_PRICE_ID, PADDLE_ENVIRONMENT } from '../config/services'
 
-// Paddle price IDs — replace placeholders with real IDs from Paddle dashboard
+// Paddle price IDs
+// pro_monthly: 실제 운영 중
+// team_5, team_10, enterprise: Paddle 대시보드에서 플랜 생성 후 아래 값 교체 필요
 export const PADDLE_PRICES = {
-  pro_monthly: 'pri_01jx_pro_monthly',   // $19/mo — placeholder
-  pro_yearly:  'pri_01jx_pro_yearly',    // $190/yr — placeholder
-  team_5:      'pri_01jx_team_5',        // $49/mo (up to 5 seats) — placeholder
-  team_10:     'pri_01jx_team_10',       // $89/mo (up to 10 seats) — placeholder
+  pro_monthly:  PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9',
+  pro_yearly:   PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: yearly price 생성 후 교체
+  team_5:       PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: team_5 price 생성 후 교체
+  team_10:      PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: team_10 price 생성 후 교체
+  enterprise:   PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: enterprise price 생성 후 교체
 }
 
 let paddleInstance: Paddle | undefined

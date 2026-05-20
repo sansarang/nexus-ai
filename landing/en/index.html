@@ -727,42 +727,114 @@
 <!-- PRICING -->
 <section class="section" id="pricing">
   <div class="section-label" style="text-align:center;">PRICING</div>
-  <h2 class="section-title" style="text-align:center;">Early Bird Special</h2>
-  <p class="section-sub" style="text-align:center; margin:0 auto 0;">Launch price · Cancel anytime</p>
-  <div class="pricing-grid">
+  <h2 class="section-title" style="text-align:center;">Simple, Transparent Pricing</h2>
+  <p class="section-sub" style="text-align:center; margin:0 auto 40px;">From individuals to enterprise teams. 3-day free trial · No credit card required</p>
+  <div class="pricing-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); max-width:1000px;">
+
+    <!-- FREE -->
     <div class="price-card">
       <div class="price-name">Free</div>
-      <div class="price-amount">$0</div>
-      <div class="price-period">Forever free (with Groq API)</div>
-      <ul class="price-features">
+      <div class="price-amount" style="font-size:48px;">$0</div>
+      <div class="price-period">Forever free · Groq API</div>
+      <ul class="price-features" style="margin:20px 0 28px;">
         <li><span class="check">✓</span> Unlimited AI chat (Groq free)</li>
-        <li><span class="check">✓</span> PC diagnostics & optimization</li>
-        <li><span class="check">✓</span> Calendar & schedule management</li>
-        <li><span class="check">✓</span> File search & organization</li>
-        <li><span class="check">✓</span> Auto-update</li>
+        <li><span class="check">✓</span> Basic web search</li>
+        <li><span class="check">✓</span> Stock analysis 3×/day</li>
+        <li><span class="check">✓</span> Legal search 3×/day</li>
+        <li><span class="check">✓</span> Workflow runs 10×/day</li>
+        <li style="color:var(--muted);">✗ Pro features unlimited</li>
+        <li style="color:var(--muted);">✗ Marketplace access</li>
       </ul>
       <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe" class="btn-plan outline">Install for Free</a>
     </div>
+
+    <!-- PRO -->
     <div class="price-card featured">
-      <div class="price-badge">🔥 EARLY BIRD</div>
-      <div class="price-name">Pro</div>
-      <div class="price-original" style="font-size:14px; color:var(--muted); text-decoration:line-through;">Regular $19.99/mo</div>
-      <div class="price-amount">$12.99</div>
-      <div class="price-period">/month · 25% off Early Bird</div>
-      <ul class="price-features">
+      <div class="price-badge">🔥 Most Popular</div>
+      <div class="price-name" style="margin-top:8px;">Pro</div>
+      <div class="price-original" style="font-size:14px; color:var(--muted); text-decoration:line-through; margin-top:10px;">Regular $29/mo</div>
+      <div class="price-amount" style="font-size:64px;">$19</div>
+      <div class="price-period">/month · 34% off · 3-day free trial</div>
+      <ul class="price-features" style="margin:20px 0 28px;">
         <li><span class="check">✓</span> Everything in Free</li>
-        <li><span class="check">✓</span> GPT-4o high-performance AI</li>
-        <li><span class="check">✓</span> chromedp real-world crawling</li>
-        <li><span class="check">✓</span> Outlook email automation</li>
-        <li><span class="check">✓</span> Workflow automation</li>
+        <li><span class="check">✓</span> <strong>Unlimited</strong> Pro features</li>
+        <li><span class="check">✓</span> 10 AI job personas</li>
+        <li><span class="check">✓</span> Workflow Marketplace</li>
         <li><span class="check">✓</span> Proactive AI 24/7</li>
-        <li><span class="check">✓</span> 5 AI personas</li>
+        <li><span class="check">✓</span> Real browser automation</li>
+        <li><span class="check">✓</span> Email auto-send</li>
+        <li><span class="check">✓</span> Priority support</li>
       </ul>
-      <a href="https://forms.gle/nexus-earlybird" class="btn-plan" onclick="alert('Early Bird registration coming soon.\nContact: nexusai.kr@gmail.com'); return false;">Start Early Bird — $12.99/mo →</a>
-      <small style="display:block; margin-top:10px; color:var(--muted); font-size:12px;">✓ Auto-update included · Cancel anytime</small>
+      <a href="#" class="btn-plan" style="font-size:16px; padding:15px 0; display:block; text-align:center;" onclick="handleProClick(); return false;">Start 3-Day Free Trial →</a>
+      <small style="display:block; margin-top:10px; color:var(--muted); font-size:12px; text-align:center;">✓ No credit card · ✓ Cancel anytime</small>
     </div>
+
+    <!-- TEAM -->
+    <div class="price-card">
+      <div class="price-name">Team & Enterprise</div>
+      <div class="price-amount" style="font-size:42px;">$49</div>
+      <div class="price-period">/mo · 5 seats · $89 for 10</div>
+      <ul class="price-features" style="margin:20px 0 28px;">
+        <li><span class="check">✓</span> Everything in Pro</li>
+        <li><span class="check">✓</span> Shared team workflows</li>
+        <li><span class="check">✓</span> Team persona settings</li>
+        <li><span class="check">✓</span> Enterprise API keys</li>
+        <li><span class="check">✓</span> /v1/chat·stock·legal API</li>
+        <li><span class="check">✓</span> Vertical app branding</li>
+        <li><span class="check">✓</span> Dedicated onboarding</li>
+      </ul>
+      <a href="mailto:support@nexusai.ai.kr?subject=Team%20Plan%20Inquiry" class="btn-plan outline">Contact for Team Plan →</a>
+    </div>
+
   </div>
 </section>
+
+<!-- MARKETPLACE SECTION -->
+<div style="background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:80px 20px;">
+  <div style="max-width:900px; margin:0 auto; text-align:center;">
+    <div class="section-label">MARKETPLACE</div>
+    <h2 class="section-title">Workflow Marketplace</h2>
+    <p class="section-sub" style="margin:0 auto 40px;">Buy expert-verified workflows instantly.<br>Publish your own and earn 70% of every sale.</p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; text-align:left;">
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:16px; padding:22px;">
+        <div style="font-size:26px; margin-bottom:10px;">📊</div>
+        <div style="font-weight:700; margin-bottom:4px;">Portfolio Daily Report</div>
+        <div style="color:var(--muted); font-size:12px; margin-bottom:10px;">Finance / Investor</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#fbbf24; font-size:12px;">★ 4.8 (23)</span>
+          <span style="background:var(--primary); color:#000; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:700;">$4.99</span>
+        </div>
+      </div>
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:16px; padding:22px;">
+        <div style="font-size:26px; margin-bottom:10px;">⚖️</div>
+        <div style="font-weight:700; margin-bottom:4px;">Contract Risk Checklist</div>
+        <div style="color:var(--muted); font-size:12px; margin-bottom:10px;">Legal / Lawyers</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#fbbf24; font-size:12px;">★ 4.9 (45)</span>
+          <span style="background:var(--primary); color:#000; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:700;">$9.99</span>
+        </div>
+      </div>
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:16px; padding:22px;">
+        <div style="font-size:26px; margin-bottom:10px;">🎬</div>
+        <div style="font-weight:700; margin-bottom:4px;">YouTube Content Calendar</div>
+        <div style="color:var(--muted); font-size:12px; margin-bottom:10px;">Content / Creators</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#fbbf24; font-size:12px;">★ 4.7 (67)</span>
+          <span style="background:var(--primary); color:#000; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:700;">$2.99</span>
+        </div>
+      </div>
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:16px; padding:22px;">
+        <div style="font-size:26px; margin-bottom:10px;">🏥</div>
+        <div style="font-weight:700; margin-bottom:4px;">Clinical Guideline Summary</div>
+        <div style="color:var(--muted); font-size:12px; margin-bottom:10px;">Medical / Healthcare</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:#fbbf24; font-size:12px;">★ 4.8 (19)</span>
+          <span style="background:var(--primary); color:#000; border-radius:6px; padding:2px 8px; font-size:12px; font-weight:700;">$4.99</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- FAQ -->
 <div style="background:var(--bg2); border-top:1px solid var(--border); padding:80px 20px;" id="faq">
