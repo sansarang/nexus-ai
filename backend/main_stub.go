@@ -71,6 +71,10 @@ func main() {
 	mux.HandleFunc("GET /api/calendar/today", handleCalendarToday)
 	mux.HandleFunc("GET /api/calendar/week", handleCalendarWeek)
 	mux.HandleFunc("POST /api/calendar/add", handleCalendarAdd)
+	mux.HandleFunc("GET /api/calendar/google/auth", handleGCalAuth)
+	mux.HandleFunc("GET /api/calendar/google/callback", handleGCalCallback)
+	mux.HandleFunc("GET /api/calendar/google/status", handleGCalStatus)
+	mux.HandleFunc("POST /api/calendar/google/disconnect", handleGCalDisconnect)
 
 	// ── 이메일 ───────────────────────────────────────────────
 	mux.HandleFunc("GET /api/email/inbox", handleEmailInbox)

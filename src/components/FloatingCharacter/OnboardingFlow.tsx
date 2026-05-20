@@ -38,7 +38,7 @@ const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', '
 const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
 const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
-const STEPS_TOTAL = 6
+const STEPS_TOTAL = 7
 
 const DEMO_ACTIONS_EN = [
   { emoji: '🔐', label: 'PC Security Scan',  cmd: 'Is my PC hacked? Run a security scan.' },
@@ -140,6 +140,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [loginError, setLoginError]       = useState('')
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [selectedJobId, setSelectedJobId] = useState<string>('developer')
+  const [gcalConnected, setGcalConnected] = useState(false)
+  const [gcalEmail, setGcalEmail] = useState('')
+  const [gcalLoading, setGcalLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoResult, setDemoResult] = useState('')
   const [demoCmd, setDemoCmd] = useState('')
@@ -151,11 +154,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const selectedStyle = REALISTIC_STYLE_PRESETS.find(s => s.id === styleId) ?? REALISTIC_STYLE_PRESETS[0]
 
-  // Google OAuth 딥링크 콜백 후 자동 완료
+  // Google OAuth 딥링크 콜백 후 step 6으로 이동
   useEffect(() => {
-    if (isLoggedIn && userEmail && step >= 4 && !didAutoComplete.current) {
+    if (isLoggedIn && userEmail && step >= 4 && step < 6 && !didAutoComplete.current) {
       didAutoComplete.current = true
-      void handleComplete(userEmail)
+      setGoogleEmail(userEmail)
+      setStep(6)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, userEmail])
@@ -167,7 +171,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-expiry', '2099-12-31T00:00:00.000Z')
       setGoogleEmail(ADMIN_EMAIL)
       setLoginError('')
-      void handleComplete(ADMIN_EMAIL)
+      setStep(6)
     } else {
       setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
     }
@@ -182,14 +186,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      void handleComplete(demoEmail)
+      setStep(6)
       return
     }
     setGoogleLoading(true)
     try {
       const hint = localStorage.getItem('nexus-user-email') ?? undefined
       await signInWithGoogle(hint)
-      // OAuth redirect이므로 페이지 이동됨 — handleComplete는 복귀 후 호출
+      // OAuth redirect이므로 페이지 이동됨 — useEffect에서 step 6으로 이동
     } catch (e) {
       console.warn('Google OAuth 실패, 체험판 시작:', e)
       const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -198,7 +202,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      void handleComplete(demoEmail)
+      setStep(6)
     } finally {
       setGoogleLoading(false)
     }
@@ -1188,6 +1192,124 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 : <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{isEn ? 'Sign in with Google to get started' : '구글 로그인 후 시작할 수 있습니다'}</div>
               }
               {backBtn(() => setStep(4), isEn ? '← Back' : '← 이전')}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Step 6: Google 연동 (캘린더 + Gmail) ── */}
+        {step === 6 && (
+          <motion.div
+            key="step7"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={card}
+          >
+            {progressBar}
+
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 8 }}>
+                {isEn ? 'Connect Google Services' : 'Google 서비스 연동'}
+              </h2>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+                {isEn
+                  ? 'Connect Google Calendar & Gmail so Nexus can manage your schedule and emails.'
+                  : 'Google 캘린더와 Gmail을 연동하면 넥서스가 일정과 메일을 관리할 수 있어요.'}
+              </p>
+            </div>
+
+            {/* Google Calendar + Gmail 통합 OAuth */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              <div style={{
+                background: gcalConnected ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${gcalConnected ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 14, padding: '16px 18px',
+                display: 'flex', alignItems: 'center', gap: 14,
+              }}>
+                <div style={{
+                  width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                  background: 'rgba(66,133,244,0.15)', border: '1px solid rgba(66,133,244,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                }}>📅</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: 'white', marginBottom: 2 }}>
+                    Google Calendar & Gmail
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                    {gcalConnected
+                      ? (gcalEmail || (isEn ? 'Connected' : '연결됨'))
+                      : (isEn ? 'Schedule management · Email read/send' : '일정 관리 · 메일 읽기/발송')}
+                  </div>
+                </div>
+                {gcalConnected ? (
+                  <div style={{ fontSize: 22 }}>✅</div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setGcalLoading(true)
+                      try {
+                        const BASE = 'http://127.0.0.1:17891'
+                        const res = await fetch(`${BASE}/api/calendar/google/auth`)
+                        const data = await res.json()
+                        if (data.url) {
+                          const { open } = await import('@tauri-apps/plugin-shell')
+                          await open(data.url)
+                          // 5초 후 상태 폴링
+                          let tries = 0
+                          const poll = setInterval(async () => {
+                            tries++
+                            try {
+                              const s = await fetch(`${BASE}/api/calendar/google/status`)
+                              const st = await s.json()
+                              if (st.connected) {
+                                setGcalConnected(true)
+                                setGcalEmail(st.email || '')
+                                clearInterval(poll)
+                              }
+                            } catch {}
+                            if (tries > 24) clearInterval(poll) // 2분 후 포기
+                          }, 5000)
+                        } else {
+                          // OAuth 미설정 시 건너뜀
+                          alert(isEn ? 'Google OAuth not configured yet.' : 'Google OAuth가 아직 설정되지 않았습니다.')
+                        }
+                      } catch {}
+                      setGcalLoading(false)
+                    }}
+                    disabled={gcalLoading}
+                    style={{
+                      padding: '7px 14px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                      background: 'rgba(66,133,244,0.8)', color: 'white',
+                      fontSize: 12, fontWeight: 700, flexShrink: 0,
+                      opacity: gcalLoading ? 0.6 : 1,
+                    }}
+                  >
+                    {gcalLoading ? '...' : (isEn ? 'Connect' : '연동')}
+                  </button>
+                )}
+              </div>
+
+              {/* Gmail IMAP (백업 - gcal 미연동 시) */}
+              {!gcalConnected && (
+                <div style={{
+                  padding: '10px 14px', background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10,
+                  fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 1.6,
+                }}>
+                  {isEn
+                    ? '💡 Can\'t connect now? You can set it up later in Settings → Email/Calendar.'
+                    : '💡 지금 연동이 어려우면 나중에 설정 → 이메일/캘린더에서 하실 수 있어요.'}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {nextBtn(() => void handleComplete(), isEn
+                ? (gcalConnected ? `Start with ${assistantName} ✦` : `Skip & Start ✦`)
+                : (gcalConnected ? `${assistantName} 시작하기 ✦` : `건너뛰고 시작하기 ✦`)
+              )}
+              {backBtn(() => setStep(5), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}

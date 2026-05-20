@@ -15,33 +15,6 @@ interface Provider {
 
 const PROVIDERS: Provider[] = [
   {
-    id: 'naver',
-    name: '네이버 메일',
-    icon: 'N',
-    color: '#03c75a',
-    instructions: '네이버 앱 비밀번호 발급 방법:\n1. 네이버 로그인 → 내 정보\n2. 보안설정 → 2단계 인증 활성화\n3. 앱 비밀번호 발급 → "Nexus" 이름으로 생성\n4. 발급된 비밀번호를 아래에 입력하세요',
-    emailPlaceholder: 'example@naver.com',
-    passwordPlaceholder: '앱 비밀번호 (8자리)',
-  },
-  {
-    id: 'daum',
-    name: '다음 메일',
-    icon: 'D',
-    color: '#ff5722',
-    instructions: '다음 메일 IMAP 활성화:\n1. mail.daum.net → 환경설정\n2. 메일 관리 → IMAP/POP3 설정\n3. IMAP 사용 활성화\n4. 카카오계정 비밀번호 입력',
-    emailPlaceholder: 'example@daum.net',
-    passwordPlaceholder: '카카오계정 비밀번호',
-  },
-  {
-    id: 'kakao',
-    name: '카카오 메일',
-    icon: '🐱',
-    color: '#fee500',
-    instructions: '카카오 메일 IMAP 설정:\n1. mail.kakao.com 로그인\n2. 설정 → 메일 클라이언트 설정\n3. IMAP 사용 활성화\n4. 앱 비밀번호 발급 후 입력',
-    emailPlaceholder: 'example@kakao.com',
-    passwordPlaceholder: '앱 비밀번호',
-  },
-  {
     id: 'gmail',
     name: 'Gmail',
     icon: 'G',
