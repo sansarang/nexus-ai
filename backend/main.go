@@ -124,6 +124,13 @@ func main() {
 	mux.HandleFunc("POST /api/docs/summary", handleDocSummary)
 	mux.HandleFunc("POST /api/docs/export-report", handleDocExportReport)
 
+	// ── 💼 Pro Persona 전용 기능 ──────────────────────────────────
+	mux.HandleFunc("POST /api/finance/stock", handleStockAnalysis)
+	mux.HandleFunc("POST /api/medical/search", handleMedicalSearch)
+	mux.HandleFunc("POST /api/legal/review", handleContractReview)
+	mux.HandleFunc("POST /api/legal/search", handleLegalSearch)
+	mux.HandleFunc("POST /api/content/script", handleContentScript)
+
 	// ── LLM (Groq + Claude fallback) ─────────────────────────
 	mux.HandleFunc("GET /api/llm/config", handleLLMConfig)
 	mux.HandleFunc("POST /api/llm/config", handleLLMConfig)
@@ -324,6 +331,16 @@ func main() {
 	mux.HandleFunc("GET /api/caption/stream", handleCaptionStream)
 	mux.HandleFunc("GET /api/caption/latest", handleCaptionLatest)
 
+	// ── 🛒 워크플로우 마켓플레이스 ───────────────────────────────
+	mux.HandleFunc("GET /api/marketplace/presets", handleMarketplaceList)
+	mux.HandleFunc("GET /api/marketplace/preset/{id}", handleMarketplaceDetail)
+	mux.HandleFunc("POST /api/marketplace/publish", handleMarketplacePublish)
+	mux.HandleFunc("POST /api/marketplace/purchase/{id}", handleMarketplacePurchase)
+	mux.HandleFunc("POST /api/marketplace/purchase/{id}/confirm", handleMarketplacePurchaseConfirm)
+	mux.HandleFunc("GET /api/marketplace/my-presets", handleMarketplaceMyPresets)
+	mux.HandleFunc("GET /api/marketplace/purchased", handleMarketplacePurchased)
+	mux.HandleFunc("DELETE /api/marketplace/preset/{id}", handleMarketplaceDelete)
+
 	// ── 💳 Paddle 구독 웹훅 ──────────────────────────────────────
 	mux.HandleFunc("POST /api/paddle/webhook", handlePaddleWebhook)
 
@@ -343,6 +360,25 @@ func main() {
 	mux.HandleFunc("GET /api/video/cookie-status", handleVideoCookieStatus)
 	mux.HandleFunc("POST /api/video/ytdlp-info", handleVideoInfo)
 	mux.HandleFunc("GET /api/video/quick-search", handleVideoQuickSearch)
+
+	// Enterprise API Key Management
+	mux.HandleFunc("GET /api/enterprise/keys", handleEnterpriseListKeys)
+	mux.HandleFunc("POST /api/enterprise/keys", handleEnterpriseCreateKey)
+	mux.HandleFunc("DELETE /api/enterprise/keys/{id}", handleEnterpriseRevokeKey)
+	mux.HandleFunc("GET /api/enterprise/keys/{id}/usage", handleEnterpriseKeyUsage)
+	mux.HandleFunc("GET /api/enterprise/plans", handleEnterprisePlans)
+
+	// External v1 API
+	mux.HandleFunc("POST /v1/chat", handleV1Chat)
+	mux.HandleFunc("POST /v1/search", handleV1Search)
+	mux.HandleFunc("POST /v1/stock", handleV1Stock)
+	mux.HandleFunc("POST /v1/legal", handleV1Legal)
+	mux.HandleFunc("POST /v1/medical", handleV1Medical)
+
+	// Vertical App Config
+	mux.HandleFunc("GET /api/vertical/config", handleVerticalGetConfig)
+	mux.HandleFunc("POST /api/vertical/config", handleVerticalSetConfig)
+	mux.HandleFunc("GET /api/vertical/presets", handleVerticalPresets)
 
 	// 스케줄러 + 메모리 + LLM 키 초기화
 	initScheduler()

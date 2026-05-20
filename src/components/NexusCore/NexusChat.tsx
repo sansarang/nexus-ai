@@ -12,6 +12,7 @@ import { SendButton } from './SendButton'
 import { QuickActions } from './QuickActions'
 import { TypingIndicator } from './TypingIndicator'
 import { PCStatusBar } from './PCStatusBar'
+import { Marketplace } from '../Marketplace'
 import type { Message, NexusStep, NexusEmotion } from '../../types/nexus'
 
 /* ── Web Speech API 타입 (로컬 정의) ── */
@@ -52,6 +53,7 @@ export function NexusChat() {
   const [speaking, setSpeaking] = useState(false)
   const [listening, setListening] = useState(false)
   const [voiceInterim, setVoiceInterim] = useState('') // 실시간 음성 인식 중간 결과
+  const [showMarketplace, setShowMarketplace] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -357,6 +359,24 @@ export function NexusChat() {
         }}
       >
         <VoiceButton listening={listening} onToggle={handleVoiceToggle} />
+        <button
+          onClick={() => setShowMarketplace(true)}
+          title="워크플로우 마켓플레이스"
+          style={{
+            flexShrink: 0,
+            width: 36, height: 36,
+            borderRadius: '50%',
+            border: '1px solid var(--border-default)',
+            background: 'var(--glass-bg)',
+            color: 'var(--text-secondary)',
+            fontSize: 16,
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-primary)'; e.currentTarget.style.color = 'var(--accent-primary)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+        >🛒</button>
         <input
           ref={inputRef}
           value={displayInput}
@@ -393,6 +413,8 @@ export function NexusChat() {
         />
         <SendButton onClick={() => send(input)} disabled={!input.trim() || typing} />
       </div>
+
+      {showMarketplace && <Marketplace onClose={() => setShowMarketplace(false)} />}
     </div>
   )
 }

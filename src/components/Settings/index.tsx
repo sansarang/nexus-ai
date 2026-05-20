@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Keyboard, Bell, Shield, Globe, Info, Mail, Save, RefreshCw } from 'lucide-react'
+import { Keyboard, Bell, Shield, Globe, Info, Mail, Save, RefreshCw, Key, Palette } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { APIKeyManager } from '../Enterprise/APIKeyManager'
+import { VerticalSwitcher } from '../VerticalSwitcher'
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -86,8 +88,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+type SettingsTab = 'general' | 'api' | 'theme'
+
 export function SettingsView() {
   const { isLoggedIn, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut, userLang, setUserLang } = useAppStore()
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [autostart, setAutostart] = useState(false)
   const [notifications, setNotifications] = useState(true)
 
@@ -165,9 +170,49 @@ export function SettingsView() {
     padding: '5px 8px', width: '100%', outline: 'none',
   } as React.CSSProperties
 
+  const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'general', label: '일반', icon: <Bell size={13} /> },
+    { id: 'api', label: 'API 관리', icon: <Key size={13} /> },
+    { id: 'theme', label: '앱 테마', icon: <Palette size={13} /> },
+  ]
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>⚙️ 설정</h2>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, background: 'var(--bg-elevated)', padding: 4, borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+        {TABS.map(tab => (
+          <motion.button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              flex: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              padding: '7px 0',
+              borderRadius: 7,
+              border: 'none',
+              background: activeTab === tab.id ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
+              fontSize: 12, fontWeight: activeTab === tab.id ? 700 : 400,
+              cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+          >
+            {tab.icon} {tab.label}
+          </motion.button>
+        ))}
+      </div>
+
+      {/* API 관리 tab */}
+      {activeTab === 'api' && <APIKeyManager />}
+
+      {/* 앱 테마 tab */}
+      {activeTab === 'theme' && <VerticalSwitcher />}
+
+      {/* General settings — only shown on 'general' tab */}
+      {activeTab === 'general' && <>
 
       {/* 단축키 */}
       <Section title="단축키">
@@ -352,6 +397,8 @@ export function SettingsView() {
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'monospace' }}>v1.0.0</span>
         </Row>
       </Section>
+
+      </>}
     </div>
   )
 }

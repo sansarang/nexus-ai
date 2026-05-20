@@ -15,6 +15,7 @@ import { SpeakingWaves } from './Avatar3D'
 import { AvatarRuntime } from './Avatar3D/AvatarRuntime'
 import { OnboardingFlow } from './OnboardingFlow'
 import type { AvatarConfig } from './OnboardingFlow'
+import { PaywallModal } from '../PaywallModal'
 import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
 import { loadHistory, saveHistory, learnFromTurn, fromStoredTurns, toStoredTurns, buildMemoryContext } from '../../lib/nexus/memory'
@@ -287,6 +288,11 @@ export function FloatingCharacter() {
   const [clarifyPendingQuestion, setClarifyPendingQuestion] = useState<string | null>(null)
   const [activePersona, setActivePersona] = useState<PersonaDef | null>(null)
   const [captionRunning, setCaptionRunning] = useState(false)
+
+  // ── Paywall Modal 상태 ────────────────────────────────────
+  const [paywallFeature, setPaywallFeature] = useState<string | null>(null)
+  const [paywallUsed,    setPaywallUsed]    = useState(0)
+  const [paywallLimit,   setPaywallLimit]   = useState(0)
 
   // ── 미리보기 WebviewWindow 열기 ────────────────────────────
   const openPreview = useCallback(async (url: string, _title: string) => {
@@ -924,6 +930,11 @@ export function FloatingCharacter() {
       setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
       speakText, resetClarify, pushModelHistory, handleVoiceToggle,
       handleBackendIntent, renderCommandResult,
+      showPaywall: (feature, used, limit) => {
+        setPaywallFeature(feature)
+        setPaywallUsed(used)
+        setPaywallLimit(limit)
+      },
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantName, backendStatus, clarifyPendingIntent, clarifyPendingParams,
@@ -1959,6 +1970,15 @@ export function FloatingCharacter() {
           구독하기
         </button>
       </div>
+    )}
+    {/* ── Paywall Modal ── */}
+    {paywallFeature && (
+      <PaywallModal
+        feature={paywallFeature}
+        used={paywallUsed}
+        limit={paywallLimit}
+        onClose={() => setPaywallFeature(null)}
+      />
     )}
     </>
   )

@@ -103,6 +103,7 @@ export interface ChatSenderDeps {
   handleVoiceToggle: () => void
   handleBackendIntent: (intent: Intent, msgId: string, originalText?: string) => Promise<{ text: string; card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; emotion: CharacterEmotion }>
   renderCommandResult: (action: string, result: unknown, trimmed: string) => Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; emotion: CharacterEmotion }>
+  showPaywall?: (feature: string, used: number, limit: number) => void
 }
 
 export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<void> {
@@ -114,7 +115,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     setUserLang, setHistoryVersion, setToastAlerts, setIsActive, setFloatingPreview,
     setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
     speakText, resetClarify, pushModelHistory, handleVoiceToggle,
-    handleBackendIntent, renderCommandResult,
+    handleBackendIntent, renderCommandResult, showPaywall,
   } = d
 
     const trimmed = text.trim()
@@ -504,6 +505,25 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           userEmail:       localStorage.getItem('nexus-user-email') ?? '',
         })
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+
+        // ── upgrade_required: 페이월 표시 ───────────────────────
+        if (cmd.upgrade_required) {
+          setTyping(false)
+          typingRef.current = false
+          setEmotion('concerned')
+          setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+          setMessages(prev => [...prev, {
+            id: `${msgId}-res`, role: 'nexus',
+            text: cmd.message,
+            emotion: 'sad',
+          }])
+          showPaywall?.(
+            cmd.feature_name ?? cmd.action,
+            cmd.used_count ?? 0,
+            cmd.limit_count ?? 0,
+          )
+          return
+        }
 
         if (cmd.success) {
           // ── clarify: 추가 질문 필요 ──────────────────────────

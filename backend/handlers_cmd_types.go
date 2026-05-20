@@ -24,4 +24,8 @@ type CommandResponse struct {
 	ClarifyQuestions []string       `json:"clarify_questions,omitempty"`
 	PendingIntent    string         `json:"pending_intent,omitempty"`
 	PendingParams    map[string]any `json:"pending_params,omitempty"`
+	UpgradeRequired  bool           `json:"upgrade_required,omitempty"`
+	UsedCount        int            `json:"used_count,omitempty"`
+	LimitCount       int            `json:"limit_count,omitempty"`
+	FeatureName      string         `json:"feature_name,omitempty"`
 }

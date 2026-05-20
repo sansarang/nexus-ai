@@ -371,7 +371,7 @@ func handleWorkflowFromText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	llmMu.RLock()
-	gKey := llmPerplexityKey
+	_ = llmPerplexityKey
 	llmMu.RUnlock()
 
 	sysMsg := `Convert this natural language workflow description into a structured workflow JSON.

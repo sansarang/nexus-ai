@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -176,5 +178,173 @@ func usageLimitResponse(tier ModelTier, freeLeft, premiumLeft int) CommandRespon
 		Message:  msg,
 		Action:   "usage_limit",
 		Duration: "0.00s",
+	}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  Feature-based daily usage limits (Pro paywall)
+// ══════════════════════════════════════════════════════════════════
+
+// featureLimits defines free-tier daily limits per feature.
+// -1 means unlimited (pro/team users always get -1).
+var featureLimits = map[string]int{
+	"stock_analysis":  3,
+	"medical_search":  3,
+	"contract_review": 1,
+	"legal_search":    3,
+	"content_script":  5,
+	"workflow_run":    10,
+}
+
+// featureUsageFile returns path like ~/.nexus/usage_20260521.json
+func featureUsageFile() string {
+	home, _ := os.UserHomeDir()
+	date := time.Now().Format("20060102")
+	return filepath.Join(home, ".nexus", fmt.Sprintf("usage_%s.json", date))
+}
+
+type featureUsageData map[string]map[string]int // userID → feature → count
+
+var featureUsageMu sync.Mutex
+
+func loadFeatureUsage() featureUsageData {
+	data := make(featureUsageData)
+	raw, err := os.ReadFile(featureUsageFile())
+	if err != nil {
+		return data
+	}
+	_ = json.Unmarshal(raw, &data)
+	return data
+}
+
+func saveFeatureUsage(d featureUsageData) {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".nexus")
+	_ = os.MkdirAll(dir, 0700)
+	raw, _ := json.MarshalIndent(d, "", "  ")
+	_ = os.WriteFile(featureUsageFile(), raw, 0600)
+}
+
+// getMachineID returns a stable machine UUID from ~/.nexus/machine_id
+func getMachineID() string {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".nexus")
+	_ = os.MkdirAll(dir, 0700)
+	p := filepath.Join(dir, "machine_id")
+	if raw, err := os.ReadFile(p); err == nil {
+		id := strings.TrimSpace(string(raw))
+		if id != "" {
+			return id
+		}
+	}
+	// generate simple UUID v4
+	f, err := os.Open("/dev/urandom")
+	if err != nil {
+		return "default-machine"
+	}
+	defer f.Close()
+	b := make([]byte, 16)
+	_, _ = f.Read(b)
+	id := fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	_ = os.WriteFile(p, []byte(id), 0600)
+	return id
+}
+
+// getPlanFromJWT parses the JWT payload and returns the "plan" claim.
+// Falls back to "free" if the token is missing or invalid.
+func getPlanFromJWT(token string) string {
+	if token == "" {
+		return "free"
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "free"
+	}
+	payload := parts[1]
+	// add padding
+	switch len(payload) % 4 {
+	case 2:
+		payload += "=="
+	case 3:
+		payload += "="
+	}
+	raw, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return "free"
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		return "free"
+	}
+	if p, ok := claims["plan"].(string); ok && p != "" {
+		return p
+	}
+	return "free"
+}
+
+// checkUsageLimit returns whether the user can use the feature today,
+// and the current used/limit counts.
+func checkUsageLimit(userID, feature string) (allowed bool, used int, limit int) {
+	limit, known := featureLimits[feature]
+	if !known {
+		return true, 0, -1 // unknown features are unrestricted
+	}
+
+	jwt := getJWT()
+	plan := getPlanFromJWT(jwt)
+	if plan == "pro" || plan == "team" {
+		return true, 0, -1 // unlimited
+	}
+
+	featureUsageMu.Lock()
+	defer featureUsageMu.Unlock()
+
+	d := loadFeatureUsage()
+	if d[userID] == nil {
+		d[userID] = map[string]int{}
+	}
+	used = d[userID][feature]
+	if used >= limit {
+		return false, used, limit
+	}
+	return true, used, limit
+}
+
+// incrementUsage bumps the counter for a feature.
+func incrementUsage(userID, feature string) {
+	featureUsageMu.Lock()
+	defer featureUsageMu.Unlock()
+	d := loadFeatureUsage()
+	if d[userID] == nil {
+		d[userID] = map[string]int{}
+	}
+	d[userID][feature]++
+	saveFeatureUsage(d)
+}
+
+// upgradeRequiredResponse builds the CommandResponse for a paywall hit.
+func upgradeRequiredResponse(feature string, used, limit int) CommandResponse {
+	featureLabel := map[string]string{
+		"stock_analysis":  "주식 분석",
+		"medical_search":  "의료 정보 검색",
+		"contract_review": "계약서 검토",
+		"legal_search":    "법률 검색",
+		"content_script":  "콘텐츠 스크립트",
+		"workflow_run":    "워크플로우 실행",
+	}
+	label := featureLabel[feature]
+	if label == "" {
+		label = feature
+	}
+	msg := fmt.Sprintf("%s은(는) 오늘 %d/%d회 사용했습니다. Pro로 업그레이드하면 무제한으로 사용할 수 있어요.", label, used, limit)
+	return CommandResponse{
+		Success:         false,
+		Message:         msg,
+		Action:          "upgrade_required",
+		Duration:        "0.00s",
+		UpgradeRequired: true,
+		UsedCount:       used,
+		LimitCount:      limit,
+		FeatureName:     feature,
 	}
 }

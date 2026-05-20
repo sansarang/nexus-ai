@@ -569,6 +569,11 @@ export interface CommandResult {
   clarify_question?: string
   pending_intent?: string
   pending_params?: Record<string, unknown>
+  // paywall 필드
+  upgrade_required?: boolean
+  used_count?: number
+  limit_count?: number
+  feature_name?: string
 }
 
 /**
@@ -912,4 +917,190 @@ export async function saveLLMConfig(config: {
   claude_key?: string
 }): Promise<void> {
   await request('POST', '/llm/config', config)
+}
+
+// ── 🛒 워크플로우 마켓플레이스 ─────────────────────────────────
+
+export interface MarketPreset {
+  id: string
+  name: string
+  description: string
+  category: string
+  author: string
+  author_id: string
+  price: number
+  currency: string
+  steps: unknown[]
+  tags: string[]
+  rating: number
+  downloads: number
+  created_at: string
+  updated_at: string
+  preview: string
+  is_owned: boolean
+  is_free: boolean
+}
+
+export interface PublishPresetData {
+  name: string
+  description: string
+  category: string
+  price: number
+  steps: unknown[]
+  tags: string[]
+  preview: string
+}
+
+export async function getMarketplacePresets(params?: {
+  category?: string
+  search?: string
+  sort?: string
+}): Promise<MarketPreset[]> {
+  try {
+    const qs = new URLSearchParams()
+    if (params?.category) qs.set('category', params.category)
+    if (params?.search) qs.set('search', params.search)
+    if (params?.sort) qs.set('sort', params.sort)
+    const query = qs.toString() ? `?${qs.toString()}` : ''
+    const res = await request<{ presets: MarketPreset[] }>('GET', `/marketplace/presets${query}`)
+    return res.presets ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function getMarketplacePreset(id: string): Promise<MarketPreset | null> {
+  try {
+    return await request<MarketPreset>('GET', `/marketplace/preset/${id}`)
+  } catch {
+    return null
+  }
+}
+
+export async function publishPreset(data: PublishPresetData): Promise<{ ok: boolean; preset_id: string }> {
+  return request('POST', '/marketplace/publish', data)
+}
+
+export async function purchasePreset(id: string): Promise<{
+  ok: boolean
+  requires_payment?: boolean
+  price?: number
+  already_owned?: boolean
+}> {
+  return request('POST', `/marketplace/purchase/${id}`)
+}
+
+export async function confirmPurchase(id: string): Promise<{ ok: boolean }> {
+  return request('POST', `/marketplace/purchase/${id}/confirm`)
+}
+
+export async function getMyPresets(): Promise<MarketPreset[]> {
+  try {
+    const res = await request<{ presets: MarketPreset[] }>('GET', '/marketplace/my-presets')
+    return res.presets ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function getPurchasedPresets(): Promise<MarketPreset[]> {
+  try {
+    const res = await request<{ presets: MarketPreset[] }>('GET', '/marketplace/purchased')
+    return res.presets ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function deleteMarketplacePreset(id: string): Promise<{ ok: boolean }> {
+  return request('DELETE', `/marketplace/preset/${id}`)
+}
+
+// ── Enterprise API Key Management ────────────────────────────────────
+
+export interface APIKey {
+  id: string
+  key: string
+  name: string
+  plan: string
+  created_at: string
+  last_used_at: string
+  monthly_limit: number
+  used_this_month: number
+  endpoints: string[]
+  active: boolean
+}
+
+export interface PlanInfo {
+  id: string
+  name: string
+  price: number
+  monthly_limit: number
+  endpoints: string[]
+  description: string
+}
+
+export async function listAPIKeys(): Promise<APIKey[]> {
+  try {
+    const res = await request<{ ok: boolean; keys: APIKey[] }>('GET', '/api/enterprise/keys')
+    return res.keys ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function createAPIKey(name: string, plan: string): Promise<{ ok: boolean; key?: APIKey; error?: string }> {
+  return request('POST', '/api/enterprise/keys', { name, plan })
+}
+
+export async function revokeAPIKey(id: string): Promise<{ ok: boolean }> {
+  return request('DELETE', `/api/enterprise/keys/${id}`)
+}
+
+export async function getAPIKeyUsage(id: string): Promise<Record<string, unknown>> {
+  return request('GET', `/api/enterprise/keys/${id}/usage`)
+}
+
+export async function listPlans(): Promise<PlanInfo[]> {
+  try {
+    const res = await request<{ ok: boolean; plans: PlanInfo[] }>('GET', '/api/enterprise/plans')
+    return res.plans ?? []
+  } catch {
+    return []
+  }
+}
+
+// ── Vertical App Config ───────────────────────────────────────────────
+
+export interface VerticalConfig {
+  id: string
+  name: string
+  theme: string
+  logo: string
+  default_persona: string
+  features: string[]
+  welcome_msg: string
+  watermark: string
+}
+
+export async function getVerticalConfig(): Promise<VerticalConfig | null> {
+  try {
+    const res = await request<{ ok: boolean; config: VerticalConfig }>('GET', '/api/vertical/config')
+    return res.config ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function setVerticalConfig(cfg: VerticalConfig): Promise<{ ok: boolean }> {
+  return request('POST', '/api/vertical/config', cfg)
+}
+
+export async function listVerticalPresets(): Promise<VerticalConfig[]> {
+  try {
+    const res = await request<{ ok: boolean; presets: VerticalConfig[] }>('GET', '/api/vertical/presets')
+    return res.presets ?? []
+  } catch {
+    return []
+  }
 }

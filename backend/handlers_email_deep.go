@@ -362,7 +362,7 @@ func handleCalendarSmartAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	llmMu.RLock()
-	gKey := llmPerplexityKey
+	_ = llmPerplexityKey
 	llmMu.RUnlock()
 
 	today := time.Now().Format("2006-01-02 (Monday)")
