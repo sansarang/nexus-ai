@@ -6,201 +6,87 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"os"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/chromedp/chromedp"
 )
 
-// ── Reddit 전역 상태 ────────────────────────────────────────────────────────
-
-var (
-	redditMu           sync.RWMutex
-	redditClientID     string
-	redditClientSecret string
-	redditAccessToken  string
-	redditTokenExpiry  time.Time
-)
-
-// ── Reddit OAuth2 토큰 (App-only / client_credentials) ─────────────────────
-
-func redditGetToken() (string, error) {
-	redditMu.RLock()
-	if redditAccessToken != "" && time.Now().Before(redditTokenExpiry) {
-		t := redditAccessToken
-		redditMu.RUnlock()
-		return t, nil
-	}
-	redditMu.RUnlock()
-
-	redditMu.RLock()
-	cid := redditClientID
-	csec := redditClientSecret
-	redditMu.RUnlock()
-
-	if cid == "" || csec == "" {
-		return "", fmt.Errorf("Reddit Client ID/Secret not configured")
-	}
-
-	body := url.Values{}
-	body.Set("grant_type", "client_credentials")
-
-	req, _ := http.NewRequest("POST", "https://www.reddit.com/api/v1/access_token", strings.NewReader(body.Encode()))
-	req.SetBasicAuth(cid, csec)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "NexusAI/1.0 (by nexus-app)")
-
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var res struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-		Error       string `json:"error"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return "", err
-	}
-	if res.Error != "" {
-		return "", fmt.Errorf("reddit oauth error: %s", res.Error)
-	}
-
-	redditMu.Lock()
-	redditAccessToken = res.AccessToken
-	redditTokenExpiry = time.Now().Add(time.Duration(res.ExpiresIn-60) * time.Second)
-	redditMu.Unlock()
-
-	return res.AccessToken, nil
-}
-
-// ── Reddit 검색 핵심 함수 ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  Reddit 크롤러 (스텔스 브라우저 — 로그인 불필요)
+//  withMobileStealthTimeout 사용 — TikTok 방식 동일
+// ══════════════════════════════════════════════════════════════
 
 type RedditPost struct {
 	Title     string `json:"title"`
-	Subreddit string `json:"subreddit"`
-	Score     int    `json:"score"`
 	URL       string `json:"url"`
-	Body      string `json:"body"`
+	Subreddit string `json:"subreddit"`
 	Author    string `json:"author"`
-	CreatedAt string `json:"created_at"`
-	Comments  int    `json:"comments"`
+	Score     string `json:"score"`
+	Comments  string `json:"comments"`
+	Body      string `json:"body"`
 }
-
-type RedditSearchResult struct {
-	Posts   []RedditPost `json:"posts"`
-	Query   string       `json:"query"`
-	Summary string       `json:"summary"`
-}
-
-func redditSearch(query, subreddit string, limit int, sort string) (RedditSearchResult, error) {
-	token, err := redditGetToken()
-	if err != nil {
-		return RedditSearchResult{}, err
-	}
-
-	if limit <= 0 || limit > 25 {
-		limit = 10
-	}
-	if sort == "" {
-		sort = "relevance"
-	}
-
-	searchURL := fmt.Sprintf(
-		"https://oauth.reddit.com/search?q=%s&limit=%d&sort=%s&type=link",
-		url.QueryEscape(query), limit, sort,
-	)
-	if subreddit != "" {
-		searchURL = fmt.Sprintf(
-			"https://oauth.reddit.com/r/%s/search?q=%s&limit=%d&sort=%s&restrict_sr=1&type=link",
-			subreddit, url.QueryEscape(query), limit, sort,
-		)
-	}
-
-	req, _ := http.NewRequest("GET", searchURL, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "NexusAI/1.0 (by nexus-app)")
-
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
-	if err != nil {
-		return RedditSearchResult{}, err
-	}
-	defer resp.Body.Close()
-
-	var raw struct {
-		Data struct {
-			Children []struct {
-				Data struct {
-					Title     string  `json:"title"`
-					Subreddit string  `json:"subreddit"`
-					Score     int     `json:"score"`
-					URL       string  `json:"url"`
-					Selftext  string  `json:"selftext"`
-					Author    string  `json:"author"`
-					Created   float64 `json:"created_utc"`
-					NumComments int   `json:"num_comments"`
-					Permalink string  `json:"permalink"`
-				} `json:"data"`
-			} `json:"children"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return RedditSearchResult{}, err
-	}
-
-	posts := make([]RedditPost, 0, len(raw.Data.Children))
-	for _, c := range raw.Data.Children {
-		d := c.Data
-		body := d.Selftext
-		if len(body) > 300 {
-			body = body[:300] + "..."
-		}
-		postURL := d.URL
-		if d.Permalink != "" && !strings.HasPrefix(d.URL, "https://www.reddit.com") {
-			postURL = "https://www.reddit.com" + d.Permalink
-		}
-		posts = append(posts, RedditPost{
-			Title:     d.Title,
-			Subreddit: d.Subreddit,
-			Score:     d.Score,
-			URL:       postURL,
-			Body:      body,
-			Author:    d.Author,
-			CreatedAt: time.Unix(int64(d.Created), 0).Format("2006-01-02"),
-			Comments:  d.NumComments,
-		})
-	}
-
-	return RedditSearchResult{Query: query, Posts: posts}, nil
-}
-
-// ── HTTP 핸들러 ─────────────────────────────────────────────────────────────
 
 // POST /api/reddit/search
+// body: { "query": "...", "subreddit": "stocks", "limit": 10, "sort": "hot" }
 func handleRedditSearch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query     string `json:"query"`
 		Subreddit string `json:"subreddit"`
 		Limit     int    `json:"limit"`
-		Sort      string `json:"sort"` // relevance | hot | new | top
+		Sort      string `json:"sort"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Query == "" {
-		http.Error(w, "query required", http.StatusBadRequest)
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Query == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		return
+	}
+	if req.Limit == 0 || req.Limit > 25 {
+		req.Limit = 10
+	}
+	if req.Sort == "" {
+		req.Sort = "relevance"
+	}
+
+	posts, err := crawlRedditSearch(req.Query, req.Subreddit, req.Limit, req.Sort)
+	if err != nil || len(posts) == 0 {
+		// Tavily fallback
+		llmMu.RLock()
+		tKey := llmTavilyKey
+		llmMu.RUnlock()
+		query := req.Query
+		if req.Subreddit != "" {
+			query = fmt.Sprintf("site:reddit.com/r/%s %s", req.Subreddit, req.Query)
+		} else {
+			query = fmt.Sprintf("site:reddit.com %s", req.Query)
+		}
+		if tKey != "" {
+			if tr, ok := tavilySearchDomain(tKey, query, req.Limit, "reddit.com"); ok && len(tr.Items) > 0 {
+				json200(w, map[string]any{
+					"success": true,
+					"source":  "search_fallback",
+					"posts":   tr.Items,
+					"count":   len(tr.Items),
+					"message": fmt.Sprintf("🔴 Reddit \"%s\" 검색 결과 %d개 (검색 기반)", req.Query, len(tr.Items)),
+				})
+				return
+			}
+		}
+		msg := "Reddit 크롤링 실패"
+		if err != nil {
+			msg += ": " + err.Error()
+		}
+		writeJSON(w, 200, map[string]any{"success": false, "message": msg})
 		return
 	}
 
-	result, err := redditSearch(req.Query, req.Subreddit, req.Limit, req.Sort)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	json200(w, map[string]any{
+		"success": true,
+		"source":  "browser",
+		"posts":   posts,
+		"count":   len(posts),
+		"message": fmt.Sprintf("🔴 Reddit \"%s\" 검색 결과 %d개", req.Query, len(posts)),
+	})
 }
 
 // GET /api/reddit/trending?subreddit=stocks
@@ -210,136 +96,215 @@ func handleRedditTrending(w http.ResponseWriter, r *http.Request) {
 		subreddit = "all"
 	}
 
-	token, err := redditGetToken()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	trendURL := fmt.Sprintf("https://oauth.reddit.com/r/%s/hot?limit=10", subreddit)
-	req, _ := http.NewRequest("GET", trendURL, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "NexusAI/1.0 (by nexus-app)")
-
-	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	var raw struct {
-		Data struct {
-			Children []struct {
-				Data struct {
-					Title     string  `json:"title"`
-					Subreddit string  `json:"subreddit"`
-					Score     int     `json:"score"`
-					URL       string  `json:"url"`
-					Author    string  `json:"author"`
-					Created   float64 `json:"created_utc"`
-					NumComments int   `json:"num_comments"`
-					Permalink string  `json:"permalink"`
-				} `json:"data"`
-			} `json:"children"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	posts := make([]RedditPost, 0, len(raw.Data.Children))
-	for _, c := range raw.Data.Children {
-		d := c.Data
-		posts = append(posts, RedditPost{
-			Title:     d.Title,
-			Subreddit: d.Subreddit,
-			Score:     d.Score,
-			URL:       "https://www.reddit.com" + d.Permalink,
-			Author:    d.Author,
-			CreatedAt: time.Unix(int64(d.Created), 0).Format("2006-01-02"),
-			Comments:  d.NumComments,
+	pageURL := fmt.Sprintf("https://www.reddit.com/r/%s/hot/", subreddit)
+	posts, err := crawlRedditFeed(pageURL, 15)
+	if err != nil || len(posts) == 0 {
+		llmMu.RLock()
+		tKey := llmTavilyKey
+		llmMu.RUnlock()
+		if tKey != "" {
+			query := fmt.Sprintf("site:reddit.com/r/%s hot trending 2026", subreddit)
+			if tr, ok := tavilySearchDomain(tKey, query, 10, "reddit.com"); ok && len(tr.Items) > 0 {
+				json200(w, map[string]any{
+					"success":   true,
+					"source":    "search_fallback",
+					"subreddit": subreddit,
+					"posts":     tr.Items,
+					"message":   fmt.Sprintf("🔥 r/%s 트렌딩 (검색 기반)", subreddit),
+				})
+				return
+			}
+		}
+		writeJSON(w, 200, map[string]any{
+			"success": false,
+			"message": fmt.Sprintf("r/%s 트렌딩 수집 실패", subreddit),
 		})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"subreddit": subreddit, "posts": posts})
-}
-
-// POST /api/reddit/config — Reddit Client ID/Secret 저장
-func handleRedditConfig(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
 
-	redditMu.Lock()
-	if req.ClientID != "" {
-		redditClientID = req.ClientID
-	}
-	if req.ClientSecret != "" {
-		redditClientSecret = req.ClientSecret
-		redditAccessToken = "" // 토큰 초기화 → 재발급
-	}
-	redditMu.Unlock()
-
-	saveRedditConfig()
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	json200(w, map[string]any{
+		"success":   true,
+		"source":    "browser",
+		"subreddit": subreddit,
+		"posts":     posts,
+		"count":     len(posts),
+		"message":   fmt.Sprintf("🔥 r/%s 트렌딩 %d개", subreddit, len(posts)),
+	})
 }
 
-// GET /api/reddit/config/status
-func handleRedditConfigStatus(w http.ResponseWriter, r *http.Request) {
-	redditMu.RLock()
-	configured := redditClientID != "" && redditClientSecret != ""
-	redditMu.RUnlock()
+// ── 내부 크롤러 ─────────────────────────────────────────────────────────────
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"configured": configured})
-}
-
-// ── 설정 파일 저장/로드 ─────────────────────────────────────────────────────
-
-func redditConfigPath() string {
-	home, _ := os.UserHomeDir()
-	return home + "/.nexus/reddit_config.json"
-}
-
-func saveRedditConfig() {
-	redditMu.RLock()
-	data := map[string]string{
-		"client_id":     redditClientID,
-		"client_secret": encryptDPAPI(redditClientSecret),
+func crawlRedditSearch(query, subreddit string, limit int, sort string) ([]RedditPost, error) {
+	var pageURL string
+	if subreddit != "" {
+		pageURL = fmt.Sprintf("https://www.reddit.com/r/%s/search/?q=%s&sort=%s&restrict_sr=1",
+			subreddit, urlEncode(query), sort)
+	} else {
+		pageURL = fmt.Sprintf("https://www.reddit.com/search/?q=%s&sort=%s",
+			urlEncode(query), sort)
 	}
-	redditMu.RUnlock()
-	b, _ := json.MarshalIndent(data, "", "  ")
-	path := redditConfigPath()
-	_ = os.MkdirAll(path[:strings.LastIndex(path, "/")], 0755)
-	_ = os.WriteFile(path, b, 0600)
+	return crawlRedditFeed(pageURL, limit)
 }
 
-func loadRedditConfig() {
-	type redditCfg struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-	}
-	data, err := os.ReadFile(redditConfigPath())
+func crawlRedditFeed(pageURL string, limit int) ([]RedditPost, error) {
+	ctx, cancel, err := withMobileStealthTimeout(35 * time.Second)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("스텔스 브라우저 시작 실패: %w", err)
 	}
-	var cfg redditCfg
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return
+	defer cancel()
+
+	var titles, urls, subreddits, authors, scores, comments []string
+
+	err = chromedp.Run(ctx,
+		chromedp.Navigate(pageURL),
+		chromedp.Sleep(3*time.Second),
+		chromedp.Evaluate(`window.scrollBy(0, 1500)`, nil),
+		chromedp.Sleep(1500*time.Millisecond),
+		chromedp.Evaluate(`window.scrollBy(0, 1500)`, nil),
+		chromedp.Sleep(1000*time.Millisecond),
+
+		// 게시물 제목
+		chromedp.Evaluate(`
+			(function(){
+				var els = document.querySelectorAll(
+					'h3[class*="title"], '+
+					'[data-testid="post-title"], '+
+					'a[data-click-id="body"] h3, '+
+					'shreddit-post h1, '+
+					'div[data-testid="post-container"] h3, '+
+					'[slot="title"]'
+				);
+				return Array.from(els).slice(0,25).map(e=>e.innerText.trim()).filter(t=>t.length>3);
+			})()
+		`, &titles),
+
+		// 게시물 URL
+		chromedp.Evaluate(`
+			(function(){
+				var els = document.querySelectorAll(
+					'a[data-click-id="body"][href*="/comments/"], '+
+					'a[href*="/r/"][href*="/comments/"], '+
+					'shreddit-post a[slot="full-post-link"]'
+				);
+				return Array.from(els).slice(0,25).map(e=>{
+					var h = e.href||'';
+					return h.startsWith('http') ? h : 'https://www.reddit.com'+h;
+				}).filter(h=>h.includes('/comments/'));
+			})()
+		`, &urls),
+
+		// 서브레딧
+		chromedp.Evaluate(`
+			(function(){
+				var els = document.querySelectorAll(
+					'a[href*="/r/"][data-click-id="subreddit"], '+
+					'[data-testid="subreddit-name"], '+
+					'shreddit-post [slot="subredditName"]'
+				);
+				return Array.from(els).slice(0,25).map(e=>e.innerText.trim().replace('r/',''));
+			})()
+		`, &subreddits),
+
+		// 작성자
+		chromedp.Evaluate(`
+			(function(){
+				var els = document.querySelectorAll(
+					'a[href*="/user/"][data-click-id="user"], '+
+					'[data-testid="post_author_link"], '+
+					'shreddit-post [slot="authorName"]'
+				);
+				return Array.from(els).slice(0,25).map(e=>e.innerText.trim().replace('u/',''));
+			})()
+		`, &authors),
+
+		// 추천 수
+		chromedp.Evaluate(`
+			(function(){
+				var els = document.querySelectorAll(
+					'button[aria-label*="upvote"] ~ faceplate-number, '+
+					'[data-testid="vote-arrows"] ~ span, '+
+					'div[class*="score"], '+
+					'shreddit-post [slot="vote-score"]'
+				);
+				return Array.from(els).slice(0,25).map(e=>e.innerText.trim()).filter(t=>t!='');
+			})()
+		`, &scores),
+
+		// 댓글 수
+		chromedp.Evaluate(`
+			(function(){
+				var els = document.querySelectorAll(
+					'a[data-click-id="comments"] span, '+
+					'[data-testid="comments-page-link-num-comments"], '+
+					'shreddit-post [slot="commentCount"]'
+				);
+				return Array.from(els).slice(0,25).map(e=>e.innerText.trim()).filter(t=>t!='');
+			})()
+		`, &comments),
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("Reddit 크롤링 오류: %w", err)
 	}
-	redditMu.Lock()
-	redditClientID = cfg.ClientID
-	if cfg.ClientSecret != "" {
-		redditClientSecret = decryptDPAPI(cfg.ClientSecret)
+
+	var posts []RedditPost
+	max := len(titles)
+	if len(urls) > 0 && len(urls) < max {
+		max = len(urls)
 	}
-	redditMu.Unlock()
+	if max > limit {
+		max = limit
+	}
+
+	for i := 0; i < max; i++ {
+		post := RedditPost{}
+		if i < len(titles) {
+			post.Title = titles[i]
+		}
+		if i < len(urls) {
+			post.URL = urls[i]
+		}
+		if i < len(subreddits) {
+			post.Subreddit = subreddits[i]
+		}
+		if i < len(authors) {
+			post.Author = authors[i]
+		}
+		if i < len(scores) {
+			post.Score = scores[i]
+		}
+		if i < len(comments) {
+			post.Comments = comments[i]
+		}
+		if post.Title != "" || post.URL != "" {
+			posts = append(posts, post)
+		}
+	}
+
+	// URL만 있고 title 없는 경우 보완
+	if len(posts) == 0 && len(urls) > 0 {
+		for i, u := range urls {
+			if i >= limit {
+				break
+			}
+			sr := ""
+			if i < len(subreddits) {
+				sr = subreddits[i]
+			}
+			// URL에서 서브레딧 추출
+			if sr == "" {
+				parts := strings.Split(u, "/r/")
+				if len(parts) > 1 {
+					sr = strings.Split(parts[1], "/")[0]
+				}
+			}
+			posts = append(posts, RedditPost{
+				URL:       u,
+				Title:     fmt.Sprintf("Reddit 게시물 #%d", i+1),
+				Subreddit: sr,
+			})
+		}
+	}
+
+	return posts, nil
 }
