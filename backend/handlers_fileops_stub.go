@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build windows
 
 package main
 
@@ -180,13 +180,14 @@ func handleFileDuplicates(w http.ResponseWriter, r *http.Request) {
 	})
 
 	type dupGroup struct {
-		Hash  string   `json:"hash"`
-		Files []string `json:"files"`
-		Size  int64    `json:"size"`
+		Name   string   `json:"name"`
+		Paths  []string `json:"paths"`
+		Count  int      `json:"count"`
+		SizeMB float64  `json:"size_mb"`
 	}
 	var groups []dupGroup
 	totalWaste := int64(0)
-	for hash, files := range hashes {
+	for _, files := range hashes {
 		if len(files) < 2 {
 			continue
 		}
@@ -196,17 +197,24 @@ func handleFileDuplicates(w http.ResponseWriter, r *http.Request) {
 			sz = info.Size()
 			totalWaste += sz * int64(len(files)-1)
 		}
-		groups = append(groups, dupGroup{Hash: hash[:8], Files: files, Size: sz})
+		groups = append(groups, dupGroup{
+			Name:   filepath.Base(files[0]),
+			Paths:  files,
+			Count:  len(files),
+			SizeMB: float64(sz) / 1024 / 1024,
+		})
 	}
 
-	msg := fmt.Sprintf("중복 파일 %d그룹 발견, 낭비 공간 약 %.1fMB", len(groups), float64(totalWaste)/1024/1024)
+	wasteMB := float64(totalWaste) / 1024 / 1024
+	msg := fmt.Sprintf("중복 파일 %d그룹 발견, 낭비 공간 약 %.1fMB", len(groups), wasteMB)
 	if len(groups) == 0 {
 		msg = "중복 파일이 없습니다."
 	}
 
 	json200(w, map[string]any{
 		"success": true, "message": msg,
-		"groups": groups, "total_waste_mb": float64(totalWaste) / 1024 / 1024,
+		"groups": groups, "total_groups": len(groups),
+		"waste_mb": wasteMB, "waste": fmt.Sprintf("%.1fMB", wasteMB),
 	})
 }
 
