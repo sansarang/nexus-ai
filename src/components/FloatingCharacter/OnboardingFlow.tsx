@@ -552,6 +552,26 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   return (
     <div style={overlay}>
 
+      {/* 닫기 버튼 — 우측 상단 고정 */}
+      <button
+        onClick={async () => {
+          try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window')
+            getCurrentWindow().close()
+          } catch { window.close() }
+        }}
+        style={{
+          position: 'fixed', top: 16, right: 16, zIndex: 100000,
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)',
+          color: 'rgba(255,255,255,0.7)', fontSize: 16, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(8px)', transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.7)'; e.currentTarget.style.color = 'white' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.35)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)' }}
+      >✕</button>
+
       <AnimatePresence mode="wait">
 
         {/* ══════════════════════════════════════════════
@@ -1110,21 +1130,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             {!googleEmail ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Close button */}
-                <button
-                  onClick={async () => {
-                    const { getCurrentWindow } = await import('@tauri-apps/api/window')
-                    getCurrentWindow().close()
-                  }}
-                  style={{
-                    position: 'absolute', top: 16, right: 16,
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                    color: 'rgba(255,255,255,0.5)', fontSize: 14, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-                  }}
-                >✕</button>
-
                 {/* Google button */}
                 <button
                   onClick={handleGoogleLogin}
