@@ -1168,7 +1168,10 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 				}
 				var chatSys string
 				if lang == "en" {
-					chatSys = "You are Nexus AI, a helpful assistant. Answer in natural English, 2-4 sentences. No markdown headers. Use previous conversation context."
+					chatSys = VerticalSystemPromptsEN[verticalCfg.ID]
+					if chatSys == "" {
+						chatSys = VerticalSystemPromptsEN["general"]
+					}
 				} else {
 					chatSys = verticalSys
 				}

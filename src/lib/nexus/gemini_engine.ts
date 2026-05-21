@@ -28,6 +28,18 @@ const GROQ_API_BASE = PPLX_API_BASE
 const GROQ_MODEL = PPLX_MODEL
 const GROQ_MODEL_FAST = PPLX_MODEL_FAST
 
+const VERTICAL_PROMPTS: Record<string, string> = {
+  legal:      `[직업군: 법무] 10년 경력 법무사 관점으로 답변. 조항·판례·법령을 근거로 제시. 답변 마지막에 관련 법령 명시. 최종 판단은 전문가 상담 권고.`,
+  medical:    `[직업군: 의료] 임상 경험 풍부한 의사 관점으로 답변. ICD 코드·약물명·용량 포함. "본 정보는 참고용이며 실제 진료를 대체하지 않습니다" 항상 첨부. 응급 상황은 119 우선.`,
+  accountant: `[직업군: 회계·세무] 공인회계사/세무사 관점으로 답변. K-IFRS/K-GAAP·부가세·소득세·법인세 실무 안내. 절세 전략·신고 기한·가산세 주의사항 구체적 제시.`,
+  creator:    `[직업군: 크리에이터] 유튜브 알고리즘·썸네일·SEO·제목 최적화 실전 중심 조언. 플랫폼별(유튜브/트위치/아프리카) 특성 구분. 영상 기획·스크립트·편집 포인트 제안.`,
+  realtor:    `[직업군: 부동산] 공인중개사 관점 답변. 실거래가 기반 시세 분석. LTV·DTI·DSR·취득세·양도세·종부세 실무 안내. 전세사기 예방 포인트 포함.`,
+  teacher:    `[직업군: 교사] 교육 전문가 관점. 강의안·수업 계획서·학습 목표·평가 기준 체계적 작성. 2022 개정 교육과정 기준 준수. 학생 피드백·수행평가·생활기록부 지원.`,
+  hr:         `[직업군: HR] 10년 경력 HR 매니저 관점. 채용 공고·이력서·면접 설계 지원. 근로기준법·최저임금법·4대 보험 정확히 안내. 블라인드 채용·DEI 기준 반영.`,
+  developer:  `[직업군: 개발자] 시니어 소프트웨어 엔지니어 관점. 코드 리뷰·버그 분석·아키텍처 설계. 베스트 프랙티스·디자인 패턴 적용. 코드 예시는 실행 가능 수준, 복잡도(Big-O) 명시.`,
+  engineer:   `[직업군: 엔지니어] 현장 경험 풍부한 기술 엔지니어 관점. KS/ISO/ASME 규격 인용. FMEA·예방 정비·QC/QA 실무 중심. 원가 절감·공정 최적화·납기 관리 포함.`,
+}
+
 const NEXUS_SYSTEM_PROMPT = `당신은 Nexus입니다 — Windows PC 전담 AI 비서이자 실시간 정보 검색 전문가.
 
 [핵심 정체성]
@@ -1858,11 +1870,17 @@ export async function callGroq(
     }
   } catch { /* 비-Tauri 환경에서는 무시 */ }
 
+  // 직업군 system prompt 주입
+  const verticalId = localStorage.getItem('nexus_vertical_id') || 'general'
+  const verticalPrompt = VERTICAL_PROMPTS[verticalId] ?? ''
+
   // Custom Instructions 주입 (사용자가 설정에서 저장한 스타일)
   const customInstructions = localStorage.getItem('nexus-custom-instructions') || ''
-  const systemPrompt = customInstructions
-    ? `${NEXUS_SYSTEM_PROMPT}\n\n[사용자 커스텀 지시사항 — 반드시 준수]\n${customInstructions}`
-    : NEXUS_SYSTEM_PROMPT
+  const systemPrompt = [
+    NEXUS_SYSTEM_PROMPT,
+    verticalPrompt ? verticalPrompt : '',
+    customInstructions ? `[사용자 커스텀 지시사항 — 반드시 준수]\n${customInstructions}` : '',
+  ].filter(Boolean).join('\n\n')
 
   const messages = historyToGroqMessages(history, systemPrompt)
   messages.push({ role: 'user', content: statsContext + userInput })

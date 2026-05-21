@@ -7,3 +7,4 @@ windows-portable/
 windows-dist/
 *.exe
 !build-on-windows.ps1
+.vercel
