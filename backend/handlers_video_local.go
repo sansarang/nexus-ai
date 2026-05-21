@@ -15,20 +15,47 @@ import (
 	"time"
 )
 
+// findFFmpeg: PATH → 설치된 경로 → Nexus AppData 순으로 ffmpeg.exe 탐색
+func findFFmpeg() string {
+	if p, err := exec.LookPath("ffmpeg"); err == nil {
+		return p
+	}
+	candidates := []string{
+		`C:\ffmpeg\bin\ffmpeg.exe`,
+		`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
+		`C:\tools\ffmpeg\bin\ffmpeg.exe`,
+	}
+	if appdata := os.Getenv("APPDATA"); appdata != "" {
+		candidates = append(candidates, filepath.Join(appdata, "Nexus", "ffmpeg", "bin", "ffmpeg.exe"))
+	}
+	for _, p := range candidates {
+		if fileExists(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+// findFFprobe: ffmpeg과 같은 디렉토리에서 ffprobe.exe 탐색
+func findFFprobe() string {
+	if p, err := exec.LookPath("ffprobe"); err == nil {
+		return p
+	}
+	ffmpeg := findFFmpeg()
+	if ffmpeg != "" {
+		probe := filepath.Join(filepath.Dir(ffmpeg), "ffprobe.exe")
+		if fileExists(probe) {
+			return probe
+		}
+	}
+	return ""
+}
+
 // GET /api/video/check-deps
 func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
 	ffmpegPath, _ := exec.LookPath("ffmpeg")
 	if ffmpegPath == "" {
-		for _, p := range []string{
-			`C:\ffmpeg\bin\ffmpeg.exe`,
-			`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
-			`C:\tools\ffmpeg\bin\ffmpeg.exe`,
-		} {
-			if fileExists(p) {
-				ffmpegPath = p
-				break
-			}
-		}
+		ffmpegPath = findFFmpeg()
 	}
 	ytdlpPath := findYtDlp()
 
@@ -154,19 +181,7 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 	// ── Step 2: 자막 없으면 ffmpeg → Groq Whisper 전사 ──────────
 	method := "subtitle"
 	if transcript == "" {
-		ffmpegPath, _ := exec.LookPath("ffmpeg")
-		if ffmpegPath == "" {
-			for _, p := range []string{
-				`C:\ffmpeg\bin\ffmpeg.exe`,
-				`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
-				`C:\tools\ffmpeg\bin\ffmpeg.exe`,
-			} {
-				if fileExists(p) {
-					ffmpegPath = p
-					break
-				}
-			}
-		}
+		ffmpegPath := findFFmpeg()
 
 		if ffmpegPath != "" {
 			audioPath := filepath.Join(tmp, "audio.mp3")
@@ -337,7 +352,11 @@ func summarizeTranscriptWithQuery(transcript, lang, query string) (summary, tip 
 
 // getVideoDurationSecs: ffprobe로 영상 길이(초) 반환. 실패 시 0
 func getVideoDurationSecs(videoPath string) float64 {
-	for _, probe := range []string{"ffprobe", `C:\ffmpeg\bin\ffprobe.exe`, `C:\Program Files\ffmpeg\bin\ffprobe.exe`} {
+	probe := findFFprobe()
+	if probe == "" {
+		return 0
+	}
+	for _, probe := range []string{probe} {
 		cmd := exec.Command(probe,
 			"-v", "quiet", "-print_format", "json",
 			"-show_format", videoPath,
@@ -362,7 +381,11 @@ func getVideoDurationSecs(videoPath string) float64 {
 
 // getVideoMetadata: ffprobe로 영상 메타데이터 추출
 func getVideoMetadata(videoPath string) string {
-	for _, probe := range []string{"ffprobe", `C:\ffmpeg\bin\ffprobe.exe`, `C:\Program Files\ffmpeg\bin\ffprobe.exe`} {
+	probePath := findFFprobe()
+	if probePath == "" {
+		return ""
+	}
+	for _, probe := range []string{probePath} {
 		if _, err := exec.LookPath(probe); err == nil || fileExists(probe) {
 			cmd := exec.Command(probe,
 				"-v", "quiet",

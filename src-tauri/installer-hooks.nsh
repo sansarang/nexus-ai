@@ -90,12 +90,76 @@
 
   ; ── 5. yt-dlp 다운로드 (영상 검색·다운로드용) ───────────────────
   DetailPrint "Installing yt-dlp..."
-  SetOutPath "$APPDATA\Nexus"
+  CreateDirectory "$APPDATA\Nexus"
   ${IfNot} ${FileExists} "$APPDATA\Nexus\yt-dlp.exe"
+    DetailPrint "Downloading yt-dlp..."
     nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "try { Invoke-WebRequest -Uri ''https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'' -OutFile ''$env:APPDATA\Nexus\yt-dlp.exe'' -UseBasicParsing } catch { exit 1 }; exit 0"'
     Pop $0
   ${EndIf}
   DetailPrint "yt-dlp: OK"
+
+  ; ── 5b. ffmpeg 설치 (영상 분석·전사용) ──────────────────────────
+  DetailPrint "Checking ffmpeg..."
+  ; 이미 설치된 경우 건너뜀
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"'
+  Pop $5
+  ${If} $5 == "0"
+    DetailPrint "ffmpeg: already installed (PATH)"
+    Goto FfmpegOk
+  ${EndIf}
+  ${If} ${FileExists} "$APPDATA\Nexus\ffmpeg\bin\ffmpeg.exe"
+    DetailPrint "ffmpeg: already installed (Nexus)"
+    Goto FfmpegOk
+  ${EndIf}
+
+  ; winget으로 설치 시도
+  DetailPrint "Installing ffmpeg via winget..."
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "winget install --id Gyan.FFmpeg -e --silent --accept-package-agreements --accept-source-agreements 2>$null; exit 0"'
+  Pop $5
+  ; winget 설치 후 재확인
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"'
+  Pop $5
+  StrCmp $5 "0" FfmpegOk 0
+
+  ; winget 실패 → GitHub BtbN 빌드 직접 다운로드
+  DetailPrint "Downloading ffmpeg from GitHub (this may take a moment)..."
+  CreateDirectory "$APPDATA\Nexus\ffmpeg"
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command "\
+    $url = ''https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip''; \
+    $zip = ''$env:TEMP\ffmpeg.zip''; \
+    $dst = ''$env:APPDATA\Nexus\ffmpeg''; \
+    try { \
+      Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing; \
+      Expand-Archive -Path $zip -DestinationPath ''$env:TEMP\ffmpeg_extract'' -Force; \
+      $binSrc = (Get-ChildItem ''$env:TEMP\ffmpeg_extract'' -Recurse -Filter ''ffmpeg.exe'' | Select-Object -First 1).DirectoryName; \
+      if ($binSrc) { \
+        New-Item -ItemType Directory -Path $dst\bin -Force | Out-Null; \
+        Copy-Item $binSrc\ffmpeg.exe $dst\bin\ -Force; \
+        Copy-Item $binSrc\ffprobe.exe $dst\bin\ -Force -ErrorAction SilentlyContinue; \
+      }; \
+      Remove-Item $zip -ErrorAction SilentlyContinue; \
+      Remove-Item ''$env:TEMP\ffmpeg_extract'' -Recurse -ErrorAction SilentlyContinue; \
+      exit 0 \
+    } catch { exit 1 }"'
+  Pop $5
+
+  ${If} ${FileExists} "$APPDATA\Nexus\ffmpeg\bin\ffmpeg.exe"
+    DetailPrint "ffmpeg: installed to AppData\Nexus\ffmpeg\bin"
+    ; PATH에 추가 (현재 사용자)
+    nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "\
+      $p = [Environment]::GetEnvironmentVariable(''PATH'', ''User''); \
+      $add = ''$env:APPDATA\Nexus\ffmpeg\bin''; \
+      if ($p -notlike ''*'' + $add + ''*'') { \
+        [Environment]::SetEnvironmentVariable(''PATH'', $p + '';'' + $add, ''User'') \
+      }"'
+    Pop $5
+    Goto FfmpegOk
+  ${Else}
+    DetailPrint "ffmpeg: installation failed — video analysis will not be available"
+  ${EndIf}
+
+  FfmpegOk:
+  DetailPrint "ffmpeg: OK"
 
   ; ── 6. Nexus 설정 폴더 초기화 ───────────────────────────────────
   DetailPrint "Initializing Nexus config..."
