@@ -5,6 +5,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   virusTotalCheck, historyStats, historyAnomalies,
   processKill, appPermissions, windowsUpdates, gpuStats,
   priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload, videoQuickSearch,
+  redditSearch, redditTrending,
   schedulerAdd, schedulerList, schedulerDelete,
   recallCapture, recallSearch,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
@@ -69,6 +70,7 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
       case 'deep_search': return ['Collecting files...', 'Indexing content', 'Ranking results']
       case 'news_search': return ['Searching news...', 'Collecting articles']
       case 'youtube_search': return ['Searching videos...', 'Collecting results']
+      case 'reddit_search': return ['Launching stealth browser...', 'Crawling Reddit...', 'Collecting posts']
       case 'price_compare': return ['Searching...', 'Checking Coupang', 'Checking Naver', 'Comparing prices']
       case 'weather': return ['Fetching weather data...', 'Analyzing forecast']
       case 'calendar_today': return ['Connecting to Outlook...', 'Loading today\'s events']
@@ -563,9 +565,40 @@ export async function handleBackendIntentImpl(
         /* ── Deep Search ── */
         case 'deep_search': {
           const query = extractDeepSearchQuery(originalText)
-          const data = await backendAPI.deepSearch(query)
+          const verticalId = localStorage.getItem('nexus_vertical_id') ?? 'general'
+
+          // 직업군별 검색 쿼리 보강
+          const verticalQueryBoost: Record<string, string> = {
+            legal: `${query} 계약 법률 판례 조항`,
+            medical: `${query} 의료 진단 임상 처방`,
+            finance: `${query} 투자 재무 수익 리스크`,
+            content: `${query} 콘텐츠 편집 영상 스크립트`,
+            general: query,
+          }
+          const boostedQuery = verticalQueryBoost[verticalId] ?? query
+
+          const data = await backendAPI.deepSearch(boostedQuery)
+
+          // 직업군별 결과 아이콘/레이블
+          const verticalMeta: Record<string, { icon: string; label: string }> = {
+            legal:   { icon: '⚖️', label: '법무 문서 검색' },
+            medical: { icon: '🩺', label: '의료 문서 검색' },
+            finance: { icon: '📈', label: '재무 문서 검색' },
+            content: { icon: '🎬', label: '콘텐츠 파일 검색' },
+            general: { icon: '🔍', label: '파일 심층 검색' },
+          }
+          const meta = verticalMeta[verticalId] ?? verticalMeta.general
+
+          // FloatingPreview에 파일 결과 표시
+          if (data.results && data.results.length > 0) {
+            setFloatingPreview(data.results.slice(0, 8).map((r: { name: string; path?: string }) => ({
+              title: `${meta.icon} ${r.name}`,
+              url: r.path ? `file:///${r.path.replace(/\\/g, '/')}` : '#',
+            })))
+          }
+
           return {
-            text: data.message,
+            text: `${meta.icon} ${data.message}`,
             card3: { type: 'deep_search', data },
             emotion: data.total > 0 ? 'happy' : 'neutral',
           }
@@ -802,10 +835,18 @@ export async function handleBackendIntentImpl(
           }
         }
 
-        /* ── 🌐 가격 비교 (chromedp 불필요 — /api/command 결과 사용) ── */
+        /* ── 🛍️ 가격 비교 ── */
         case 'price_compare': {
-          // handleBackendIntent에서 직접 호출되는 경우: /api/command에 위임
-          return { text: t('가격을 검색하고 있어요...', 'Searching for prices...', userLang), emotion: 'neutral' }
+          const query = originalText.replace(/가격|비교|얼마|검색|찾아줘|price|compare|search|how much|buy/gi, '').trim() || originalText
+          const data = await priceCompare(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '가격 비교 실패' }))
+          if (data.results && data.results.length > 0) {
+            setFloatingPreview(data.results.slice(0, 8).map(r => ({ title: `${r.price} — ${r.name}`, url: r.link })))
+          }
+          return {
+            text: data.summary || t(`"${query}" 가격 비교 완료!`, `Price comparison for "${query}" done!`, userLang),
+            card2: { type: 'price_compare', data: { query: data.query, results: data.results ?? [], total: data.total, summary: data.summary } },
+            emotion: data.success ? 'happy' : 'neutral',
+          }
         }
 
         /* ── 🌐 뉴스 검색 ── */
@@ -844,6 +885,40 @@ export async function handleBackendIntentImpl(
             text: data.summary || `${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`,
             card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || '결과를 가져오는 중...', success: data.success },
             emotion: 'happy',
+          }
+        }
+
+        /* ── 🔴 Reddit 검색 ── */
+        case 'reddit_search': {
+          const subredditMatch = originalText.match(/r\/(\w+)/i)
+          const subreddit = subredditMatch?.[1] ?? ''
+          const isTrending = /트렌딩|인기|hot|trending/i.test(originalText)
+          const query = originalText
+            .replace(/레딧|reddit|에서|검색|찾아줘|커뮤니티|반응|의견|r\/\w+/gi, '')
+            .replace(/트렌딩|인기|hot|trending/gi, '')
+            .trim() || (isTrending ? '' : originalText)
+
+          const data = isTrending && !query
+            ? await redditTrending(subreddit || 'all').catch(() => ({ success: false, source: '', posts: [], count: 0, message: 'Reddit 수집 실패' }))
+            : await redditSearch(query, subreddit).catch(() => ({ success: false, source: '', posts: [], count: 0, message: 'Reddit 수집 실패' }))
+
+          const posts = data.posts ?? []
+          if (posts.length > 0) {
+            setFloatingPreview(posts.slice(0, 8).map((p) => ({ title: `[r/${p.subreddit || 'reddit'}] ${p.title}`, url: p.url })))
+          }
+          const detail = posts.slice(0, 5).map(p =>
+            `• ${p.title}${p.score ? ` ↑${p.score}` : ''}${p.comments ? ` 💬${p.comments}` : ''}\n  ${p.url}`
+          ).join('\n\n')
+          return {
+            text: data.message || `Reddit에서 "${query || '트렌딩'}" 게시물 ${posts.length}개를 찾았어요!`,
+            card2: {
+              type: 'system_action',
+              icon: '🔴',
+              title: `Reddit${subreddit ? ` r/${subreddit}` : ''}: ${query || '트렌딩'}`,
+              detail: detail || '결과를 가져오는 중...',
+              success: data.success,
+            },
+            emotion: posts.length > 0 ? 'happy' : 'neutral',
           }
         }
 

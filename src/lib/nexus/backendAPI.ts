@@ -692,6 +692,28 @@ export const youtubeSearch = (query: string) =>
 export const tiktokSearch = (query: string) =>
   request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'tiktok.com', max_items: 8 })
 
+export interface RedditPost {
+  title: string
+  url: string
+  subreddit: string
+  author: string
+  score: string
+  comments: string
+  body?: string
+}
+export interface RedditSearchResult {
+  success: boolean
+  source: string
+  posts: RedditPost[]
+  count: number
+  message: string
+}
+export const redditSearch = (query: string, subreddit = '', sort = 'relevance') =>
+  request<RedditSearchResult>('POST', '/api/reddit/search', { query, subreddit, limit: 10, sort })
+
+export const redditTrending = (subreddit = 'all') =>
+  request<RedditSearchResult>('GET', `/api/reddit/trending?subreddit=${encodeURIComponent(subreddit)}`)
+
 // 크로스플랫폼 YouTube/TikTok 빠른 검색 (Mac + Windows 모두 동작, Tavily 기반)
 export const videoQuickSearch = (query: string, platform: 'youtube' | 'tiktok' | 'instagram' | 'x' | 'all' = 'youtube', maxItems = 4) =>
   request<{ success: boolean; items: Array<{ title: string; url: string; type?: string; platform?: string }>; total: number }>(

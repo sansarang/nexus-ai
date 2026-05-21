@@ -143,6 +143,7 @@ export type Intent =
   | 'task_cancel'      // 실행 중 작업 취소
   // ── 🔍 검색+PDF ──────────────────────────────────────────────
   | 'search_pdf'       // 웹 검색 후 PDF 보고서 생성
+  | 'reddit_search'    // Reddit 커뮤니티 검색
   | 'none'             // LLM으로 위임
 
 const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
@@ -956,6 +957,15 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /작업.*취소|실행.*중.*멈춰|task.*cancel|진행.*중.*중지/i,
       /멈춰줘|중단해줘|취소해줘.*작업/i,
+    ],
+  },
+  // ── 🔴 Reddit 검색 ──
+  {
+    intent: 'reddit_search',
+    patterns: [
+      /레딧|reddit/i,
+      /커뮤니티.*검색|reddit.*찾아|레딧.*에서/i,
+      /r\/\w+/i,
     ],
   },
   // ── 🔍 검색+PDF 보고서 ──

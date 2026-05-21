@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type {
   RemoteAccessResult, ProcessSecurityResult, DefenderStatus,
   StartupItem, ProcItem, NetworkAdapter, DriverItem, ProgramItem,
-  FileResult, DupGroup, NoteItem,
+  FileResult, DupGroup, NoteItem, PriceItem,
 } from '../../lib/nexus/backendAPI'
 
 /* ─────────────────────────────────────────────────────────── */
@@ -590,6 +590,7 @@ export function FocusModeCard({ active, duration, accentColor }: {
 /* ─────────────────────────────────────────────────────────── */
 
 export type InlineCardData2 =
+  | { type: 'price_compare'; data: { query: string; results: PriceItem[]; total: number; summary: string } }
   | { type: 'remote_access'; data: RemoteAccessResult }
   | { type: 'process_security'; data: ProcessSecurityResult }
   | { type: 'defender'; data: DefenderStatus }
@@ -614,6 +615,7 @@ export function InlineCardRenderer2({
   accentColor: string
 }) {
   switch (card.type) {
+    case 'price_compare':    return <PriceCompareCard     data={card.data} accentColor={accentColor} />
     case 'remote_access':    return <RemoteAccessCard    data={card.data} accentColor={accentColor} />
     case 'process_security': return <ProcessSecurityCard data={card.data} accentColor={accentColor} />
     case 'defender':         return <DefenderCard        data={card.data} accentColor={accentColor} />
@@ -661,6 +663,69 @@ function FileResultCard({ data, accentColor }: { data: { fileName: string; url: 
         ⬇ 다운로드
       </a>
     </div>
+  )
+}
+
+function PriceCompareCard({ data, accentColor }: { data: { query: string; results: PriceItem[]; total: number; summary: string }; accentColor: string }) {
+  const siteIcon: Record<string, string> = { 'coupang.com': '🛒', 'naver.com': '🟢', 'gmarket.co.kr': '🔵', 'elevenst.com': '1️⃣' }
+
+  // 사이트별 최저가만 뽑기
+  const bysite: Record<string, PriceItem[]> = {}
+  data.results.forEach(r => {
+    const key = r.site.replace(/^www\./, '')
+    if (!bysite[key]) bysite[key] = []
+    bysite[key].push(r)
+  })
+
+  const cheapest = data.results
+    .filter(r => !r.blocked && r.price)
+    .sort((a, b) => {
+      const pa = parseInt(a.price.replace(/[^0-9]/g, '')) || 99999999
+      const pb = parseInt(b.price.replace(/[^0-9]/g, '')) || 99999999
+      return pa - pb
+    })
+    .slice(0, 6)
+
+  return (
+    <CardWrap accent={accentColor}>
+      <SectionTitle icon="🛍️" title={`가격 비교: ${data.query}`} accentColor={accentColor} />
+      {data.summary && (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>{data.summary}</div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {cheapest.length === 0 ? (
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', padding: '8px 0' }}>수집된 가격 정보가 없어요.</div>
+        ) : cheapest.map((item, i) => {
+          const siteKey = item.site.replace(/^www\./, '')
+          const icon = Object.entries(siteIcon).find(([k]) => siteKey.includes(k))?.[1] ?? '🔗'
+          const isLowest = i === 0
+          return (
+            <a key={i} href={item.link} target="_blank" rel="noreferrer"
+              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8,
+                background: isLowest ? `${accentColor}18` : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${isLowest ? accentColor + '55' : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}>
+              <span style={{ fontSize: 14 }}>{icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>{item.site}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.name}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: isLowest ? accentColor : 'rgba(255,255,255,0.9)' }}>
+                  {item.price}
+                </span>
+                {isLowest && <span style={{ fontSize: 9, color: accentColor, fontWeight: 700, background: `${accentColor}22`, padding: '1px 5px', borderRadius: 4 }}>최저가</span>}
+              </div>
+            </a>
+          )
+        })}
+      </div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+        총 {data.total}개 결과 · 클릭하면 구매 페이지로 이동
+      </div>
+    </CardWrap>
   )
 }
 
