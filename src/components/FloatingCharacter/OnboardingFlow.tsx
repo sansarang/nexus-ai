@@ -275,7 +275,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   // Google OAuth callback
   useEffect(() => {
-    if (isLoggedIn && userEmail && step === 4 && !didAutoComplete.current) {
+    if (isLoggedIn && userEmail && step >= 3 && step <= 5 && !didAutoComplete.current) {
       didAutoComplete.current = true
       setGoogleEmail(userEmail)
       setStep(5)

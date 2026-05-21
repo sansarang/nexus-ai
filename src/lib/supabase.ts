@@ -63,7 +63,7 @@ export async function fetchSubscription(userId: string): Promise<SubscriptionRow
 
 /** 체험판 구독 생성 (로그인 직후) */
 export async function createTrialSubscription(userId: string): Promise<void> {
-  const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
   await supabase.from('subscriptions').upsert(
     {
       user_id: userId,
