@@ -566,6 +566,20 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           return
         }
 
+        // ── API 키 미설정 오류: 설정 화면 유도 ─────────────────
+        if (!cmd.success && cmd.message && (
+          /api.?key|키.*없|키.*설정|not configured|required/i.test(cmd.message)
+        )) {
+          setTyping(false); typingRef.current = false
+          setEmotion('concerned')
+          const isEn = detectedLang === 'en'
+          const guideMsg = isEn
+            ? `${cmd.message}\n\n👉 Open **Settings (⚙️)** → API Keys to configure your keys.`
+            : `${cmd.message}\n\n👉 우측 상단 **설정(⚙️) → API 키**에서 키를 입력해주세요.`
+          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: guideMsg }])
+          return
+        }
+
         if (cmd.success) {
           // ── clarify: 추가 질문 필요 ──────────────────────────
           if (cmd.action === 'clarify' && cmd.needs_clarify) {

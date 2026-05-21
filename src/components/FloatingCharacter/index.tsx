@@ -448,6 +448,23 @@ export function FloatingCharacter() {
             body: JSON.stringify({ lang: savedLang }),
           })
         } catch { /* 무시 */ }
+
+        // API 키 상태 확인 → 없으면 채팅창에 안내
+        try {
+          const cfg = await fetch('http://127.0.0.1:17891/api/llm/config').then(r => r.json())
+          if (cfg && !cfg.ai_ready) {
+            const isEn = (localStorage.getItem('nexus-lang') ?? 'ko') === 'en'
+            setTimeout(() => {
+              setMessages(prev => [...prev, {
+                id: `sys-apikey-${Date.now()}`,
+                role: 'nexus' as const,
+                text: isEn
+                  ? `⚠️ **Groq API key not set.**\nMost AI features (workflow, job-specific, multi-agent, meeting summary) won't work without it.\n\n👉 Open **Settings (⚙️)** → API Keys → enter your Groq key (gsk_...)\n\nGet a free key at: https://console.groq.com`
+                  : `⚠️ **Groq API 키가 설정되지 않았습니다.**\n워크플로우, 직업군 특화, 멀티에이전트, 회의 요약 등 핵심 기능이 동작하지 않습니다.\n\n👉 우측 상단 **설정(⚙️)** → API 키 → Groq 키(gsk_...) 입력\n\n무료 키 발급: https://console.groq.com`,
+              }])
+            }, 1500)
+          }
+        } catch { /* 무시 */ }
       }
       return status
     }

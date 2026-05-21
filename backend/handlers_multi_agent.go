@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -189,8 +190,7 @@ func executeAgentStep(step *AgentStep, previousResults map[int]string, gKey stri
 		return result.Summary
 
 	case "FileAgent":
-		if stepEng { return fmt.Sprintf("File Agent: '%s' completed", step.SubGoal) }
-		return fmt.Sprintf("파일 에이전트: '%s' 작업 완료", step.SubGoal)
+		return executeFileAgent(step.SubGoal, stepEng)
 
 	case "OptimizerAgent":
 		mem := getMemoryUsage()
@@ -347,6 +347,119 @@ func runMultiAgentPlan(task *AgentTask, plan AgentPlan, gKey string) {
 		"steps":   plan.Steps,
 		"goal":    plan.Goal,
 	}
+}
+
+// executeFileAgent: 파일 관련 서브골을 파싱해 실제 작업 실행
+func executeFileAgent(subGoal string, eng bool) string {
+	lower := strings.ToLower(subGoal)
+
+	// ── 파일/폴더 목록 조회 ──────────────────────────────────────
+	if strings.Contains(lower, "list") || strings.Contains(lower, "목록") ||
+		strings.Contains(lower, "찾") || strings.Contains(lower, "find") || strings.Contains(lower, "search") {
+		// 경로 추출: 따옴표 또는 마지막 공백 이후 경로처럼 보이는 부분
+		searchPath := extractPathFromText(subGoal)
+		if searchPath == "" {
+			searchPath = os.Getenv("USERPROFILE")
+			if searchPath == "" {
+				searchPath = "C:\\Users"
+			}
+		}
+		entries, err := os.ReadDir(searchPath)
+		if err != nil {
+			if eng { return fmt.Sprintf("Cannot read directory '%s': %v", searchPath, err) }
+			return fmt.Sprintf("'%s' 폴더를 읽을 수 없습니다: %v", searchPath, err)
+		}
+		var items []string
+		for i, e := range entries {
+			if i >= 20 { items = append(items, "..."); break }
+			kind := "파일"
+			if e.IsDir() { kind = "📁" } else { kind = "📄" }
+			items = append(items, fmt.Sprintf("%s %s", kind, e.Name()))
+		}
+		if eng { return fmt.Sprintf("Contents of '%s' (%d items):\n%s", searchPath, len(entries), strings.Join(items, "\n")) }
+		return fmt.Sprintf("'%s' 내용 (%d개):\n%s", searchPath, len(entries), strings.Join(items, "\n"))
+	}
+
+	// ── 폴더 생성 ───────────────────────────────────────────────
+	if strings.Contains(lower, "create") || strings.Contains(lower, "make") ||
+		strings.Contains(lower, "생성") || strings.Contains(lower, "만들") {
+		targetPath := extractPathFromText(subGoal)
+		if targetPath == "" {
+			if eng { return "Folder path is required." }
+			return "생성할 폴더 경로가 필요합니다."
+		}
+		if err := os.MkdirAll(targetPath, 0755); err != nil {
+			if eng { return fmt.Sprintf("Failed to create folder '%s': %v", targetPath, err) }
+			return fmt.Sprintf("폴더 생성 실패 '%s': %v", targetPath, err)
+		}
+		if eng { return fmt.Sprintf("✅ Folder created: %s", targetPath) }
+		return fmt.Sprintf("✅ 폴더 생성 완료: %s", targetPath)
+	}
+
+	// ── 파일 삭제 ───────────────────────────────────────────────
+	if strings.Contains(lower, "delete") || strings.Contains(lower, "remove") ||
+		strings.Contains(lower, "삭제") || strings.Contains(lower, "지워") {
+		targetPath := extractPathFromText(subGoal)
+		if targetPath == "" {
+			if eng { return "File/folder path is required." }
+			return "삭제할 파일/폴더 경로가 필요합니다."
+		}
+		if err := os.Remove(targetPath); err != nil {
+			if eng { return fmt.Sprintf("Delete failed '%s': %v", targetPath, err) }
+			return fmt.Sprintf("삭제 실패 '%s': %v", targetPath, err)
+		}
+		if eng { return fmt.Sprintf("✅ Deleted: %s", targetPath) }
+		return fmt.Sprintf("✅ 삭제 완료: %s", targetPath)
+	}
+
+	// ── 파일 읽기 ───────────────────────────────────────────────
+	if strings.Contains(lower, "read") || strings.Contains(lower, "open") ||
+		strings.Contains(lower, "읽") || strings.Contains(lower, "내용") {
+		targetPath := extractPathFromText(subGoal)
+		if targetPath == "" {
+			if eng { return "File path is required." }
+			return "읽을 파일 경로가 필요합니다."
+		}
+		data, err := os.ReadFile(targetPath)
+		if err != nil {
+			if eng { return fmt.Sprintf("Cannot read file '%s': %v", targetPath, err) }
+			return fmt.Sprintf("파일 읽기 실패 '%s': %v", targetPath, err)
+		}
+		content := string(data)
+		if len(content) > 2000 { content = content[:2000] + "\n...(생략)" }
+		return content
+	}
+
+	// ── 폴백: LLM에게 위임 ──────────────────────────────────────
+	prompt := fmt.Sprintf("파일 작업 요청: %s\n사용자 PC의 파일 시스템에서 할 수 있는 최선의 도움말을 한국어로 알려줘.", subGoal)
+	if eng { prompt = fmt.Sprintf("File operation request: %s\nProvide the best helpful guidance in English.", subGoal) }
+	msgs := []groqMsg{{Role: "user", Content: prompt}}
+	result, _, _ := callGroqWithFallback(msgs, 500, true)
+	if result == "" {
+		if eng { return fmt.Sprintf("File Agent: '%s' — please specify exact file path.", subGoal) }
+		return fmt.Sprintf("파일 에이전트: '%s' — 정확한 파일 경로를 지정해주세요.", subGoal)
+	}
+	return result
+}
+
+// extractPathFromText: 텍스트에서 파일/폴더 경로 추출
+func extractPathFromText(text string) string {
+	// 따옴표 안 경로
+	for _, q := range []string{`"`, `'`, "`"} {
+		if start := strings.Index(text, q); start >= 0 {
+			rest := text[start+1:]
+			if end := strings.Index(rest, q); end >= 0 {
+				return rest[:end]
+			}
+		}
+	}
+	// C:\ 또는 %로 시작하는 Windows 경로
+	for _, word := range strings.Fields(text) {
+		if len(word) > 2 && (word[1] == ':' || strings.HasPrefix(word, "%")) {
+			return word
+		}
+	}
+	return ""
 }
 
 // ── HTTP 핸들러 ─────────────────────────────────────────────────

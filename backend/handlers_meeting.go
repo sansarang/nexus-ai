@@ -95,11 +95,75 @@ func handleMeetingStop(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/meeting/transcribe — 오디오 전사 (현재 미지원)
+// POST /api/meeting/transcribe — Groq Whisper로 오디오 전사
 func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		MeetingID string `json:"meeting_id"` // 파일명 (확장자 제외)
+		FilePath  string `json:"file_path"`  // 직접 경로 지정 시
+		Lang      string `json:"lang"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	// Groq API 키 확인
+	llmMu.RLock()
+	groqKey := llmGroqKey
+	if groqKey == "" {
+		groqKey = llmPerplexityKey
+	}
+	llmMu.RUnlock()
+	if groqKey == "" || !strings.HasPrefix(groqKey, "gsk_") {
+		json200(w, map[string]interface{}{
+			"success": false,
+			"message": "Groq API 키가 필요합니다. 설정 > API 키에서 Groq 키(gsk_...)를 입력해주세요.",
+		})
+		return
+	}
+
+	// 파일 경로 결정
+	audioPath := req.FilePath
+	if audioPath == "" && req.MeetingID != "" {
+		// meetings 디렉터리에서 meeting_id로 검색
+		dir := meetingsDir()
+		for _, ext := range []string{".wav", ".mp3", ".m4a", ".ogg"} {
+			candidate := filepath.Join(dir, req.MeetingID+ext)
+			if _, err := os.Stat(candidate); err == nil {
+				audioPath = candidate
+				break
+			}
+		}
+	}
+	if audioPath == "" {
+		json200(w, map[string]interface{}{
+			"success": false,
+			"message": "오디오 파일을 찾을 수 없습니다. meeting_id 또는 file_path를 지정해주세요.",
+		})
+		return
+	}
+	if _, err := os.Stat(audioPath); err != nil {
+		json200(w, map[string]interface{}{"success": false, "message": "파일이 존재하지 않습니다: " + audioPath})
+		return
+	}
+
+	lang := req.Lang
+	if lang == "" {
+		lang = GetUserLang()
+	}
+
+	// 전사 실행
+	transcript := groqWhisperTranscribe(audioPath, lang)
+	if transcript == "" {
+		json200(w, map[string]interface{}{
+			"success": false,
+			"message": "전사 실패: Groq Whisper API 오류이거나 오디오에 음성이 없을 수 있습니다.",
+		})
+		return
+	}
+
 	json200(w, map[string]interface{}{
-		"success": false,
-		"message": "오디오 전사 기능은 현재 지원되지 않습니다.",
+		"success":    true,
+		"transcript": transcript,
+		"message":    "전사 완료",
+		"lang":       lang,
 	})
 }
 

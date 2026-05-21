@@ -2034,14 +2034,22 @@ export async function callGroq(
  * 앱 시작 시 / 키 변경 시 호출
  */
 export async function syncAPIKeysToBackend(): Promise<void> {
-  const pplxKey = PPLX_API_KEY
+  const groqKey  = localStorage.getItem('nexus-groq-key') ?? ''
+  const pplxKey  = PPLX_API_KEY
   const claudeKey = localStorage.getItem('nexus-claude-key') ?? ''
   const tavilyKey = TAVILY_API_KEY || localStorage.getItem('nexus-tavily-key') || ''
-  // pplxKey만 있어도 반드시 전송 (이전엔 claudeKey/tavilyKey 없으면 리턴해서 백엔드에 키 미전달)
-  if (!pplxKey && !claudeKey && !tavilyKey) return
+  if (!groqKey && !pplxKey && !claudeKey && !tavilyKey) return
   try {
-    const { backendAPI } = await import('./backendAPI')
-    await backendAPI.llmConfigSet(pplxKey || undefined, claudeKey || undefined, tavilyKey || undefined)
+    await fetch('http://127.0.0.1:17891/api/llm/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        groq_key: groqKey || undefined,
+        perplexity_key: pplxKey || undefined,
+        claude_key: claudeKey || undefined,
+        tavily_key: tavilyKey || undefined,
+      }),
+    })
   } catch {
     // 백엔드 미실행 시 무시
   }

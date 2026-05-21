@@ -337,6 +337,7 @@ func llmConfigPath() string {
 
 type llmConfigFile struct {
 	PerplexityKey string `json:"perplexity_key"`
+	GroqKey       string `json:"groq_key"`
 	ClaudeKey     string `json:"claude_key"`
 	TavilyKey     string `json:"tavily_key"`
 	UserLang      string `json:"user_lang"` // "ko" | "en"
@@ -373,9 +374,11 @@ func loadLLMConfig() {
 	var raw map[string]string
 	if json.Unmarshal(data, &raw) == nil {
 		llmMu.Lock()
+		if v := raw["groq_key"]; v != "" {
+			llmGroqKey = decryptDPAPI(v)
+			llmPerplexityKey = llmGroqKey // Groq 키는 양쪽 슬롯
+		}
 		if v := raw["perplexity_key"]; v != "" {
-			llmPerplexityKey = decryptDPAPI(v)
-		} else if v := raw["groq_key"]; v != "" {
 			llmPerplexityKey = decryptDPAPI(v)
 		}
 		if v := raw["claude_key"]; v != "" {
@@ -402,6 +405,7 @@ func saveLLMConfig() {
 	llmMu.RLock()
 	cfg := llmConfigFile{
 		PerplexityKey: encryptDPAPI(llmPerplexityKey),
+		GroqKey:       encryptDPAPI(llmGroqKey),
 		ClaudeKey:     encryptDPAPI(llmClaudeKey),
 		TavilyKey:     encryptDPAPI(llmTavilyKey),
 		UserLang:      llmUserLang,
@@ -437,13 +441,17 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		llmMu.RLock()
 		pSet := llmPerplexityKey != ""
+		gSet := llmGroqKey != ""
 		cSet := llmClaudeKey != ""
 		tSet := llmTavilyKey != ""
 		llmMu.RUnlock()
 		json200(w, map[string]any{
 			"perplexity_configured": pSet,
+			"groq_configured":       gSet,
 			"claude_configured":     cSet,
 			"tavily_configured":     tSet,
+			"ai_ready":              pSet || gSet, // 핵심 AI 기능 가용 여부
+			"search_ready":          tSet,
 			"models": map[string]string{
 				"chat": pplxChatModel,
 				"fast": pplxFastModel,
@@ -454,15 +462,28 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		PerplexityKey string `json:"perplexity_key"`
-		ApiKey        string `json:"apiKey"` // 하위 호환
+		GroqKey       string `json:"groq_key"`   // Groq API 키 (gsk_...)
+		ApiKey        string `json:"apiKey"`      // 하위 호환
 		ClaudeKey     string `json:"claude_key"`
 		TavilyKey     string `json:"tavily_key"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	// 하위 호환: apiKey → perplexity_key
 	if req.PerplexityKey == "" && req.ApiKey != "" {
 		req.PerplexityKey = req.ApiKey
 	}
+	// gsk_ 접두어면 Groq 키로 취급
+	if req.PerplexityKey != "" && strings.HasPrefix(strings.TrimSpace(req.PerplexityKey), "gsk_") {
+		if req.GroqKey == "" {
+			req.GroqKey = req.PerplexityKey
+		}
+		req.PerplexityKey = ""
+	}
 	llmMu.Lock()
+	if s := strings.TrimSpace(req.GroqKey); s != "" {
+		llmGroqKey = s
+		llmPerplexityKey = s // Groq 키는 양쪽 슬롯에 주입
+	}
 	if s := strings.TrimSpace(req.PerplexityKey); s != "" {
 		llmPerplexityKey = s
 	}
