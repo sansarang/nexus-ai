@@ -578,6 +578,8 @@ export async function handleBackendIntentImpl(
             hr:         `${query} 채용 인사 노동법 면접`,
             developer:  `${query} 코드 개발 GitHub 프레임워크`,
             engineer:   `${query} 설계 규격 공정 KS ISO`,
+            smallbiz:   `${query} 소상공인 배달앱 재고 원가 지원정책`,
+            investor:   `${query} 주식 투자 종목 ETF PER ROE`,
             general:    query,
           }
           const boostedQuery = verticalQueryBoost[verticalId] ?? query
@@ -595,6 +597,8 @@ export async function handleBackendIntentImpl(
             hr:         { icon: '👥', label: '인사·채용 문서 검색' },
             developer:  { icon: '💻', label: '개발 파일 검색' },
             engineer:   { icon: '⚙️', label: '기술 문서 검색' },
+            smallbiz:   { icon: '🏪', label: '소상공인 자료 검색' },
+            investor:   { icon: '📈', label: '투자·종목 문서 검색' },
             general:    { icon: '🔍', label: '파일 심층 검색' },
           }
           const meta = verticalMeta[verticalId] ?? verticalMeta.general

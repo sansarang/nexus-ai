@@ -40,6 +40,8 @@ const VERTICAL_EMOJI: Record<string, string> = {
   hr:         '👥',
   developer:  '💻',
   engineer:   '⚙️',
+  smallbiz:   '🏪',
+  investor:   '📈',
 }
 
 const VERTICAL_DESC: Record<string, string> = {
@@ -53,6 +55,8 @@ const VERTICAL_DESC: Record<string, string> = {
   hr:         '채용·이력서·노동법',
   developer:  'GitHub·코드 리뷰',
   engineer:   '규격·공정 최적화',
+  smallbiz:   '배달앱·재고·지원정책',
+  investor:   '종목분석·포트폴리오',
 }
 
 export function VerticalSwitcher() {
