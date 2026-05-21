@@ -129,32 +129,29 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
-          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
           TAG: ${{ github.ref_name }}
         run: |
           $version = $env:TAG
           $exePath = $env:EXE_PATH
           $exeName = "Nexus_x64-setup.exe"
 
-          # gh CLI로 public 레포에 릴리즈 생성 + exe 업로드
           gh release create $version "$exePath#$exeName" `
             --repo sansarang/nexus-ai-releases `
             --title "Nexus AI $version" `
             --notes "## Nexus AI $version
 
           ### 설치 방법
-          1. 아래 \`Nexus_x64-setup.exe\` 다운로드
-          2. 더블클릭 → 다음 → 설치 완료
+          1. 아래 ``Nexus_x64-setup.exe`` 다운로드
+          2. 더블클릭 -> 다음 -> 설치 완료
           3. Groq API 키 입력 후 시작 (groq.com 무료 발급)
 
           ### 시스템 요구사항
           - Windows 10/11 64-bit
           - 인터넷 연결 필요
 
-          [전체 기능 보기 → nexusai.ai.kr](https://nexusai.ai.kr)" `
+          [전체 기능 보기 -> nexusai.ai.kr](https://nexusai.ai.kr)" `
             --latest
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
 
       - name: Upload artifact (workflow_dispatch용)
         if: github.event_name == 'workflow_dispatch'
