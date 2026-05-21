@@ -113,7 +113,14 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	} else if tKey != "" {
-		// 영어: Reddit/YouTube 추가
+		// 영어: 카테고리별 주요 소스 병렬 검색
+		cat := detectCategory(req.Query)
+		lower := strings.ToLower(req.Query)
+		isShopping := cat == catShopping || strings.Contains(lower, "buy") || strings.Contains(lower, "cheap") || strings.Contains(lower, "price") || strings.Contains(lower, "temu") || strings.Contains(lower, "amazon") || strings.Contains(lower, "alibaba")
+		isNews := cat == catNews
+		isTech := cat == catTech
+
+		// Reddit은 거의 모든 영어 쿼리에 유용
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -121,6 +128,48 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 				ch <- source{name: "web", items: r.Items}
 			}
 		}()
+
+		if isShopping {
+			// 글로벌 쇼핑: Amazon + Temu + AliExpress 동시 검색
+			for _, domain := range []string{"amazon.com", "temu.com", "aliexpress.com"} {
+				d := domain
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if r, ok := tavilySearchDomain(tKey, req.Query, 3, d); ok {
+						ch <- source{name: "shopping", items: r.Items}
+					}
+				}()
+			}
+		}
+
+		if isNews {
+			// 영문 뉴스 추가 소스
+			for _, domain := range []string{"bbc.com", "reuters.com", "apnews.com"} {
+				d := domain
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if r, ok := tavilySearchDomain(tKey, req.Query, 2, d); ok {
+						ch <- source{name: "news", items: r.Items}
+					}
+				}()
+			}
+		}
+
+		if isTech {
+			// 기술: StackOverflow + GitHub
+			for _, domain := range []string{"stackoverflow.com", "github.com"} {
+				d := domain
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if r, ok := tavilySearchDomain(tKey, req.Query, 2, d); ok {
+						ch <- source{name: "web", items: r.Items}
+					}
+				}()
+			}
+		}
 	}
 
 	// ── 소스 5: 플랫폼 브라우저 검색 ────────────────────────

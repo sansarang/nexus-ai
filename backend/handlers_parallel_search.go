@@ -318,9 +318,41 @@ func categoryFallbackSites(query string, cat queryCategory) []map[string]string 
 				{"title": "UberEats", "url": "https://www.ubereats.com/"},
 			}
 		case catShopping:
+			isCheap := strings.Contains(lower, "cheap") || strings.Contains(lower, "affordable") || strings.Contains(lower, "budget") || strings.Contains(lower, "temu") || strings.Contains(lower, "ali")
+			isHandmade := strings.Contains(lower, "handmade") || strings.Contains(lower, "custom") || strings.Contains(lower, "etsy") || strings.Contains(lower, "vintage")
+			isWholesale := strings.Contains(lower, "wholesale") || strings.Contains(lower, "bulk") || strings.Contains(lower, "alibaba") || strings.Contains(lower, "manufacturer")
+			if isCheap {
+				return []map[string]string{
+					{"title": "Temu: " + query, "url": "https://www.temu.com/search_result.html?search_key=" + enc},
+					{"title": "AliExpress: " + query, "url": "https://www.aliexpress.com/wholesale?SearchText=" + enc},
+					{"title": "Amazon: " + query, "url": "https://www.amazon.com/s?k=" + enc},
+					{"title": "Shein: " + query, "url": "https://www.shein.com/pdsearch/" + enc + "/"},
+					{"title": "Wish: " + query, "url": "https://www.wish.com/search/" + enc},
+					{"title": "eBay: " + query, "url": "https://www.ebay.com/sch/i.html?_nkw=" + enc},
+				}
+			}
+			if isWholesale {
+				return []map[string]string{
+					{"title": "Alibaba: " + query, "url": "https://www.alibaba.com/trade/search?SearchText=" + enc},
+					{"title": "AliExpress: " + query, "url": "https://www.aliexpress.com/wholesale?SearchText=" + enc},
+					{"title": "Global Sources: " + query, "url": "https://www.globalsources.com/si/AS/search.htm?keywords=" + enc},
+					{"title": "DHgate: " + query, "url": "https://www.dhgate.com/wholesale/search.do?searchkey=" + enc},
+					{"title": "Amazon Business", "url": "https://www.amazon.com/s?k=" + enc + "&rh=n%3A16310101"},
+				}
+			}
+			if isHandmade {
+				return []map[string]string{
+					{"title": "Etsy: " + query, "url": "https://www.etsy.com/search?q=" + enc},
+					{"title": "Amazon Handmade: " + query, "url": "https://www.amazon.com/s?k=" + enc + "&rh=n%3A11260432011"},
+					{"title": "eBay: " + query, "url": "https://www.ebay.com/sch/i.html?_nkw=" + enc},
+					googleSearch,
+				}
+			}
 			return []map[string]string{
 				{"title": "Amazon: " + query, "url": "https://www.amazon.com/s?k=" + enc},
 				{"title": "eBay: " + query, "url": "https://www.ebay.com/sch/i.html?_nkw=" + enc},
+				{"title": "Temu: " + query, "url": "https://www.temu.com/search_result.html?search_key=" + enc},
+				{"title": "AliExpress: " + query, "url": "https://www.aliexpress.com/wholesale?SearchText=" + enc},
 				{"title": "Walmart: " + query, "url": "https://www.walmart.com/search?q=" + enc},
 				{"title": "Target: " + query, "url": "https://www.target.com/s?searchTerm=" + enc},
 				{"title": "Etsy: " + query, "url": "https://www.etsy.com/search?q=" + enc},
@@ -527,9 +559,32 @@ func categoryFallbackSites(query string, cat queryCategory) []map[string]string 
 			{"title": "배달의민족", "url": "https://www.baemin.com/", "type": "web"},
 		}
 	case catShopping:
+		isCheapKo := strings.Contains(lower, "테무") || strings.Contains(lower, "알리") || strings.Contains(lower, "중국") || strings.Contains(lower, "직구") || strings.Contains(lower, "싸게")
+		isElec := strings.Contains(lower, "노트북") || strings.Contains(lower, "스마트폰") || strings.Contains(lower, "tv") || strings.Contains(lower, "가전") || strings.Contains(lower, "컴퓨터")
+		if isCheapKo {
+			return []map[string]string{
+				{"title": "테무: " + query, "url": "https://www.temu.com/search_result.html?search_key=" + enc, "type": "web"},
+				{"title": "알리익스프레스: " + query, "url": "https://www.aliexpress.com/wholesale?SearchText=" + enc, "type": "web"},
+				{"title": "쿠팡: " + query, "url": "https://www.coupang.com/np/search?q=" + enc, "type": "web"},
+				{"title": "네이버쇼핑 가격비교: " + query, "url": "https://shopping.naver.com/search/all?query=" + enc, "type": "web"},
+				{"title": "알리바바(도매): " + query, "url": "https://www.alibaba.com/trade/search?SearchText=" + enc, "type": "web"},
+			}
+		}
+		if isElec {
+			return []map[string]string{
+				{"title": "다나와 가격비교: " + query, "url": "https://search.danawa.com/dsearch.php?query=" + enc, "type": "web"},
+				{"title": "쿠팡: " + query, "url": "https://www.coupang.com/np/search?q=" + enc, "type": "web"},
+				{"title": "네이버쇼핑: " + query, "url": "https://shopping.naver.com/search/all?query=" + enc, "type": "web"},
+				{"title": "에누리: " + query, "url": "https://www.enuri.com/search.jsp?keyword=" + enc, "type": "web"},
+				{"title": "테무: " + query, "url": "https://www.temu.com/search_result.html?search_key=" + enc, "type": "web"},
+				{"title": "유튜브 리뷰: " + query, "url": "https://www.youtube.com/results?search_query=" + enc + "+리뷰", "type": "video"},
+			}
+		}
 		return []map[string]string{
 			{"title": "쿠팡: " + query, "url": "https://www.coupang.com/np/search?q=" + enc, "type": "web"},
 			{"title": "네이버쇼핑: " + query, "url": "https://shopping.naver.com/search/all?query=" + enc, "type": "web"},
+			{"title": "테무: " + query, "url": "https://www.temu.com/search_result.html?search_key=" + enc, "type": "web"},
+			{"title": "알리익스프레스: " + query, "url": "https://www.aliexpress.com/wholesale?SearchText=" + enc, "type": "web"},
 			{"title": "다나와 가격비교: " + query, "url": "https://search.danawa.com/dsearch.php?query=" + enc, "type": "web"},
 			{"title": "유튜브 리뷰: " + query, "url": "https://www.youtube.com/results?search_query=" + enc + "+리뷰", "type": "video"},
 		}
