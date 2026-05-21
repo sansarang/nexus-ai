@@ -362,7 +362,12 @@ async fn main() {
                 let _ = win.center();
             }
 
-            // 5. 딥링크 핸들러 (Google OAuth 콜백)
+            // 5. 딥링크 프로토콜 등록 (nexus://) + OAuth 콜백 처리
+            #[cfg(target_os = "windows")]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register("nexus");
+            }
             let handle = app.handle().clone();
             app.listen("deep-link://new-url", move |event| {
                 let url = event.payload().to_string();
