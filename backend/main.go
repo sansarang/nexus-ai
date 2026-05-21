@@ -393,6 +393,8 @@ func main() {
 	mux.HandleFunc("POST /api/vertical/config", handleVerticalSetConfig)
 	mux.HandleFunc("GET /api/vertical/presets", handleVerticalPresets)
 	mux.HandleFunc("POST /api/vertical/workflow/run", handleVerticalWorkflowRun)
+	mux.HandleFunc("GET /api/vertical/apikeys/info", handleVerticalAPIKeysInfo)
+	mux.HandleFunc("POST /api/vertical/apikeys/save", handleVerticalAPIKeysSave)
 
 	// 파일 시스템 조작
 	mux.HandleFunc("POST /api/file/organize", handleFileOrganize)
