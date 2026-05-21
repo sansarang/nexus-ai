@@ -9,6 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    flowType: 'implicit', // 데스크탑 앱: PKCE 대신 implicit — code_verifier 세션 불일치 문제 방지
   },
 })
 
@@ -65,13 +66,16 @@ function startOAuthPolling() {
     if (attempts > maxAttempts) { clearInterval(timer); return }
     try {
       const res = await fetch(`${BACKEND}/api/auth/callback/pending`)
-      const json = await res.json() as { code?: string }
-      if (json.code) {
+      const json = await res.json() as { token?: string }
+      if (json.token) {
         clearInterval(timer)
-        const { data, error } = await supabase.auth.exchangeCodeForSession(json.code)
-        if (!error && data.session) {
-          // onAuthStateChange가 SIGNED_IN 이벤트를 받아 자동으로 setLoggedIn 호출
-          console.log('[OAuth] 로그인 성공:', data.session.user.email)
+        // URL 해시 파라미터 파싱: access_token=...&refresh_token=...
+        const params = new URLSearchParams(json.token)
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          if (!error) console.log('[OAuth] 로그인 성공')
         }
       }
     } catch { /* 백엔드 미응답 무시 */ }
