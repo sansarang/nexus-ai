@@ -26,12 +26,13 @@ export interface SubscriptionRow {
   updated_at: string
 }
 
-/** Google OAuth 팝업 로그인 */
+/** Google OAuth — Tauri 외부 브라우저 방식 (PKCE state 보존) */
 export async function signInWithGoogle(loginHint?: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: 'nexus://auth/callback',
+      skipBrowserRedirect: true, // Tauri webview 이탈 방지 — PKCE state 유지
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
@@ -40,6 +41,11 @@ export async function signInWithGoogle(loginHint?: string): Promise<void> {
     },
   })
   if (error) throw error
+  if (data.url) {
+    // 외부 브라우저(Chrome)에서 열기 — Tauri webview localStorage의 PKCE verifier 보존
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(data.url)
+  }
 }
 
 /** 로그아웃 */
