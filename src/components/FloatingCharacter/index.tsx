@@ -449,20 +449,27 @@ export function FloatingCharacter() {
           })
         } catch { /* 무시 */ }
 
-        // API 키 상태 확인 → 없으면 채팅창에 안내
+        // API 키 상태 확인 — 로그인(JWT)된 사용자는 Supabase 프록시로 동작하므로 경고 불필요
         try {
-          const cfg = await fetch('http://127.0.0.1:17891/api/llm/config').then(r => r.json())
-          if (cfg && !cfg.ai_ready) {
-            const isEn = (localStorage.getItem('nexus-lang') ?? 'ko') === 'en'
-            setTimeout(() => {
-              setMessages(prev => [...prev, {
-                id: `sys-apikey-${Date.now()}`,
-                role: 'nexus' as const,
-                text: isEn
-                  ? `⚠️ **Groq API key not set.**\nMost AI features (workflow, job-specific, multi-agent, meeting summary) won't work without it.\n\n👉 Open **Settings (⚙️)** → API Keys → enter your Groq key (gsk_...)\n\nGet a free key at: https://console.groq.com`
-                  : `⚠️ **Groq API 키가 설정되지 않았습니다.**\n워크플로우, 직업군 특화, 멀티에이전트, 회의 요약 등 핵심 기능이 동작하지 않습니다.\n\n👉 우측 상단 **설정(⚙️)** → API 키 → Groq 키(gsk_...) 입력\n\n무료 키 발급: https://console.groq.com`,
-              }])
-            }, 1500)
+          const { supabase } = await import('../../lib/supabase')
+          const { data: sessionData } = await supabase.auth.getSession()
+          const isLoggedIn = !!sessionData.session?.access_token
+
+          if (!isLoggedIn) {
+            // 미로그인: 직접 API 키 없으면 경고
+            const cfg = await fetch('http://127.0.0.1:17891/api/llm/config').then(r => r.json())
+            if (cfg && !cfg.ai_ready) {
+              const isEn = (localStorage.getItem('nexus-lang') ?? 'ko') === 'en'
+              setTimeout(() => {
+                setMessages(prev => [...prev, {
+                  id: `sys-apikey-${Date.now()}`,
+                  role: 'nexus' as const,
+                  text: isEn
+                    ? `⚠️ **Not signed in & no API key set.**\nCore AI features won't work.\n\n👉 **Sign in** to use your subscription, or open **Settings (⚙️) → API Keys** to enter a Groq key (gsk_...)\n\nFree key: https://console.groq.com`
+                    : `⚠️ **로그인되지 않았고 API 키도 없습니다.**\n핵심 AI 기능이 동작하지 않습니다.\n\n👉 **로그인**하면 구독 기능을 바로 사용할 수 있습니다.\n또는 **설정(⚙️) → API 키**에서 Groq 키(gsk_...) 직접 입력\n\n무료 키: https://console.groq.com`,
+                }])
+              }, 1500)
+            }
           }
         } catch { /* 무시 */ }
       }
