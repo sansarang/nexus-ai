@@ -84,8 +84,28 @@ const NEXUS_TOOLS = [
   },
   {
     name: 'video_download',
-    description: 'YouTube, TikTok 등 영상 URL로 동영상 다운로드',
+    description: 'YouTube, TikTok 등 영상 URL로 동영상 다운로드. 반드시 URL이 포함된 경우만 사용',
     params: { url: '영상 URL', quality: '(선택) 720p, 480p, best' },
+  },
+  {
+    name: 'file_search',
+    description: 'PC 내 파일 검색. 파일명·확장자·날짜로 찾기. 예: "지난달 만든 엑셀 파일", "보고서 PDF 어디있어"',
+    params: { query: '검색 키워드', folder: '(선택) 검색 폴더 경로' },
+  },
+  {
+    name: 'open_folder',
+    description: '바탕화면, 다운로드, 문서, 사진 등 특정 폴더 열기',
+    params: { folder: '폴더명 (desktop | downloads | documents | pictures | music)' },
+  },
+  {
+    name: 'deep_search',
+    description: 'PC 내 파일 내용(텍스트) 심층 검색. 예: "계약서 내용 안에서 해지 조항 찾아줘"',
+    params: { query: '검색할 내용 키워드' },
+  },
+  {
+    name: 'file_organize',
+    description: '바탕화면·다운로드 폴더 자동 정리',
+    params: { target: '(선택) desktop | downloads | all' },
   },
   {
     name: 'general_answer',
@@ -105,6 +125,10 @@ Rules:
 - Extract the most relevant query/args from the user message
 - For youtube: extract the actual search topic (e.g. "유튜브에서 김치찌개 끓이는 법" → query: "김치찌개 끓이는 법")
 - For web_search: extract the core question
+- For video_download: ONLY use when a URL (http/https) is present in the message
+- For file_search: use when looking for files/documents on the PC by name or date
+- For deep_search: use when searching INSIDE file contents (e.g. "계약서 내용 안에서 찾아줘")
+- For open_folder: use when the user wants to open a specific folder (바탕화면, 다운로드, 문서, 사진)
 - For general_answer: use when no other tool fits
 
 Respond ONLY with valid JSON, no explanation:
@@ -186,9 +210,27 @@ function parseToolCall(content: string): ToolCall | null {
 }
 
 function fallbackRoute(text: string): ToolCall {
-  if (/다운로드|download.*http|http.*다운/i.test(text) && /http/i.test(text)) {
+  // video_download: URL이 반드시 있어야 함
+  if (/https?:\/\/[^\s]+/.test(text) && /다운로드|download|저장/i.test(text)) {
     const urlMatch = text.match(/https?:\/\/[^\s]+/)
     return { tool: 'video_download', args: { url: urlMatch?.[0] ?? '' } }
+  }
+  // open_folder: "다운로드 폴더 열어줘" 같은 케이스 — video_download보다 먼저 처리
+  if (/(?:바탕화면|다운로드|문서|사진|음악|downloads?|desktop|documents?|pictures?).*(?:열어|띄워|보여|오픈)/i.test(text)) {
+    const folderMatch = text.match(/바탕화면|데스크탑|desktop/i) ? 'desktop'
+      : text.match(/다운로드|downloads?/i) ? 'downloads'
+      : text.match(/문서|documents?/i) ? 'documents'
+      : text.match(/사진|pictures?/i) ? 'pictures'
+      : 'downloads'
+    return { tool: 'open_folder', args: { folder: folderMatch } }
+  }
+  // file_search: 파일 찾기
+  if (/파일.*찾아|찾아줘.*파일|파일.*어디|어디.*파일|폴더.*에서.*찾아줘/i.test(text)) {
+    return { tool: 'file_search', args: { query: text } }
+  }
+  // deep_search: 파일 내용 안에서 검색
+  if (/내용.*안에서.*찾아줘|파일.*내용.*검색|심층.*검색/i.test(text)) {
+    return { tool: 'deep_search', args: { query: text } }
   }
   if (/유튜브|youtube/i.test(text)) {
     const query = text.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘/gi, '').trim()
