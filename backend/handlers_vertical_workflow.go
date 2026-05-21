@@ -68,7 +68,7 @@ func runVerticalWorkflow(verticalID, lang string) VerticalWorkflowResult {
 	// ── 의원 ──────────────────────────────────────────────────
 	case "medical":
 		steps = append(steps,
-			runStep("🩺 식약처 의약품·임상 공지", fetchDrugApprovalNews),
+			runStep("🩺 의료·임상 뉴스 (청년의사)", fetchMedicalNews),
 			runStep("💊 건강보험심사평가원 급여 변경", fetchHIRANews),
 			runStep("🌤️ 오늘 날씨 (환자 방문 영향)", func() string {
 				return fetchWeatherText("Seoul", "ko")

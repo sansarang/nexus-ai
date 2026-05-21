@@ -353,20 +353,11 @@ func scrapeYouTubeTrending(limit int) string {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  법제처 국가법령정보 (RSS 우선 — API 키 있으면 정밀 검색)
+//  법령 개정 정보 (법제처 오픈API 키 → 연합뉴스 사회 RSS → Tavily)
 // ─────────────────────────────────────────────────────────────
 
 func fetchRecentLawAmendments() string {
-	// 1순위: 법제처 RSS (키 불필요)
-	items, err := fetchRSSFeed("https://www.law.go.kr/rss/rss.do", 5)
-	if err == nil && len(items) > 0 {
-		result := rssToLines(items)
-		if result != "" {
-			return result
-		}
-	}
-
-	// 2순위: 법제처 오픈API (키 필요)
+	// 1순위: 법제처 오픈API (키 필요 — open.law.go.kr 무료 발급)
 	keys := loadVerticalAPIKeys()
 	if keys.LawGOKR != "" {
 		url := fmt.Sprintf(
@@ -378,7 +369,7 @@ func fetchRecentLawAmendments() string {
 			var result struct {
 				LawSearch struct {
 					Law []struct {
-						LawName string `json:"법령명한글"`
+						LawName  string `json:"법령명한글"`
 						ProcDate string `json:"공포일자"`
 					} `json:"law"`
 				} `json:"LawSearch"`
@@ -392,20 +383,32 @@ func fetchRecentLawAmendments() string {
 			}
 		}
 	}
-
-	// 3순위: Tavily 폴백
+	// 2순위: Tavily 법령 검색
 	return tavilyFallbackLines("최근 법령 개정 시행 "+time.Now().Format("2006년"), 3)
 }
 
 // ─────────────────────────────────────────────────────────────
-//  대법원 판례 검색 (법원 종합법률정보 RSS)
+//  법원·판례 뉴스 (연합뉴스 사회 RSS — 동작 확인됨)
 // ─────────────────────────────────────────────────────────────
 
 func fetchSupremeCourtNews() string {
-	// 대법원 보도자료 RSS
-	items, err := fetchRSSFeed("https://www.scourt.go.kr/rss/rss.do?type=p", 5)
+	// 연합뉴스 사회 RSS (대법원/법원 뉴스 포함, 동작 확인)
+	items, err := fetchRSSFeed("https://www.yna.co.kr/rss/society.xml", 8)
 	if err == nil && len(items) > 0 {
-		result := rssToLines(items)
+		// 법률/판례 관련 필터
+		var lawItems []rssItem
+		for _, item := range items {
+			t := strings.ToLower(item.Title)
+			if strings.ContainsAny(t, "법") || strings.Contains(t, "판결") ||
+				strings.Contains(t, "대법") || strings.Contains(t, "헌재") ||
+				strings.Contains(t, "재판") || strings.Contains(t, "판례") {
+				lawItems = append(lawItems, item)
+			}
+		}
+		if len(lawItems) == 0 {
+			lawItems = items[:min(3, len(items))]
+		}
+		result := rssToLines(lawItems[:min(3, len(lawItems))])
 		if result != "" {
 			return result
 		}
@@ -414,22 +417,31 @@ func fetchSupremeCourtNews() string {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  식품의약품안전처 — 신규 승인 의약품/공지 RSS
+//  의료 뉴스 (청년의사 RSS — 동작 확인됨)
 // ─────────────────────────────────────────────────────────────
 
-func fetchMFDSNews() string {
-	items, err := fetchRSSFeed("https://www.mfds.go.kr/rss/rss.do", 5)
+func fetchMedicalNews() string {
+	// 1순위: 청년의사 RSS (동작 확인)
+	items, err := fetchRSSFeed("https://www.docdocdoc.co.kr/rss/allArticle.xml", 5)
 	if err == nil && len(items) > 0 {
 		result := rssToLines(items)
 		if result != "" {
 			return result
 		}
 	}
-	return tavilyFallbackLines("식약처 신약 승인 의약품 공지 "+time.Now().Format("2006년"), 3)
+	// 2순위: 헬스조선 RSS (동작 확인)
+	items, err = fetchRSSFeed("https://health.chosun.com/site/data/rss/rss.xml", 5)
+	if err == nil && len(items) > 0 {
+		result := rssToLines(items)
+		if result != "" {
+			return result
+		}
+	}
+	return tavilyFallbackLines("오늘 의학 임상 신약 의료 뉴스", 3)
 }
 
 // ─────────────────────────────────────────────────────────────
-//  의약품 정보 (공공데이터포털 — 키 필요, 없으면 Tavily)
+//  의약품 정보 (공공데이터포털 키 → 청년의사 RSS → Tavily)
 // ─────────────────────────────────────────────────────────────
 
 func fetchDrugApprovalNews() string {
@@ -444,7 +456,7 @@ func fetchDrugApprovalNews() string {
 			var result struct {
 				Body struct {
 					Items []struct {
-						ItemName string `json:"ITEM_NAME"`
+						ItemName  string `json:"ITEM_NAME"`
 						EntrpName string `json:"ENTP_NAME"`
 					} `json:"items"`
 				} `json:"body"`
@@ -458,15 +470,16 @@ func fetchDrugApprovalNews() string {
 			}
 		}
 	}
-	return fetchMFDSNews()
+	return fetchMedicalNews()
 }
 
 // ─────────────────────────────────────────────────────────────
-//  건강보험심사평가원 RSS
+//  건강보험 변경 뉴스 (헬스조선 RSS → Tavily)
 // ─────────────────────────────────────────────────────────────
 
 func fetchHIRANews() string {
-	items, err := fetchRSSFeed("https://www.hira.or.kr/rss/rss.do", 5)
+	// 헬스조선 RSS (동작 확인)
+	items, err := fetchRSSFeed("https://health.chosun.com/site/data/rss/rss.xml", 5)
 	if err == nil && len(items) > 0 {
 		result := rssToLines(items)
 		if result != "" {
@@ -477,13 +490,27 @@ func fetchHIRANews() string {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  국세청 공지 RSS
+//  세무·회계 뉴스 (한국경제 경제 RSS → Tavily)
 // ─────────────────────────────────────────────────────────────
 
 func fetchNTSNews() string {
-	items, err := fetchRSSFeed("https://www.nts.go.kr/nts/rss/rssMain.do", 5)
+	// 한국경제 경제 RSS (동작 확인)
+	items, err := fetchRSSFeed("https://www.hankyung.com/feed/economy", 8)
 	if err == nil && len(items) > 0 {
-		result := rssToLines(items)
+		// 세무/회계 관련 필터
+		var taxItems []rssItem
+		for _, item := range items {
+			t := strings.ToLower(item.Title)
+			if strings.Contains(t, "세") || strings.Contains(t, "회계") ||
+				strings.Contains(t, "세금") || strings.Contains(t, "국세") ||
+				strings.Contains(t, "부가") || strings.Contains(t, "소득세") {
+				taxItems = append(taxItems, item)
+			}
+		}
+		if len(taxItems) == 0 {
+			taxItems = items[:min(3, len(items))]
+		}
+		result := rssToLines(taxItems[:min(3, len(taxItems))])
 		if result != "" {
 			return result
 		}
@@ -498,7 +525,7 @@ func fetchNTSNews() string {
 func fetchRealEstateNews() string {
 	keys := loadVerticalAPIKeys()
 	if keys.DataGOKR != "" {
-		// 국토교통부 아파트 실거래가 API
+		// 국토교통부 아파트 실거래가 API (공공데이터포털 키 필요)
 		now := time.Now()
 		url := fmt.Sprintf(
 			"https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=%s&pageNo=1&numOfRows=5&DEAL_YMD=%s&LAWD_CD=11110",
@@ -527,6 +554,14 @@ func fetchRealEstateNews() string {
 				}
 				return strings.Join(lines, "\n")
 			}
+		}
+	}
+	// 한국경제 부동산 RSS (동작 확인됨)
+	items, err := fetchRSSFeed("https://www.hankyung.com/feed/realestate", 5)
+	if err == nil && len(items) > 0 {
+		result := rssToLines(items[:min(3, len(items))])
+		if result != "" {
+			return result
 		}
 	}
 	return tavilyFallbackLines("오늘 부동산 아파트 시세 정책 뉴스", 3)
@@ -567,9 +602,26 @@ func fetchApplyHomeSchedule() string {
 // ─────────────────────────────────────────────────────────────
 
 func fetchMOENews() string {
-	items, err := fetchRSSFeed("https://www.moe.go.kr/boardCnts/rss.do?boardID=294", 5)
+	// 연합뉴스 사회 RSS에서 교육 키워드 필터
+	items, err := fetchRSSFeed("https://www.yna.co.kr/rss/society.xml", 10)
 	if err == nil && len(items) > 0 {
-		result := rssToLines(items)
+		var eduItems []rssItem
+		for _, item := range items {
+			t := strings.ToLower(item.Title)
+			if strings.Contains(t, "교육") || strings.Contains(t, "학교") ||
+				strings.Contains(t, "교사") || strings.Contains(t, "학생") ||
+				strings.Contains(t, "입시") || strings.Contains(t, "수업") {
+				eduItems = append(eduItems, item)
+			}
+		}
+		if len(eduItems) > 0 {
+			result := rssToLines(eduItems[:min(3, len(eduItems))])
+			if result != "" {
+				return result
+			}
+		}
+		// 필터 없이 최신 3개
+		result := rssToLines(items[:min(3, len(items))])
 		if result != "" {
 			return result
 		}
@@ -676,12 +728,23 @@ func fetchMetalPrices() string {
 // ─────────────────────────────────────────────────────────────
 
 func fetchKSStandardsNews() string {
-	// 국가기술표준원 공지 RSS
-	items, err := fetchRSSFeed("https://www.kats.go.kr/rss/rss.do", 5)
+	// 연합뉴스 경제 RSS에서 산업/표준 키워드 필터
+	items, err := fetchRSSFeed("https://www.yna.co.kr/rss/economy.xml", 10)
 	if err == nil && len(items) > 0 {
-		result := rssToLines(items)
-		if result != "" {
-			return result
+		var stdItems []rssItem
+		for _, item := range items {
+			t := strings.ToLower(item.Title)
+			if strings.Contains(t, "규격") || strings.Contains(t, "표준") ||
+				strings.Contains(t, "인증") || strings.Contains(t, "제조") ||
+				strings.Contains(t, "산업") || strings.Contains(t, "공정") {
+				stdItems = append(stdItems, item)
+			}
+		}
+		if len(stdItems) > 0 {
+			result := rssToLines(stdItems[:min(3, len(stdItems))])
+			if result != "" {
+				return result
+			}
 		}
 	}
 	return tavilyFallbackLines(time.Now().Format("2006년")+" KS ISO IEC 규격 개정 표준 발행", 3)
