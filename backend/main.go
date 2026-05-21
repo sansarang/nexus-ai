@@ -370,6 +370,12 @@ func main() {
 	mux.HandleFunc("GET /api/tiktok/trending", handleTikTokTrending)
 	mux.HandleFunc("POST /api/tiktok/profile", handleTikTokProfile)
 
+	// Reddit Intelligence
+	mux.HandleFunc("POST /api/reddit/search", handleRedditSearch)
+	mux.HandleFunc("GET /api/reddit/trending", handleRedditTrending)
+	mux.HandleFunc("POST /api/reddit/config", handleRedditConfig)
+	mux.HandleFunc("GET /api/reddit/config/status", handleRedditConfigStatus)
+
 	// Enterprise API Key Management
 	mux.HandleFunc("GET /api/enterprise/keys", handleEnterpriseListKeys)
 	mux.HandleFunc("POST /api/enterprise/keys", handleEnterpriseCreateKey)
@@ -401,6 +407,7 @@ func main() {
 	initMemory()
 	initTaskQueue()
 	loadLLMConfig()
+	loadRedditConfig()
 	loadPersonaConfig()
 	loadBrainIndex()
 	go startProactiveMonitor()   // Proactive AI 백그라운드 모니터링
