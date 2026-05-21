@@ -1160,11 +1160,17 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			}
 			// 전문가 결과 없거나 전문가 미감지 → 일반 채팅 (citations 포함)
 			if ans == "" {
+				// 직업군별 system prompt 주입
+				verticalCfg := loadVerticalConfig()
+				verticalSys := VerticalSystemPrompts[verticalCfg.ID]
+				if verticalSys == "" {
+					verticalSys = VerticalSystemPrompts["general"]
+				}
 				var chatSys string
 				if lang == "en" {
 					chatSys = "You are Nexus AI, a helpful assistant. Answer in natural English, 2-4 sentences. No markdown headers. Use previous conversation context."
 				} else {
-					chatSys = "당신은 Nexus AI 한국어 비서입니다. 자연스러운 한국어로 2~4문장 답변. 마크다운 헤더 금지. 이전 대화 컨텍스트 참고."
+					chatSys = verticalSys
 				}
 				if lang == "en" {
 					chatSys += fmt.Sprintf("\nCurrent time: %s (local)", time.Now().Format("2006-01-02 15:04"))

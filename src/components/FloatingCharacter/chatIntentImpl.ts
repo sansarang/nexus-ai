@@ -569,11 +569,16 @@ export async function handleBackendIntentImpl(
 
           // 직업군별 검색 쿼리 보강
           const verticalQueryBoost: Record<string, string> = {
-            legal: `${query} 계약 법률 판례 조항`,
-            medical: `${query} 의료 진단 임상 처방`,
-            finance: `${query} 투자 재무 수익 리스크`,
-            content: `${query} 콘텐츠 편집 영상 스크립트`,
-            general: query,
+            legal:      `${query} 계약 법률 판례 조항`,
+            medical:    `${query} 의료 진단 임상 처방`,
+            accountant: `${query} 세무 회계 재무 세법`,
+            creator:    `${query} 유튜브 콘텐츠 스크립트 편집`,
+            realtor:    `${query} 부동산 시세 계약 청약`,
+            teacher:    `${query} 교육 강의 수업 교육과정`,
+            hr:         `${query} 채용 인사 노동법 면접`,
+            developer:  `${query} 코드 개발 GitHub 프레임워크`,
+            engineer:   `${query} 설계 규격 공정 KS ISO`,
+            general:    query,
           }
           const boostedQuery = verticalQueryBoost[verticalId] ?? query
 
@@ -581,11 +586,16 @@ export async function handleBackendIntentImpl(
 
           // 직업군별 결과 아이콘/레이블
           const verticalMeta: Record<string, { icon: string; label: string }> = {
-            legal:   { icon: '⚖️', label: '법무 문서 검색' },
-            medical: { icon: '🩺', label: '의료 문서 검색' },
-            finance: { icon: '📈', label: '재무 문서 검색' },
-            content: { icon: '🎬', label: '콘텐츠 파일 검색' },
-            general: { icon: '🔍', label: '파일 심층 검색' },
+            legal:      { icon: '⚖️', label: '법무 문서 검색' },
+            medical:    { icon: '🩺', label: '의료 문서 검색' },
+            accountant: { icon: '📊', label: '회계·세무 문서 검색' },
+            creator:    { icon: '🎬', label: '콘텐츠 파일 검색' },
+            realtor:    { icon: '🏠', label: '부동산 문서 검색' },
+            teacher:    { icon: '📚', label: '교육 자료 검색' },
+            hr:         { icon: '👥', label: '인사·채용 문서 검색' },
+            developer:  { icon: '💻', label: '개발 파일 검색' },
+            engineer:   { icon: '⚙️', label: '기술 문서 검색' },
+            general:    { icon: '🔍', label: '파일 심층 검색' },
           }
           const meta = verticalMeta[verticalId] ?? verticalMeta.general
 
@@ -1293,7 +1303,7 @@ export async function handleBackendIntentImpl(
           const lower = originalText.toLowerCase()
           let id = 'nexus'
           if (/리서치|연구|research/.test(lower)) id = 'research'
-          else if (/재무|finance|financial/.test(lower)) id = 'finance'
+          else if (/재무|회계|finance|financial|accountant/.test(lower)) id = 'accountant'
           else if (/회의|meeting/.test(lower)) id = 'meeting'
           else if (/크리에이티브|creative|창의/.test(lower)) id = 'creative'
           else if (/보안|security/.test(lower)) id = 'security'
