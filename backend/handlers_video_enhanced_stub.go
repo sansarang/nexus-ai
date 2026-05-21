@@ -320,12 +320,19 @@ func videoCookiePath(platform string) string {
 func findYtDlp() string {
 	for _, candidate := range []string{
 		"yt-dlp",
-		"/usr/local/bin/yt-dlp",
-		"/opt/homebrew/bin/yt-dlp",
-		"/Library/Frameworks/Python.framework/Versions/3.13/bin/yt-dlp",
+		"yt-dlp.exe",
+		`C:\yt-dlp\yt-dlp.exe`,
+		`C:\tools\yt-dlp\yt-dlp.exe`,
 	} {
 		if path, err := exec.LookPath(candidate); err == nil {
 			return path
+		}
+	}
+	// %LOCALAPPDATA%\Programs\yt-dlp
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		p := filepath.Join(local, "Programs", "yt-dlp", "yt-dlp.exe")
+		if fileExists(p) {
+			return p
 		}
 	}
 	return ""

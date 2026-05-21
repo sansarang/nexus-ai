@@ -338,8 +338,8 @@ func findYtDlpOrInstall() string {
 	if path := findYtDlp(); path != "" {
 		return path
 	}
-	// pip3 / pip로 자동 설치 시도
-	for _, pip := range []string{"pip3", "pip", "/opt/homebrew/bin/pip3", "/usr/local/bin/pip3"} {
+	// pip / pip3 으로 자동 설치 시도 (Python이 설치된 Windows 환경)
+	for _, pip := range []string{"pip", "pip3", "python -m pip"} {
 		if _, err := exec.LookPath(pip); err == nil {
 			cmd := exec.Command(pip, "install", "--quiet", "yt-dlp")
 			cmd.Env = os.Environ()
@@ -350,9 +350,9 @@ func findYtDlpOrInstall() string {
 			}
 		}
 	}
-	// pipx 시도
-	if _, err := exec.LookPath("pipx"); err == nil {
-		exec.Command("pipx", "install", "yt-dlp").Run()
+	// winget으로 설치 시도
+	if _, err := exec.LookPath("winget"); err == nil {
+		exec.Command("winget", "install", "--id", "yt-dlp.yt-dlp", "-e", "--silent").Run()
 		if path := findYtDlp(); path != "" {
 			return path
 		}

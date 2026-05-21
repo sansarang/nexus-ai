@@ -19,7 +19,11 @@ import (
 func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
 	ffmpegPath, _ := exec.LookPath("ffmpeg")
 	if ffmpegPath == "" {
-		for _, p := range []string{"/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"} {
+		for _, p := range []string{
+			`C:\ffmpeg\bin\ffmpeg.exe`,
+			`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
+			`C:\tools\ffmpeg\bin\ffmpeg.exe`,
+		} {
 			if fileExists(p) {
 				ffmpegPath = p
 				break
@@ -52,7 +56,7 @@ func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
 		result["ready"] = false
 		result["message"] = fmt.Sprintf("영상 분석에 필요한 항목이 없습니다: %s", strings.Join(missing, ", "))
 		result["install_hint"] = map[string]string{
-			"ffmpeg": "macOS: brew install ffmpeg / Windows: https://ffmpeg.org/download.html",
+			"ffmpeg": "Windows: https://ffmpeg.org/download.html 에서 다운로드 후 C:\\ffmpeg\\bin 에 설치하거나, winget install ffmpeg 또는 choco install ffmpeg 실행",
 			"groq":   "설정 > API 키에서 Groq API 키를 입력하세요",
 		}
 	} else {
@@ -143,7 +147,11 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 	if transcript == "" {
 		ffmpegPath, _ := exec.LookPath("ffmpeg")
 		if ffmpegPath == "" {
-			for _, p := range []string{"/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"} {
+			for _, p := range []string{
+				`C:\ffmpeg\bin\ffmpeg.exe`,
+				`C:\Program Files\ffmpeg\bin\ffmpeg.exe`,
+				`C:\tools\ffmpeg\bin\ffmpeg.exe`,
+			} {
 				if fileExists(p) {
 					ffmpegPath = p
 					break
@@ -319,7 +327,7 @@ func summarizeTranscriptWithQuery(transcript, lang, query string) (summary, tip 
 
 // getVideoMetadata: ffprobe로 영상 메타데이터 추출
 func getVideoMetadata(videoPath string) string {
-	for _, probe := range []string{"ffprobe", "/opt/homebrew/bin/ffprobe", "/usr/local/bin/ffprobe"} {
+	for _, probe := range []string{"ffprobe", `C:\ffmpeg\bin\ffprobe.exe`, `C:\Program Files\ffmpeg\bin\ffprobe.exe`} {
 		if _, err := exec.LookPath(probe); err == nil || fileExists(probe) {
 			cmd := exec.Command(probe,
 				"-v", "quiet",
