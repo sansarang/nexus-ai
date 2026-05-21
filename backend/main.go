@@ -200,6 +200,10 @@ func main() {
 	mux.HandleFunc("GET /api/calendar/today", handleCalendarToday)
 	mux.HandleFunc("GET /api/calendar/week", handleCalendarWeek)
 	mux.HandleFunc("POST /api/calendar/add", handleCalendarAdd)
+	// ── 🔐 Google OAuth 로컬 콜백 ────────────────────────────────
+	mux.HandleFunc("GET /auth/callback", handleAuthCallback)
+	mux.HandleFunc("GET /api/auth/callback/pending", handleAuthCallbackPoll)
+
 	mux.HandleFunc("GET /api/calendar/google/auth", handleGCalAuth)
 	mux.HandleFunc("GET /api/calendar/google/callback", handleGCalCallback)
 	mux.HandleFunc("GET /api/calendar/google/status", handleGCalStatus)

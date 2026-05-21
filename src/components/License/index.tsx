@@ -15,21 +15,20 @@ const GoogleIcon = () => (
 
 export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: boolean }) {
   const { setLoggedIn } = useAppStore()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [showAdmin, setShowAdmin] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
     setLoading(true)
     setError('')
     try {
       await signInWithGoogle()
-      // onAuthStateChange가 세션 복원 후 setLoggedIn 호출함
-      // Supabase가 설정되지 않은 경우 fallback
+      // 폴링은 signInWithGoogle 내부에서 시작 — 로그인 완료 시 onAuthStateChange가 setLoggedIn 호출
     } catch (e) {
-      console.warn('Google OAuth 미설정, 체험판 시작:', e)
+      console.warn('Google OAuth failed, starting trial:', e)
       const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       setLoggedIn('user@gmail.com', 'trial', trialExpiry)
       onSuccess?.()
@@ -64,22 +63,26 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
         }}
       >
         <GoogleIcon />
-        {loading ? '연결 중...' : 'Google 계정으로 시작하기'}
+        {loading ? '브라우저에서 로그인 중...' : 'Google 계정으로 시작하기'}
       </button>
+
+      {loading && (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
+          Chrome에서 Google 로그인 후 돌아오면 자동으로 시작됩니다
+        </p>
+      )}
+
+      {error && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
 
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-        7일 무료 체험 · 이후 월 9,900원 · 언제든 해지 가능
+        7일 무료 체험 · 이후 월 14,900원 · 언제든 해지 가능
       </p>
 
+      {/* 관리자 로그인 숨김 */}
       <button
         onClick={() => { setShowAdmin(v => !v); setError('') }}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '2px 0',
-        }}
-      >
-        {showAdmin ? '▲ 닫기' : '관리자 로그인'}
-      </button>
+        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'transparent', padding: '2px 0' }}
+      >.</button>
 
       <AnimatePresence>
         {showAdmin && (
@@ -89,38 +92,18 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
             exit={{ opacity: 0, height: 0 }}
             style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}
           >
-            <input
-              type="email"
-              placeholder="관리자 이메일"
-              value={adminEmail}
+            <input type="email" placeholder="관리자 이메일" value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
-              style={{
-                width: '100%', padding: '10px 14px', boxSizing: 'border-box',
-                background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
-                borderRadius: 10, color: 'var(--text-primary)', fontSize: 13, outline: 'none',
-              } as React.CSSProperties}
+              style={{ width: '100%', padding: '10px 14px', boxSizing: 'border-box', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, color: 'var(--text-primary)', fontSize: 13, outline: 'none' } as React.CSSProperties}
             />
-            <input
-              type="password"
-              placeholder="비밀번호"
-              value={adminPassword}
+            <input type="password" placeholder="비밀번호" value={adminPassword}
               onChange={e => setAdminPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-              style={{
-                width: '100%', padding: '10px 14px', boxSizing: 'border-box',
-                background: 'var(--bg-surface)', border: '1px solid var(--border-default)',
-                borderRadius: 10, color: 'var(--text-primary)', fontSize: 13, outline: 'none',
-              } as React.CSSProperties}
+              style={{ width: '100%', padding: '10px 14px', boxSizing: 'border-box', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, color: 'var(--text-primary)', fontSize: 13, outline: 'none' } as React.CSSProperties}
             />
             {error && <p style={{ fontSize: 11, color: 'var(--error, #f87171)', margin: 0 }}>{error}</p>}
-            <button
-              onClick={handleAdminLogin}
-              style={{
-                width: '100%', padding: '10px', border: 'none', borderRadius: 10,
-                background: 'var(--accent-primary, #4f7ef7)', color: 'white',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
+            <button onClick={handleAdminLogin}
+              style={{ width: '100%', padding: '10px', border: 'none', borderRadius: 10, background: 'var(--accent-primary, #4f7ef7)', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               로그인
             </button>
           </motion.div>
