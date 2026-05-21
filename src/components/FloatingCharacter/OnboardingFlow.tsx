@@ -1,12 +1,13 @@
 /**
- * OnboardingFlow v7 — Marketing Optimized
+ * OnboardingFlow v8 — Demo-First Marketing Optimized
  *
- * Step 0: 직업군 선택 (10개) — "어떤 일을 하세요?"
- * Step 1: 직업군 전용 WOW 데모
- * Step 2: 플랜 선택 (Free / Pro $19 / Team $49)
- * Step 3: Google Login
- * Step 4: Avatar + Name + Nickname (combined)
- * Step 5: Complete
+ * Step 0: 범용 인터랙티브 데모 (직업 무관 WOW)
+ * Step 1: 직업군 선택 (10개) — "어떤 일을 하세요?"
+ * Step 2: 직업군 전용 WOW 데모
+ * Step 3: 플랜 선택 (Free / Pro $19 / Team $49)
+ * Step 4: Google Login
+ * Step 5: Avatar + Name + Nickname (combined)
+ * Step 6: Complete
  */
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -39,7 +40,43 @@ const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', '
 const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
 const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
-const STEPS_TOTAL = 6
+const STEPS_TOTAL = 7
+
+// ─── Generic demo sequences (Step 0) ────────────────────────────────────────
+const GENERIC_DEMOS_KO = [
+  {
+    query: '오늘 주요 뉴스 3가지 요약해줘',
+    steps: ['🔍 실시간 뉴스 수집 중...', '📊 중요도 분석 중...', '✍️ 요약 생성 중...'],
+    result: '📰 오늘의 주요 뉴스\n\n1️⃣ 삼성전자, HBM4 양산 돌입\n   엔비디아·AMD 공급 계약 확정 — 주가 +3.2%\n\n2️⃣ 한국은행 기준금리 동결 (3.25%)\n   "물가 안정세 확인 후 인하 검토"\n\n3️⃣ 카카오, AI 신사업 발표\n   자체 LLM 기반 업무 자동화 플랫폼 출시 예정',
+  },
+  {
+    query: '내일 서울 날씨 알려줘',
+    steps: ['🌐 기상청 데이터 수집 중...', '🧮 예보 분석 중...'],
+    result: '🌤️ 내일 서울 날씨\n\n최고 23°C / 최저 14°C\n오전: 맑음 ☀️\n오후: 구름 조금 🌤️\n강수 확률: 10%\n\n💡 얇은 겉옷 챙기시면 좋을 것 같아요!',
+  },
+  {
+    query: '업무 이메일 초안 작성해줘 (미팅 일정 조율)',
+    steps: ['📋 요청 분석 중...', '✍️ 이메일 초안 작성 중...'],
+    result: '📧 이메일 초안 완성\n\n제목: [미팅 일정 조율 요청] 다음 주 회의 관련\n\n안녕하세요, 홍길동 과장님\n\n다음 주 프로젝트 논의를 위한 미팅을 제안드립니다.\n\n📅 가능 일정: 5/27(화) 14:00 또는 5/28(수) 10:00\n⏱️ 소요 시간: 약 1시간\n📍 장소: 화상 회의 (링크 별도 공유)\n\n편하신 시간으로 회신 부탁드립니다.\n\n감사합니다.',
+  },
+]
+const GENERIC_DEMOS_EN = [
+  {
+    query: 'Summarize today\'s top 3 news',
+    steps: ['🔍 Fetching live news...', '📊 Ranking by importance...', '✍️ Generating summary...'],
+    result: '📰 Today\'s Top News\n\n1️⃣ Samsung starts HBM4 mass production\n   Supply deals with NVIDIA & AMD confirmed — stock +3.2%\n\n2️⃣ Fed holds interest rates steady\n   "Will monitor inflation before cutting"\n\n3️⃣ OpenAI launches GPT-5 preview\n   Multimodal reasoning benchmark sets new record',
+  },
+  {
+    query: 'What\'s the weather in Seoul tomorrow?',
+    steps: ['🌐 Fetching weather data...', '🧮 Analyzing forecast...'],
+    result: '🌤️ Seoul Weather Tomorrow\n\nHigh 23°C / Low 14°C\nMorning: Clear ☀️\nAfternoon: Partly cloudy 🌤️\nRain chance: 10%\n\n💡 A light jacket should be enough!',
+  },
+  {
+    query: 'Draft a meeting scheduling email',
+    steps: ['📋 Analyzing request...', '✍️ Writing email draft...'],
+    result: '📧 Email Draft Ready\n\nSubject: Meeting Request — Project Discussion\n\nHi John,\n\nI\'d like to schedule a meeting to discuss the project progress.\n\n📅 Available: Tue 5/27 2:00 PM or Wed 5/28 10:00 AM\n⏱️ Duration: ~1 hour\n📍 Location: Video call (link to follow)\n\nPlease let me know what works best for you.\n\nBest regards',
+  },
+]
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
 
@@ -213,7 +250,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [gcalLoading, setGcalLoading]     = useState(false)
   const [selectedPlan, setSelectedPlan]   = useState<'free' | 'pro' | 'team'>('free')
 
-  // Demo state for Step 1
+  // Demo state for Step 2 (job-specific)
   const [demoRunning, setDemoRunning]     = useState(false)
   const [demoStarted, setDemoStarted]     = useState(false)
   const [demoThinkStep, setDemoThinkStep] = useState('')
@@ -222,30 +259,84 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [demoInputTyping, setDemoInputTyping] = useState('')
   const demoEndRef = useRef<HTMLDivElement>(null)
 
+  // Generic demo state for Step 0
+  const [gDemoIdx, setGDemoIdx]           = useState(0)
+  const [gDemoRunning, setGDemoRunning]   = useState(false)
+  const [gDemoStarted, setGDemoStarted]   = useState(false)
+  const [gDemoInput, setGDemoInput]       = useState('')
+  const [gDemoThink, setGDemoThink]       = useState('')
+  const [gDemoTyping, setGDemoTyping]     = useState('')
+  const [gDemoResult, setGDemoResult]     = useState('')
+  const gDemoEndRef = useRef<HTMLDivElement>(null)
+
   const selectedStyle = REALISTIC_STYLE_PRESETS.find(s => s.id === styleId) ?? REALISTIC_STYLE_PRESETS[0]
   const selectedJob   = JOB_PERSONAS.find(p => p.id === selectedJobId) ?? JOB_PERSONAS[0]
   const jobColor      = selectedJob.color
 
   // Google OAuth callback
   useEffect(() => {
-    if (isLoggedIn && userEmail && step === 3 && !didAutoComplete.current) {
+    if (isLoggedIn && userEmail && step === 4 && !didAutoComplete.current) {
       didAutoComplete.current = true
       setGoogleEmail(userEmail)
-      setStep(4)
+      setStep(5)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, userEmail])
 
-  // ── Issue #8: step + selectedJobId 둘 다 의존해서 직업 재선택 시 확실히 재실행 ──
+  // Generic demo auto-run (Step 0)
+  useEffect(() => {
+    if (step === 0 && !gDemoStarted) {
+      setGDemoStarted(true)
+      void runGenericDemo(0)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  // Job demo auto-run (Step 2)
   const demoJobRef = useRef<string>('')
   useEffect(() => {
-    if (step === 1 && (!demoStarted || demoJobRef.current !== selectedJobId)) {
+    if (step === 2 && (!demoStarted || demoJobRef.current !== selectedJobId)) {
       demoJobRef.current = selectedJobId
       setDemoStarted(true)
       void runJobDemo()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, selectedJobId])
+
+  const runGenericDemo = async (idx: number) => {
+    const demos = isEn ? GENERIC_DEMOS_EN : GENERIC_DEMOS_KO
+    const demo = demos[idx % demos.length]
+    setGDemoIdx(idx % demos.length)
+    setGDemoRunning(true)
+    setGDemoResult('')
+    setGDemoTyping('')
+    setGDemoThink('')
+    setGDemoInput('')
+
+    for (let i = 1; i <= demo.query.length; i++) {
+      setGDemoInput(demo.query.slice(0, i))
+      await sleep(30)
+    }
+    await sleep(300)
+
+    for (const s of demo.steps) {
+      setGDemoThink(s)
+      await sleep(800)
+    }
+    setGDemoThink('')
+
+    const CHUNK = 5
+    let typed = ''
+    for (let i = 0; i < demo.result.length; i += CHUNK) {
+      typed = demo.result.slice(0, i + CHUNK)
+      setGDemoTyping(typed)
+      await sleep(18)
+      if (i % 50 === 0) gDemoEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    setGDemoResult(demo.result)
+    setGDemoTyping('')
+    setGDemoRunning(false)
+  }
 
   const runJobDemo = async () => {
     const demos = isEn ? JOB_DEMOS_EN : JOB_DEMOS
@@ -292,7 +383,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-expiry', '2099-12-31T00:00:00.000Z')
       setGoogleEmail(ADMIN_EMAIL)
       setLoginError('')
-      setStep(4)
+      setStep(5)
     } else {
       setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
     }
@@ -306,7 +397,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      setStep(4)
+      setStep(5)
       return
     }
     setGoogleLoading(true)
@@ -321,7 +412,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      setStep(4)
+      setStep(5)
     } finally {
       setGoogleLoading(false)
     }
@@ -478,11 +569,136 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       <AnimatePresence mode="wait">
 
         {/* ══════════════════════════════════════════════
-            Step 0: 직업군 선택
+            Step 0: 범용 인터랙티브 데모
         ══════════════════════════════════════════════ */}
         {step === 0 && (
           <motion.div
-            key="step0-job"
+            key="step0-demo"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={{
+              width: '100%', maxWidth: 620,
+              background: 'rgba(10,10,20,0.97)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 24, overflow: 'hidden',
+              boxShadow: `0 0 80px ${selectedStyle.primaryColor}22, 0 32px 80px rgba(0,0,0,0.6)`,
+              backdropFilter: 'blur(24px)',
+              position: 'relative',
+            }}
+          >
+            {/* Language toggle */}
+            <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 4, zIndex: 10 }}>
+              {(['ko', 'en'] as const).map(l => (
+                <button key={l}
+                  onClick={() => {
+                    setLang(l); setUserLang(l)
+                    setName(l === 'en' ? 'Nexus' : '넥서스')
+                    setNameInput(l === 'en' ? 'Nexus' : '넥서스')
+                    setUserName(l === 'en' ? 'Boss' : '주인님')
+                    setGDemoStarted(false); setGDemoResult(''); setGDemoTyping(''); setGDemoThink(''); setGDemoInput(''); setGDemoRunning(false)
+                    void runGenericDemo(gDemoIdx)
+                  }}
+                  style={{
+                    padding: '3px 9px', borderRadius: 8,
+                    background: lang === l ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                    border: lang === l ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.1)',
+                    color: lang === l ? 'white' : 'rgba(255,255,255,0.4)',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >{l === 'ko' ? '🇰🇷 KO' : '🇺🇸 EN'}</button>
+              ))}
+            </div>
+
+            {/* Header */}
+            <div style={{ padding: '24px 24px 14px' }}>
+              <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 6, fontWeight: 600 }}>NEXUS AI</div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 4 }}>
+                {isEn ? 'Your AI PC Assistant' : 'AI PC 비서를 만나보세요'}
+              </h2>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+                {isEn ? 'Watch Nexus work in real-time ↓' : '넥서스가 실시간으로 일하는 모습을 보세요 ↓'}
+              </p>
+            </div>
+
+            {/* Demo area */}
+            <div style={{ margin: '0 24px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+              {/* Fake input */}
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  flex: 1, padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${gDemoRunning ? selectedStyle.primaryColor + '55' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 10, fontSize: 13,
+                  color: gDemoInput ? 'white' : 'rgba(255,255,255,0.25)',
+                  minHeight: 20, transition: 'border-color 0.2s',
+                }}>
+                  {gDemoInput || (isEn ? 'Asking Nexus...' : 'Nexus에게 묻는 중...')}
+                  {gDemoInput && gDemoRunning && <span style={{ animation: 'blink 0.6s step-end infinite', opacity: 0.8 }}>|</span>}
+                </div>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                  background: gDemoRunning ? `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})` : 'rgba(255,255,255,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
+                }}>{gDemoRunning ? '⚡' : '↑'}</div>
+              </div>
+              {/* Result */}
+              <div style={{ minHeight: 180, maxHeight: 240, overflowY: 'auto', padding: '16px', scrollbarWidth: 'none' } as React.CSSProperties}>
+                {gDemoThink && (
+                  <motion.div key={gDemoThink} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                    style={{ display: 'flex', marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, color: selectedStyle.primaryColor, background: `${selectedStyle.primaryColor}12`, border: `1px solid ${selectedStyle.primaryColor}33`, padding: '6px 12px', borderRadius: 20 }}>{gDemoThink}</div>
+                  </motion.div>
+                )}
+                {(gDemoTyping || gDemoResult) && (
+                  <div style={{ padding: '10px 14px', borderRadius: '4px 16px 16px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'rgba(255,255,255,0.92)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                    {gDemoTyping || gDemoResult}
+                    {gDemoTyping && <span style={{ animation: 'blink 0.8s step-end infinite', opacity: 0.7 }}>▌</span>}
+                  </div>
+                )}
+                {!gDemoRunning && !gDemoResult && !gDemoThink && (
+                  <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, textAlign: 'center', paddingTop: 50 }}>
+                    {isEn ? 'Starting demo...' : '데모 시작 중...'}
+                  </div>
+                )}
+                <div ref={gDemoEndRef} />
+              </div>
+            </div>
+
+            {/* Demo pagination dots */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, padding: '12px 0 4px' }}>
+              {(isEn ? GENERIC_DEMOS_EN : GENERIC_DEMOS_KO).map((_, i) => (
+                <button key={i}
+                  onClick={() => { if (!gDemoRunning) { setGDemoResult(''); setGDemoTyping(''); void runGenericDemo(i) } }}
+                  style={{
+                    width: i === gDemoIdx ? 20 : 7, height: 7, borderRadius: 4,
+                    background: i === gDemoIdx ? selectedStyle.primaryColor : 'rgba(255,255,255,0.2)',
+                    border: 'none', cursor: gDemoRunning ? 'default' : 'pointer', transition: 'all 0.3s', padding: 0,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* CTA */}
+            <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {nextBtn(
+                () => setStep(1),
+                isEn ? 'I want this! →' : '나도 써보고 싶다! →',
+                false,
+              )}
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: 0 }}>
+                {isEn ? 'Select your job next → personalized AI for you' : '다음에 직업 선택 → 나만의 맞춤 AI'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ══════════════════════════════════════════════
+            Step 1: 직업군 선택
+        ══════════════════════════════════════════════ */}
+        {step === 1 && (
+          <motion.div
+            key="step1-job"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.94 }}
@@ -545,7 +761,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       setDemoThinkStep('')
                       setDemoInputTyping('')
                       setDemoRunning(false)
-                      setStep(1)
+                      setStep(2)
                     }}
                     style={{
                       background: isSelected
@@ -595,18 +811,19 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               })}
             </div>
 
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 12 }}>
               {isEn ? 'Click to select and continue' : '선택하면 자동으로 다음으로 넘어갑니다'}
             </p>
+            {backBtn(() => setStep(0), isEn ? '← Back to Demo' : '← 데모로 돌아가기')}
           </motion.div>
         )}
 
         {/* ══════════════════════════════════════════════
-            Step 1: 직업군 전용 WOW 데모
+            Step 2: 직업군 전용 WOW 데모
         ══════════════════════════════════════════════ */}
-        {step === 1 && (
+        {step === 2 && (
           <motion.div
-            key="step1-demo"
+            key="step2-demo"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -747,11 +964,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* CTA */}
             <div style={{ padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {nextBtn(
-                () => setStep(2),
+                () => setStep(3),
                 isEn ? 'Choose My Plan →' : '플랜 선택하기 →',
                 demoRunning || !!demoTyping,
               )}
-              {backBtn(() => { setJobSelected(false); setStep(0) }, isEn ? '← Change Job' : '← 직업 바꾸기')}
+              {backBtn(() => { setJobSelected(false); setStep(1) }, isEn ? '← Change Job' : '← 직업 바꾸기')}
             </div>
           </motion.div>
         )}
@@ -759,9 +976,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {/* ══════════════════════════════════════════════
             Step 2: 플랜 선택
         ══════════════════════════════════════════════ */}
-        {step === 2 && (
+        {step === 3 && (
           <motion.div
-            key="step2-plan"
+            key="step3-plan"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -862,8 +1079,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {nextBtn(() => setStep(3), isEn ? 'Continue →' : '다음 →')}
-              {backBtn(() => setStep(1), isEn ? '← Back to Demo' : '← 데모로 돌아가기')}
+              {nextBtn(() => setStep(4), isEn ? 'Continue →' : '다음 →')}
+              {backBtn(() => setStep(2), isEn ? '← Back to Demo' : '← 데모로 돌아가기')}
             </div>
           </motion.div>
         )}
@@ -871,9 +1088,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {/* ══════════════════════════════════════════════
             Step 3: Google Login
         ══════════════════════════════════════════════ */}
-        {step === 3 && (
+        {step === 4 && (
           <motion.div
-            key="step3-login"
+            key="step4-login"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -1011,12 +1228,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
               {googleEmail
-                ? nextBtn(() => setStep(4), isEn ? 'Continue →' : '다음 →')
+                ? nextBtn(() => setStep(5), isEn ? 'Continue →' : '다음 →')
                 : <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
                     {isEn ? 'Sign in with Google to continue' : '구글 로그인 후 계속 진행할 수 있습니다'}
                   </div>
               }
-              {backBtn(() => setStep(2), isEn ? '← Change Plan' : '← 플랜 변경')}
+              {backBtn(() => setStep(3), isEn ? '← Change Plan' : '← 플랜 변경')}
             </div>
           </motion.div>
         )}
@@ -1024,9 +1241,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {/* ══════════════════════════════════════════════
             Step 4: Avatar + Name + Nickname (combined)
         ══════════════════════════════════════════════ */}
-        {step === 4 && (
+        {step === 5 && (
           <motion.div
-            key="step4-profile"
+            key="step5-profile"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -1162,11 +1379,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 () => {
                   setName(nameInput.trim() || (isEn ? 'Nexus' : '넥서스'))
                   setUserName(userInput.trim() || (isEn ? 'Boss' : '주인님'))
-                  setStep(5)
+                  setStep(6)
                 },
                 isEn ? 'Next →' : '다음 →',
               )}
-              {backBtn(() => setStep(3), isEn ? '← Back' : '← 이전')}
+              {backBtn(() => setStep(4), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}
@@ -1174,9 +1391,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         {/* ══════════════════════════════════════════════
             Step 5: Complete (Google Calendar + finish)
         ══════════════════════════════════════════════ */}
-        {step === 5 && (
+        {step === 6 && (
           <motion.div
-            key="step5-complete"
+            key="step6-complete"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -1300,7 +1517,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   ? (gcalConnected ? `Start with ${assistantName} ✦` : `Skip & Start ✦`)
                   : (gcalConnected ? `${assistantName} 시작하기 ✦` : `건너뛰고 시작하기 ✦`),
               )}
-              {backBtn(() => setStep(4), isEn ? '← Back' : '← 이전')}
+              {backBtn(() => setStep(5), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}
