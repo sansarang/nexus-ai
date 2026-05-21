@@ -449,6 +449,70 @@ export function FloatingCharacter() {
           })
         } catch { /* 무시 */ }
 
+        // ── Trial 만료 체크 ──────────────────────────────────────
+        try {
+          const subStatus = localStorage.getItem('nexus-sub-status')
+          const subExpiry = localStorage.getItem('nexus-sub-expiry')
+          if (subStatus === 'trial' && subExpiry) {
+            const expired = new Date(subExpiry) < new Date()
+            if (expired) {
+              // Supabase에서 최신 구독 상태 확인
+              const { supabase } = await import('../../lib/supabase')
+              const { data: sessionData } = await supabase.auth.getSession()
+              const jwt = sessionData.session?.access_token
+              let isActiveSub = false
+              if (jwt) {
+                try {
+                  const res = await fetch('https://dnlkhzoffyomqlqykmnc.supabase.co/rest/v1/subscriptions?select=status,current_period_end&order=created_at.desc&limit=1', {
+                    headers: { 'Authorization': `Bearer ${jwt}`, 'apikey': (await import('../../config/services')).SUPABASE_ANON_KEY },
+                  })
+                  const rows = await res.json()
+                  if (Array.isArray(rows) && rows[0]?.status === 'active') {
+                    isActiveSub = true
+                    localStorage.setItem('nexus-sub-status', 'active')
+                    localStorage.setItem('nexus-sub-expiry', rows[0].current_period_end ?? '')
+                    useAppStore.getState().setLoggedIn(
+                      localStorage.getItem('nexus-user-email') ?? '',
+                      'active',
+                      rows[0].current_period_end ?? '',
+                    )
+                  }
+                } catch { /* 무시 */ }
+              }
+              if (!isActiveSub) {
+                // 진짜 만료 — expired로 전환
+                localStorage.setItem('nexus-sub-status', 'expired')
+                useAppStore.getState().setLoggedIn(
+                  localStorage.getItem('nexus-user-email') ?? '',
+                  'expired',
+                  subExpiry,
+                )
+                const isEn = (localStorage.getItem('nexus-lang') ?? 'ko') === 'en'
+                // 1.5초 후 결제 유도 메시지
+                setTimeout(async () => {
+                  setMessages(prev => [...prev, {
+                    id: `trial-expired-${Date.now()}`,
+                    role: 'nexus' as const,
+                    text: isEn
+                      ? `⏰ **Your 3-day free trial has ended.**\n\nTo keep using Nexus AI, please subscribe.\n👉 Click the banner below or go to **Settings → Subscription**.`
+                      : `⏰ **3일 무료 체험이 종료되었습니다.**\n\nNexus AI를 계속 사용하려면 구독이 필요합니다.\n👉 아래 배너를 클릭하거나 **설정 → 구독**에서 결제해 주세요.`,
+                  }])
+                  // 3초 후 Paddle 결제창 자동 팝업
+                  setTimeout(async () => {
+                    try {
+                      const email = localStorage.getItem('nexus-user-email') ?? ''
+                      if (email) {
+                        const { openCheckout } = await import('../../lib/paddle')
+                        await openCheckout(email)
+                      }
+                    } catch { /* 무시 */ }
+                  }, 3000)
+                }, 1500)
+              }
+            }
+          }
+        } catch { /* 무시 */ }
+
         // API 키 상태 확인 — 로그인(JWT)된 사용자는 Supabase 프록시로 동작하므로 경고 불필요
         try {
           const { supabase } = await import('../../lib/supabase')
@@ -2084,16 +2148,20 @@ export function FloatingCharacter() {
         boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
       }}>
         <span style={{ fontSize: 13, color: '#fca5a5', fontWeight: 600 }}>
-          ⚠️ 구독이 만료되었습니다. AI 기능이 제한됩니다.
+          {userLang === 'en'
+            ? '⚠️ Trial ended. AI features are limited.'
+            : '⚠️ 무료 체험이 종료되었습니다. AI 기능이 제한됩니다.'}
         </span>
         <button
-          onClick={() => { import('../../lib/paddle').then(m => m.openCheckout(userEmail, localStorage.getItem('nexus-user-id') ?? undefined)) }}
+          onClick={() => {
+            import('../../lib/paddle').then(m => m.openCheckout(userEmail)).catch(() => {})
+          }}
           style={{
             padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
             background: '#f87171', color: 'white', fontSize: 12, fontWeight: 700,
           }}
         >
-          구독하기
+          {userLang === 'en' ? 'Subscribe' : '구독하기'}
         </button>
       </div>
     )}
