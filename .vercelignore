@@ -1,0 +1,8 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/.cargo
+backend/*.exe
+backend/nexus-backend*
+*.log
+.DS_Store
