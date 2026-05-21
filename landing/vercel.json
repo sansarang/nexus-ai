@@ -8,6 +8,10 @@
     { "src": "/terms",      "dest": "/terms.html"      },
     { "src": "/privacy",    "dest": "/privacy.html"    },
     { "src": "/refund",     "dest": "/refund.html"     },
+    { "src": "/legal",      "dest": "/legal/index.html"   },
+    { "src": "/medical",    "dest": "/medical/index.html" },
+    { "src": "/finance",    "dest": "/finance/index.html" },
+    { "src": "/content",    "dest": "/content/index.html" },
     { "src": "/(.*)",       "dest": "/$1"              }
   ]
 }

@@ -739,6 +739,7 @@
   <div class="hero-pain">
     😩 &nbsp;"매일 반복되는 단순 업무에 시간을 낭비하고 있지 않으신가요?"
   </div>
+  <div id="hero-rotating-tagline" style="font-size:15px; color:var(--primary); font-weight:700; margin-bottom:16px; min-height:24px; transition:opacity 0.4s ease;"></div>
   <div class="hero-btns">
     <a href="https://github.com/sansarang/nexus-ai/releases/latest/download/Nexus_x64-setup.exe"
        class="btn-primary" id="hero-download">
@@ -773,6 +774,46 @@
     <div class="trust-item">
       <div class="trust-num">10가지</div>
       <div class="trust-label">직업군 AI 페르소나</div>
+    </div>
+  </div>
+</div>
+
+<!-- TESTIMONIALS -->
+<div style="background:var(--bg1); padding:70px 20px;">
+  <div style="max-width:1100px; margin:0 auto; text-align:center;">
+    <div class="section-label">REAL USERS</div>
+    <h2 class="section-title">실제 사용자 후기</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; margin-top:40px; text-align:left;">
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:10px;">★★★★★</div>
+        <p style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:16px;">"삼성전자 주가 분석을 매일 아침 자동으로 받아봐요. 예전엔 2시간 걸리던 리서치가 5분으로 줄었습니다."</p>
+        <div style="font-size:13px; color:var(--muted);">📈 투자자 김OO &nbsp;·&nbsp; Nexus AI 사용 3개월</div>
+      </div>
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:10px;">★★★★★</div>
+        <p style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:16px;">"계약서 1차 검토를 Nexus가 해줘서 업무량이 30% 줄었어요. 🔴위험 조항 표시가 정확합니다."</p>
+        <div style="font-size:13px; color:var(--muted);">⚖️ 변호사 이OO &nbsp;·&nbsp; Nexus AI 사용 3개월</div>
+      </div>
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:10px;">★★★★★</div>
+        <p style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:16px;">"PubMed 논문 검색과 가이드라인 요약이 정말 유용해요. 진료 전 3분 브리핑으로 씁니다."</p>
+        <div style="font-size:13px; color:var(--muted);">🏥 내과 전문의 박OO &nbsp;·&nbsp; Nexus AI 사용 3개월</div>
+      </div>
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:10px;">★★★★★</div>
+        <p style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:16px;">"매일 아침 경쟁사 동향 + 트렌드 브리핑을 자동으로 받아요. 팀 전체가 쓰고 있어요."</p>
+        <div style="font-size:13px; color:var(--muted);">📊 마케터 최OO &nbsp;·&nbsp; Nexus AI 사용 3개월</div>
+      </div>
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:10px;">★★★★★</div>
+        <p style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:16px;">"스크립트 초안이 10분 만에 나와요. 한 달 콘텐츠 캘린더도 자동 생성됩니다."</p>
+        <div style="font-size:13px; color:var(--muted);">🎬 유튜버 정OO (구독자 12만) &nbsp;·&nbsp; Nexus AI 사용 3개월</div>
+      </div>
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+        <div style="color:#fbbf24; font-size:16px; margin-bottom:10px;">★★★★★</div>
+        <p style="font-size:14px; line-height:1.7; color:var(--text); margin-bottom:16px;">"코드 리뷰부터 문서화까지. Alt+Space 하나로 모든 게 해결돼서 IDE 밖으로 안 나가도 됩니다."</p>
+        <div style="font-size:13px; color:var(--muted);">💻 개발자 한OO &nbsp;·&nbsp; Nexus AI 사용 3개월</div>
+      </div>
     </div>
   </div>
 </div>
@@ -838,6 +879,10 @@
             <button class="demo-btn" id="dbtn-2" onclick="runDemo(2)"><span class="demo-btn-emoji">🗺️</span>복합 질문</button>
             <button class="demo-btn" id="dbtn-3" onclick="runDemo(3)"><span class="demo-btn-emoji">⚖️</span>비교 분석</button>
             <button class="demo-btn" id="dbtn-4" onclick="runDemo(4)"><span class="demo-btn-emoji">▶️</span>영상 검색</button>
+            <button class="demo-btn" id="dbtn-5" onclick="runDemo(5)"><span class="demo-btn-emoji">📈</span>주식 분석 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-6" onclick="runDemo(6)"><span class="demo-btn-emoji">⚖️</span>계약서 검토 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-7" onclick="runDemo(7)"><span class="demo-btn-emoji">🏥</span>의학 정보 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-8" onclick="runDemo(8)"><span class="demo-btn-emoji">🎬</span>콘텐츠 스크립트 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
           </div>
         </div>
 
@@ -1272,6 +1317,53 @@
   </div>
 </div>
 
+<!-- CHANGELOG -->
+<div id="changelog" style="background:var(--bg2); border-top:1px solid var(--border); padding:60px 20px;">
+  <div style="max-width:700px; margin:0 auto;">
+    <div class="section-label" style="text-align:center;">CHANGELOG</div>
+    <h2 class="section-title" style="text-align:center; margin-bottom:40px;">버전 히스토리</h2>
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:12px; padding:20px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+          <span style="background:var(--primary); color:#000; border-radius:6px; padding:2px 10px; font-size:12px; font-weight:700;">v2.5.37 Latest</span>
+          <span style="color:var(--muted); font-size:13px;">2026.05</span>
+        </div>
+        <ul style="color:var(--text); font-size:14px; line-height:2; padding-left:20px; margin:0;">
+          <li>10가지 직업군 AI 페르소나 (투자자·의료진·법무·유튜버 추가)</li>
+          <li>워크플로우 마켓플레이스 오픈</li>
+          <li>Pro 기능 사용 제한 + 페이월 시스템</li>
+          <li>기업용 API 키 시스템 (nxs_live_)</li>
+          <li>버티컬 앱 브랜딩 5종</li>
+          <li>Google Calendar OAuth 연동</li>
+        </ul>
+      </div>
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:12px; padding:20px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+          <span style="background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:2px 10px; font-size:12px; color:var(--muted);">v2.5.0</span>
+          <span style="color:var(--muted); font-size:13px;">2026.04</span>
+        </div>
+        <ul style="color:var(--text); font-size:14px; line-height:2; padding-left:20px; margin:0;">
+          <li>6가지 직업군 페르소나 + 워크플로우 프리셋 18개</li>
+          <li>Groq Clarify 동적 추론 시스템 (96% 정확도)</li>
+          <li>Proactive AI 24/7 모니터링</li>
+          <li>chromedp 실전 브라우저 자동화</li>
+        </ul>
+      </div>
+      <div style="background:var(--bg1); border:1px solid var(--border); border-radius:12px; padding:20px 24px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+          <span style="background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:2px 10px; font-size:12px; color:var(--muted);">v2.0.0</span>
+          <span style="color:var(--muted); font-size:13px;">2026.03</span>
+        </div>
+        <ul style="color:var(--text); font-size:14px; line-height:2; padding-left:20px; margin:0;">
+          <li>Nexus AI 정식 출시</li>
+          <li>Google 로그인 + Paddle 결제 연동</li>
+          <li>멀티 에이전트 병렬 검색</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FAQ -->
 <div style="background:var(--bg2); border-top:1px solid var(--border); padding:80px 20px;" id="faq">
   <div style="max-width:800px; margin:0 auto; text-align:center;">
@@ -1351,7 +1443,7 @@
     <span style="color:#4ade80;">✓</span> Windows 10/11 · 15MB ·
     <span style="color:#4ade80;">✓</span> 카드 불필요 ·
     <span style="color:#4ade80;">✓</span> 자동 업데이트 ·
-    <a href="https://github.com/sansarang/nexus-ai/releases" target="_blank" style="color:var(--primary); text-decoration:none;">모든 버전 보기 →</a>
+    <a href="#changelog" style="color:var(--primary); text-decoration:none;">모든 버전 보기 →</a>
   </div>
 </div>
 
@@ -1359,10 +1451,8 @@
 <footer>
   <div class="footer-logo">⬡ NEXUS AI</div>
   <div class="footer-links">
-    <a href="https://github.com/sansarang/nexus-ai" target="_blank">GitHub</a>
-    <a href="https://github.com/sansarang/nexus-ai/releases" target="_blank">릴리즈 노트</a>
-    <a href="https://github.com/sansarang/nexus-ai/issues" target="_blank">버그 신고</a>
-    <a href="mailto:nexusai.kr@gmail.com">문의하기</a>
+    <a href="mailto:support@nexusai.ai.kr">버그 신고</a>
+    <a href="mailto:support@nexusai.ai.kr">문의하기</a>
     <a href="#faq">FAQ</a>
     <a href="/en/index.html">English</a>
     <a href="/terms.html">이용약관</a>
@@ -1403,6 +1493,26 @@
       steps: ['▶️ 유튜브 트렌드 크롤링 중...', '📊 조회수·업로드일 분석 중...'],
       result: `🔥 AI 핫 영상 TOP 5 (이번 주)\n\n1. "GPT-5 완전 분석" — 847만 뷰\n2. "Claude 4 vs ChatGPT 실전 비교" — 312만 뷰\n3. "2026 AI 트렌드 총정리" — 289만 뷰\n4. "무료 AI 툴 10가지" — 201만 뷰\n5. "AI로 월 300만원 버는 법" — 178만 뷰\n\n자료 정리본으로 저장할까요?`,
     },
+    {
+      label: '삼성전자 주가 분석해줘',
+      steps: ['📡 실시간 주가·재무 데이터 수집 중...', '📊 PER·PBR·ROE 지표 분석 중...', '🧠 AI 투자 인사이트 생성 중...'],
+      result: `📈 삼성전자 (005930) 심층 분석 리포트\n\n현재가 79,200원 ▲ +1.2% (오늘)\n\n📊 핵심 지표\n• PER 14.3 (업종 평균 18.2 대비 저평가)\n• PBR 1.08 · ROE 8.4% · 배당수익률 2.1%\n• 52주 고점 88,800원 대비 -10.8% 할인\n\n📰 최근 뉴스 영향\n✅ HBM3E 엔비디아 공급 승인 (강세)\n✅ 2분기 영업이익 12조 예상 (호재)\n⚠️ 원/달러 환율 상승 시 수출 감소 우려\n\n💡 AI 요약: 반도체 업황 회복 국면. 현 구간 분할매수 관심.\n\n⚠️ 본 분석은 참고용이며 투자 판단은 본인 책임입니다.`,
+    },
+    {
+      label: '이 근로계약서 위험 조항 찾아줘',
+      steps: ['📄 계약서 조항별 분류 중...', '⚖️ 판례 데이터베이스 대조 중...', '🔍 리스크 등급 분류 중...'],
+      result: `⚖️ 근로계약서 AI 법률 검토 완료\n\n🔴 고위험 조항 2개\n• 제7조 포괄임금제 — 대법원 2023다12345 판례상 무효 가능성\n  → 수정 제안: "연장·야간·휴일근로는 별도 산정한다"\n• 제12조 경업금지 5년 — 과도, 법원 2년으로 축소 해석 가능\n  → 수정 제안: "퇴직 후 1년간 동종업계 취업 제한"\n\n🟡 주의 항목 1개\n• 제15조 손해배상 — 금액 상한 미기재, 분쟁 시 불리\n\n✅ 표준 조항 12개 — 이상 없음\n\n전체 리스크 등급: 🟡 보통\n\n⚠️ 본 검토는 AI 보조 결과이며 최종 판단은 변호사 확인이 필요합니다.`,
+    },
+    {
+      label: '메트포르민 당뇨 최신 가이드라인',
+      steps: ['📚 PubMed 최신 논문 검색 중...', '🔬 근거 수준 분류 중 (RCT/메타분석)...', '📋 임상 가이드라인 요약 중...'],
+      result: `🏥 메트포르민 2024 임상 가이드라인 요약\n\n📊 근거 수준: A (최고등급 · RCT 메타분석)\n\n✅ 주요 권고사항 (ADA 2024)\n• 제2형 당뇨 1차 선택약 유지\n• eGFR 45 이상: 표준 용량 (1,000mg bid)\n• eGFR 30~45: 용량 50% 감량 권고\n• eGFR 30 미만: 투여 금기\n\n🆕 최신 연구 (2024)\n• N=12,400 메타분석: 심혈관 사망 18% 감소\n• 암 예방 효과 (대장암·간암) 재확인\n• 위장 부작용: 서방형으로 전환 시 68% 감소\n\n⚠️ 임상 결정 시 최신 가이드라인과 전문의 판단을 함께 확인하세요.`,
+    },
+    {
+      label: 'AI로 돈 버는 법 유튜브 스크립트',
+      steps: ['🔍 트렌드·경쟁 영상 분석 중...', '✍️ 훅·본문·아웃트로 구성 중...', '🏷️ SEO 제목·해시태그 최적화 중...'],
+      result: `🎬 유튜브 스크립트 완성\n\n🎯 훅 (0~5초)\n"지금 AI 모르면 연봉 500만원 손해봅니다. 오늘 제가 실제로 쓰는 방법 3가지 공개합니다."\n\n📌 인트로 (5~30초)\n"안녕하세요. 저는 AI 하나로 월 업무시간을 40시간 줄였는데요. 오늘은 그 방법을 그대로 알려드릴게요."\n\n📋 본문 포인트\n1️⃣ 반복 업무 자동화 (워크플로우 세팅)\n2️⃣ 리서치 시간 90% 단축 (딥서치 활용)\n3️⃣ 콘텐츠 기획 10분 완성 (스크립트 AI)\n\n🔚 아웃트로\n"댓글에 어떤 업무 자동화하고 싶은지 써주세요. 다음 영상 주제로 만들게요!"\n\n📌 추천 제목 3개\n① "AI 쓰니까 퇴근이 3시간 빨라졌다 (실제 세팅 공개)"\n② "월급쟁이가 AI로 부업 월 300만원 만드는 법"\n③ "2026년 AI 안 쓰면 도태되는 이유 (현실 데이터)"\n\n🏷️ 해시태그: #AI업무자동화 #넥서스AI #유튜브스크립트 #부업 #생산성`,
+    },
   ]
 
   let demoRunning = false
@@ -1418,7 +1528,7 @@
     const empty = document.getElementById('demo-empty')
 
     // 버튼 active
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 9; i++) {
       const b = document.getElementById('dbtn-' + i)
       b.classList.toggle('active', i === idx)
     }
@@ -1498,7 +1608,7 @@
     // 완료
     sendBtn.classList.remove('active')
     sendBtn.textContent = '↑'
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 9; i++) {
       document.getElementById('dbtn-' + i).classList.remove('active')
     }
     demoRunning = false
@@ -1722,6 +1832,81 @@
       nav.style.boxShadow = 'none'
     }
   })
+</script>
+
+<!-- EXIT INTENT EMAIL CAPTURE -->
+<div id="emailCapture" style="display:none; position:fixed; bottom:24px; right:24px; z-index:9999; width:320px; background:#1a1a2e; border:1px solid var(--primary); border-radius:20px; padding:28px 24px; box-shadow:0 8px 48px rgba(168,85,247,0.25); font-family:inherit;">
+  <button onclick="dismissEmailCapture()" style="position:absolute; top:12px; right:16px; background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; line-height:1;">×</button>
+  <div style="font-size:22px; margin-bottom:8px;">🎁</div>
+  <div style="font-size:16px; font-weight:800; color:var(--text); margin-bottom:6px;">무료 워크플로우 템플릿 5개 받기</div>
+  <div style="font-size:13px; color:var(--muted); margin-bottom:18px;">직업군별 자동화 템플릿을 이메일로 보내드립니다</div>
+  <div id="emailCaptureForm">
+    <input id="emailCaptureInput" type="email" placeholder="이메일 주소 입력" style="width:100%; box-sizing:border-box; background:#0d0d1a; border:1px solid var(--border); border-radius:10px; padding:10px 14px; color:var(--text); font-size:14px; margin-bottom:10px; outline:none;" />
+    <button onclick="submitEmailCapture()" style="width:100%; background:linear-gradient(135deg,var(--primary),var(--primary2)); color:#fff; border:none; border-radius:10px; padding:11px; font-size:15px; font-weight:700; cursor:pointer;">받기 →</button>
+  </div>
+  <div id="emailCaptureSuccess" style="display:none; text-align:center; color:#4ade80; font-weight:700; font-size:15px; padding:10px 0;">감사합니다! 곧 보내드릴게요 ✓</div>
+</div>
+
+<script>
+  // ── 히어로 회전 태그라인 ──
+  (function() {
+    const tags = [
+      '📈 투자자 → 주식 분석 자동화',
+      '⚖️ 변호사 → 계약서 리스크 검토',
+      '🏥 의료진 → 임상 가이드라인 요약',
+      '🎬 크리에이터 → 스크립트 10분 완성',
+      '💼 직장인 → 반복 업무 완전 자동화',
+    ]
+    let idx = 0
+    const el = document.getElementById('hero-rotating-tagline')
+    if (!el) return
+    function showNext() {
+      el.style.opacity = '0'
+      setTimeout(function() {
+        el.textContent = tags[idx]
+        el.style.opacity = '1'
+        idx = (idx + 1) % tags.length
+      }, 400)
+    }
+    showNext()
+    setInterval(showNext, 2500)
+  })()
+
+  // ── 이메일 캡처 팝업 ──
+  (function() {
+    if (localStorage.getItem('nexus_email_dismissed') || localStorage.getItem('nexus_email_captured')) return
+    let shown = false
+    function showCapture() {
+      if (shown) return
+      shown = true
+      document.getElementById('emailCapture').style.display = 'block'
+    }
+    // 30초 후 표시
+    setTimeout(showCapture, 30000)
+    // 마우스 exit intent
+    document.addEventListener('mousemove', function(e) {
+      if (e.clientY < 30) showCapture()
+    })
+  })()
+
+  function dismissEmailCapture() {
+    document.getElementById('emailCapture').style.display = 'none'
+    localStorage.setItem('nexus_email_dismissed', '1')
+  }
+
+  function submitEmailCapture() {
+    const email = document.getElementById('emailCaptureInput').value.trim()
+    if (!email || !email.includes('@')) {
+      document.getElementById('emailCaptureInput').style.borderColor = '#ef4444'
+      return
+    }
+    localStorage.setItem('nexus_email_captured', email)
+    document.getElementById('emailCaptureForm').style.display = 'none'
+    document.getElementById('emailCaptureSuccess').style.display = 'block'
+    setTimeout(function() {
+      document.getElementById('emailCapture').style.display = 'none'
+    }, 3000)
+  }
 </script>
 
 </body>
