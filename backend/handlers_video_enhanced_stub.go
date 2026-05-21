@@ -395,3 +395,86 @@ func handleVideoInfo(w http.ResponseWriter, r *http.Request) {
 		"timestamp":  time.Now().Format("2006-01-02 15:04"),
 	})
 }
+
+// enrichYouTubeItems: Tavily YouTube 검색 결과에 yt-dlp 메타데이터 보강
+// watch URL이 있는 항목에 대해 duration, uploader, view_count 추가
+func enrichYouTubeItems(items []map[string]string) []map[string]string {
+	ytdlp := findYtDlp()
+	if ytdlp == "" {
+		return items // yt-dlp 없으면 그대로 반환
+	}
+
+	result := make([]map[string]string, len(items))
+	for i, item := range result {
+		result[i] = item
+	}
+	copy(result, items)
+
+	for i, item := range result {
+		u := item["url"]
+		if !isYouTubeWatchURL(u) {
+			continue
+		}
+		// 타임아웃 짧게 — 딥서치 전체가 블로킹되지 않도록
+		info := ytDlpQuickInfo(ytdlp, u, 8)
+		if info == nil {
+			continue
+		}
+		if v, ok := info["duration_string"].(string); ok && v != "" {
+			result[i]["duration"] = v
+		}
+		if v, ok := info["uploader"].(string); ok && v != "" {
+			result[i]["channel"] = v
+		}
+		if v, ok := info["view_count"].(float64); ok && v > 0 {
+			result[i]["views"] = formatViewCount(int(v))
+		}
+		if v, ok := info["description"].(string); ok && v != "" && result[i]["content"] == "" {
+			result[i]["content"] = limitStr(v, 200)
+		}
+	}
+	return result
+}
+
+func isYouTubeWatchURL(u string) bool {
+	return strings.Contains(u, "youtube.com/watch") || strings.Contains(u, "youtu.be/")
+}
+
+func ytDlpQuickInfo(ytdlp, videoURL string, timeoutSec int) map[string]any {
+	import_exec := exec.Command(ytdlp,
+		"--dump-json", "--no-playlist", "--no-warnings",
+		"--socket-timeout", "5",
+		videoURL,
+	)
+	import_exec.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8")
+
+	done := make(chan []byte, 1)
+	go func() {
+		out, _ := import_exec.Output()
+		done <- out
+	}()
+
+	select {
+	case out := <-done:
+		var info map[string]any
+		json.Unmarshal(out, &info)
+		return info
+	case <-time.After(time.Duration(timeoutSec) * time.Second):
+		import_exec.Process.Kill()
+		return nil
+	}
+}
+
+func formatViewCount(n int) string {
+	switch {
+	case n >= 100000000:
+		return fmt.Sprintf("%.0f억", float64(n)/100000000)
+	case n >= 10000:
+		return fmt.Sprintf("%.0f만", float64(n)/10000)
+	case n >= 1000:
+		return fmt.Sprintf("%.1f천", float64(n)/1000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+

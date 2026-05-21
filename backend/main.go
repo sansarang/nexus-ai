@@ -360,6 +360,13 @@ func main() {
 	mux.HandleFunc("GET /api/video/cookie-status", handleVideoCookieStatus)
 	mux.HandleFunc("POST /api/video/ytdlp-info", handleVideoInfo)
 	mux.HandleFunc("GET /api/video/quick-search", handleVideoQuickSearch)
+	// 영상 transcript + AI 요약
+	mux.HandleFunc("POST /api/video/transcript", handleVideoTranscript)
+	mux.HandleFunc("POST /api/video/transcript-batch", handleVideoTranscriptBatch)
+	// TikTok 크롤러
+	mux.HandleFunc("POST /api/tiktok/search", handleTikTokSearch)
+	mux.HandleFunc("GET /api/tiktok/trending", handleTikTokTrending)
+	mux.HandleFunc("POST /api/tiktok/profile", handleTikTokProfile)
 
 	// Enterprise API Key Management
 	mux.HandleFunc("GET /api/enterprise/keys", handleEnterpriseListKeys)
