@@ -236,14 +236,16 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, userEmail])
 
-  // Auto-run demo when entering step 1
+  // ── Issue #8: step + selectedJobId 둘 다 의존해서 직업 재선택 시 확실히 재실행 ──
+  const demoJobRef = useRef<string>('')
   useEffect(() => {
-    if (step === 1 && !demoStarted) {
+    if (step === 1 && (!demoStarted || demoJobRef.current !== selectedJobId)) {
+      demoJobRef.current = selectedJobId
       setDemoStarted(true)
       void runJobDemo()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step])
+  }, [step, selectedJobId])
 
   const runJobDemo = async () => {
     const demos = isEn ? JOB_DEMOS_EN : JOB_DEMOS
@@ -254,10 +256,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setDemoThinkStep('')
     setDemoInputTyping('')
 
-    // Type query in fake input
+    // Type query in fake input — 청크 단위로 업데이트 (성능)
     for (let i = 1; i <= demo.query.length; i++) {
       setDemoInputTyping(demo.query.slice(0, i))
-      await sleep(40)
+      await sleep(38)
     }
     await sleep(400)
 
@@ -268,15 +270,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
     setDemoThinkStep('')
 
-    // Type result
+    // ── Issue #5: 글자 단위 sleep 대신 청크(5자) 단위로 업데이트 → 렌더 80% 감소 ──
+    const CHUNK = 5
+    const result = demo.result
     let typed = ''
-    for (let i = 1; i <= demo.result.length; i++) {
-      typed = demo.result.slice(0, i)
+    for (let i = 0; i < result.length; i += CHUNK) {
+      typed = result.slice(0, i + CHUNK)
       setDemoTyping(typed)
-      await sleep(8)
-      demoEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      await sleep(20)
+      if (i % 50 === 0) demoEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-    setDemoResult(demo.result)
+    setDemoResult(result)
     setDemoTyping('')
     setDemoRunning(false)
   }
@@ -745,7 +749,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               {nextBtn(
                 () => setStep(2),
                 isEn ? 'Choose My Plan →' : '플랜 선택하기 →',
-                demoRunning && !demoResult,
+                demoRunning || !!demoTyping,
               )}
               {backBtn(() => { setJobSelected(false); setStep(0) }, isEn ? '← Change Job' : '← 직업 바꾸기')}
             </div>

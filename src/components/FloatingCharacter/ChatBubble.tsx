@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useReducer } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const TYPING_MSGS = ['생각하는 중...', '검색하는 중...', '답변 준비 중...', '분석하는 중...']
+const TYPING_MSGS_KO = ['생각하는 중...', '검색하는 중...', '답변 준비 중...', '분석하는 중...']
+const TYPING_MSGS_EN = ['Thinking...', 'Searching...', 'Preparing answer...', 'Analyzing...']
 
-function TypingBar({ primaryColor, steps }: { primaryColor: string; steps?: string[] }) {
-  const msgs = steps && steps.length > 0 ? steps : TYPING_MSGS
+function TypingBar({ primaryColor, steps, lang }: { primaryColor: string; steps?: string[]; lang?: 'ko' | 'en' }) {
+  const fallback = lang === 'en' ? TYPING_MSGS_EN : TYPING_MSGS_KO
+  const msgs = steps && steps.length > 0 ? steps : fallback
   const [idx, setIdx] = useState(0)
   const [sec, setSec] = useState(0)
   useEffect(() => {
@@ -191,7 +193,7 @@ function HistoryItem({ entry, primaryColor, onDelete }: { entry: HistoryEntry; p
   )
 }
 
-const FEATURED_ACTIONS = [
+const FEATURED_ACTIONS_KO = [
   { emoji: '🔐', label: 'PC 해킹 점검', cmd: '내 PC 해킹당했어? 보안 점검해줘' },
   { emoji: '🔬', label: '딥서치', cmd: '양자컴퓨터에 대해 깊게 조사해줘' },
   { emoji: '🗺️', label: '복합 질문', cmd: '오늘 날씨도 알려주고 경주에서 대전 가는 버스 시간표 알려줘' },
@@ -199,16 +201,36 @@ const FEATURED_ACTIONS = [
   { emoji: '▶️', label: '영상 검색', cmd: '요즘 유튜브에서 핫한 AI 영상 찾아줘' },
 ]
 
-const FOLLOW_UP_MAP: Record<string, Array<{ label: string; cmd: string }>> = {
-  stock:         [{ label: '📰 관련 뉴스', cmd: '관련 뉴스 찾아줘' }, { label: '📊 차트 보기', cmd: '차트 보여줘' }, { label: '🔔 알림 설정', cmd: '가격 알림 설정해줘' }],
-  exchange_rate: [{ label: '💱 다른 통화', cmd: '유로 환율도 알려줘' }, { label: '📈 환율 추이', cmd: '최근 환율 변화 알려줘' }],
-  web_search:    [{ label: '🔍 더 찾기', cmd: '더 자세히 찾아줘' }, { label: '📄 요약', cmd: '요약해줘' }],
-  deep_research: [{ label: '📁 파일 저장', cmd: '파일로 저장해줘' }, { label: '🔍 더 조사', cmd: '더 깊이 조사해줘' }],
-  chat:          [{ label: '🔍 검색', cmd: '웹에서 찾아줘' }, { label: '📝 정리', cmd: '핵심만 정리해줘' }],
-  file_ops:      [{ label: '📂 결과 열기', cmd: '정리된 폴더 열어줘' }, { label: '↩️ 취소', cmd: '방금 정리 취소해줘' }],
-  screen_analyze:[{ label: '📋 텍스트 복사', cmd: '화면 텍스트 복사해줘' }, { label: '🔍 자세히', cmd: '더 자세히 분석해줘' }],
+const FEATURED_ACTIONS_EN = [
+  { emoji: '🔐', label: 'PC Security Scan', cmd: 'Check if my PC has been hacked' },
+  { emoji: '🔬', label: 'Deep Research', cmd: 'Do a deep dive on quantum computing' },
+  { emoji: '🗺️', label: 'Multi-task Query', cmd: "What's the weather today and find flights from NYC to LA?" },
+  { emoji: '⚖️', label: 'Compare & Analyze', cmd: 'Compare iPhone vs Samsung Galaxy' },
+  { emoji: '▶️', label: 'Video Search', cmd: 'Find trending AI videos on YouTube right now' },
+]
+
+const FOLLOW_UP_MAP_KO: Record<string, Array<{ label: string; cmd: string }>> = {
+  stock:            [{ label: '📰 관련 뉴스', cmd: '관련 뉴스 찾아줘' }, { label: '📊 차트 보기', cmd: '차트 보여줘' }, { label: '🔔 알림 설정', cmd: '가격 알림 설정해줘' }],
+  exchange_rate:    [{ label: '💱 다른 통화', cmd: '유로 환율도 알려줘' }, { label: '📈 환율 추이', cmd: '최근 환율 변화 알려줘' }],
+  web_search:       [{ label: '🔍 더 찾기', cmd: '더 자세히 찾아줘' }, { label: '📄 요약', cmd: '요약해줘' }],
+  deep_research:    [{ label: '📁 파일 저장', cmd: '파일로 저장해줘' }, { label: '🔍 더 조사', cmd: '더 깊이 조사해줘' }],
+  chat:             [{ label: '🔍 검색', cmd: '웹에서 찾아줘' }, { label: '📝 정리', cmd: '핵심만 정리해줘' }],
+  file_ops:         [{ label: '📂 결과 열기', cmd: '정리된 폴더 열어줘' }, { label: '↩️ 취소', cmd: '방금 정리 취소해줘' }],
+  screen_analyze:   [{ label: '📋 텍스트 복사', cmd: '화면 텍스트 복사해줘' }, { label: '🔍 자세히', cmd: '더 자세히 분석해줘' }],
   clipboard_action: [{ label: '📁 저장', cmd: '파일로 저장해줘' }, { label: '🔄 다시', cmd: '다시 처리해줘' }],
-  weather:       [{ label: '📅 주간 날씨', cmd: '이번 주 날씨 알려줘' }, { label: '🌍 다른 지역', cmd: '서울 날씨 알려줘' }],
+  weather:          [{ label: '📅 주간 날씨', cmd: '이번 주 날씨 알려줘' }, { label: '🌍 다른 지역', cmd: '서울 날씨 알려줘' }],
+}
+
+const FOLLOW_UP_MAP_EN: Record<string, Array<{ label: string; cmd: string }>> = {
+  stock:            [{ label: '📰 Related News', cmd: 'Find related news' }, { label: '📊 View Chart', cmd: 'Show me the chart' }, { label: '🔔 Set Alert', cmd: 'Set a price alert' }],
+  exchange_rate:    [{ label: '💱 Other Currency', cmd: 'What about Euro exchange rate?' }, { label: '📈 Rate Trend', cmd: 'Show recent exchange rate changes' }],
+  web_search:       [{ label: '🔍 Find More', cmd: 'Search for more details' }, { label: '📄 Summarize', cmd: 'Summarize this' }],
+  deep_research:    [{ label: '📁 Save File', cmd: 'Save this to a file' }, { label: '🔍 Dig Deeper', cmd: 'Research this more deeply' }],
+  chat:             [{ label: '🔍 Search', cmd: 'Search the web for this' }, { label: '📝 Summarize', cmd: 'Summarize the key points' }],
+  file_ops:         [{ label: '📂 Open Folder', cmd: 'Open the organized folder' }, { label: '↩️ Undo', cmd: 'Undo the last action' }],
+  screen_analyze:   [{ label: '📋 Copy Text', cmd: 'Copy the text from screen' }, { label: '🔍 More Detail', cmd: 'Analyze this in more detail' }],
+  clipboard_action: [{ label: '📁 Save', cmd: 'Save to a file' }, { label: '🔄 Redo', cmd: 'Process this again' }],
+  weather:          [{ label: '📅 Weekly Forecast', cmd: 'Show me this week\'s weather' }, { label: '🌍 Other City', cmd: 'What\'s the weather in New York?' }],
 }
 
 interface ChatBubbleProps {
@@ -249,13 +271,24 @@ export function ChatBubble({
   typingSteps,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
-  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory())
+
+  // ── Issue #6: useReducer로 history 관리 → handleDeleteOne 재생성 없음 ──
+  const [history, dispatchHistory] = useReducer(
+    (state: HistoryEntry[], action: { type: 'set'; payload: HistoryEntry[] } | { type: 'delete'; id: string }) => {
+      if (action.type === 'delete') {
+        const updated = state.filter(e => e.id !== action.id)
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
+        return updated
+      }
+      return action.payload
+    },
+    undefined,
+    () => loadHistory(),
+  )
 
   const handleDeleteOne = useCallback((id: string) => {
-    const updated = history.filter(e => e.id !== id)
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
-    setHistory(updated)
-  }, [history])
+    dispatchHistory({ type: 'delete', id })
+  }, [])
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const attachedFile = attachedFiles[0] ?? null
   const setAttachedFile = (f: AttachedFile | null) => setAttachedFiles(f ? [f] : [])
@@ -325,6 +358,10 @@ export function ChatBubble({
   const [chatSize, setChatSize] = useState({ w: 300, h: 440 })
   const resizingRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null)
 
+  // ── Issue #7: cleanup ref로 언마운트 시 리스너 누수 방어 ──
+  const resizeCleanupRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => { resizeCleanupRef.current?.() }, [])
+
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     resizingRef.current = { startX: e.clientX, startY: e.clientY, startW: chatSize.w, startH: chatSize.h }
@@ -341,9 +378,14 @@ export function ChatBubble({
       resizingRef.current = null
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      resizeCleanupRef.current = null
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
+    resizeCleanupRef.current = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
   }, [chatSize])
 
   const handleSendAll = useCallback(() => {
@@ -361,7 +403,7 @@ export function ChatBubble({
 
   /* historyVersion 변경 시 재로드 */
   useEffect(() => {
-    setHistory(loadHistory())
+    dispatchHistory({ type: 'set', payload: loadHistory() })
   }, [historyVersion])
 
   /* 최신 메시지로 자동 스크롤 */
@@ -371,9 +413,18 @@ export function ChatBubble({
 
   const groups = groupByDate(history)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isEn = lang === 'en'
 
-  /* 카드가 붙은 메시지 — 최근 4개만 live 표시 */
+  // ── Issue #3/4: lang에 따라 액션 맵 선택 ──
+  const FEATURED_ACTIONS = isEn ? FEATURED_ACTIONS_EN : FEATURED_ACTIONS_KO
+  const FOLLOW_UP_MAP = isEn ? FOLLOW_UP_MAP_EN : FOLLOW_UP_MAP_KO
+
+  /* 카드가 붙은 메시지 — 최근 2개만 live 표시 */
   const liveCards = messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).slice(-2)
+
+  // ── Issue #1: 실시간 대화(messages)를 채팅창에 표시 ──
+  // user/nexus 메시지를 대화 이력 아래에 live로 표시
+  const liveMessages = messages.slice(-10)
 
   /* 새 카드 / 타이핑 상태 변화 시 자동 스크롤 */
   useEffect(() => {
@@ -434,21 +485,21 @@ export function ChatBubble({
           animation: 'chatDot 2s ease-in-out infinite',
         }} />
         <span style={{ fontSize: 11, color: primaryColor, fontWeight: 700, letterSpacing: '0.06em', flex: 1 }}>
-          대화 이력
+          {isEn ? 'Chat History' : '대화 이력'}
         </span>
         {history.length > 0 && (
           <button
             onClick={() => {
               localStorage.removeItem(HISTORY_KEY)
-              setHistory([])
+              dispatchHistory({ type: 'set', payload: [] })
             }}
-            title="이력 전체 삭제"
+            title={isEn ? 'Clear all history' : '이력 전체 삭제'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'rgba(255,255,255,0.25)', fontSize: 10, padding: '2px 4px',
             }}
           >
-            전체삭제
+            {isEn ? 'Clear all' : '전체삭제'}
           </button>
         )}
       </div>
@@ -462,10 +513,10 @@ export function ChatBubble({
         flexDirection: 'column',
         scrollbarWidth: 'none',
       }}>
-        {history.length === 0 && !typing && (
+        {history.length === 0 && liveMessages.length === 0 && !typing && (
           <div style={{ padding: '12px 4px' }}>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginBottom: 10, textAlign: 'center' }}>
-              이런 걸 물어볼 수 있어요
+              {isEn ? 'You can ask things like...' : '이런 걸 물어볼 수 있어요'}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {FEATURED_ACTIONS.map(a => (
@@ -507,6 +558,53 @@ export function ChatBubble({
             ))}
           </div>
         ))}
+
+        {/* ── Issue #1: 실시간 대화 메시지 ── */}
+        {liveMessages.length > 0 && (
+          <div style={{ marginTop: history.length > 0 ? 8 : 0 }}>
+            {history.length > 0 && (
+              <div style={{
+                fontSize: 10, color: 'rgba(255,255,255,0.3)',
+                textAlign: 'center', margin: '4px 0 6px',
+                borderBottom: '1px solid rgba(255,255,255,0.07)',
+                paddingBottom: 4,
+              }}>
+                {isEn ? '— Current Session —' : '— 현재 대화 —'}
+              </div>
+            )}
+            <AnimatePresence initial={false}>
+              {liveMessages.map(msg => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{
+                    display: 'flex',
+                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    marginBottom: 6,
+                  }}
+                >
+                  <div style={{
+                    maxWidth: '80%',
+                    padding: '7px 11px',
+                    borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+                    background: msg.role === 'user'
+                      ? `${primaryColor}44`
+                      : 'rgba(255,255,255,0.07)',
+                    border: `1px solid ${msg.role === 'user' ? primaryColor + '66' : 'rgba(255,255,255,0.1)'}`,
+                    fontSize: 11.5,
+                    color: 'rgba(255,255,255,0.9)',
+                    lineHeight: 1.55,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}>
+                    {msg.text.length > 180 ? msg.text.slice(0, 180) + '...' : msg.text}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
 
         {/* 최근 인라인 카드 (실시간) */}
         <AnimatePresence>
@@ -562,7 +660,7 @@ export function ChatBubble({
         {/* 타이핑 인디케이터 */}
         {typing && (
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 8 }}>
-            <TypingBar primaryColor={primaryColor} steps={typingSteps} />
+            <TypingBar primaryColor={primaryColor} steps={typingSteps} lang={lang} />
           </motion.div>
         )}
         <div ref={bottomRef} />
