@@ -6,6 +6,9 @@ import './index.css'
 import { supabase, fetchSubscription, createTrialSubscription, resolveStatus } from './lib/supabase'
 import { initPaddle } from './lib/paddle'
 
+// oauth-callback 처리 중 플래그 — onAuthStateChange 중복 처리 방지
+let _oauthProcessing = false
+
 /* Tauri 이벤트 수신 — Alt+Space 시 Command Palette 열기 + OAuth 콜백 처리 */
 async function setupTauriEvents() {
   try {
@@ -17,22 +20,19 @@ async function setupTauriEvents() {
     })
 
     // Google OAuth 딥링크 콜백 처리
-    // exchangeCodeForSession 진행 중 플래그 — onAuthStateChange 중복 처리 방지
-    let oauthProcessing = false
-
     await listen('oauth-callback', async (event) => {
       try {
         let raw = event.payload as string
         // payload가 JSON 배열 형태로 올 수 있음: ["nexus://..."]
         if (typeof raw === 'string' && raw.trimStart().startsWith('[')) {
-          raw = JSON.parse(raw)[0] as string
+          raw = (JSON.parse(raw) as string[])[0]
         }
         // 앞뒤 따옴표 제거
         raw = raw.replace(/^"|"$/g, '')
         const urlObj = new URL(raw.replace('nexus://', 'https://nexus.app/'))
         const code = urlObj.searchParams.get('code')
         if (code) {
-          oauthProcessing = true
+          _oauthProcessing = true
           const { supabase, fetchSubscription, createTrialSubscription, resolveStatus } = await import('./lib/supabase')
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
           if (!error && data.session?.user) {
@@ -47,14 +47,10 @@ async function setupTauriEvents() {
             const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
             useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
           }
-          // 짧은 딜레이 후 플래그 해제 (onAuthStateChange가 동일 이벤트로 다시 처리하지 않도록)
-          setTimeout(() => { oauthProcessing = false }, 3000)
+          setTimeout(() => { _oauthProcessing = false }, 3000)
         }
       } catch { /* 무시 */ }
     })
-
-    // oauthProcessing 참조를 클로저로 공유하기 위해 외부 변수로 유지
-    ;(window as Record<string, unknown>).__nexusOauthProcessingRef = () => oauthProcessing
   } catch {
     /* 브라우저 개발 환경에선 무시 */
   }
@@ -88,8 +84,7 @@ async function bootstrap() {
       try {
         if (event === 'SIGNED_IN' && newSession?.user) {
           // oauth-callback 리스너가 이미 처리 중이면 중복 실행 방지
-          const isOauthProcessing = (window as Record<string, unknown>).__nexusOauthProcessingRef
-          if (typeof isOauthProcessing === 'function' && isOauthProcessing()) return
+          if (_oauthProcessing) return
 
           const user = newSession.user
           const email = user.email ?? ''
