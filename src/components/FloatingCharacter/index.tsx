@@ -281,6 +281,8 @@ export function FloatingCharacter() {
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd())
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
+  // 문제 #4: 플로팅 패널 닫힌 후에도 ChatBubble에서 볼 수 있게 저장
+  const [savedPreviews, setSavedPreviews] = useState<Array<{ label: string; items: Array<{ title: string; url: string }> }>>([])
 
   // ── Clarify 멀티턴 상태 ──────────────────────────────────
   const [clarifyPendingIntent,   setClarifyPendingIntent]   = useState<string | null>(null)
@@ -1378,7 +1380,22 @@ export function FloatingCharacter() {
               })()}
             </span>
             <button
-              onClick={() => setFloatingPreview(null)}
+              onClick={() => {
+                // 닫기 전 결과를 ChatBubble savedPreviews에 저장
+                if (floatingPreview && floatingPreview.length > 0) {
+                  const label = (() => {
+                    const eng = userLang === 'en'
+                    if (floatingPreview[0]?.isVideo) return eng ? '🎬 Video Results' : '🎬 영상 결과'
+                    if (floatingPreview[0]?.isMap) return eng ? '🗺️ Map Results' : '🗺️ 지도 결과'
+                    return eng ? '🔍 Search Results' : '🔍 검색 결과'
+                  })()
+                  setSavedPreviews(prev => [...prev.slice(-4), {
+                    label,
+                    items: floatingPreview.map(x => ({ title: x.title, url: x.url })),
+                  }])
+                }
+                setFloatingPreview(null)
+              }}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
             >✕</button>
           </div>
@@ -1684,6 +1701,7 @@ export function FloatingCharacter() {
               clarifyPending={!!clarifyPendingIntent}
               clarifyQuestion={clarifyPendingQuestion ?? ''}
               typingSteps={typingSteps}
+              savedPreviews={savedPreviews}
             />
           </motion.div>
         )}

@@ -303,11 +303,31 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
         setTyping(false); typingRef.current = false
         if (res.success) {
-          const previewItems = (res.items ?? []).filter(it => it.url)
-          if (previewItems.length > 0) setFloatingPreview(previewItems)
-          const displayText = res.summary || '딥서치 완료'
+          const previewItems = (res.items ?? []).filter((it: { url?: string }) => it.url)
+          // 문제 #2: 항상 플로팅 패널 표시 보장 (결과 없으면 검색엔진 링크라도)
+          if (previewItems.length > 0) {
+            setFloatingPreview(previewItems)
+          } else {
+            const enc = encodeURIComponent(q)
+            setFloatingPreview([
+              { title: `Google: ${q}`, url: `https://www.google.com/search?q=${enc}` },
+              { title: `Naver: ${q}`, url: `https://search.naver.com/search.naver?query=${enc}` },
+              { title: `Bing: ${q}`, url: `https://www.bing.com/search?q=${enc}` },
+            ])
+          }
+          const displayText = res.summary || (userLang === 'en' ? 'Deep search complete.' : '딥서치 완료')
           setEmotion('happy')
-          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText }])
+          // 문제 #5: 딥서치 결과도 인라인 카드로 표시
+          setMessages(prev => [...prev, {
+            id: `${msgId}-res`, role: 'nexus', text: displayText,
+            inlineCard2: previewItems.length > 0 ? {
+              type: 'system_action',
+              icon: '🔍',
+              title: userLang === 'en' ? `Deep Search: ${q}` : `딥서치: ${q}`,
+              detail: previewItems.slice(0, 5).map((it: { title: string }) => `• ${it.title}`).join('\n'),
+              success: true,
+            } : undefined,
+          }])
           pushModelHistory(trimmed, displayText)
           speakText(displayText)
           appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })

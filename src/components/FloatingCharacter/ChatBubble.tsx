@@ -250,6 +250,8 @@ interface ChatBubbleProps {
   historyVersion?: number
   clarifyPending?: boolean
   clarifyQuestion?: string
+  // 문제 #4: 플로팅 패널 닫을 때 저장된 결과 목록
+  savedPreviews?: Array<{ label: string; items: Array<{ title: string; url: string }> }>
 }
 
 export function ChatBubble({
@@ -269,6 +271,7 @@ export function ChatBubble({
   primaryColor,
   historyVersion = 0,
   typingSteps,
+  savedPreviews = [],
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -419,12 +422,21 @@ export function ChatBubble({
   const FEATURED_ACTIONS = isEn ? FEATURED_ACTIONS_EN : FEATURED_ACTIONS_KO
   const FOLLOW_UP_MAP = isEn ? FOLLOW_UP_MAP_EN : FOLLOW_UP_MAP_KO
 
-  /* 카드가 붙은 메시지 — 최근 2개만 live 표시 */
-  const liveCards = messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).slice(-2)
+  /* 카드가 붙은 메시지 — 최근 6개 표시 (기존 2개에서 확대) */
+  const liveCards = messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).slice(-6)
 
-  // ── Issue #1: 실시간 대화(messages)를 채팅창에 표시 ──
-  // user/nexus 메시지를 대화 이력 아래에 live로 표시
-  const liveMessages = messages.slice(-10)
+  // 실시간 대화 메시지 — 최근 20개
+  const liveMessages = messages.slice(-20)
+
+  // 긴 메시지 펼치기 상태
+  const [expandedMsgs, setExpandedMsgs] = useState<Set<string>>(new Set())
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedMsgs(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
 
   /* 새 카드 / 타이핑 상태 변화 시 자동 스크롤 */
   useEffect(() => {
@@ -573,35 +585,43 @@ export function ChatBubble({
               </div>
             )}
             <AnimatePresence initial={false}>
-              {liveMessages.map(msg => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    display: 'flex',
-                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    marginBottom: 6,
-                  }}
-                >
-                  <div style={{
-                    maxWidth: '80%',
-                    padding: '7px 11px',
-                    borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-                    background: msg.role === 'user'
-                      ? `${primaryColor}44`
-                      : 'rgba(255,255,255,0.07)',
-                    border: `1px solid ${msg.role === 'user' ? primaryColor + '66' : 'rgba(255,255,255,0.1)'}`,
-                    fontSize: 11.5,
-                    color: 'rgba(255,255,255,0.9)',
-                    lineHeight: 1.55,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}>
-                    {msg.text.length > 180 ? msg.text.slice(0, 180) + '...' : msg.text}
-                  </div>
-                </motion.div>
-              ))}
+              {liveMessages.map(msg => {
+                const isUser = msg.role === 'user'
+                const isLong = msg.text.length > 300
+                const expanded = expandedMsgs.has(msg.id)
+                const displayText = isLong && !expanded ? msg.text.slice(0, 280) + '...' : msg.text
+                return (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 6 }}
+                  >
+                    <div style={{
+                      maxWidth: '86%',
+                      padding: '7px 11px',
+                      borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
+                      background: isUser ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
+                      border: `1px solid ${isUser ? primaryColor + '66' : 'rgba(255,255,255,0.1)'}`,
+                      fontSize: 11.5,
+                      color: 'rgba(255,255,255,0.9)',
+                      lineHeight: 1.6,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}>
+                      {displayText}
+                      {isLong && (
+                        <span
+                          onClick={() => toggleExpand(msg.id)}
+                          style={{ display: 'block', color: primaryColor, fontSize: 10, fontWeight: 700, marginTop: 4, cursor: 'pointer' }}
+                        >
+                          {expanded ? (isEn ? '▲ Collapse' : '▲ 접기') : (isEn ? '▼ Show more' : '▼ 더보기')}
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
           </div>
         )}
@@ -622,6 +642,56 @@ export function ChatBubble({
             </motion.div>
           ))}
         </AnimatePresence>
+
+        {/* ── 문제 #4: 플로팅 패널 닫힌 후 저장된 검색 결과 카드 ── */}
+        {savedPreviews.length > 0 && (
+          <AnimatePresence>
+            {savedPreviews.slice(-3).map((sp, si) => (
+              <motion.div
+                key={`sp-${si}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  marginTop: 8,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${primaryColor}33`,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{
+                  padding: '7px 12px',
+                  borderBottom: `1px solid ${primaryColor}22`,
+                  fontSize: 10, fontWeight: 700, color: primaryColor,
+                }}>
+                  {sp.label}
+                </div>
+                <div style={{ padding: '6px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {sp.items.slice(0, 5).map((item, ii) => (
+                    <div key={ii} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 9, color: primaryColor, fontWeight: 700, minWidth: 14 }}>{ii + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => window.open(item.url, '_blank')}
+                        style={{
+                          background: `${primaryColor}33`, border: `1px solid ${primaryColor}55`,
+                          borderRadius: 6, color: primaryColor, fontSize: 9, fontWeight: 700,
+                          padding: '3px 7px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                        }}
+                      >
+                        {isEn ? 'Open' : '열기'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
 
         {/* 마지막 응답 후 follow-up 액션 */}
         {!typing && history.length > 0 && (() => {
