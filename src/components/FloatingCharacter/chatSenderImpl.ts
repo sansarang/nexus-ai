@@ -143,10 +143,15 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     typingRef.current = true
 
     const msgId = Date.now().toString()
-    // 메모리 관리: messages 배열 100개 초과 시 오래된 50개 제거
+    // 메모리 관리: messages 100개 초과 시 오래된 일반 메시지 제거 (inlineCard 있는 메시지는 보존)
     setMessages(prev => {
       const next = [...prev, { id: msgId, role: 'user' as const, text: trimmed }]
-      return next.length > 100 ? next.slice(-80) : next
+      if (next.length <= 100) return next
+      const cardIds = new Set(next.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).map(m => m.id))
+      const plain = next.filter(m => !cardIds.has(m.id))
+      const excess = next.length - 80
+      const toRemove = new Set(plain.slice(0, excess).map(m => m.id))
+      return next.filter(m => !toRemove.has(m.id))
     })
     setInput('')
     setListening(false)

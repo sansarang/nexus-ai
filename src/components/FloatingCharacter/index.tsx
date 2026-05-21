@@ -1408,10 +1408,22 @@ export function FloatingCharacter() {
                     if (floatingPreview[0]?.isMap) return eng ? '🗺️ Map Results' : '🗺️ 지도 결과'
                     return eng ? '🔍 Search Results' : '🔍 검색 결과'
                   })()
-                  setSavedPreviews(prev => [...prev.slice(-4), {
-                    label,
-                    items: floatingPreview.map(x => ({ title: x.title, url: x.url })),
-                  }])
+                  setSavedPreviews(prev => {
+                    const willOverflow = prev.length >= 5
+                    const next = [...prev.slice(-4), {
+                      label,
+                      items: floatingPreview!.map(x => ({ title: x.title, url: x.url })),
+                    }]
+                    if (willOverflow) {
+                      setMessages(msgs => [...msgs, {
+                        id: `sys-${Date.now()}`, role: 'nexus' as const,
+                        text: userLang === 'en'
+                          ? '💡 Saved results are limited to 5. The oldest result has been removed.'
+                          : '💡 저장된 결과는 최대 5개입니다. 가장 오래된 결과가 삭제됐어요.',
+                      }])
+                    }
+                    return next
+                  })
                 }
                 setFloatingPreview(null)
               }}

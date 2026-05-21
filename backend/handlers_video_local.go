@@ -118,6 +118,15 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 
 	fileSizeMB := float64(len(videoBytes)) / 1024 / 1024
 
+	// 영상 길이 사전 확인 (10분 초과 시 사용자에게 알림)
+	const maxSecs = 600
+	videoDurSecs := getVideoDurationSecs(videoPath)
+	durationWarning := ""
+	if videoDurSecs > maxSecs {
+		mins := int(videoDurSecs) / 60
+		durationWarning = fmt.Sprintf("\n\n⚠️ **영상이 %d분으로 길어서 처음 10분만 분석합니다.** 전체 분석이 필요하면 영상을 분할해 주세요.", mins)
+	}
+
 	// ── Step 1: 내장 자막 추출 시도 (yt-dlp) ─────────────────────
 	var transcript string
 	if ytdlp := findYtDlp(); ytdlp != "" {
@@ -217,6 +226,7 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 	if tip != "" && tip != "없음" && !strings.EqualFold(strings.TrimSpace(tip), "none") {
 		msg += "\n\n💡 **액션 아이템**\n" + tip
 	}
+	msg += durationWarning
 
 	writeJSON(w, 200, map[string]any{
 		"success":    true,
@@ -323,6 +333,31 @@ func summarizeTranscriptWithQuery(transcript, lang, query string) (summary, tip 
 		{Role: "user", Content: tipPrompt},
 	}, 300, false)
 	return
+}
+
+// getVideoDurationSecs: ffprobe로 영상 길이(초) 반환. 실패 시 0
+func getVideoDurationSecs(videoPath string) float64 {
+	for _, probe := range []string{"ffprobe", `C:\ffmpeg\bin\ffprobe.exe`, `C:\Program Files\ffmpeg\bin\ffprobe.exe`} {
+		cmd := exec.Command(probe,
+			"-v", "quiet", "-print_format", "json",
+			"-show_format", videoPath,
+		)
+		out, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+		var meta map[string]any
+		if json.Unmarshal(out, &meta) != nil {
+			continue
+		}
+		format, _ := meta["format"].(map[string]any)
+		if d, ok := format["duration"].(string); ok {
+			var secs float64
+			fmt.Sscanf(d, "%f", &secs)
+			return secs
+		}
+	}
+	return 0
 }
 
 // getVideoMetadata: ffprobe로 영상 메타데이터 추출
