@@ -303,8 +303,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, selectedJobId])
 
-  const runGenericDemo = async (idx: number) => {
-    const demos = isEn ? GENERIC_DEMOS_EN : GENERIC_DEMOS_KO
+  const runGenericDemo = async (idx: number, forceLang?: 'ko' | 'en') => {
+    const demos = (forceLang ?? lang) === 'en' ? GENERIC_DEMOS_EN : GENERIC_DEMOS_KO
     const demo = demos[idx % demos.length]
     setGDemoIdx(idx % demos.length)
     setGDemoRunning(true)
@@ -472,8 +472,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const overlay: React.CSSProperties = {
     position: 'fixed', inset: 0, zIndex: 99999,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(4,4,12,0.96)',
-    backdropFilter: 'blur(20px)',
   }
 
   const card: React.CSSProperties = {
@@ -553,18 +551,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   return (
     <div style={overlay}>
-      {/* Background gradient */}
-      {(() => {
-        const previewStyle = REALISTIC_STYLE_PRESETS.find(s => s.id === (hoverStyle ?? styleId)) ?? selectedStyle
-        return (
-          <div style={{
-            position: 'absolute', inset: 0, pointerEvents: 'none',
-            background: `radial-gradient(ellipse at 30% 40%, ${previewStyle.primaryColor}12 0%, transparent 60%),
-                         radial-gradient(ellipse at 70% 60%, ${previewStyle.accentColor}0e 0%, transparent 55%)`,
-            transition: 'background 0.5s',
-          }} />
-        )
-      })()}
 
       <AnimatePresence mode="wait">
 
@@ -597,7 +583,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     setNameInput(l === 'en' ? 'Nexus' : '넥서스')
                     setUserName(l === 'en' ? 'Boss' : '주인님')
                     setGDemoStarted(false); setGDemoResult(''); setGDemoTyping(''); setGDemoThink(''); setGDemoInput(''); setGDemoRunning(false)
-                    void runGenericDemo(gDemoIdx)
+                    // 언어 변경 후 데모 재실행 (setTimeout으로 state 반영 후 실행)
+                    setTimeout(() => void runGenericDemo(0, l), 50)
                   }}
                   style={{
                     padding: '3px 9px', borderRadius: 8,
@@ -610,15 +597,26 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               ))}
             </div>
 
-            {/* Header */}
-            <div style={{ padding: '24px 24px 14px' }}>
-              <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 6, fontWeight: 600 }}>NEXUS AI</div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 4 }}>
-                {isEn ? 'Your AI PC Assistant' : 'AI PC 비서를 만나보세요'}
-              </h2>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
-                {isEn ? 'Watch Nexus work in real-time ↓' : '넥서스가 실시간으로 일하는 모습을 보세요 ↓'}
-              </p>
+            {/* 우주 캐릭터 + Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px 10px' }}>
+              <div style={{ flexShrink: 0, width: 90, height: 90 }}>
+                <Avatar3D
+                  emotion="happy" speaking={false} listening={false}
+                  glbUrl="/char_astronaut.glb"
+                  primaryColor="#6366f1" accentColor="#a855f7"
+                  preset={'kpop_star' as CharacterPreset} width={90} height={90}
+                  preview scale={0.7} characterOffsetY={-0.3} quality="balanced"
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 4, fontWeight: 600 }}>NEXUS AI</div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 3, lineHeight: 1.3 }}>
+                  {isEn ? 'Your AI PC Assistant' : 'AI PC 비서를 만나보세요'}
+                </h2>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+                  {isEn ? 'Watch Nexus work in real-time ↓' : '넥서스가 실시간으로 일하는 모습을 보세요 ↓'}
+                </p>
+              </div>
             </div>
 
             {/* Demo area */}
