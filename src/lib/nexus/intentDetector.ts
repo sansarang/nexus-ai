@@ -80,7 +80,8 @@ export type Intent =
   | 'news_search'      // 뉴스 검색
   | 'youtube_search'   // 유튜브 영상 검색
   | 'video_search'     // 틱톡/유튜브 영상 검색
-  | 'video_download'  // 유튜브/틱톡 영상 다운로드
+  | 'video_download'    // 유튜브/틱톡 영상 다운로드
+  | 'video_transcript'  // 영상 URL 내용 요약/전사
   | 'multi_action'     // 멀티 액션 (검색 + 파일 저장)
   // ── ⏰ 스케줄러 ────────────────────────────
   | 'schedule_list'    // 스케줄 목록
@@ -608,6 +609,21 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
       /유튜브.*다운|youtube.*다운|영상.*다운로드|video.*download/i,
       /틱톡.*다운|tiktok.*다운|영상.*저장|동영상.*다운/i,
       /다운.*유튜브|다운.*틱톡|저장.*영상|download.*video/i,
+    ],
+  },
+
+  // ── 🎬 영상 URL 요약/전사 (URL + 요약 의도) ──
+  {
+    intent: 'video_transcript',
+    patterns: [
+      /https?:\/\/(www\.)?(youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com|instagram\.com).*요약/i,
+      /https?:\/\/(www\.)?(youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com|instagram\.com).*내용/i,
+      /https?:\/\/(www\.)?(youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com|instagram\.com).*분석/i,
+      /https?:\/\/(www\.)?(youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com|instagram\.com).*전사/i,
+      /요약.*https?:\/\/(www\.)?(youtube\.com|youtu\.be|tiktok\.com)/i,
+      /내용.*https?:\/\/(www\.)?(youtube\.com|youtu\.be|tiktok\.com)/i,
+      /https?:\/\/(www\.)?(youtube\.com|youtu\.be).*summarize/i,
+      /summarize.*https?:\/\/(www\.)?(youtube\.com|youtu\.be)/i,
     ],
   },
 

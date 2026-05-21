@@ -170,6 +170,7 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
     case 'caption_start':    return ['🎬 오디오 캡처 초기화 중...', '실시간 자막 시작']
     case 'caption_stop':     return ['자막 종료 중...']
     case 'video_download':    return ['영상 URL 확인 중...', 'yt-dlp로 다운로드 중...', '파일 저장 중']
+    case 'video_transcript':  return ['영상 URL 확인 중...', '자막 추출 중...', 'AI 요약 생성 중...']
     case 'email_classify':    return ['받은 메일 가져오는 중...', 'AI 분류 중...', '우선순위 정리 중']
     case 'email_draft':       return ['메일 내용 분석 중...', 'AI 답장 초안 작성 중']
     case 'calendar_find_slot': return ['캘린더 확인 중...', '빈 시간 탐색 중', '가능한 슬롯 정리 중']
@@ -873,6 +874,32 @@ export async function handleBackendIntentImpl(
                 : `yt-dlp 설치 후 다시 시도해주세요.\n${data.install_url ?? ''}`,
               success: data.success,
             },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 🎬 영상 URL 요약/전사 ── */
+        case 'video_transcript': {
+          const urlMatch = originalText.match(/https?:\/\/[^\s]+/)
+          const url = urlMatch?.[0] ?? ''
+          if (!url) {
+            return {
+              text: t(
+                '요약할 영상 URL을 붙여넣어주세요.\n예: "https://www.youtube.com/watch?v=... 요약해줘"',
+                'Please paste the video URL.\ne.g. "https://www.youtube.com/watch?v=... summarize this"',
+                userLang,
+              ),
+              emotion: 'neutral',
+            }
+          }
+          const lang = userLang ?? 'ko'
+          const data = await fetch('http://127.0.0.1:17891/api/video/transcript', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, lang, summarize: true }),
+          }).then(r => r.json()).catch(() => ({ success: false, message: t('영상 분석 실패', 'Video analysis failed', userLang) }))
+          return {
+            text: data.message ?? (data.success ? t('영상 요약 완료', 'Video summary done', userLang) : t('영상 분석 실패', 'Video analysis failed', userLang)),
             emotion: data.success ? 'happy' : 'concerned',
           }
         }

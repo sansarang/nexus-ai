@@ -1026,8 +1026,47 @@ export function FloatingCharacter() {
         return
 
       } else if (isVideoFile(file)) {
-        // ── 동영상 → 분석 안내 ───────────────────────────────────
-        analysisResult = `🎬 **${file.name}** (${(file.size / 1024 / 1024).toFixed(1)}MB)\n동영상이 첨부되었습니다. 다음 작업을 요청할 수 있어요:\n• "GIF로 만들어줘" — 애니메이션 GIF 변환\n• "유튜브 썸네일 크기로 리사이즈해줘" — 플랫폼 맞춤 크기 조정\n• "MP4로 변환해줘" — 포맷 변환`
+        // ── 동영상 → 내용 분석 요청이면 백엔드 Whisper 전사, 아니면 변환 안내 ──
+        const wantAnalyze = /요약|내용|설명|분석|뭐|무슨|어떤|정리|요점|핵심|자막|전사|summarize|summary|content|what|explain|transcript|analyze|analyse/i.test(text)
+
+        if (wantAnalyze || !text) {
+          // 진행 중 메시지 먼저 표시
+          setMessages(prev => [
+            ...prev,
+            { id: `u-${Date.now()}`, role: 'user', text: `🎬 ${file.name}${text ? '\n' + text : ''}` },
+            { id: `n-${Date.now()}-progress`, role: 'nexus', text: `⏳ 영상 분석 중... (파일 크기: ${(file.size / 1024 / 1024).toFixed(1)}MB)\n음성을 텍스트로 전사하거나 내장 자막을 추출하고 있어요.` },
+          ])
+
+          try {
+            const lang = userLang ?? 'ko'
+            const res = await fetch('http://127.0.0.1:17891/api/video/analyze-file', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
+              body: JSON.stringify({
+                file_data: file.dataUrl,
+                file_name: file.name,
+                lang,
+                query: text || (lang === 'en' ? 'Summarize this video' : '이 영상 내용을 요약해줘'),
+              }),
+            }).then(r => r.json()).catch(() => ({ success: false, message: '영상 분석 요청 실패' }))
+
+            analysisResult = res.message ?? (res.success ? '영상 분석 완료' : '영상 분석에 실패했습니다.')
+          } catch (e) {
+            analysisResult = `영상 분석 중 오류: ${e instanceof Error ? e.message : String(e)}`
+          }
+
+          // progress 메시지 교체
+          setMessages(prev => prev.map(m =>
+            m.id?.endsWith('-progress') ? { ...m, text: analysisResult } : m
+          ))
+          appendHistory({ id: `${Date.now()}`, ts: Date.now(), q: `🎬 ${file.name} - ${text || '영상 분석'}`, a: analysisResult.slice(0, 300) })
+          setTyping(false)
+          return
+
+        } else {
+          // 변환/편집 목적 → 기존 안내
+          analysisResult = `🎬 **${file.name}** (${(file.size / 1024 / 1024).toFixed(1)}MB)\n\n다음 작업을 요청할 수 있어요:\n• "내용 요약해줘" — AI 영상 내용 분석\n• "GIF로 만들어줘" — 애니메이션 GIF 변환\n• "유튜브 썸네일 크기로 리사이즈해줘" — 플랫폼 맞춤 크기 조정\n• "MP4로 변환해줘" — 포맷 변환`
+        }
 
       } else if (file.fileType === 'image') {
         // ── 이미지 → GPT-4o Vision ───────────────────────────────
@@ -1158,7 +1197,21 @@ export function FloatingCharacter() {
             analysisResult = d.choices?.[0]?.message?.content?.trim() ?? '분석 결과를 가져오지 못했습니다.'
           }
         } else {
-          analysisResult = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 OpenAI API 키를 입력해주세요.'
+          // API 키 없으면 백엔드 Groq LLM으로 폴백
+          try {
+            const res = await fetch('http://127.0.0.1:17891/api/llm/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
+              body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], max_tokens: 2000 }),
+            }).then(r => r.json()).catch(() => null)
+            if (res?.content) {
+              analysisResult = res.content
+            } else {
+              analysisResult = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 OpenAI API 키를 입력해주세요.'
+            }
+          } catch {
+            analysisResult = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 OpenAI API 키를 입력해주세요.'
+          }
         }
       }
 
