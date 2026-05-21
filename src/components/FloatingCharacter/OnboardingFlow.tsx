@@ -80,103 +80,95 @@ const GENERIC_DEMOS_EN = [
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
 
-// ─── 10-persona arrays ───────────────────────────────────────────────────────
+// ─── 10-persona arrays (backend vertical IDs) ────────────────────────────────
 const JOB_PERSONAS_KO = [
-  { id: 'developer',  emoji: '💻', name: '개발자 / IT 엔지니어',    desc: '코드·디버깅·아키텍처', color: '#6366f1', proFeature: null, proLabel: null },
-  { id: 'marketer',   emoji: '📊', name: '마케터 / 디지털 마케터',  desc: '트렌드·SNS·경쟁사 분석', color: '#f59e0b', proFeature: null, proLabel: null },
-  { id: 'sales',      emoji: '🤝', name: '영업 / 세일즈',           desc: '이메일·미팅·고객 설득', color: '#10b981', proFeature: null, proLabel: null },
-  { id: 'pm',         emoji: '📋', name: 'PM / 기획자',             desc: '문서요약·로드맵·의사결정', color: '#0ea5e9', proFeature: null, proLabel: null },
-  { id: 'designer',   emoji: '🎨', name: '디자이너 / 크리에이터',  desc: '레퍼런스·파일정리·콘텐츠', color: '#ec4899', proFeature: null, proLabel: null },
-  { id: 'freelancer', emoji: '🚀', name: '프리랜서 / 1인 사업자',  desc: '견적·클라이언트·세금', color: '#8b5cf6', proFeature: null, proLabel: null },
-  { id: 'investor',   emoji: '📈', name: '투자자 / 트레이더',      desc: '주식·코인·ETF 실시간 분석', color: '#22c55e', proFeature: 'stock_analysis', proLabel: '📈 Pro 전용 — 주식 분석 무제한' },
-  { id: 'medical',    emoji: '🏥', name: '의사 / 의료진',          desc: '의학논문·약물·가이드라인', color: '#06b6d4', proFeature: 'medical_search', proLabel: '🏥 Pro 전용 — 의학 검색 무제한' },
-  { id: 'legal',      emoji: '⚖️', name: '변호사 / 법무 담당자',  desc: '계약서검토·판례·법령', color: '#f97316', proFeature: 'contract_review', proLabel: '⚖️ Pro 전용 — 계약서 검토 무제한' },
-  { id: 'creator',    emoji: '🎬', name: '유튜버 / 인플루언서',   desc: '스크립트·썸네일·해시태그', color: '#ef4444', proFeature: 'content_script', proLabel: '🎬 Pro 전용 — 스크립트 생성 무제한' },
+  { id: 'developer',  emoji: '💻', name: '개발자 / IT 엔지니어',    desc: 'GitHub 트렌딩·해커뉴스·기술 동향', color: '#6366f1', proFeature: null, proLabel: null },
+  { id: 'legal',      emoji: '⚖️', name: '변호사 / 법무 담당자',   desc: '판례·법령 개정·계약서 검토', color: '#f97316', proFeature: 'contract_review', proLabel: '⚖️ Pro 전용 — 계약서 검토 무제한' },
+  { id: 'medical',    emoji: '🏥', name: '의사 / 의료진',           desc: '의료뉴스·건보 급여·임상 정보', color: '#06b6d4', proFeature: 'medical_search', proLabel: '🏥 Pro 전용 — 의학 검색 무제한' },
+  { id: 'accountant', emoji: '📊', name: '회계사 / 세무사',         desc: '세금신고일정·환율·국세청 공지', color: '#f59e0b', proFeature: null, proLabel: null },
+  { id: 'creator',    emoji: '🎬', name: '유튜버 / 크리에이터',    desc: '유튜브 트렌딩·틱톡·인터넷 이슈', color: '#ef4444', proFeature: 'content_script', proLabel: '🎬 Pro 전용 — 스크립트 생성 무제한' },
+  { id: 'realtor',    emoji: '🏠', name: '부동산 전문가',           desc: '부동산뉴스·청약일정·금리동향', color: '#22c55e', proFeature: null, proLabel: null },
+  { id: 'teacher',    emoji: '📚', name: '교사 / 강사',             desc: '교육부 공지·수능일정·EBS 콘텐츠', color: '#0ea5e9', proFeature: null, proLabel: null },
+  { id: 'hr',         emoji: '👥', name: 'HR / 인사 담당자',        desc: '채용뉴스·최저임금·워크넷 공고', color: '#8b5cf6', proFeature: null, proLabel: null },
+  { id: 'engineer',   emoji: '⚙️', name: '엔지니어 / 제조업',      desc: '산업뉴스·원자재시세·KS규격', color: '#10b981', proFeature: null, proLabel: null },
+  { id: 'general',    emoji: '🌟', name: '일반 사용자',             desc: '날씨·뉴스·해커뉴스 토픽', color: '#ec4899', proFeature: null, proLabel: null },
 ]
 
 const JOB_PERSONAS_EN = [
-  { id: 'developer',  emoji: '💻', name: 'Developer / IT Engineer',    desc: 'Code · Debug · Architecture', color: '#6366f1', proFeature: null, proLabel: null },
-  { id: 'marketer',   emoji: '📊', name: 'Marketer / Digital Marketer', desc: 'Trends · SNS · Competitor analysis', color: '#f59e0b', proFeature: null, proLabel: null },
-  { id: 'sales',      emoji: '🤝', name: 'Sales / Account Executive',   desc: 'Email · Meetings · Client persuasion', color: '#10b981', proFeature: null, proLabel: null },
-  { id: 'pm',         emoji: '📋', name: 'PM / Product Planner',        desc: 'Doc summaries · Roadmap · Decisions', color: '#0ea5e9', proFeature: null, proLabel: null },
-  { id: 'designer',   emoji: '🎨', name: 'Designer / Creator',          desc: 'References · File org · Content', color: '#ec4899', proFeature: null, proLabel: null },
-  { id: 'freelancer', emoji: '🚀', name: 'Freelancer / Solopreneur',    desc: 'Quotes · Clients · Tax', color: '#8b5cf6', proFeature: null, proLabel: null },
-  { id: 'investor',   emoji: '📈', name: 'Investor / Trader',           desc: 'Stocks · Crypto · ETF real-time', color: '#22c55e', proFeature: 'stock_analysis', proLabel: '📈 Pro only — Unlimited stock analysis' },
-  { id: 'medical',    emoji: '🏥', name: 'Doctor / Medical Staff',      desc: 'Med papers · Drugs · Guidelines', color: '#06b6d4', proFeature: 'medical_search', proLabel: '🏥 Pro only — Unlimited medical search' },
-  { id: 'legal',      emoji: '⚖️', name: 'Lawyer / Legal Counsel',     desc: 'Contract review · Cases · Law', color: '#f97316', proFeature: 'contract_review', proLabel: '⚖️ Pro only — Unlimited contract review' },
-  { id: 'creator',    emoji: '🎬', name: 'YouTuber / Influencer',       desc: 'Scripts · Thumbnails · Hashtags', color: '#ef4444', proFeature: 'content_script', proLabel: '🎬 Pro only — Unlimited script generation' },
+  { id: 'developer',  emoji: '💻', name: 'Developer / IT Engineer',    desc: 'GitHub Trending · HN · Tech news', color: '#6366f1', proFeature: null, proLabel: null },
+  { id: 'legal',      emoji: '⚖️', name: 'Lawyer / Legal Counsel',     desc: 'Cases · Law amendments · Contract review', color: '#f97316', proFeature: 'contract_review', proLabel: '⚖️ Pro only — Unlimited contract review' },
+  { id: 'medical',    emoji: '🏥', name: 'Doctor / Medical Staff',      desc: 'Medical news · Insurance · Clinical info', color: '#06b6d4', proFeature: 'medical_search', proLabel: '🏥 Pro only — Unlimited medical search' },
+  { id: 'accountant', emoji: '📊', name: 'Accountant / Tax Advisor',    desc: 'Tax deadlines · FX rates · IRS news', color: '#f59e0b', proFeature: null, proLabel: null },
+  { id: 'creator',    emoji: '🎬', name: 'YouTuber / Creator',          desc: 'YouTube Trending · TikTok · Viral memes', color: '#ef4444', proFeature: 'content_script', proLabel: '🎬 Pro only — Unlimited script generation' },
+  { id: 'realtor',    emoji: '🏠', name: 'Real Estate Agent',           desc: 'Property news · Listings · Rate trends', color: '#22c55e', proFeature: null, proLabel: null },
+  { id: 'teacher',    emoji: '📚', name: 'Teacher / Instructor',        desc: 'Education news · Exam schedule · Resources', color: '#0ea5e9', proFeature: null, proLabel: null },
+  { id: 'hr',         emoji: '👥', name: 'HR / Recruiter',              desc: 'Hiring news · Min wage · Job postings', color: '#8b5cf6', proFeature: null, proLabel: null },
+  { id: 'engineer',   emoji: '⚙️', name: 'Engineer / Manufacturing',   desc: 'Industry news · Metal prices · ISO standards', color: '#10b981', proFeature: null, proLabel: null },
+  { id: 'general',    emoji: '🌟', name: 'General User',                desc: 'Weather · News · Hacker News topics', color: '#ec4899', proFeature: null, proLabel: null },
 ]
 
 // ─── Job-specific WOW demos ───────────────────────────────────────────────────
 const JOB_DEMOS: Record<string, { query: string; steps: string[]; result: string; proHint?: string }> = {
-  investor: {
-    query: '삼성전자 주가 지금 사도 될까?',
-    steps: ['📡 실시간 주가·재무 데이터 수집 중...', '📊 PER·PBR·ROE 분석 중...', '🧠 AI 투자 인사이트 생성 중...'],
-    result: '📈 삼성전자 (005930) 분석 완료\n\n현재가 79,200원 ▲ +1.2%\nPER 14.3 (업종 평균 18.2 → 저평가)\nPBR 1.08 · 배당수익률 2.1%\n\n✅ 호재: HBM3E 엔비디아 공급 승인\n⚠️ 리스크: 원달러 1,380원 돌파 시 수출 감소\n\n💡 AI: 현 구간 분할매수 관심. 목표가 88,000원\n\n⚠️ 투자 판단은 본인 책임입니다.',
-    proHint: 'Pro 플랜에서 이 분석을 매일 자동으로 받아보세요',
-  },
-  medical: {
-    query: '메트포르민 신기능 저하 환자 용량?',
-    steps: ['📚 PubMed 최신 논문 검색 중...', '🔬 근거 수준 분류 중...', '📋 임상 가이드라인 요약 중...'],
-    result: '🏥 메트포르민 신기능별 용량 가이드\n\n📊 근거: ADA 2024 (Grade A)\n\neGFR ≥ 45: 표준용량 1,000mg bid\neGFR 30~44: 500mg bid (감량)\neGFR < 30: 투여 금기\n\n⚠️ 조영제 사용 전 48h 중단\n\n🆕 2024 업데이트: 서방형 제제 위장 부작용 68% 감소\n\n⚠️ 임상 결정 시 전문의 판단 필수',
-    proHint: 'Pro 플랜에서 의학 검색을 무제한으로 사용하세요',
+  developer: {
+    query: 'GitHub 오늘 트렌딩 레포 알려줘',
+    steps: ['⭐ GitHub Trending 수집 중...', '🔶 Hacker News 상위 글 수집 중...', '📋 요약 정리 중...'],
+    result: '⭐ GitHub Trending (오늘)\n\n1. microsoft/TypeScript ↑1,234⭐\n   "TypeScript 5.5 RC — 타입 추론 대폭 개선"\n2. vercel/ai ↑987⭐\n   "AI SDK 4.0 — 스트리밍 & 툴 콜 새 API"\n3. golang/go ↑756⭐\n   "Go 1.23 iterator 문법 안정화"\n\n🔶 Hacker News Top\n• "We built a 10M req/day service on SQLite"\n• "LLM context windows are getting too large"\n\n💡 오늘의 키워드: TypeScript · AI SDK · SQLite',
   },
   legal: {
-    query: '이 근로계약서 검토해줘',
-    steps: ['📄 계약서 조항 분류 중...', '⚖️ 판례 데이터베이스 대조 중...', '🔍 리스크 등급 분류 중...'],
-    result: '⚖️ 근로계약서 검토 완료\n\n🔴 고위험 2개\n• 제7조 포괄임금제 → 대법원 판례 무효 가능\n  수정안: "연장·야간근로 별도 산정"\n• 제12조 경업금지 5년 → 과도, 법원 2년 축소\n\n🟡 주의 1개\n• 제15조 손해배상 금액 상한 미기재\n\n✅ 표준 조항 12개 이상 없음\n\n전체 리스크: 🟡 보통\n⚠️ 최종 판단은 변호사 확인 필요',
+    query: '오늘 법률·판례 뉴스 브리핑해줘',
+    steps: ['⚖️ 법률 뉴스 수집 중...', '📋 최근 법령 개정 확인 중...', '🗓️ 법원 일정 조회 중...'],
+    result: '⚖️ 오늘의 법무 브리핑\n\n📰 주요 뉴스\n• 대법원, 포괄임금제 무효 판결 재확인\n  "연장·야간근로 별도 산정 의무화"\n• 개인정보보호법 시행령 개정 공포\n  2025.07.01 시행 — 위반 과징금 상향\n\n📋 최근 법령 개정\n• 근로기준법 제56조 개정 (연장근로 한도)\n• 전자금융거래법 보완 입법 추진 중\n\n🗓️ 법원 일정\n민사 접수 마감: 오늘 17:00\n\n⚠️ 최종 법적 판단은 변호사 확인 필요',
     proHint: 'Pro 플랜에서 계약서 검토를 무제한으로 사용하세요',
   },
+  medical: {
+    query: '오늘 의료·임상 뉴스 브리핑해줘',
+    steps: ['🩺 의료 뉴스 수집 중...', '💊 건강보험 급여 변경 확인 중...', '🌤️ 날씨 조회 중...'],
+    result: '🩺 오늘의 의료 브리핑\n\n📰 의료 뉴스 (청년의사)\n• GLP-1 계열 비만치료제 급여 기준 확대\n  당뇨 없는 고도비만 환자도 적용 가능\n• 응급실 과부하 해소책 — 경증 환자 분리 시범\n\n💊 건보 급여 동향\n• 희귀질환 신약 급여 등재 절차 간소화\n• 한의과 초음파 급여 시범사업 2026 확대\n\n🌤️ 서울 날씨\n최고 23°C · 맑음 — 외래 환자 방문 많을 예정\n\n⚠️ 임상 결정 시 전문의 판단 필수',
+    proHint: 'Pro 플랜에서 의학 검색을 무제한으로 사용하세요',
+  },
+  accountant: {
+    query: '이번달 세금 신고 일정이랑 환율 알려줘',
+    steps: ['📅 세무 신고 일정 조회 중...', '💱 실시간 환율 수집 중...', '📊 국세청 공지 확인 중...'],
+    result: '📅 이번 달 세무 일정\n\n📌 종합소득세 확정신고 (5/31 마감)\n• 사업소득·임대소득·프리랜서 해당\n• 홈택스 신고 권장 (5/25 이후 혼잡)\n\n💱 실시간 환율 (USD 기준)\nUSD/KRW  1,382.50\nEUR/KRW  1,498.20\nJPY/KRW     9.21\nCNY/KRW   190.40\n\n📊 국세청 최신 공지\n• 전자세금계산서 의무 발급 범위 확대\n• 성실신고확인제도 업종 추가\n\n💡 이번 달 핵심: 5/31 종합소득세 마감!',
+  },
   creator: {
-    query: 'AI 활용법 유튜브 스크립트 만들어줘',
-    steps: ['🔍 트렌드·경쟁 영상 분석 중...', '✍️ 훅·본문·아웃트로 구성 중...', '🏷️ SEO 최적화 중...'],
-    result: '🎬 유튜브 스크립트 완성!\n\n🎯 훅: "AI 모르면 2026년 연봉 500만원 손해"\n\n📌 인트로: 저는 AI 하나로 업무 40시간을 절약했는데요...\n\n📋 본문\n① 반복업무 자동화로 월 20시간 절약\n② AI 리서치로 콘텐츠 준비 90% 단축\n③ 스크립트 자동화로 주 3편 업로드 가능\n\n🔚 아웃트로: 댓글에 자동화할 업무 알려주세요!\n\n📌 제목: "AI 쓰니까 퇴근이 3시간 빨라졌다"\n🏷️ #AI업무 #생산성 #유튜브스크립트',
+    query: '오늘 유튜브 트렌딩이랑 틱톡 바이럴 알려줘',
+    steps: ['🔥 유튜브 트렌딩 수집 중...', '🎵 틱톡 트렌드 분석 중...', '🌐 인터넷 이슈 정리 중...'],
+    result: '🔥 유튜브 트렌딩 (한국 TOP)\n\n1. "AI로 월 1000만원 버는 법" — 조회 120만\n2. "2026 서울 맛집 최신 업데이트" — 조회 87만\n3. "챗GPT로 유튜브 스크립트 자동화" — 조회 64만\n\n🎵 틱톡 바이럴\n• #AI사용법 — 15억 뷰 누적\n• #퇴사브이로그 — 오늘 급상승\n\n🌐 인터넷 이슈\n• 오늘의 밈: "AI가 내 일자리를 빼앗았다"\n• 커뮤니티 화제: 편의점 신메뉴 논란\n\n💡 오늘 영상 주제 추천: "AI 자동화 실제 사례"',
     proHint: 'Pro 플랜에서 스크립트 생성을 무제한으로 사용하세요',
   },
-  developer: {
-    query: 'Python 메모리 누수 원인 찾아줘',
-    steps: ['🔍 코드 패턴 스캔 중...', '🐛 메모리 프로파일 분석 중...'],
-    result: '🐛 메모리 누수 발견!\n\n원인: 전역 리스트에 이벤트 핸들러 누적\n\n수정 전:\nhandlers.append(lambda: process(data))\n\n수정 후:\nweakref.ref(handler)  # 약한 참조\n\n✅ 수정 후 메모리 43% 감소 예상',
+  realtor: {
+    query: '오늘 부동산 뉴스랑 청약 일정 알려줘',
+    steps: ['🏠 부동산 뉴스 수집 중...', '📋 청약 일정 조회 중...', '💰 금리·환율 확인 중...'],
+    result: '🏠 오늘의 부동산 브리핑\n\n📰 주요 뉴스\n• 서울 아파트 매매 거래량 전월비 12% 증가\n• 강남 3구 토지거래허가구역 지정 6개월 연장\n• 2030 패닉바잉 재개 조짐 — 전문가 의견 엇갈려\n\n📋 이번 달 청약 일정\n• 동탄역 SK뷰 (5/27~5/29, 84㎡ 4.2억)\n• 광명 센트럴아이파크 (5/30~6/1)\n\n💰 금리·환율 동향\nUSD 1,382 / 기준금리 3.25% 동결\n주담대 변동금리: 연 4.8~5.3%\n\n💡 핵심: 이번 주 동탄역 청약 놓치지 마세요!',
   },
-  marketer: {
-    query: '경쟁사 마케팅 전략 분석해줘',
-    steps: ['🔍 경쟁사 SNS·웹사이트 크롤링 중...', '📊 트렌드 분석 중...'],
-    result: '📊 경쟁사 마케팅 분석 완료\n\n상위 3개사 공통 전략:\n① 숏폼 영상 주 5회 이상\n② 인플루언서 마이크로 타겟팅\n③ 커뮤니티 기반 바이럴\n\n💡 기회: 롱폼 교육 콘텐츠 공백 발견',
+  teacher: {
+    query: '오늘 교육부 공지랑 수능 일정 알려줘',
+    steps: ['📚 교육 뉴스 수집 중...', '🎓 수능·대입 일정 확인 중...', '📺 EBS 콘텐츠 조회 중...'],
+    result: '📚 오늘의 교육 브리핑\n\n📰 교육 뉴스\n• 2026학년도 수능 출제 기조 발표\n  "EBS 연계율 50% 유지, 킬러문항 배제"\n• 방과후학교 AI·코딩 프로그램 확대\n  전국 초등 1,200개교 시범 운영\n\n🎓 수능·대입 일정\n• 2026 수능: 2025.11.13(목)\n• 성적 발표: 2025.12.05\n• 정시 원서접수: 2026.01.09~12\n\n📺 EBS 오늘의 추천\n• 수능특강 수학Ⅱ 3강 (적분 활용)\n• EBSi 영어듣기 모의고사\n\n💡 핵심: 11월 수능까지 D-176일!',
   },
-  sales: {
-    query: '고객사 미팅 전 사전 조사해줘',
-    steps: ['🔍 기업 정보 수집 중...', '📋 인사이트 정리 중...'],
-    result: '📋 미팅 사전 조사 완료\n\n기업 현황: 최근 Series B 투자 유치\n핵심 과제: 영업팀 생산성 향상\n\n💡 공략 포인트:\n• ROI 중심 제안 (비용 절감 수치 강조)\n• 의사결정자: CTO + CFO 동시 공략',
+  hr: {
+    query: '오늘 채용·HR 뉴스랑 최저임금 알려줘',
+    steps: ['👥 HR 뉴스 수집 중...', '📋 최저임금 정보 조회 중...', '💼 워크넷 채용 공고 확인 중...'],
+    result: '👥 오늘의 HR 브리핑\n\n📰 채용·HR 뉴스\n• 삼성·SK·LG 2026 상반기 공채 일정 확정\n  서류: 6/2~6/13, 필기: 7/5\n• AI 채용 도구 도입 기업 3년새 3배 증가\n\n📋 최저임금 현황 (2025)\n시급: ₩10,030\n일급(8h): ₩80,240\n월급: ₩2,096,270\n\n💼 오늘 주요 채용 (워크넷)\n• 네이버 — AI 서비스 개발자 (서울)\n• 카카오 — 데이터 애널리스트 (판교)\n• 현대자동차 — 품질관리 엔지니어 (울산)\n\n💡 핵심: 6월 대기업 공채 시즌 시작!',
   },
-  pm: {
-    query: '오늘 미팅 회의록 요약해줘',
-    steps: ['📋 회의 내용 분석 중...', '✍️ 핵심 사항 추출 중...'],
-    result: '✅ 회의록 요약 완료\n\n📌 주요 결정\n• Q2 예산 15% 증액 확정\n• 신규 파트너십 6월 말 체결\n\n📅 다음 액션\n• 김팀장: 계약서 초안 (5/30)\n• 이대리: 예산 보고서 (6/3)',
+  engineer: {
+    query: '오늘 산업 뉴스랑 원자재 시세 알려줘',
+    steps: ['⚙️ 산업·제조 뉴스 수집 중...', '📦 원자재 시세 조회 중...', '📐 KS/ISO 규격 업데이트 확인 중...'],
+    result: '⚙️ 오늘의 엔지니어링 브리핑\n\n📰 산업·제조 뉴스\n• 반도체 후공정 자동화 투자 급증\n  패키징 공정 로봇화 2025년 40% 확대\n• 탄소중립 공정 전환 보조금 신청 시작\n  중소 제조업 최대 5억원 지원\n\n📦 원자재 시세\n철강(열연) ₩750,000/톤 ▲+1.2%\n구리(LME) $9,850/톤 ▲+0.8%\n알루미늄 $2,420/톤 ▼-0.3%\n\n📐 KS/ISO 업데이트\n• KS B ISO 9001:2025 개정 준비 중\n• 전기차 배터리 안전규격 KS C 신설\n\n💡 핵심: 탄소중립 보조금 신청 기한 확인하세요!',
   },
-  designer: {
-    query: '앱 아이콘 레퍼런스 찾아줘',
-    steps: ['🎨 디자인 레퍼런스 수집 중...', '✨ 트렌드 분석 중...'],
-    result: '🎨 앱 아이콘 트렌드 2024\n\n1. 글래스모피즘 (투명+블러)\n2. 3D 미니멀 아이소메트릭\n3. 그라데이션 + 세리프 조합\n\n참고 앱: Notion, Linear, Arc Browser\n\n💡 추천: 다크 배경 + 보라 그라데이션',
-  },
-  freelancer: {
-    query: '프로젝트 견적서 작성해줘',
-    steps: ['📊 시장 단가 조사 중...', '💰 견적 계산 중...'],
-    result: '💰 프리랜서 견적서 완성\n\n웹사이트 개발 프로젝트\n기획: 5일 × 25만원 = 125만원\n디자인: 7일 × 30만원 = 210만원\n개발: 14일 × 40만원 = 560만원\n\n소계: 895만원\nVAT(10%): 89.5만원\n\n총액: 984.5만원',
+  general: {
+    query: '오늘 날씨랑 주요 뉴스 알려줘',
+    steps: ['🌤️ 날씨 데이터 수집 중...', '📰 주요 뉴스 수집 중...', '🔶 Hacker News 확인 중...'],
+    result: '🌤️ 오늘 서울 날씨\n최고 23°C / 최저 14°C · 맑음 ☀️\n강수 확률 10% · 미세먼지 좋음\n\n📰 오늘의 주요 뉴스\n1. 한국은행 기준금리 3.25% 동결\n2. 삼성전자 HBM4 양산 돌입 — 주가 +3.2%\n3. 2026 서울시 버스 노선 개편 확정\n\n🔶 Hacker News Top\n• "We built a 10M req/day service on SQLite"\n• "The death of the junior developer"\n\n💡 오늘도 좋은 하루 되세요!',
   },
 }
 
 const JOB_DEMOS_EN: Record<string, { query: string; steps: string[]; result: string; proHint?: string }> = {
-  investor: {
-    query: 'Should I buy Samsung stock now?',
-    steps: ['📡 Fetching real-time price & financials...', '📊 Analyzing PER·PBR·ROE...', '🧠 Generating AI investment insight...'],
-    result: '📈 Samsung (005930) Analysis\n\nCurrent: ₩79,200 ▲ +1.2%\nPER 14.3 (sector avg 18.2 → undervalued)\nPBR 1.08 · Dividend yield 2.1%\n\n✅ Catalyst: HBM3E supply to NVIDIA approved\n⚠️ Risk: KRW/USD above 1,380 → export headwind\n\n💡 AI: Gradual accumulation zone. Target ₩88,000\n\n⚠️ Investment decisions are your responsibility.',
-    proHint: 'Get this analysis delivered daily with Pro plan',
-  },
-  medical: {
-    query: 'Metformin dosing in renal impairment?',
-    steps: ['📚 Searching latest PubMed papers...', '🔬 Classifying evidence levels...', '📋 Summarizing clinical guidelines...'],
-    result: '🏥 Metformin Renal Dosing Guide\n\n📊 Evidence: ADA 2024 (Grade A)\n\neGFR ≥ 45: Standard 1,000mg bid\neGFR 30~44: 500mg bid (reduced)\neGFR < 30: Contraindicated\n\n⚠️ Hold 48h before contrast media\n\n🆕 2024 Update: XR formulation 68% less GI side effects\n\n⚠️ Clinical decisions require physician judgement',
-    proHint: 'Unlimited medical search with Pro plan',
+  developer: {
+    query: "Show me today's GitHub trending repos",
+    steps: ['⭐ Fetching GitHub Trending...', '🔶 Fetching Hacker News top stories...', '📋 Compiling summary...'],
+    result: "⭐ GitHub Trending (Today)\n\n1. microsoft/TypeScript ↑1,234⭐\n   \"TypeScript 5.5 RC — Improved type inference\"\n2. vercel/ai ↑987⭐\n   \"AI SDK 4.0 — New streaming & tool call API\"\n3. golang/go ↑756⭐\n   \"Go 1.23 iterator syntax stabilized\"\n\n🔶 Hacker News Top\n• \"We built a 10M req/day service on SQLite\"\n• \"LLM context windows are getting too large\"\n\n💡 Today's keywords: TypeScript · AI SDK · SQLite",
   },
   legal: {
     query: 'Review this employment contract',
@@ -184,41 +176,47 @@ const JOB_DEMOS_EN: Record<string, { query: string; steps: string[]; result: str
     result: '⚖️ Employment Contract Review\n\n🔴 High Risk (2)\n• Clause 7: Blanket overtime → Supreme Court may void\n  Suggested: "OT/night work calculated separately"\n• Clause 12: Non-compete 5 years → excessive, courts reduce to 2\n\n🟡 Caution (1)\n• Clause 15: No cap on damages specified\n\n✅ 12 standard clauses OK\n\nOverall Risk: 🟡 Moderate\n⚠️ Final review by licensed attorney required',
     proHint: 'Unlimited contract reviews with Pro plan',
   },
+  medical: {
+    query: 'Metformin dosing in renal impairment?',
+    steps: ['📚 Searching latest PubMed papers...', '🔬 Classifying evidence levels...', '📋 Summarizing clinical guidelines...'],
+    result: '🏥 Metformin Renal Dosing Guide\n\n📊 Evidence: ADA 2024 (Grade A)\n\neGFR ≥ 45: Standard 1,000mg bid\neGFR 30~44: 500mg bid (reduced)\neGFR < 30: Contraindicated\n\n⚠️ Hold 48h before contrast media\n\n🆕 2024 Update: XR formulation 68% less GI side effects\n\n⚠️ Clinical decisions require physician judgement',
+    proHint: 'Unlimited medical search with Pro plan',
+  },
+  accountant: {
+    query: "This month's tax deadlines and exchange rates?",
+    steps: ['📅 Looking up tax filing schedule...', '💱 Fetching live exchange rates...', '📊 Checking IRS/tax news...'],
+    result: "📅 This Month's Tax Deadlines\n\n📌 Individual Returns Due (Apr 15)\n• File or extend by April 15\n• Q1 estimated tax also due April 15\n\n💱 Live Exchange Rates (USD base)\nEUR/USD  1.082\nJPY/USD  0.0066\nGBP/USD  1.271\nCNY/USD  0.138\n\n📊 IRS News\n• New crypto reporting rules effective 2025\n• Standard deduction increased to $14,600\n\n💡 Key this month: April 15 deadline approaching!",
+  },
   creator: {
     query: 'Write a YouTube script on AI tools',
     steps: ['🔍 Analyzing trending & competitor videos...', '✍️ Building hook · body · outro...', '🏷️ SEO optimization...'],
     result: '🎬 YouTube Script Ready!\n\n🎯 Hook: "Not using AI in 2026 costs you $5k/year"\n\n📌 Intro: I saved 40 hours of work with a single AI tool...\n\n📋 Body\n① Automate repetitive tasks → save 20h/month\n② AI research → 90% faster content prep\n③ Script automation → upload 3 videos/week\n\n🔚 Outro: Drop your #1 task to automate in the comments!\n\n📌 Title: "AI Made Me Leave Work 3 Hours Early"\n🏷️ #AItools #productivity #youtubescript',
     proHint: 'Unlimited script generation with Pro plan',
   },
-  developer: {
-    query: 'Find the cause of a Python memory leak',
-    steps: ['🔍 Scanning code patterns...', '🐛 Profiling memory usage...'],
-    result: '🐛 Memory Leak Found!\n\nCause: Event handlers accumulating in a global list\n\nBefore:\nhandlers.append(lambda: process(data))\n\nAfter:\nweakref.ref(handler)  # weak reference\n\n✅ Expected 43% memory reduction after fix',
+  realtor: {
+    query: "Today's real estate news and listings",
+    steps: ['🏠 Fetching real estate news...', '📋 Checking housing application schedule...', '💰 Fetching interest rates & FX...'],
+    result: "🏠 Real Estate Briefing\n\n📰 Top News\n• Fed holds rates — mortgage rates stable at 6.8%\n• NYC apartment inventory up 18% YoY\n• Commercial real estate vacancies hit 10-year high\n\n📋 New Listings This Week\n• Austin TX — 3BR/2BA $425k (↓$15k)\n• Remote-friendly suburbs seeing surge\n\n💰 Rate Snapshot\nFed Funds: 5.25% (hold)\n30yr Fixed: 6.82%\nUSD Index: 104.2\n\n💡 Key: Rate-hold = buyer confidence returning",
   },
-  marketer: {
-    query: 'Analyze competitor marketing strategy',
-    steps: ['🔍 Crawling competitor SNS & websites...', '📊 Analyzing trends...'],
-    result: '📊 Competitor Marketing Analysis\n\nTop 3 brands common strategies:\n① Short-form video 5+ times/week\n② Micro-influencer targeting\n③ Community-driven viral\n\n💡 Opportunity: Long-form educational content gap found',
+  teacher: {
+    query: "Today's education news and exam schedule",
+    steps: ['📚 Fetching education news...', '🎓 Checking exam schedule...', '📺 Finding recommended content...'],
+    result: "📚 Education Briefing\n\n📰 Education News\n• AI tutoring tools adoption in K-12 up 3x\n  Majority of districts piloting ChatGPT-based tools\n• College Board announces SAT score inflation review\n\n🎓 Key Dates\n• SAT: June 7, 2025\n• ACT: June 14, 2025\n• AP Score Release: July 2025\n• Common App opens: Aug 1, 2025\n\n📺 Recommended Resources\n• Khan Academy: AP Calculus BC full course\n• Crash Course: US History for AP exam\n\n💡 Key: AP season in full swing — prep your students!",
   },
-  sales: {
-    query: 'Research client before the meeting',
-    steps: ['🔍 Gathering company information...', '📋 Organizing insights...'],
-    result: '📋 Pre-Meeting Research Done\n\nCompany: Recently raised Series B\nKey challenge: Sales team productivity\n\n💡 Pitch angle:\n• Lead with ROI (cost savings in numbers)\n• Target: CTO + CFO simultaneously',
+  hr: {
+    query: "Today's hiring news and minimum wage info",
+    steps: ['👥 Fetching HR & hiring news...', '📋 Checking minimum wage data...', '💼 Finding top job postings...'],
+    result: "👥 HR Briefing\n\n📰 Hiring News\n• Big Tech layoffs slow — hiring restarts Q3\n  Amazon, Google announcing 8,000+ new roles\n• AI skills now in 40% of all job postings\n\n📋 Minimum Wage (US Federal)\nFederal: $7.25/hr\nCA: $16.50 · NY: $16.00 · WA: $16.28\n\n💼 Top Job Postings Today\n• Google — Staff ML Engineer (Remote)\n• Stripe — Senior Data Analyst (SF/NYC)\n• Shopify — Product Manager (Remote)\n\n💡 Key: AI skills premium +23% salary bump average",
   },
-  pm: {
-    query: 'Summarize today\'s meeting notes',
-    steps: ['📋 Analyzing meeting content...', '✍️ Extracting key points...'],
-    result: '✅ Meeting Summary Done\n\n📌 Key Decisions\n• Q2 budget +15% approved\n• New partnership deal by end of June\n\n📅 Action Items\n• Kim (lead): Contract draft (5/30)\n• Lee: Budget report (6/3)',
+  engineer: {
+    query: "Today's industry news and metal prices",
+    steps: ['⚙️ Fetching industry & manufacturing news...', '📦 Fetching raw material prices...', '📐 Checking ISO standards updates...'],
+    result: "⚙️ Engineering Briefing\n\n📰 Industry News\n• US manufacturing PMI 52.3 — expansion continues\n• EV battery production capacity up 35% YoY\n• Semiconductor supply chain normalizing by Q4\n\n📦 Raw Material Prices\nSteel (HRC) $680/ton ▲+1.2%\nCopper (LME) $9,850/ton ▲+0.8%\nAluminum $2,420/ton ▼-0.3%\n\n📐 Standards Updates\n• ISO 9001:2025 revision in progress\n• ASME B31.3 process piping code updated\n\n💡 Key: Copper prices rising — plan procurement now",
   },
-  designer: {
-    query: 'Find app icon references',
-    steps: ['🎨 Collecting design references...', '✨ Analyzing trends...'],
-    result: '🎨 App Icon Trends 2024\n\n1. Glassmorphism (transparent+blur)\n2. 3D minimal isometric\n3. Gradient + serif combo\n\nReference apps: Notion, Linear, Arc Browser\n\n💡 Recommended: Dark bg + purple gradient',
-  },
-  freelancer: {
-    query: 'Write a project quote',
-    steps: ['📊 Researching market rates...', '💰 Calculating quote...'],
-    result: '💰 Freelance Quote Ready\n\nWebsite Development Project\nPlanning: 5d × $250 = $1,250\nDesign: 7d × $300 = $2,100\nDevelopment: 14d × $400 = $5,600\n\nSubtotal: $8,950\nTax (10%): $895\n\nTotal: $9,845',
+  general: {
+    query: "What's today's weather and top news?",
+    steps: ['🌤️ Fetching weather data...', '📰 Fetching top news...', '🔶 Checking Hacker News...'],
+    result: "🌤️ Seoul Weather Today\nHigh 23°C / Low 14°C · Clear ☀️\nRain chance 10% · Air quality: Good\n\n📰 Top News Today\n1. Fed holds interest rates steady at 5.25%\n2. Samsung starts HBM4 mass production — stock +3.2%\n3. OpenAI GPT-5 preview launches for Pro users\n\n🔶 Hacker News Top\n• \"We built a 10M req/day service on SQLite\"\n• \"The death of the junior developer\"\n\n💡 Have a great day!",
   },
 }
 
@@ -434,6 +432,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     try {
       const BASE = 'http://127.0.0.1:17891'
       fetch(`${BASE}/api/persona/set`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedJobId }),
+      }).catch(() => {})
+      fetch(`${BASE}/api/vertical/config`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: selectedJobId }),
       }).catch(() => {})
