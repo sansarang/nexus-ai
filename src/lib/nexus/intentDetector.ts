@@ -369,6 +369,7 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /파일.*찾아|찾아줘.*파일|파일.*어디|어디.*파일|file.*search|search.*file/i,
       /\.pdf|\.docx|\.xlsx|\.hwp\s*(찾아|어디)/i,
+      /(?:폴더|folder).*(?:안에서|에서).*찾아줘/i,
     ],
   },
   // ── 폴더 자동 정리 ──
@@ -430,6 +431,7 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /내용.*검색|파일.*안.*내용|텍스트.*검색|전문.*검색|deep.*search/i,
       /파일.*내용.*찾|찾아서.*비교|심층.*검색/i,
+      /내용.*안에서.*찾아줘|파일.*속.*찾아줘/i,
     ],
   },
   // ── Vision: 화면 분석 ──
