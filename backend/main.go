@@ -364,6 +364,7 @@ func main() {
 	mux.HandleFunc("POST /api/video/transcript", handleVideoTranscript)
 	mux.HandleFunc("POST /api/video/transcript-batch", handleVideoTranscriptBatch)
 	mux.HandleFunc("POST /api/video/analyze-file", handleVideoAnalyzeFile)
+	mux.HandleFunc("GET /api/video/check-deps", handleVideoCheckDeps)
 	// TikTok 크롤러
 	mux.HandleFunc("POST /api/tiktok/search", handleTikTokSearch)
 	mux.HandleFunc("GET /api/tiktok/trending", handleTikTokTrending)

@@ -281,8 +281,13 @@ export function FloatingCharacter() {
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd())
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
-  // 문제 #4: 플로팅 패널 닫힌 후에도 ChatBubble에서 볼 수 있게 저장
-  const [savedPreviews, setSavedPreviews] = useState<Array<{ label: string; items: Array<{ title: string; url: string }> }>>([])
+  // savedPreviews: 앱 재시작 후에도 유지 (localStorage 영구 저장)
+  const [savedPreviews, setSavedPreviews] = useState<Array<{ label: string; items: Array<{ title: string; url: string }> }>>(() => {
+    try { return JSON.parse(localStorage.getItem('nexus_saved_previews') || '[]') } catch { return [] }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('nexus_saved_previews', JSON.stringify(savedPreviews.slice(-5))) } catch { /* storage full */ }
+  }, [savedPreviews])
 
   // ── Clarify 멀티턴 상태 ──────────────────────────────────
   const [clarifyPendingIntent,   setClarifyPendingIntent]   = useState<string | null>(null)
@@ -1032,6 +1037,20 @@ export function FloatingCharacter() {
         const wantAnalyze = /요약|내용|설명|분석|뭐|무슨|어떤|정리|요점|핵심|자막|전사|summarize|summary|content|what|explain|transcript|analyze|analyse/i.test(text)
 
         if (wantAnalyze || !text) {
+          // 의존성 사전 체크
+          const depsCheck = await fetch('http://127.0.0.1:17891/api/video/check-deps').then(r => r.json()).catch(() => null)
+          if (depsCheck && !depsCheck.ready) {
+            const hint = depsCheck.message ?? '영상 분석 도구가 설치되지 않았습니다.'
+            const installHint = depsCheck.install_hint?.ffmpeg ?? ''
+            setMessages(prev => [
+              ...prev,
+              { id: `u-${Date.now()}`, role: 'user', text: `🎬 ${file.name}${text ? '\n' + text : ''}` },
+              { id: `n-${Date.now()}`, role: 'nexus', text: `⚠️ **영상 분석 불가**\n\n${hint}\n\n${installHint ? `📦 설치 방법:\n${installHint}` : ''}` },
+            ])
+            setTyping(false)
+            return
+          }
+
           // 진행 중 메시지 먼저 표시
           setMessages(prev => [
             ...prev,

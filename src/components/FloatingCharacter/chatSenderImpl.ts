@@ -143,7 +143,11 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     typingRef.current = true
 
     const msgId = Date.now().toString()
-    setMessages(prev => [...prev, { id: msgId, role: 'user', text: trimmed }])
+    // 메모리 관리: messages 배열 100개 초과 시 오래된 50개 제거
+    setMessages(prev => {
+      const next = [...prev, { id: msgId, role: 'user' as const, text: trimmed }]
+      return next.length > 100 ? next.slice(-80) : next
+    })
     setInput('')
     setListening(false)
     setTyping(true)
@@ -243,8 +247,14 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
             : `**${res.from} → ${res.to}** 경로를 지도 앱에서 확인하세요.`)
 
           setEmotion('happy')
+          const routeCard2 = previewLinks.length > 0 ? {
+            type: 'system_action' as const, icon: '🗺️',
+            title: isEnglishQuery(trimmed) ? `${res.from} → ${res.to}` : `${res.from} → ${res.to} 경로`,
+            detail: previewLinks.slice(0, 4).map((it: { title: string }) => `• ${it.title}`).join('\n'),
+            success: true,
+          } : undefined
           setMessages(prev => [...prev, {
-            id: `${msgId}-res`, role: 'nexus', text: displayText,
+            id: `${msgId}-res`, role: 'nexus', text: displayText, inlineCard2: routeCard2,
           }])
           pushModelHistory(trimmed, displayText)
           speakText(displayText)
@@ -279,8 +289,14 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           if (allLinks.length > 0) setFloatingPreview(allLinks as any)
 
           const displayText = isEnglishQuery(trimmed) ? `**${res.place}** — View the location on the map app. Click Street View to see real-world photos.` : `**${res.place}** 위치를 지도 앱에서 확인하세요. 로드뷰 버튼을 클릭하면 실제 거리 사진을 볼 수 있어요.`
+          const placeCard2 = allLinks.length > 0 ? {
+            type: 'system_action' as const, icon: '📍',
+            title: res.place,
+            detail: allLinks.slice(0, 4).map((it: { title: string }) => `• ${it.title}`).join('\n'),
+            success: true,
+          } : undefined
           setEmotion('happy')
-          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText }])
+          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: displayText, inlineCard2: placeCard2 }])
           pushModelHistory(trimmed, displayText)
           speakText(displayText)
           appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(displayText) })
@@ -759,8 +775,16 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     if ((response as any).preview_type) setPreviewType((response as any).preview_type)
     if (previewItems.length > 0) setFloatingPreview(previewItems)
 
+    // UI 일관성: 링크가 있으면 채팅 버블에도 inlineCard2 요약 카드 표시
+    const llmCard2 = previewItems.length > 0 ? {
+      type: 'system_action' as const, icon: '🔍',
+      title: userLang === 'en' ? 'Related Links' : '관련 링크',
+      detail: previewItems.slice(0, 5).map((it: { title: string }) => `• ${it.title}`).join('\n'),
+      success: true,
+    } : undefined
+
     setMessages(prev => [...prev, {
-      id: `${msgId}-res`, role: 'nexus', text: response!.text,
+      id: `${msgId}-res`, role: 'nexus', text: response!.text, inlineCard2: llmCard2,
     }])
     pushModelHistory(trimmed, response.text)
     if (response.text) {

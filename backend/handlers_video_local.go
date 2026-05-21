@@ -15,6 +15,54 @@ import (
 	"time"
 )
 
+// GET /api/video/check-deps
+func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
+	ffmpegPath, _ := exec.LookPath("ffmpeg")
+	if ffmpegPath == "" {
+		for _, p := range []string{"/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"} {
+			if fileExists(p) {
+				ffmpegPath = p
+				break
+			}
+		}
+	}
+	ytdlpPath := findYtDlp()
+
+	llmMu.RLock()
+	groqKey := llmGroqKey
+	llmMu.RUnlock()
+
+	result := map[string]any{
+		"ffmpeg":      ffmpegPath != "",
+		"ffmpeg_path": ffmpegPath,
+		"ytdlp":       ytdlpPath != "",
+		"ytdlp_path":  ytdlpPath,
+		"groq_key":    groqKey != "",
+	}
+
+	var missing []string
+	if ffmpegPath == "" {
+		missing = append(missing, "ffmpeg")
+	}
+	if groqKey == "" {
+		missing = append(missing, "Groq API 키")
+	}
+
+	if len(missing) > 0 {
+		result["ready"] = false
+		result["message"] = fmt.Sprintf("영상 분석에 필요한 항목이 없습니다: %s", strings.Join(missing, ", "))
+		result["install_hint"] = map[string]string{
+			"ffmpeg": "macOS: brew install ffmpeg / Windows: https://ffmpeg.org/download.html",
+			"groq":   "설정 > API 키에서 Groq API 키를 입력하세요",
+		}
+	} else {
+		result["ready"] = true
+		result["message"] = "영상 분석 준비 완료"
+	}
+
+	writeJSON(w, 200, result)
+}
+
 // POST /api/video/analyze-file
 // body: { "file_data": "<base64>", "file_name": "video.mp4", "lang": "ko", "query": "요약해줘" }
 // 로컬에 첨부된 영상 파일 → ffmpeg 오디오 추출 → Groq Whisper 전사 → LLM 요약

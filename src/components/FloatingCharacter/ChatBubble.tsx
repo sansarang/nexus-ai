@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useReducer } from 'react'
+import { useEffect, useRef, useState, useCallback, useReducer, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const TYPING_MSGS_KO = ['생각하는 중...', '검색하는 중...', '답변 준비 중...', '분석하는 중...']
@@ -422,11 +422,14 @@ export function ChatBubble({
   const FEATURED_ACTIONS = isEn ? FEATURED_ACTIONS_EN : FEATURED_ACTIONS_KO
   const FOLLOW_UP_MAP = isEn ? FOLLOW_UP_MAP_EN : FOLLOW_UP_MAP_KO
 
-  /* 카드가 붙은 메시지 — 최근 6개 표시 (기존 2개에서 확대) */
-  const liveCards = messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).slice(-6)
+  /* 카드가 붙은 메시지 — 최근 6개 표시 */
+  const liveCards = useMemo(
+    () => messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).slice(-6),
+    [messages]
+  )
 
   // 실시간 대화 메시지 — 최근 20개
-  const liveMessages = messages.slice(-20)
+  const liveMessages = useMemo(() => messages.slice(-20), [messages])
 
   // 긴 메시지 펼치기 상태
   const [expandedMsgs, setExpandedMsgs] = useState<Set<string>>(new Set())
