@@ -857,9 +857,13 @@ export function ChatBubble({
           value={input}
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && (input.trim() || attachedFile)) {
+            if (e.key === 'Enter' && !e.shiftKey && (input.trim() || attachedFile)) {
               e.preventDefault()
-              handleSendAll()
+              if (e.nativeEvent.isComposing) {
+                setTimeout(() => handleSendAll(), 10)
+              } else {
+                handleSendAll()
+              }
             }
           }}
           placeholder={

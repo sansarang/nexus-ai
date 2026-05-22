@@ -77,7 +77,7 @@ export function Avatar3D({
           alpha: true,
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.15,
+          toneMappingExposure: 1.4,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
         shadows
