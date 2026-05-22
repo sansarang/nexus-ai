@@ -474,6 +474,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const overlay: React.CSSProperties = {
     position: 'fixed', inset: 0, zIndex: 99999,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(8,8,20,0.98)',
   }
 
   const card: React.CSSProperties = {
