@@ -13,7 +13,7 @@ import type { InlineCard3Data } from './InlineCards3'
 import type { InlineCard4Data } from './InlineCards4'
 import { SpeakingWaves } from './Avatar3D'
 import { AvatarRuntime } from './Avatar3D/AvatarRuntime'
-import { OnboardingFlow } from './OnboardingFlow'
+import { OnboardingFlow, LoginScreen } from './OnboardingFlow'
 import type { AvatarConfig } from './OnboardingFlow'
 import { PaywallModal } from '../PaywallModal'
 import { appendHistory } from './ChatBubble'
@@ -1423,6 +1423,10 @@ export function FloatingCharacter() {
 
   if (!isOnboarded) {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />
+  }
+
+  if (!isLoggedIn) {
+    return <LoginScreen />
   }
 
   return (
