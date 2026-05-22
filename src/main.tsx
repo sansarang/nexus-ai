@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
-import { supabase, fetchSubscription, createTrialSubscription, resolveStatus } from './lib/supabase'
+import { supabase, fetchSubscription, createTrialSubscription, resolveStatus, fetchUserSettings } from './lib/supabase'
 import { initPaddle } from './lib/paddle'
 
 // oauth-callback 처리 중 플래그 — onAuthStateChange 중복 처리 방지
@@ -90,6 +90,23 @@ async function bootstrap() {
           const email = user.email ?? ''
           // 일단 로그인 처리 먼저 — 구독 조회 실패해도 앱 진입 가능
           useAppStore.getState().setLoggedIn(email, 'trial', '', user.id)
+          // 설정 복원 (Supabase → localStorage → store)
+          try {
+            const settings = await fetchUserSettings(user.id)
+            if (settings?.is_onboarded) {
+              if (settings.assistant_name) { localStorage.setItem('nexus-assistant-name', settings.assistant_name); useAppStore.getState().setAssistantName(settings.assistant_name) }
+              if (settings.user_name) { localStorage.setItem('nexus-user-name', settings.user_name); useAppStore.getState().setUserName(settings.user_name) }
+              if (settings.user_lang) { localStorage.setItem('nexus-lang', settings.user_lang); useAppStore.getState().setUserLang(settings.user_lang as 'ko' | 'en') }
+              if (settings.primary_color) { localStorage.setItem('nexus-primary-color', settings.primary_color); useAppStore.getState().setPrimaryColor(settings.primary_color) }
+              if (settings.accent_color) { localStorage.setItem('nexus-accent-color', settings.accent_color); useAppStore.getState().setAccentColor(settings.accent_color) }
+              if (settings.glb_url) localStorage.setItem('nexus-glb-url', settings.glb_url)
+              if (settings.preset) localStorage.setItem('nexus-preset', settings.preset)
+              if (settings.tts_voice) { localStorage.setItem('nexus-tts-voice', settings.tts_voice); useAppStore.getState().setTtsVoice(settings.tts_voice) }
+              if (settings.character_id) localStorage.setItem('nexus-character', settings.character_id)
+              localStorage.setItem('nexus-onboarded', 'true')
+              useAppStore.setState({ isOnboarded: true })
+            }
+          } catch { /* 설정 복원 실패 시 localStorage 유지 */ }
           try {
             let row = await fetchSubscription(user.id)
             if (!row) {

@@ -119,6 +119,38 @@ export async function createTrialSubscription(userId: string): Promise<void> {
   )
 }
 
+export interface UserSettings {
+  assistant_name: string
+  user_name: string
+  user_lang: string
+  primary_color: string
+  accent_color: string
+  glb_url: string
+  preset: string
+  tts_voice: string
+  character_id: string
+  is_onboarded: boolean
+}
+
+/** 사용자 설정 저장 */
+export async function saveUserSettings(userId: string, settings: Partial<UserSettings>): Promise<void> {
+  await supabase.from('user_settings').upsert(
+    { user_id: userId, ...settings, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' }
+  )
+}
+
+/** 사용자 설정 불러오기 */
+export async function fetchUserSettings(userId: string): Promise<UserSettings | null> {
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) return null
+  return data as UserSettings | null
+}
+
 /** 구독 상태 계산 (만료 여부 포함) */
 export function resolveStatus(row: SubscriptionRow | null): SubscriptionStatus {
   if (!row) return 'none'

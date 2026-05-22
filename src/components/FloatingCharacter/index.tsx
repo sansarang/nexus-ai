@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion, useMotionValue } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
+import { saveUserSettings } from '../../lib/supabase'
 import { DesktopAgent } from '../DesktopAgent'
 import { WorkflowBuilder } from '../WorkflowBuilder'
 import { EmailSetup } from '../EmailSetup'
@@ -388,6 +389,22 @@ export function FloatingCharacter() {
     const expiry = localStorage.getItem('nexus-sub-expiry') ?? ''
     if (email) setLoggedIn(email, status, expiry)
     setOnboarded()
+    // Supabase에 설정 저장
+    const userId = localStorage.getItem('nexus-user-id')
+    if (userId) {
+      saveUserSettings(userId, {
+        assistant_name: config.assistantName,
+        user_name: config.userName,
+        user_lang: localStorage.getItem('nexus-lang') ?? 'ko',
+        primary_color: config.primaryColor,
+        accent_color: config.accentColor,
+        glb_url: config.glbUrl ?? '',
+        preset: config.preset ?? '',
+        tts_voice: config.ttsVoice ?? 'nova',
+        character_id: localStorage.getItem('nexus-character') ?? 'sora',
+        is_onboarded: true,
+      }).catch(() => {})
+    }
   }, [setAssistantName, setUserName, setPrimaryColor, setAccentColor, setOnboarded, setTtsVoice, setLoggedIn])
 
   /* 첫 인사 — 텍스트 + TTS (1회만 재생) */
