@@ -401,7 +401,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setGoogleLoading(true)
     try {
       const hint = localStorage.getItem('nexus-user-email') ?? undefined
-      await signInWithGoogle(hint)
+      await signInWithGoogle(undefined, hint)
     } catch (e) {
       console.warn('Google OAuth failed, starting trial:', e)
       const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
