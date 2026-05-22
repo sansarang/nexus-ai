@@ -811,7 +811,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       neutral: 'neutral', happy: 'happy', concerned: 'concerned',
       alert: 'alert', humorous: 'humorous',
     }
-    setEmotion(emotionMap[response.emotion ?? 'neutral'])
+    setEmotion(emotionMap[(response.emotion ?? 'neutral') as NexusEmotion])
 
     // 미리보기는 오른쪽 플로팅 패널에만 표시
     const previewItems = response.preview_items ?? getLastPreviewItems()
