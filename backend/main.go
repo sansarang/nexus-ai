@@ -423,11 +423,11 @@ func main() {
 	go startRecallCollector()    // Windows Recall 자동 캡처 (60초 간격)
 	go rebuildBrainIndex()       // Second Brain 초기 인덱싱
 
-	const port = "127.0.0.1:17891"
+	const port = "127.0.0.1:17892"
 
 	// 포트 충돌 선제 해결: 이전 인스턴스가 남아있으면 강제 종료
 	if ln, err := net.Listen("tcp", port); err != nil {
-		log.Printf("[Nexus] 포트 17891 이미 사용 중 — 이전 인스턴스 종료 시도")
+		log.Printf("[Nexus] 포트 17892 이미 사용 중 — 이전 인스턴스 종료 시도")
 		exec.Command("taskkill", "/F", "/IM", "nexus-backend.exe").Run()
 		time.Sleep(1 * time.Second)
 	} else {
@@ -443,7 +443,7 @@ func main() {
 	}
 
 	go func() {
-		log.Println("[Nexus Backend] 시작 :17891")
+		log.Println("[Nexus Backend] 시작 :17892")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("[Nexus Backend] 서버 시작 실패: %v", err)
 			os.Exit(1)

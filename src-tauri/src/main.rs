@@ -12,6 +12,90 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 static BACKEND_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock::new();
 
 // ═══════════════════════════════════════════════════════════════
+// Rust 인증 서버 — 포트 17891 직접 소유
+// Go 백엔드(17892) 실행 여부와 무관하게 OAuth 콜백 항상 동작
+// 인증 외 요청은 Go 백엔드(17892)로 TCP 프록시
+// ═══════════════════════════════════════════════════════════════
+static PENDING_TOKEN: OnceLock<std::sync::Arc<tokio::sync::Mutex<String>>> = OnceLock::new();
+
+fn get_pending_token() -> std::sync::Arc<tokio::sync::Mutex<String>> {
+    PENDING_TOKEN.get_or_init(|| std::sync::Arc::new(tokio::sync::Mutex::new(String::new()))).clone()
+}
+
+const AUTH_CALLBACK_HTML: &str = include_str!("auth_callback.html");
+
+async fn run_auth_proxy() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let listener = match TcpListener::bind("127.0.0.1:17891").await {
+        Ok(l) => l,
+        Err(e) => { eprintln!("[AuthProxy] 포트 17891 바인딩 실패: {e}"); return; }
+    };
+
+    loop {
+        let Ok((mut client, _)) = listener.accept().await else { continue };
+        let pending = get_pending_token();
+        tauri::async_runtime::spawn(async move {
+            let mut buf = vec![0u8; 8192];
+            let n = client.read(&mut buf).await.unwrap_or(0);
+            if n == 0 { return; }
+
+            let req = String::from_utf8_lossy(&buf[..n]);
+            let first_line = req.lines().next().unwrap_or("");
+
+            // CORS preflight
+            if first_line.starts_with("OPTIONS") {
+                let _ = client.write_all(
+                    b"HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET,POST,OPTIONS\r\nAccess-Control-Allow-Headers: *\r\n\r\n"
+                ).await;
+                return;
+            }
+
+            if first_line.contains("GET /auth/callback") {
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
+                    AUTH_CALLBACK_HTML.len(), AUTH_CALLBACK_HTML
+                );
+                let _ = client.write_all(resp.as_bytes()).await;
+
+            } else if first_line.contains("POST /api/auth/token") {
+                let body_start = req.find("\r\n\r\n").map(|i| i + 4).unwrap_or(n);
+                let body = req[body_start..].trim().to_string();
+                *pending.lock().await = body;
+                let _ = client.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":true}"
+                ).await;
+
+            } else if first_line.contains("GET /api/auth/callback/pending") {
+                let token = { let mut p = pending.lock().await; std::mem::take(&mut *p) };
+                let escaped = token.replace('\\', "\\\\").replace('"', "\\\"").replace('\r', "").replace('\n', "");
+                let body = format!("{{\"token\":\"{escaped}\"}}");
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\n\r\n{}",
+                    body.len(), body
+                );
+                let _ = client.write_all(resp.as_bytes()).await;
+
+            } else {
+                // 그 외 모든 요청 → Go 백엔드(17892)로 TCP 프록시
+                match tokio::net::TcpStream::connect("127.0.0.1:17892").await {
+                    Ok(mut backend) => {
+                        let _ = backend.write_all(&buf[..n]).await;
+                        let _ = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
+                    }
+                    Err(_) => {
+                        let _ = client.write_all(
+                            b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 26\r\n\r\n{\"error\":\"backend offline\"}"
+                        ).await;
+                    }
+                }
+            }
+        });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 창 제어 헬퍼
 // ═══════════════════════════════════════════════════════════════
 fn toggle_main_window<R: Runtime>(app: &tauri::AppHandle<R>) {
@@ -308,7 +392,10 @@ async fn main() {
             Some(vec![]),
         ))
         .setup(|app| {
-            // 1. Go 백엔드 실행 (임베드된 바이너리 자동 추출)
+            // 1. Rust 인증 프록시 서버 시작 (포트 17891 — Go보다 먼저, 항상 실행)
+            tauri::async_runtime::spawn(run_auth_proxy());
+
+            // 2. Go 백엔드 실행 (포트 17892)
             launch_backend(app);
 
             // 2. 시스템 트레이 설정

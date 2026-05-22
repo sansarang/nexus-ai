@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그인 완료</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0d0d14;color:#fff;font-family:-apple-system,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}
+  .card{text-align:center;padding:48px 40px;background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:20px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+  .icon{font-size:52px;margin-bottom:16px}
+  h1{font-size:22px;font-weight:800;margin-bottom:8px;color:#4ade80}
+  p{font-size:14px;color:rgba(255,255,255,0.5);line-height:1.6}
+  .btn{margin-top:24px;padding:12px 32px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:rgba(255,255,255,0.6);font-size:13px;cursor:pointer;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon" id="icon">⏳</div>
+  <h1 id="title">로그인 처리 중...</h1>
+  <p id="msg">잠시만 기다려주세요.</p>
+  <button class="btn" onclick="window.close()" id="closeBtn">창 닫기</button>
+</div>
+<script>
+(function() {
+  var query = new URLSearchParams(window.location.search);
+  var hash  = new URLSearchParams(window.location.hash.substring(1));
+  var code  = query.get('code');
+  var token = code ? 'code=' + encodeURIComponent(code)
+                   : window.location.hash.substring(1);
+
+  if (!code && !hash.get('access_token')) {
+    document.getElementById('icon').textContent = '❌';
+    document.getElementById('title').textContent = '로그인 실패';
+    document.getElementById('title').style.color = '#f87171';
+    document.getElementById('msg').textContent = '다시 시도해주세요.';
+    document.getElementById('closeBtn').style.display = 'inline-block';
+    return;
+  }
+
+  fetch('http://127.0.0.1:17891/api/auth/token', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: token
+  }).then(function() {
+    document.getElementById('icon').textContent = '✅';
+    document.getElementById('title').textContent = '로그인 완료!';
+    document.getElementById('msg').textContent = 'Nexus 앱으로 자동으로 돌아갑니다.';
+    document.getElementById('closeBtn').style.display = 'inline-block';
+    setTimeout(function(){ try{window.close()}catch(e){} }, 2000);
+  }).catch(function() {
+    document.getElementById('icon').textContent = '❌';
+    document.getElementById('title').textContent = '전송 실패';
+    document.getElementById('title').style.color = '#f87171';
+    document.getElementById('msg').textContent = 'Nexus 앱이 실행 중인지 확인해주세요.';
+    document.getElementById('closeBtn').style.display = 'inline-block';
+  });
+})();
+</script>
+</body>
+</html>

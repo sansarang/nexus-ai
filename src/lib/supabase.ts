@@ -30,19 +30,15 @@ export interface SubscriptionRow {
 export const BACKEND = 'http://127.0.0.1:17891'
 
 /**
- * Google OAuth — Tauri 딥링크 방식 (nexus://auth/callback)
- * Go 백엔드 실행 여부와 무관하게 동작.
- * 1. redirectTo = nexus://auth/callback
- * 2. 외부 브라우저에서 Google 로그인
- * 3. Supabase → nexus://auth/callback?code=XXX
- * 4. OS가 Nexus 앱으로 딥링크 전달
- * 5. Tauri가 oauth-callback 이벤트 발생 → PKCE 코드 교환
+ * Google OAuth — Rust 인증 서버(17891) 콜백 방식
+ * Rust가 포트 17891을 직접 소유하므로 Go 백엔드 실행 여부 무관.
+ * Chrome "앱 열기" 다이얼로그 없음.
  */
 export async function signInWithGoogle(onSuccess?: () => void, loginHint?: string): Promise<void> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: 'nexus://auth/callback',
+      redirectTo: `${BACKEND}/auth/callback`,
       skipBrowserRedirect: true,
       queryParams: {
         access_type: 'offline',
@@ -55,57 +51,38 @@ export async function signInWithGoogle(onSuccess?: () => void, loginHint?: strin
   if (data.url) {
     const { open } = await import('@tauri-apps/plugin-shell')
     await open(data.url)
-    await listenForDeepLinkCallback(onSuccess)
+    startOAuthPolling(onSuccess)
   }
 }
 
-async function listenForDeepLinkCallback(onSuccess?: () => void): Promise<void> {
-  const { listen } = await import('@tauri-apps/api/event')
-  let done = false
+function startOAuthPolling(onSuccess?: () => void) {
+  const maxAttempts = 360 // 3분
+  let attempts = 0
+  const timer = setInterval(async () => {
+    attempts++
+    if (attempts > maxAttempts) { clearInterval(timer); return }
+    try {
+      const res = await fetch(`${BACKEND}/api/auth/callback/pending`)
+      const json = await res.json() as { token?: string }
+      if (json.token) {
+        clearInterval(timer)
+        const params = new URLSearchParams(json.token)
+        const code = params.get('code')
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
 
-  // 최대 5분 타임아웃
-  const timeout = setTimeout(() => {
-    if (!done) { done = true; console.warn('[OAuth] 딥링크 타임아웃') }
-  }, 5 * 60 * 1000)
-
-  const unlisten = await listen<string>('oauth-callback', async (event) => {
-    if (done) return
-    done = true
-    clearTimeout(timeout)
-    unlisten()
-
-    const url = event.payload
-    console.log('[OAuth] 딥링크 수신:', url)
-
-    // query param에서 code 추출 (PKCE: nexus://auth/callback?code=XXX)
-    const queryStr = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
-    const params = new URLSearchParams(queryStr)
-    const code = params.get('code')
-
-    // fragment에서 access_token 추출 (implicit fallback)
-    const hashStr = url.includes('#') ? url.split('#')[1] : ''
-    const hashParams = new URLSearchParams(hashStr)
-    const accessToken = hashParams.get('access_token')
-    const refreshToken = hashParams.get('refresh_token')
-
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-      if (!error) {
-        console.log('[OAuth] PKCE 로그인 성공')
-        onSuccess?.()
-      } else {
-        console.error('[OAuth] 코드 교환 실패:', error)
+        if (code) {
+          // PKCE 코드 교환
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (!error) { console.log('[OAuth] PKCE 로그인 성공'); onSuccess?.() }
+        } else if (accessToken && refreshToken) {
+          // implicit fallback
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          if (!error) { console.log('[OAuth] 로그인 성공'); onSuccess?.() }
+        }
       }
-    } else if (accessToken && refreshToken) {
-      const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-      if (!error) {
-        console.log('[OAuth] implicit 로그인 성공')
-        onSuccess?.()
-      }
-    } else {
-      console.error('[OAuth] 콜백 URL에서 토큰/코드를 찾을 수 없음:', url)
-    }
-  })
+    } catch { /* Rust 서버 미응답 무시 */ }
+  }, 500)
 }
 
 /** 로그아웃 */
