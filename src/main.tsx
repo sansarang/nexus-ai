@@ -88,14 +88,18 @@ async function bootstrap() {
 
           const user = newSession.user
           const email = user.email ?? ''
-          let row = await fetchSubscription(user.id)
-          if (!row) {
-            await createTrialSubscription(user.id)
-            row = await fetchSubscription(user.id)
-          }
-          const status = resolveStatus(row)
-          const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
-          useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
+          // 일단 로그인 처리 먼저 — 구독 조회 실패해도 앱 진입 가능
+          useAppStore.getState().setLoggedIn(email, 'trial', '', user.id)
+          try {
+            let row = await fetchSubscription(user.id)
+            if (!row) {
+              await createTrialSubscription(user.id)
+              row = await fetchSubscription(user.id)
+            }
+            const status = resolveStatus(row)
+            const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
+            useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
+          } catch { /* 구독 조회 실패해도 로그인은 유지 */ }
         } else if (event === 'SIGNED_OUT') {
           localStorage.removeItem('nexus-user-email')
           localStorage.removeItem('nexus-sub-status')

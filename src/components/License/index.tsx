@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { signInWithGoogle } from '../../lib/supabase'
@@ -14,12 +14,19 @@ const GoogleIcon = () => (
 )
 
 export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: boolean }) {
-  const { setLoggedIn } = useAppStore()
+  const { setLoggedIn, isLoggedIn } = useAppStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showAdmin, setShowAdmin] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setLoading(false)
+      onSuccess?.()
+    }
+  }, [isLoggedIn])
 
   const handleGoogleLogin = async () => {
     setLoading(true)
@@ -27,7 +34,6 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
     try {
       await signInWithGoogle(() => {
         setLoading(false)
-        onSuccess?.()
       })
     } catch (e: any) {
       console.error('Google OAuth failed:', e)
