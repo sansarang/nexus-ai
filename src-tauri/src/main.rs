@@ -332,9 +332,10 @@ async fn main() {
             }
             let handle = app.handle().clone();
             app.listen("deep-link://new-url", move |event| {
-                let url = event.payload().to_string();
-                // nexus://auth/callback?code=XXX 수신 시 프론트엔드로 전달
-                if url.contains("auth/callback") || url.contains("access_token") {
+                // payload is JSON-encoded string: "\"nexus://...\""  — strip outer quotes
+                let raw = event.payload().to_string();
+                let url = raw.trim_matches('"').replace("\\\"", "\"");
+                if url.contains("auth/callback") || url.contains("access_token") || url.contains("code=") {
                     if let Some(win) = handle.get_webview_window("main") {
                         let _ = win.show();
                         let _ = win.set_focus();
