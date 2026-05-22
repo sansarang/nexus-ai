@@ -26,8 +26,8 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
     setError('')
     try {
       await signInWithGoogle(() => {
-        // 폴링 완료 콜백 — 로그인 성공
         setLoading(false)
+        onSuccess?.()
       })
     } catch (e: any) {
       console.error('Google OAuth failed:', e)
