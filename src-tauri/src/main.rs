@@ -26,12 +26,16 @@ static BACKEND_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock:
 // ═══════════════════════════════════════════════════════════════
 fn toggle_main_window<R: Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(win) = app.get_webview_window("main") {
-        if win.is_visible().unwrap_or(false) {
+        let visible  = win.is_visible().unwrap_or(false);
+        let focused  = win.is_focused().unwrap_or(false);
+        // 보이고 포커스도 있으면 숨기기, 그 외엔 항상 앞으로
+        if visible && focused {
             let _ = win.hide();
         } else {
             let _ = win.show();
+            let _ = win.unminimize();
             let _ = win.set_focus();
-            let _ = win.center();
+            if !visible { let _ = win.center(); }
         }
     }
 }
