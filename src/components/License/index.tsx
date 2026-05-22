@@ -25,14 +25,13 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
     setLoading(true)
     setError('')
     try {
-      await signInWithGoogle()
-      // 폴링은 signInWithGoogle 내부에서 시작 — 로그인 완료 시 onAuthStateChange가 setLoggedIn 호출
-    } catch (e) {
-      console.warn('Google OAuth failed, starting trial:', e)
-      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      setLoggedIn('user@gmail.com', 'trial', trialExpiry)
-      onSuccess?.()
-    } finally {
+      await signInWithGoogle(() => {
+        // 폴링 완료 콜백 — 로그인 성공
+        setLoading(false)
+      })
+    } catch (e: any) {
+      console.error('Google OAuth failed:', e)
+      setError('로그인 실패: ' + (e?.message || '다시 시도해주세요.'))
       setLoading(false)
     }
   }

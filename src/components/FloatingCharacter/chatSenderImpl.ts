@@ -758,10 +758,35 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       if (r) response = r
     } catch { /* Ollama 미실행 */ }
 
-    // env에 키가 있으면 항상 callGemini 호출 (localStorage 키 없어도)
     if (!response && trackUsage()) {
-      try { response = await callGemini(apiKey, trimmed, historyRef.current) }
-      catch (e) { console.warn('[LLM] 호출 실패:', e) }
+      if (apiKey) {
+        // API 키 있음 → 직접 호출
+        try { response = await callGemini(apiKey, trimmed, historyRef.current) }
+        catch (e) { console.warn('[LLM] 직접 호출 실패:', e) }
+      }
+      if (!response) {
+        // API 키 없음 or 실패 → 백엔드 프록시 경유 (로그인 JWT 사용)
+        try {
+          const auth = await getAuthHeader()
+          const messages = [
+            { role: 'system', content: `당신은 Nexus AI 비서입니다. 사용자를 "주인님"으로 부르며 친절하게 답변하세요.` },
+            ...historyRef.current.slice(-6).map((t: { role: string; parts: Array<{ text: string }> }) => ({
+              role: t.role === 'user' ? 'user' : 'assistant',
+              content: t.parts[0]?.text ?? '',
+            })),
+            { role: 'user', content: trimmed },
+          ]
+          const res = await fetch('http://127.0.0.1:17891/api/llm/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...auth },
+            body: JSON.stringify({ messages, max_tokens: 1024 }),
+          })
+          const json = await res.json() as { success: boolean; answer: string }
+          if (json.success && json.answer) {
+            response = { text: json.answer, emotion: 'neutral', steps: [] }
+          }
+        } catch (e) { console.warn('[LLM] 백엔드 프록시 실패:', e) }
+      }
     }
 
     if (!response || !response.text?.trim()) response = fallbackResponse(trimmed, assistantName)

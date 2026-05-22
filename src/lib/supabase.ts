@@ -36,7 +36,7 @@ const BACKEND = 'http://127.0.0.1:17891'
  * 3. 완료 후 localhost로 리다이렉트 → "넥서스 열기" 팝업 없음
  * 4. 프론트가 폴링해서 code 수신 → exchangeCodeForSession
  */
-export async function signInWithGoogle(loginHint?: string): Promise<void> {
+export async function signInWithGoogle(onSuccess?: () => void, loginHint?: string): Promise<void> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -53,12 +53,11 @@ export async function signInWithGoogle(loginHint?: string): Promise<void> {
   if (data.url) {
     const { open } = await import('@tauri-apps/plugin-shell')
     await open(data.url)
-    // 백엔드 폴링 시작 (최대 3분, 500ms 간격)
-    startOAuthPolling()
+    startOAuthPolling(onSuccess)
   }
 }
 
-function startOAuthPolling() {
+function startOAuthPolling(onSuccess?: () => void) {
   const maxAttempts = 360 // 3분
   let attempts = 0
   const timer = setInterval(async () => {
@@ -69,13 +68,15 @@ function startOAuthPolling() {
       const json = await res.json() as { token?: string }
       if (json.token) {
         clearInterval(timer)
-        // URL 해시 파라미터 파싱: access_token=...&refresh_token=...
         const params = new URLSearchParams(json.token)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          if (!error) console.log('[OAuth] 로그인 성공')
+          if (!error) {
+            console.log('[OAuth] 로그인 성공')
+            onSuccess?.()
+          }
         }
       }
     } catch { /* 백엔드 미응답 무시 */ }

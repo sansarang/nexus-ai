@@ -523,7 +523,12 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	llmMu.RUnlock()
 
 	if pKey == "" {
-		writeJSON(w, 503, map[string]any{"success": false, "message": "API 키가 설정되지 않았습니다"})
+		// 로컬 키 없음 → JWT 있으면 Supabase Edge Function 프록시로 폴백
+		if content, err := callGroqViaProxy(req.Messages, req.MaxTokens, req.JSONMode); err == nil {
+			json200(w, map[string]any{"success": true, "answer": content, "model": "proxy", "tokens": 0})
+			return
+		}
+		writeJSON(w, 503, map[string]any{"success": false, "message": "API 키가 없습니다. 설정에서 Groq 또는 Perplexity 키를 입력해주세요."})
 		return
 	}
 

@@ -120,18 +120,15 @@ func callProxy(action string, payload map[string]interface{}) (*proxyResp, error
 	return callProxyCtx(context.Background(), action, payload)
 }
 
-// callGroqViaProxy: Edge Function을 통해 Groq 호출
+// callGroqViaProxy: Edge Function을 통해 Perplexity 호출 (sonar-pro 모델)
 func callGroqViaProxy(msgs []groqMsg, maxTokens int, jsonMode bool) (string, error) {
 	payload := map[string]interface{}{
-		"model":      groqChatModel,
+		"model":      pplxChatModel,
 		"messages":   msgs,
 		"max_tokens": maxTokens,
 	}
-	if jsonMode {
-		payload["response_format"] = map[string]string{"type": "json_object"}
-	}
 
-	pr, err := callProxy("groq_chat", payload)
+	pr, err := callProxy("perplexity_chat", payload)
 	if err != nil {
 		return "", err
 	}
