@@ -17,9 +17,14 @@ static BACKEND_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock:
 // 인증 외 요청은 Go 백엔드(17892)로 TCP 프록시
 // ═══════════════════════════════════════════════════════════════
 static PENDING_TOKEN: OnceLock<std::sync::Arc<tokio::sync::Mutex<String>>> = OnceLock::new();
+static FOCUS_REQUESTED: OnceLock<std::sync::Arc<tokio::sync::Mutex<bool>>> = OnceLock::new();
 
 fn get_pending_token() -> std::sync::Arc<tokio::sync::Mutex<String>> {
     PENDING_TOKEN.get_or_init(|| std::sync::Arc::new(tokio::sync::Mutex::new(String::new()))).clone()
+}
+
+fn get_focus_requested() -> std::sync::Arc<tokio::sync::Mutex<bool>> {
+    FOCUS_REQUESTED.get_or_init(|| std::sync::Arc::new(tokio::sync::Mutex::new(false))).clone()
 }
 
 const AUTH_CALLBACK_HTML: &str = include_str!("auth_callback.html");
@@ -63,6 +68,12 @@ async fn run_auth_proxy() {
                 let body_start = req.find("\r\n\r\n").map(|i| i + 4).unwrap_or(n);
                 let body = req[body_start..].trim().to_string();
                 *pending.lock().await = body;
+                let _ = client.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":true}"
+                ).await;
+
+            } else if first_line.contains("POST /api/auth/focus") {
+                *get_focus_requested().lock().await = true;
                 let _ = client.write_all(
                     b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"ok\":true}"
                 ).await;
@@ -394,6 +405,23 @@ async fn main() {
         .setup(|app| {
             // 1. Rust 인증 프록시 서버 시작 (포트 17891 — Go보다 먼저, 항상 실행)
             tauri::async_runtime::spawn(run_auth_proxy());
+
+            // 포커스 요청 감지 — 브라우저에서 로그인 완료 시 앱 창 앞으로
+            let focus_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                    let mut flag = get_focus_requested().lock().await;
+                    if *flag {
+                        *flag = false;
+                        if let Some(win) = focus_handle.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.unminimize();
+                            let _ = win.set_focus();
+                        }
+                    }
+                }
+            });
 
             // 2. Go 백엔드 실행 (포트 17892)
             launch_backend(app);

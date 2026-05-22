@@ -71,14 +71,19 @@ function startOAuthPolling(onSuccess?: () => void) {
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
 
+        const focusApp = async () => {
+          try {
+            const { invoke } = await import('@tauri-apps/api/core')
+            await invoke('open_chat_window')
+          } catch { /* 브라우저 환경 무시 */ }
+        }
+
         if (code) {
-          // PKCE 코드 교환
           const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (!error) { console.log('[OAuth] PKCE 로그인 성공'); onSuccess?.() }
+          if (!error) { console.log('[OAuth] PKCE 로그인 성공'); await focusApp(); onSuccess?.() }
         } else if (accessToken && refreshToken) {
-          // implicit fallback
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          if (!error) { console.log('[OAuth] 로그인 성공'); onSuccess?.() }
+          if (!error) { console.log('[OAuth] 로그인 성공'); await focusApp(); onSuccess?.() }
         }
       }
     } catch { /* Rust 서버 미응답 무시 */ }

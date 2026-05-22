@@ -45,9 +45,11 @@
   }).then(function() {
     document.getElementById('icon').textContent = '✅';
     document.getElementById('title').textContent = '로그인 완료!';
-    document.getElementById('msg').textContent = 'Nexus 앱으로 자동으로 돌아갑니다.';
+    document.getElementById('msg').textContent = 'Nexus 앱이 자동으로 열립니다.';
     document.getElementById('closeBtn').style.display = 'inline-block';
-    setTimeout(function(){ try{window.close()}catch(e){} }, 2000);
+    // 앱 창 포커스 요청 후 탭 닫기
+    fetch('http://127.0.0.1:17891/api/auth/focus', { method: 'POST' }).catch(function(){});
+    setTimeout(function(){ try{window.close()}catch(e){} }, 1500);
   }).catch(function() {
     document.getElementById('icon').textContent = '❌';
     document.getElementById('title').textContent = '전송 실패';
