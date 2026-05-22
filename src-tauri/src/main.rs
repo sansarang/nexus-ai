@@ -8,16 +8,6 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
-// ═══════════════════════════════════════════════════════════════
-// Go 백엔드 바이너리 임베드
-// Windows 릴리즈 빌드 시: Go backend bytes가 Nexus.exe 내부에 포함됨
-// Mac 개발 빌드 시: 이 코드가 컴파일에서 제외됨 (cfg 조건)
-// ═══════════════════════════════════════════════════════════════
-#[cfg(target_os = "windows")]
-static BACKEND_BYTES: &[u8] = include_bytes!("../backend-bin/nexus-backend.exe");
-
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
-
 // 백엔드 프로세스 핸들 (앱 종료 시 kill용)
 static BACKEND_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock::new();
 
@@ -157,81 +147,49 @@ async fn check_outlook_installed() -> bool {
 async fn check_outlook_installed() -> bool { false }
 
 // ═══════════════════════════════════════════════════════════════
-// Go 백엔드 임베드 + 자동 추출 + 실행
 // ═══════════════════════════════════════════════════════════════
-// Windows: 콘솔 창 숨김 플래그
+// Go 백엔드 실행
+// Windows: NSIS 인스톨러가 설치 폴더에 nexus-backend.exe를 배치
+//          (tauri.conf.json resources로 번들) → resource_dir에서 직접 실행
+// Mac: sidecar 방식
+// ═══════════════════════════════════════════════════════════════
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-#[cfg(target_os = "windows")]
-fn get_backend_dir() -> std::path::PathBuf {
-    // %APPDATA%\Nexus\ 경로 사용
-    let appdata = std::env::var("APPDATA")
-        .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().to_string());
-    std::path::PathBuf::from(appdata).join("Nexus")
-}
-
-#[cfg(target_os = "windows")]
-fn needs_extraction(backend_path: &std::path::Path) -> bool {
-    if !backend_path.exists() {
-        return true;
-    }
-    // 버전 파일로 업데이트 여부 판단
-    let ver_path = backend_path.parent().unwrap().join("nexus_version.txt");
-    match std::fs::read_to_string(&ver_path) {
-        Ok(ver) => ver.trim() != APP_VERSION,
-        Err(_) => true,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn extract_backend() -> Result<std::path::PathBuf, String> {
-    let dir = get_backend_dir();
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("AppData 폴더 생성 실패: {e}"))?;
-
-    let backend_path = dir.join("nexus-backend.exe");
-
-    if needs_extraction(&backend_path) {
-        std::fs::write(&backend_path, BACKEND_BYTES)
-            .map_err(|e| format!("백엔드 추출 실패: {e}"))?;
-
-        // 버전 기록
-        let _ = std::fs::write(dir.join("nexus_version.txt"), APP_VERSION);
-    }
-
-    Ok(backend_path)
-}
-
 fn launch_backend<R: Runtime>(app: &App<R>) {
-    // 글로벌 프로세스 핸들 초기화
     BACKEND_PROCESS.get_or_init(|| Mutex::new(None));
 
     #[cfg(target_os = "windows")]
     {
-        // Windows 릴리즈: 임베드된 바이너리 추출 후 실행
-        match extract_backend() {
-            Ok(path) => {
-                match std::process::Command::new(&path)
-                    .creation_flags(0x08000000) // CREATE_NO_WINDOW: 콘솔창 숨김
-                    .spawn()
-                {
-                    Ok(child) => {
-                        if let Some(mutex) = BACKEND_PROCESS.get() {
-                            if let Ok(mut guard) = mutex.lock() {
-                                *guard = Some(child);
-                            }
-                        }
+        // resource_dir = 설치 폴더 (Program Files 또는 AppData\Local\Nexus)
+        // NSIS 인스톨러가 nexus-backend.exe를 여기 직접 설치함
+        let path = match app.path().resource_dir() {
+            Ok(dir) => dir.join("nexus-backend.exe"),
+            Err(e) => {
+                eprintln!("[Nexus] resource_dir 조회 실패: {e}");
+                return;
+            }
+        };
+        if !path.exists() {
+            eprintln!("[Nexus] 백엔드 바이너리 없음: {}", path.display());
+            return;
+        }
+        match std::process::Command::new(&path)
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+        {
+            Ok(child) => {
+                if let Some(mutex) = BACKEND_PROCESS.get() {
+                    if let Ok(mut guard) = mutex.lock() {
+                        *guard = Some(child);
                     }
-                    Err(e) => eprintln!("[Nexus] 백엔드 실행 실패: {e}"),
                 }
             }
-            Err(e) => eprintln!("[Nexus] 백엔드 추출 실패: {e}"),
+            Err(e) => eprintln!("[Nexus] 백엔드 실행 실패: {e}"),
         }
     }
 
-    // Mac 개발 환경: sidecar 방식 (dev 서버 사용 시)
     #[cfg(not(target_os = "windows"))]
     {
         use tauri_plugin_shell::ShellExt;
