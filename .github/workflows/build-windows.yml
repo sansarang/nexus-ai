@@ -116,7 +116,7 @@ jobs:
               break
             }
           }
-          if (-not $env:EXE_PATH) { Write-Error "No setup.exe found!"; exit 1 }
+          if (-not $exePath) { Write-Error "No setup.exe found!"; exit 1 }
 
       - name: Publish release to nexus-ai-releases (Public repo)
         if: startsWith(github.ref, 'refs/tags/')
