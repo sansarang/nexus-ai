@@ -474,17 +474,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const overlay: React.CSSProperties = {
     position: 'fixed', inset: 0, zIndex: 99999,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(8,8,20,0.98)',
+    background: 'transparent',
   }
 
   const card: React.CSSProperties = {
     width: '100%', maxWidth: 560,
     maxHeight: '90vh',
-    background: 'rgba(10,10,24,0.98)',
-    border: '1px solid rgba(255,255,255,0.09)',
+    background: '#1e2035',
+    border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: 28,
     padding: '32px 36px',
-    backdropFilter: 'blur(24px)',
+    boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
     position: 'relative',
     overflowX: 'hidden',
     overflowY: 'auto',
@@ -1161,7 +1161,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   onClick={() => setShowAdminLogin(v => !v)}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 11, color: 'rgba(255,255,255,0.2)', textAlign: 'center', padding: '4px 0',
+                    fontSize: 11, color: 'transparent', textAlign: 'center', padding: '4px 0',
                   }}
                 >
                   {showAdminLogin ? '▲ Close' : 'Admin Login'}
