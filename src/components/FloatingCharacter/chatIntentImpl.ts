@@ -1264,6 +1264,7 @@ export async function handleBackendIntentImpl(
           }).then(r => r.json()).catch(() => ({ success: false, message: t('영상 분석 실패', 'Video analysis failed', userLang) }))
           return {
             text: data.message ?? (data.success ? t('영상 요약 완료', 'Video summary done', userLang) : t('영상 분석 실패', 'Video analysis failed', userLang)),
+            card2: data.success ? { type: 'system_action', icon: '🎬', title: t('영상 요약', 'Video Summary', userLang), detail: (data.summary ?? data.message ?? '').slice(0, 200), success: true } : undefined,
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1337,6 +1338,7 @@ export async function handleBackendIntentImpl(
           const cityMatch = originalText.match(/([가-힣]{2,5})\s*(?:날씨|기온)/)
             ?? originalText.match(/weather\s+(?:in|for|at)\s+([a-zA-Z가-힣]+)/i)
             ?? originalText.match(/(?:in|for|at)\s+([a-zA-Z가-힣]+)\s+weather/i)
+          const cityIsDefault = !cityMatch
           const city = cityMatch?.[1] ?? (userLang === 'en' ? 'Seoul' : '서울')
           const data = await weatherGet(city).catch(() => ({ success: false, city, temp_c: 0, feels_like: 0, condition: '알 수 없음', humidity: 0, wind_kmh: 0, forecast: [], message: '' }))
           if (!data.success) {
@@ -1348,8 +1350,11 @@ export async function handleBackendIntentImpl(
             }
             return { text: t('날씨 서비스에 연결할 수 없어요. 날씨 앱이나 포털 사이트에서 확인해보세요! 🌤️', "Can't connect to weather service. Please check a weather app instead! 🌤️", userLang), emotion: 'neutral' }
           }
+          const weatherText = cityIsDefault
+            ? t(`위치를 알 수 없어서 서울 기준으로 알려드려요! 현재 ${data.temp_c}°C, ${data.condition}이에요.`, `Showing Seoul since no city was specified! Currently ${data.temp_c}°C, ${data.condition}`, userLang)
+            : t(`${data.city} 현재 ${data.temp_c}°C, ${data.condition}이에요.`, `${data.city}: ${data.temp_c}°C, ${data.condition}`, userLang)
           return {
-            text: t(`${data.city} 현재 ${data.temp_c}°C, ${data.condition}이에요.`, `${data.city}: ${data.temp_c}°C, ${data.condition}`, userLang),
+            text: weatherText,
             card2: {
               type: 'system_action', icon: '🌤️',
               title: `${data.city} ${data.temp_c}°C — ${data.condition}`,
@@ -1658,6 +1663,7 @@ export async function handleBackendIntentImpl(
           if (res.ok) setCaptionRunning(false)
           return {
             text: t(`${res.message} (총 ${res.entries}개 자막)`, `${res.message} (${res.entries} captions total)`, userLang),
+            card2: { type: 'system_action', icon: '⏹️', title: t('자막 종료', 'Caption stopped', userLang), detail: t(`총 ${res.entries}개 자막 저장됨`, `${res.entries} captions saved`, userLang), success: res.ok },
             emotion: 'neutral' as const,
           }
         }

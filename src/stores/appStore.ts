@@ -236,7 +236,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoggedIn: !!localStorage.getItem('nexus-user-email'),
   isOnboarded: !!localStorage.getItem('nexus-onboarded'),
   userEmail: localStorage.getItem('nexus-user-email') ?? '',
-  subscriptionStatus: (localStorage.getItem('nexus-sub-status') as 'active' | 'trial' | 'expired' | 'none') ?? 'none',
+  subscriptionStatus: (localStorage.getItem('nexus-sub-status') as 'active' | 'trial' | 'expired' | 'none') ?? 'trial',
   subscriptionExpiry: localStorage.getItem('nexus-sub-expiry') ?? '',
   micEnabled: localStorage.getItem('nexus-mic-enabled') === 'true',
   setMicEnabled: (v) => { localStorage.setItem('nexus-mic-enabled', String(v)); set({ micEnabled: v }) },

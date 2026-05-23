@@ -158,7 +158,7 @@ export async function fetchUserSettings(userId: string): Promise<UserSettings | 
 
 /** 구독 상태 계산 (만료 여부 포함) */
 export function resolveStatus(row: SubscriptionRow | null): SubscriptionStatus {
-  if (!row) return 'none'
+  if (!row) return 'trial'  // 조회 실패 시 trial로 간주 (false positive 방지)
   if (row.status === 'active') return 'active'
   if (row.status === 'trial') {
     const end = row.trial_ends_at ? new Date(row.trial_ends_at) : null

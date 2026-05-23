@@ -267,7 +267,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           setHistoryVersion(v => v + 1)
           return
         }
-      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)) }
+      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)); setTyping(false); typingRef.current = false }
     }
 
     if (isPlaceView && backendStatus === 'connected') {
@@ -308,7 +308,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           setHistoryVersion(v => v + 1)
           return
         }
-      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)) }
+      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)); setTyping(false); typingRef.current = false }
     }
 
     // ── 0.5순위: 딥서치 ──────────────────────────────────────
@@ -355,7 +355,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           setHistoryVersion(v => v + 1)
           return
         }
-      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)) }
+      } catch { setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`)); setTyping(false); typingRef.current = false }
     }
 
 
@@ -504,6 +504,47 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
         return
       } catch {
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+        setTyping(false)
+        typingRef.current = false
+      }
+    }
+
+    // ── 0.9순위: 키워드 즉시 감지 인텐트 — LLM 라우팅 완전 우회 ──
+    // 날씨/PC상태/시스템제어 등 키워드로 확정되는 인텐트는
+    // Go 백엔드 LLM 라우팅(최대 60s 타임아웃) 없이 즉시 처리
+    {
+      const FAST_INTENTS = new Set<Intent>([
+        'weather', 'travel_time',
+        'pc_status', 'gpu_stats', 'process_top',
+        'volume_control', 'brightness', 'wifi_toggle', 'power_action', 'launch_app',
+        'focus_mode',
+        'calendar_today', 'calendar_week',
+        'email_inbox',
+        'network_analysis', 'defender_status', 'startup_items', 'windows_updates',
+      ])
+      const fastIntent = detectIntent(trimmed)
+      if (FAST_INTENTS.has(fastIntent) && backendStatus === 'connected') {
+        setMessages(prev => [...prev, {
+          id: `think-${msgId}`, role: 'nexus', text: '',
+          inlineCard: { type: 'agent_thinking', steps: fastIntent === 'weather'
+            ? (detectedLang === 'en' ? ['Fetching weather...', 'Getting current conditions...'] : ['🌤️ 날씨 데이터 가져오는 중...', '현재 날씨 확인 중...'])
+            : fastIntent === 'pc_status'
+              ? (detectedLang === 'en' ? ['Collecting PC stats...', 'CPU / Memory / Disk'] : ['📊 PC 상태 수집 중...', 'CPU / 메모리 / 디스크'])
+              : [detectedLang === 'en' ? 'Processing...' : '처리 중...'] },
+        }])
+        const { text: resText, card, card2, card3, card4, emotion: resEmotion } = await handleBackendIntent(fastIntent, msgId, trimmed)
+        setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+        setTyping(false)
+        typingRef.current = false
+        setEmotion(resEmotion)
+        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4 }])
+        pushModelHistory(trimmed, resText)
+        if (resText) {
+          speakText(resText)
+          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(resText) })
+          setHistoryVersion(v => v + 1)
+        }
+        return
       }
     }
 
@@ -552,7 +593,6 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           setTyping(false)
           typingRef.current = false
           setEmotion('concerned')
-          setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
           setMessages(prev => [...prev, {
             id: `${msgId}-res`, role: 'nexus',
             text: cmd.message,

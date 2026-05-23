@@ -32,7 +32,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
   .icon{font-size:52px;margin-bottom:16px}
   h1{font-size:22px;font-weight:800;margin-bottom:8px;color:#4ade80}
   p{font-size:14px;color:rgba(255,255,255,0.5);line-height:1.6}
-  .close-btn{margin-top:24px;padding:12px 32px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:rgba(255,255,255,0.6);font-size:13px;cursor:pointer}
+  .close-btn{margin-top:24px;padding:12px 32px;background:#4ade80;border:none;border-radius:10px;color:#000;font-size:14px;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
@@ -40,7 +40,7 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
   <div class="icon" id="icon">⏳</div>
   <h1 id="title">로그인 처리 중...</h1>
   <p id="msg">잠시만 기다려주세요.</p>
-  <button class="close-btn" onclick="window.close()" style="display:none" id="closeBtn">창 닫기</button>
+  <button class="close-btn" onclick="try{window.open('','_self').close()}catch(e){window.close()}" style="display:none" id="closeBtn">이 창 닫기 ✕</button>
 </div>
 <script>
 (function() {
@@ -63,9 +63,9 @@ func handleAuthCallback(w http.ResponseWriter, r *http.Request) {
     document.getElementById('icon').textContent = '✅'
     document.getElementById('title').textContent = '로그인 완료!'
     document.getElementById('title').style.color = '#4ade80'
-    document.getElementById('msg').textContent = 'Nexus 앱으로 자동으로 돌아갑니다.'
+    document.getElementById('msg').textContent = '로그인 완료! 이 창을 닫고 Nexus 앱으로 돌아가세요.'
     document.getElementById('closeBtn').style.display = 'inline-block'
-    setTimeout(function(){ try{window.close()}catch(e){} }, 2000)
+    setTimeout(function(){ try{window.open('','_self').close()}catch(e){try{window.close()}catch(e2){}} }, 1500)
   }).catch(function() {
     document.getElementById('icon').textContent = '❌'
     document.getElementById('title').textContent = '전송 실패'

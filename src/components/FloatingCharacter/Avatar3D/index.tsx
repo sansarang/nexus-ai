@@ -13,7 +13,7 @@
  */
 import React from 'react'
 import { Canvas } from '@react-three/fiber'
-import { ContactShadows, OrbitControls } from '@react-three/drei'
+import { ContactShadows, OrbitControls, Environment } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AvatarEmotion, CharacterPreset } from './ProceduralHumanoid'
 import { AvatarModel } from './AvatarModel'
@@ -77,14 +77,15 @@ export function Avatar3D({
           alpha: true,
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.4,
+          toneMappingExposure: 1.0,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
         shadows
         dpr={quality === 'high' ? [1, 2] : [1, 1.5]}
       >
-        {/* ── IBL 환경광 — 외부 HDR 없이 직접 조명으로 대체 ── */}
-        <ambientLight intensity={0.6} />
+        {/* ── IBL 환경광 — studio preset (외부 fetch 없음) ── */}
+        <Environment preset="studio" />
+        <ambientLight intensity={0.4} />
 
         {/* ── 주 조명 (키 라이트) ── */}
         <directionalLight

@@ -2160,7 +2160,7 @@ export function FloatingCharacter() {
     </div>
 
     {/* 구독 만료 배너 */}
-    {isOnboarded && isLoggedIn && (subscriptionStatus === 'expired' || subscriptionStatus === 'none') && (
+    {isOnboarded && isLoggedIn && subscriptionStatus === 'expired' && (
       <div style={{
         position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
         background: 'rgba(248,113,113,0.15)', backdropFilter: 'blur(12px)',
