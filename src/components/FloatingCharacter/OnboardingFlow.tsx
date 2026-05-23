@@ -469,21 +469,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   /* ── 공통 스타일 ── */
-  const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, zIndex: 99999,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'transparent',
-  }
-
   const card: React.CSSProperties = {
-    width: '100%', maxWidth: 560,
+    position: 'fixed',
+    top: '50%', left: '50%',
+    transform: 'translate(-50%, -50%)',
+    zIndex: 99999,
+    width: 560,
     maxHeight: '90vh',
     background: '#1e2035',
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: 28,
     padding: '32px 36px',
     boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-    position: 'relative',
     overflowX: 'hidden',
     overflowY: 'auto',
   }
@@ -551,7 +548,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   )
 
   return (
-    <div style={overlay}>
+    <>
 
       {/* 닫기 버튼 — 우측 상단 고정 */}
       <button
@@ -1393,7 +1390,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         )}
 
       </AnimatePresence>
-    </div>
+    </>
   )
 }
 
@@ -1421,16 +1418,15 @@ export function LoginScreen() {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 99999,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'transparent',
-    }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         style={{
-          width: '100%', maxWidth: 400,
+          position: 'fixed',
+          top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 99999,
+          width: 400,
           background: '#1e2035',
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 24,
@@ -1476,6 +1472,5 @@ export function LoginScreen() {
         )}
         {error && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
       </motion.div>
-    </div>
   )
 }
