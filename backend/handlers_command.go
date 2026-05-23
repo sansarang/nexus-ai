@@ -683,7 +683,8 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 	var req CommandRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Message) == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "message 필요"})
+		lang := getLang(r)
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("message 필요", "message required", lang)})
 		return
 	}
 
@@ -1023,12 +1024,8 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 				doneCount++
 			}
 		}
-		if lang == "en" {
-			return map[string]any{"goal": goal, "steps": steps, "summary": summary, "ok": doneCount > 0},
-				fmt.Sprintf("Workflow complete (%d/%d steps). %s", doneCount, len(steps), summary)
-		}
 		return map[string]any{"goal": goal, "steps": steps, "summary": summary, "ok": doneCount > 0},
-			fmt.Sprintf("워크플로 완료 (%d/%d단계). %s", doneCount, len(steps), summary)
+			fmt.Sprintf(msgT("워크플로 완료 (%d/%d단계). %s", "Workflow complete (%d/%d steps). %s", lang), doneCount, len(steps), summary)
 
 	// ── 💼 Pro Persona 전용 액션 ────────────────────────────
 
@@ -1276,7 +1273,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			}
 			return result, msg
 		}
-		return runWebSearch(query, site, output, maxItems, gKey)
+		return runWebSearch(query, site, output, maxItems, gKey, lang)
 
 	// ── 영상 검색 (YouTube / TikTok) ─────────────────────────
 	case "video_search":
@@ -1614,10 +1611,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		hits := deepSearchFiles(strings.Join(keywords, " "), folder, maxResults)
 		if len(hits) == 0 {
-			if lang == "en" {
-				return hits, fmt.Sprintf("No files found matching '%s'.", query)
-			}
-			return hits, fmt.Sprintf("'%s'와 관련된 파일을 찾지 못했습니다.", query)
+			return hits, fmt.Sprintf(msgT("'%s'와 관련된 파일을 찾지 못했습니다.", "No files found matching '%s'.", lang), query)
 		}
 		var msg string
 		if lang == "en" {
@@ -1627,11 +1621,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		for i, h := range hits {
 			if i >= 5 {
-				if lang == "en" {
-					msg += fmt.Sprintf("  ... and %d more\n", len(hits)-5)
-				} else {
-					msg += fmt.Sprintf("  ... 외 %d개\n", len(hits)-5)
-				}
+				msg += fmt.Sprintf(msgT("  ... 외 %d개\n", "  ... and %d more\n", lang), len(hits)-5)
 				break
 			}
 			msg += fmt.Sprintf("  • %s\n", h.Path)
@@ -1643,20 +1633,15 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		fileA := str("file_a")
 		fileB := str("file_b")
 		if fileA == "" || fileB == "" {
-			if lang == "en" {
-				return nil, "Please provide two file paths to compare.\nExample: 'Compare contract_v1.pdf and contract_v2.pdf'"
-			}
-			return nil, "비교할 두 파일 경로를 알려주세요.\n예: '계약서_v1.pdf 와 계약서_v2.pdf 비교해줘'"
+			return nil, msgT("비교할 두 파일 경로를 알려주세요.\n예: '계약서_v1.pdf 와 계약서_v2.pdf 비교해줘'", "Please provide two file paths to compare.\nExample: 'Compare contract_v1.pdf and contract_v2.pdf'", lang)
 		}
 		textA, errA := extractDocumentText(fileA)
 		textB, errB := extractDocumentText(fileB)
 		if errA != nil {
-			if lang == "en" { return nil, "Cannot read File A: " + fileA }
-			return nil, "파일A를 읽을 수 없습니다: " + fileA
+			return nil, msgT("파일A를 읽을 수 없습니다: ", "Cannot read File A: ", lang) + fileA
 		}
 		if errB != nil {
-			if lang == "en" { return nil, "Cannot read File B: " + fileB }
-			return nil, "파일B를 읽을 수 없습니다: " + fileB
+			return nil, msgT("파일B를 읽을 수 없습니다: ", "Cannot read File B: ", lang) + fileB
 		}
 		if len(textA) > 4000 { textA = textA[:4000] }
 		if len(textB) > 4000 { textB = textB[:4000] }
@@ -1680,50 +1665,33 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		ans, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 2048, true)
 		if err != nil {
-			if lang == "en" { return nil, "Document comparison failed: " + err.Error() }
-			return nil, "문서 비교 실패: " + err.Error()
+			return nil, msgT("문서 비교 실패: ", "Document comparison failed: ", lang) + err.Error()
 		}
 		var parsed map[string]any
 		json.Unmarshal([]byte(ans), &parsed)
-		var summary string
-		if lang == "en" { summary = "Document comparison complete" } else { summary = "문서 비교 완료" }
+		summary := msgT("문서 비교 완료", "Document comparison complete", lang)
 		if s, ok := parsed["summary"].(string); ok { summary = s }
-		if lang == "en" {
-			return parsed, "Document comparison complete!\n" + summary
-		}
-		return parsed, "문서 비교 완료!\n" + summary
+		return parsed, msgT("문서 비교 완료!\n", "Document comparison complete!\n", lang) + summary
 
 	// ── 문서 요약 ────────────────────────────────────────────
 	case "doc_summary":
 		filePath := str("file_path")
 		if filePath == "" {
-			if lang == "en" { return nil, "Please provide the file path to summarize." }
-			return nil, "요약할 파일 경로를 알려주세요."
+			return nil, msgT("요약할 파일 경로를 알려주세요.", "Please provide the file path to summarize.", lang)
 		}
 		question := str("question")
 		if question == "" {
-			if lang == "en" {
-				question = "Summarize the key content in 5 lines and list important figures, dates, and names."
-			} else {
-				question = "핵심 내용을 5줄로 요약하고 중요 수치·날짜·이름을 정리해주세요."
-			}
+			question = msgT("핵심 내용을 5줄로 요약하고 중요 수치·날짜·이름을 정리해주세요.", "Summarize the key content in 5 lines and list important figures, dates, and names.", lang)
 		}
 		text, err := extractDocumentText(filePath)
 		if err != nil {
-			if lang == "en" { return nil, "Failed to read file: " + err.Error() }
-			return nil, "파일 읽기 실패: " + err.Error()
+			return nil, msgT("파일 읽기 실패: ", "Failed to read file: ", lang) + err.Error()
 		}
 		if len(text) > 8000 { text = text[:8000] }
-		var docMsg string
-		if lang == "en" {
-			docMsg = fmt.Sprintf("Document:\n%s\n\nRequest: %s", text, question)
-		} else {
-			docMsg = fmt.Sprintf("문서:\n%s\n\n요청: %s", text, question)
-		}
+		docMsg := fmt.Sprintf(msgT("문서:\n%s\n\n요청: %s", "Document:\n%s\n\nRequest: %s", lang), text, question)
 		ans, _, err := callGroqWithFallback([]groqMsg{{Role: "user", Content: docMsg}}, 2048, false)
 		if err != nil {
-			if lang == "en" { return nil, "Summary failed: " + err.Error() }
-			return nil, "요약 실패: " + err.Error()
+			return nil, msgT("요약 실패: ", "Summary failed: ", lang) + err.Error()
 		}
 		return map[string]any{"summary": ans, "file": filePath}, ans
 
@@ -1742,59 +1710,34 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			if folder == "" { folder = filepath.Join(home, "Downloads") }
 		}
 		freed, fileCount := organizeFolder(folder)
-		if lang == "en" {
-			return map[string]any{"folder": folder, "files_organized": fileCount, "freed_mb": freed},
-				fmt.Sprintf("'%s' folder organized!\n%d files sorted", folder, fileCount)
-		}
 		return map[string]any{"folder": folder, "files_organized": fileCount, "freed_mb": freed},
-			fmt.Sprintf("'%s' 폴더 정리 완료!\n%d개 파일 정리됨", folder, fileCount)
+			fmt.Sprintf(msgT("'%s' 폴더 정리 완료!\n%d개 파일 정리됨", "'%s' folder organized!\n%d files sorted", lang), folder, fileCount)
 
 	// ── 화면 분석 ────────────────────────────────────────────
 	case "vision":
 		question := str("question")
 		if question == "" {
-			if lang == "en" {
-				question = "Analyze the current screen and describe what it shows. If there is an error, explain the cause and how to fix it."
-			} else {
-				question = "지금 화면을 분석해서 무슨 내용인지, 오류가 있으면 원인과 해결법을 한국어로 알려주세요."
-			}
+			question = msgT("지금 화면을 분석해서 무슨 내용인지, 오류가 있으면 원인과 해결법을 한국어로 알려주세요.", "Analyze the current screen and describe what it shows. If there is an error, explain the cause and how to fix it.", lang)
 		}
 		b64, _, _, err := captureScreenPowerShell()
 		if err != nil {
-			if lang == "en" {
-				return nil, "Screen capture failed: " + err.Error()
-			}
-			return nil, "화면 캡처 실패: " + err.Error()
+			return nil, msgT("화면 캡처 실패: ", "Screen capture failed: ", lang) + err.Error()
 		}
 		ans, err := callGroqVision(gKey, b64, "image/png", question)
 		if err != nil {
-			if lang == "en" {
-				return nil, "Screen analysis failed: " + err.Error()
-			}
-			return nil, "화면 분석 실패: " + err.Error()
+			return nil, msgT("화면 분석 실패: ", "Screen analysis failed: ", lang) + err.Error()
 		}
 		return map[string]any{"answer": ans}, ans
 
 	// ── PC 진단 ─────────────────────────────────────────────
 	case "scan":
 		sr := buildScanResult()
-		var msg string
-		if lang == "en" {
-			msg = fmt.Sprintf("PC Score: %d/100", sr.Score)
-			if len(sr.Issues) == 0 {
-				msg += " — Everything looks good! ✅"
-			} else {
-				msg += fmt.Sprintf("\n%d issue(s) found:\n", len(sr.Issues))
-				for _, i := range sr.Issues { msg += "  • " + i.Title + "\n" }
-			}
+		msg := fmt.Sprintf(msgT("PC 점수: %d점", "PC Score: %d/100", lang), sr.Score)
+		if len(sr.Issues) == 0 {
+			msg += msgT(" — 모두 정상이에요! ✅", " — Everything looks good! ✅", lang)
 		} else {
-			msg = fmt.Sprintf("PC 점수: %d점", sr.Score)
-			if len(sr.Issues) == 0 {
-				msg += " — 모두 정상이에요! ✅"
-			} else {
-				msg += fmt.Sprintf("\n발견된 문제 %d개:\n", len(sr.Issues))
-				for _, i := range sr.Issues { msg += "  • " + i.Title + "\n" }
-			}
+			msg += fmt.Sprintf(msgT("\n발견된 문제 %d개:\n", "\n%d issue(s) found:\n", lang), len(sr.Issues))
+			for _, i := range sr.Issues { msg += "  • " + i.Title + "\n" }
 		}
 		return sr, msg
 
@@ -1802,12 +1745,8 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	case "clean":
 		freed := cleanTempFiles()
 		freedMB := float64(freed) / (1024 * 1024)
-		if lang == "en" {
-			return map[string]any{"freed_mb": freedMB},
-				fmt.Sprintf("PC cleanup complete! %.0f MB freed. 🗑️", freedMB)
-		}
 		return map[string]any{"freed_mb": freedMB},
-			fmt.Sprintf("PC 정리 완료! %.0fMB 확보됐습니다. 🗑️", freedMB)
+			fmt.Sprintf(msgT("PC 정리 완료! %.0fMB 확보됐습니다. 🗑️", "PC cleanup complete! %.0fMB freed. 🗑️", lang), freedMB)
 
 	// ── 보안 탐지 ────────────────────────────────────────────
 	case "security_scan":
@@ -1818,12 +1757,10 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 				if risk, ok := m["risk"].(string); ok && risk != "low" && risk != "none" { riskCount++ }
 			}
 		}
-		if lang == "en" {
-			if riskCount == 0 { return result, "Security scan complete! No threats found. 🛡️" }
-			return result, fmt.Sprintf("⚠️ Security Alert: %d threat(s) detected. Please review the details.", riskCount)
+		if riskCount == 0 {
+			return result, msgT("보안 점검 완료! 위협 요소가 발견되지 않았습니다. 🛡️", "Security scan complete! No threats found. 🛡️", lang)
 		}
-		if riskCount == 0 { return result, "보안 점검 완료! 위협 요소가 발견되지 않았습니다. 🛡️" }
-		return result, fmt.Sprintf("⚠️ 보안 경고: %d개 위협 요소가 발견됐습니다. 상세 결과를 확인하세요.", riskCount)
+		return result, fmt.Sprintf(msgT("⚠️ 보안 경고: %d개 위협 요소가 발견됐습니다. 상세 결과를 확인하세요.", "⚠️ Security Alert: %d threat(s) detected. Please review the details.", lang), riskCount)
 
 	// ── PC 통계 ──────────────────────────────────────────────
 	case "stats":
@@ -1832,45 +1769,29 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		diskPct := 0
 		if total > 0 { diskPct = int(100 - float64(free)/float64(total)*100) }
 		stats := map[string]any{"mem": mem, "disk": diskPct}
-		if lang == "en" {
-			return stats, fmt.Sprintf("Current PC Status:\n  💾 RAM: %d%% used\n  💿 Disk (C:): %d%% used", mem, diskPct)
-		}
-		return stats, fmt.Sprintf("현재 PC 상태:\n  💾 RAM: %d%% 사용 중\n  💿 디스크(C:): %d%% 사용 중", mem, diskPct)
+		return stats, fmt.Sprintf(msgT("현재 PC 상태:\n  💾 RAM: %d%% 사용 중\n  💿 디스크(C:): %d%% 사용 중", "Current PC Status:\n  💾 RAM: %d%% used\n  💿 Disk (C:): %d%% used", lang), mem, diskPct)
 
 	// ── 집중 모드 ────────────────────────────────────────────
 	case "focus_mode":
 		enable := boolVal("enable", true)
 		r, _ := runFocusMode(enable)
-		if lang == "en" {
-			if enable {
-				return r, "Focus mode ON! 🎯\nNotifications are blocked. Stay focused!"
-			}
-			return r, "Focus mode OFF. Notifications are back on."
-		}
 		if enable {
-			return r, "집중 모드 켜졌습니다! 🎯\n알림이 차단됐습니다. 집중하세요!"
+			return r, msgT("집중 모드 켜졌습니다! 🎯\n알림이 차단됐습니다. 집중하세요!", "Focus mode ON! 🎯\nNotifications are blocked. Stay focused!", lang)
 		}
-		return r, "집중 모드 꺼졌습니다. 알림이 다시 켜졌어요."
+		return r, msgT("집중 모드 꺼졌습니다. 알림이 다시 켜졌어요.", "Focus mode OFF. Notifications are back on.", lang)
 
 	// ── 업무 일지 ────────────────────────────────────────────
 	case "journal":
 		j := buildJournalData(gKey, lang)
-		if lang == "en" {
-			return j, fmt.Sprintf("Daily work log created! 📝\n%s", j["summary"])
-		}
-		return j, fmt.Sprintf("오늘 업무 일지 작성 완료! 📝\n%s", j["summary"])
+		return j, fmt.Sprintf(msgT("오늘 업무 일지 작성 완료! 📝\n%s", "Daily work log created! 📝\n%s", lang), j["summary"])
 
 	// ── PC 건강 리포트 ───────────────────────────────────────
 	case "health_report":
 		reportPath, err := generateHealthReport(gKey, lang)
 		if err != nil {
-			if lang == "en" { return nil, "Report generation failed: " + err.Error() }
-			return nil, "리포트 생성 실패: " + err.Error()
+			return nil, msgT("리포트 생성 실패: ", "Report generation failed: ", lang) + err.Error()
 		}
-		if lang == "en" {
-			return map[string]any{"path": reportPath}, "PC health report created! 📊\nFile: " + reportPath
-		}
-		return map[string]any{"path": reportPath}, "PC 건강 리포트 생성 완료! 📊\n파일: " + reportPath
+		return map[string]any{"path": reportPath}, msgT("PC 건강 리포트 생성 완료! 📊\n파일: ", "PC health report created! 📊\nFile: ", lang) + reportPath
 
 	// ── 일정 등록 ────────────────────────────────────────────
 	case "scheduler":
@@ -1880,8 +1801,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		parsed, err := parseNaturalSchedule(command, gKey)
 		if err != nil {
-			if lang == "en" { return nil, "Schedule parsing failed: " + err.Error() }
-			return nil, "일정 파싱 실패: " + err.Error()
+			return nil, msgT("일정 파싱 실패: ", "Schedule parsing failed: ", lang) + err.Error()
 		}
 		paramsJSON, _ := json.Marshal(parsed.Params)
 		task := &ScheduledTask{
@@ -1899,20 +1819,14 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		globalScheduler.tasks[task.ID] = task
 		globalScheduler.mu.Unlock()
 		globalScheduler.save()
-		if lang == "en" {
-			return task, fmt.Sprintf("Schedule registered! ⏰\n'%s' (%s)", task.Name, task.CronExpr)
-		}
-		return task, fmt.Sprintf("일정 등록 완료! ⏰\n'%s' (%s)", task.Name, task.CronExpr)
+		return task, fmt.Sprintf(msgT("일정 등록 완료! ⏰\n'%s' (%s)", "Schedule registered! ⏰\n'%s' (%s)", lang), task.Name, task.CronExpr)
 
 	// ── 앱 실행 ──────────────────────────────────────────────
 	case "launch_app":
 		appName := str("app_name")
 		if appName == "" { appName = original }
 		r, _ := runLaunchApp(appName)
-		if lang == "en" {
-			return r, fmt.Sprintf("Launched %s! 🚀", appName)
-		}
-		return r, fmt.Sprintf("%s 실행했습니다! 🚀", appName)
+		return r, fmt.Sprintf(msgT("%s 실행했습니다! 🚀", "Launched %s! 🚀", lang), appName)
 
 	// ── 시스템 제어 ──────────────────────────────────────────
 	case "system_control":
@@ -1950,30 +1864,22 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			json.Unmarshal(b, &data)
 		}
 		if len(data) == 0 {
-			if lang == "en" { return nil, "No data to save." }
-			return nil, "저장할 데이터가 없어요."
+			return nil, msgT("저장할 데이터가 없어요.", "No data to save.", lang)
 		}
 		home, _ := os.UserHomeDir()
 		savePath := fmt.Sprintf(`%s\Desktop\nexus_%s_%s.xlsx`,
 			home, sanitizeFilename(title), time.Now().Format("20060102_150405"))
 		if err := saveToExcel(data, savePath, title); err != nil {
-			if lang == "en" { return nil, "Excel save failed: " + err.Error() }
-			return nil, "엑셀 저장 실패: " + err.Error()
+			return nil, msgT("엑셀 저장 실패: ", "Excel save failed: ", lang) + err.Error()
 		}
-		if lang == "en" {
-			return map[string]any{"path": savePath}, "Excel saved! 📊\nFile: " + savePath
-		}
-		return map[string]any{"path": savePath}, "엑셀 저장 완료! 📊\n파일: " + savePath
+		return map[string]any{"path": savePath}, msgT("엑셀 저장 완료! 📊\n파일: ", "Excel saved! 📊\nFile: ", lang) + savePath
 
 	// ── 메모 저장 ────────────────────────────────────────────
 	case "note":
 		content := str("content")
 		if content == "" { content = original }
 		notePath := saveQuickNote(content)
-		if lang == "en" {
-			return map[string]any{"path": notePath, "content": content}, "Note saved! 📝"
-		}
-		return map[string]any{"path": notePath, "content": content}, "메모 저장 완료! 📝"
+		return map[string]any{"path": notePath, "content": content}, msgT("메모 저장 완료! 📝", "Note saved! 📝", lang)
 
 	default:
 		// 분류 안 된 질문 → 이력 보완 후 web_search
@@ -2001,14 +1907,14 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 // ══════════════════════════════════════════════════════════════════
 
 // runWebSearch: 웹 검색 → 결과 PDF/Excel/텍스트 저장
-func runWebSearch(query, site, output string, maxItems int, gKey string) (any, string) {
+func runWebSearch(query, site, output string, maxItems int, gKey string, lang string) (any, string) {
 	if maxItems == 0 {
 		maxItems = 5
 	}
 
 	ctx, cancel, err := withStealthBrowserTimeout(3 * time.Minute)
 	if err != nil {
-		return nil, "브라우저 시작 실패: " + err.Error()
+		return nil, msgT("브라우저 시작 실패: ", "Browser start failed: ", lang) + err.Error()
 	}
 	defer cancel()
 
@@ -2082,10 +1988,10 @@ Search results:
 		}
 		xlsxPath := fmt.Sprintf(`%s\Desktop\%s_%s.xlsx`, home, safeName, ts)
 		if err := saveToExcel(data, xlsxPath, query); err != nil {
-			return nil, "엑셀 저장 실패: " + err.Error()
+			return nil, msgT("엑셀 저장 실패: ", "Excel save failed: ", lang) + err.Error()
 		}
 		return map[string]any{"path": xlsxPath, "count": len(products), "summary": summary},
-			fmt.Sprintf("'%s' 검색 완료! %d개 수집 → 엑셀 저장됨\n%s\n파일: %s", query, len(products), summary, xlsxPath)
+			fmt.Sprintf(msgT("'%s' 검색 완료! %d개 수집 → 엑셀 저장됨\n%s\n파일: %s", "'%s' search complete! %d results collected → saved to Excel\n%s\nFile: %s", lang), query, len(products), summary, xlsxPath)
 	}
 
 	// 기본: HTML → PDF
@@ -2099,11 +2005,11 @@ Search results:
 		finalPath = pdfPath
 	}
 
-	msg := fmt.Sprintf("'%s' 검색 완료! %d개 결과 수집\n", query, len(products))
+	msg := fmt.Sprintf(msgT("'%s' 검색 완료! %d개 결과 수집\n", "'%s' search complete! %d results collected\n", lang), query, len(products))
 	if summary != "" {
 		msg += summary + "\n"
 	}
-	msg += "파일: " + finalPath
+	msg += msgT("파일: ", "File: ", lang) + finalPath
 	return map[string]any{"path": finalPath, "count": len(products), "summary": summary}, msg
 }
 

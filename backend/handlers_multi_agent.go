@@ -469,15 +469,13 @@ func handleMultiAgentRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Goal string `json:"goal"`
 	}
+	lang := getLang(r)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json200(w, map[string]any{"success": false, "message": "잘못된 요청"})
+		json200(w, map[string]any{"success": false, "message": msgT("잘못된 요청", "Invalid request", lang)})
 		return
 	}
-	maEng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
-		msg := "goal이 필요합니다"
-		if maEng { msg = "goal is required" }
-		json200(w, map[string]any{"success": false, "message": msg})
+		json200(w, map[string]any{"success": false, "message": msgT("goal이 필요합니다", "goal is required", lang)})
 		return
 	}
 
@@ -486,36 +484,28 @@ func handleMultiAgentRun(w http.ResponseWriter, r *http.Request) {
 	llmMu.RUnlock()
 
 	if gKey == "" {
-		msg := "Groq API 키가 필요합니다"
-		if maEng { msg = "Groq API key is required" }
-		json200(w, map[string]any{"success": false, "message": msg})
+		json200(w, map[string]any{"success": false, "message": msgT("Groq API 키가 필요합니다", "Groq API key is required", lang)})
 		return
 	}
 
 	task := globalTaskQueue.Enqueue("Multi-Agent: "+req.Goal, PriorityNormal, map[string]any{"goal": req.Goal},
 		func(t *AgentTask) {
-			if maEng { t.UpdateProgress(5, "Analyzing goal...") } else { t.UpdateProgress(5, "목표 분석 중...") }
+			t.UpdateProgress(5, msgT("목표 분석 중...", "Analyzing goal...", lang))
 			plan, err := orchestrate(req.Goal, gKey)
 			if err != nil {
 				t.Status = TaskFailed
 				t.Error = err.Error()
 				return
 			}
-			if maEng {
-				t.UpdateProgress(10, fmt.Sprintf("%d agents assigned", len(plan.Steps)))
-			} else {
-				t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
-			}
+			t.UpdateProgress(10, msgT(fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)), fmt.Sprintf("%d agents assigned", len(plan.Steps)), lang))
 			runMultiAgentPlan(t, plan, gKey)
 		},
 	)
 
-	startMsg := fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal)
-	if maEng { startMsg = fmt.Sprintf("Multi-Agent started: '%s'", req.Goal) }
 	json200(w, map[string]any{
 		"success": true,
 		"task_id": task.ID,
-		"message": startMsg,
+		"message": msgT(fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal), fmt.Sprintf("Multi-Agent started: '%s'", req.Goal), lang),
 	})
 }
 
@@ -538,14 +528,13 @@ func handleMultiAgentPlan(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Goal string `json:"goal"`
 	}
+	lang2 := getLang(r)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json200(w, map[string]any{"success": false, "message": "잘못된 요청"})
+		json200(w, map[string]any{"success": false, "message": msgT("잘못된 요청", "Invalid request", lang2)})
 		return
 	}
-	planEng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
-		msg := "goal이 필요합니다"; if planEng { msg = "goal is required" }
-		json200(w, map[string]any{"success": false, "message": msg})
+		json200(w, map[string]any{"success": false, "message": msgT("goal이 필요합니다", "goal is required", lang2)})
 		return
 	}
 
@@ -567,14 +556,13 @@ func handleMultiAgentRunV2(w http.ResponseWriter, r *http.Request) {
 		Goal   string   `json:"goal"`
 		Agents []string `json:"agents"`
 	}
+	lang3 := getLang(r)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json200(w, map[string]any{"success": false, "message": "잘못된 요청"})
+		json200(w, map[string]any{"success": false, "message": msgT("잘못된 요청", "Invalid request", lang3)})
 		return
 	}
-	v2Eng := isEnglishQuery(req.Goal)
 	if req.Goal == "" {
-		msg := "goal이 필요합니다"; if v2Eng { msg = "goal is required" }
-		json200(w, map[string]any{"success": false, "message": msg})
+		json200(w, map[string]any{"success": false, "message": msgT("goal이 필요합니다", "goal is required", lang3)})
 		return
 	}
 
@@ -585,28 +573,22 @@ func handleMultiAgentRunV2(w http.ResponseWriter, r *http.Request) {
 	task := globalTaskQueue.Enqueue("Multi-Agent: "+req.Goal, PriorityNormal,
 		map[string]any{"goal": req.Goal, "agents": req.Agents},
 		func(t *AgentTask) {
-			if v2Eng { t.UpdateProgress(5, "Analyzing goal...") } else { t.UpdateProgress(5, "목표 분석 중...") }
+			t.UpdateProgress(5, msgT("목표 분석 중...", "Analyzing goal...", lang3))
 			plan, err := orchestrate(req.Goal, gKey)
 			if err != nil {
 				t.Status = TaskFailed
 				t.Error = err.Error()
 				return
 			}
-			if v2Eng {
-				t.UpdateProgress(10, fmt.Sprintf("%d agents assigned", len(plan.Steps)))
-			} else {
-				t.UpdateProgress(10, fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)))
-			}
+			t.UpdateProgress(10, msgT(fmt.Sprintf("에이전트 %d개 배치 완료", len(plan.Steps)), fmt.Sprintf("%d agents assigned", len(plan.Steps)), lang3))
 			runMultiAgentPlan(t, plan, gKey)
 		},
 	)
 
-	v2Msg := fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal)
-	if v2Eng { v2Msg = fmt.Sprintf("Multi-Agent started: '%s'", req.Goal) }
 	json200(w, map[string]any{
 		"success": true,
 		"task_id": task.ID,
-		"message": v2Msg,
+		"message": msgT(fmt.Sprintf("Multi-Agent 시작: '%s'", req.Goal), fmt.Sprintf("Multi-Agent started: '%s'", req.Goal), lang3),
 	})
 }
 

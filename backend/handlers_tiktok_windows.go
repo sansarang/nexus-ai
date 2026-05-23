@@ -30,13 +30,14 @@ type TikTokItem struct {
 // POST /api/tiktok/search
 // body: { "query": "...", "limit": 10 }
 func handleTikTokSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query string `json:"query"`
 		Limit int    `json:"limit"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
 	}
 	if req.Limit == 0 || req.Limit > 20 {
@@ -81,6 +82,7 @@ func handleTikTokSearch(w http.ResponseWriter, r *http.Request) {
 // GET /api/tiktok/trending
 // TikTok 한국 트렌딩 영상 수집
 func handleTikTokTrending(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	items, err := crawlTikTokFeed("https://www.tiktok.com/foryou?lang=ko-KR", 15)
 	if err != nil || len(items) == 0 {
 		// Tavily fallback: 트렌딩 키워드 검색
@@ -93,14 +95,14 @@ func handleTikTokTrending(w http.ResponseWriter, r *http.Request) {
 					"success": true,
 					"source":  "search_fallback",
 					"items":   tr.Items,
-					"message": "🔥 TikTok 트렌딩 (검색 기반)",
+					"message": msgT("🔥 TikTok 트렌딩 (검색 기반)", "🔥 TikTok Trending (search-based)", lang),
 				})
 				return
 			}
 		}
 		writeJSON(w, 200, map[string]any{
 			"success": false,
-			"message": "TikTok 트렌딩 수집 실패 (로그인 필요하거나 일시적 차단)",
+			"message": msgT("TikTok 트렌딩 수집 실패 (로그인 필요하거나 일시적 차단)", "TikTok trending collection failed (login required or temporarily blocked)", lang),
 		})
 		return
 	}
@@ -118,13 +120,14 @@ func handleTikTokTrending(w http.ResponseWriter, r *http.Request) {
 // body: { "username": "@username", "limit": 10 }
 // 특정 계정의 최근 영상 수집
 func handleTikTokProfile(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Username string `json:"username"`
 		Limit    int    `json:"limit"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Username == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "username 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("username 필요", "username required", lang)})
 		return
 	}
 	if req.Limit == 0 {
@@ -137,7 +140,7 @@ func handleTikTokProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil || len(items) == 0 {
 		writeJSON(w, 200, map[string]any{
 			"success": false,
-			"message": fmt.Sprintf("@%s 프로필 수집 실패 (비공개 계정이거나 일시적 오류)", username),
+			"message": msgT(fmt.Sprintf("@%s 프로필 수집 실패 (비공개 계정이거나 일시적 오류)", username), fmt.Sprintf("@%s profile collection failed (private account or temporary error)", username), lang),
 		})
 		return
 	}

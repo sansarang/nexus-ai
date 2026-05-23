@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -36,8 +35,7 @@ func handleRemoteAccess(w http.ResponseWriter, r *http.Request) {
 		{"RustDesk", "rustdesk", "medium"},
 	}
 
-	psOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-Process | Select-Object -ExpandProperty Name) -join ','`).Output()
+	psOut, _ := execPS(`(Get-Process | Select-Object -ExpandProperty Name) -join ','`)
 	runningLower := strings.ToLower(string(psOut))
 
 	result := struct {
@@ -65,8 +63,7 @@ func handleRemoteAccess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// RDP 포트 3389 수신 여부
-	netOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-NetTCPConnection -LocalPort 3389 -State Listen -EA SilentlyContinue | Measure-Object).Count`).Output()
+	netOut, _ := execPS(`(Get-NetTCPConnection -LocalPort 3389 -State Listen -EA SilentlyContinue | Measure-Object).Count`)
 	if cnt, _ := strconv.Atoi(strings.TrimSpace(string(netOut))); cnt > 0 {
 		result.RdpOpen = true
 		result.Score -= 10
@@ -100,8 +97,7 @@ type OpenPortInfo struct {
 }
 
 func handleProcessSecurity(w http.ResponseWriter, r *http.Request) {
-	psOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-Process | Sort-Object CPU -Desc | Select-Object -First 20 Name,Id,CPU,WorkingSet | ConvertTo-Json -Compress`).Output()
+	psOut, _ := execPS(`Get-Process | Sort-Object CPU -Desc | Select-Object -First 20 Name,Id,CPU,WorkingSet | ConvertTo-Json -Compress`)
 
 	var rawProcs []struct {
 		Name       string  `json:"Name"`
@@ -143,8 +139,7 @@ func handleProcessSecurity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	portOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-NetTCPConnection -State Listen | Select-Object LocalPort,State,OwningProcess | Sort-Object LocalPort | Select-Object -First 30 | ConvertTo-Json -Compress`).Output()
+	portOut, _ := execPS(`Get-NetTCPConnection -State Listen | Select-Object LocalPort,State,OwningProcess | Sort-Object LocalPort | Select-Object -First 30 | ConvertTo-Json -Compress`)
 
 	var rawPorts []struct {
 		LocalPort     int    `json:"LocalPort"`
@@ -239,8 +234,7 @@ type StartupItem struct {
 }
 
 func handleStartupItems(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location | ConvertTo-Json -Compress`).Output()
+	out, _ := execPS(`Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location | ConvertTo-Json -Compress`)
 
 	var raw []struct {
 		Name     string `json:"Name"`
@@ -278,8 +272,8 @@ func handleStartupItems(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleDefender(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-MpComputerStatus | Select-Object AntivirusEnabled,RealTimeProtectionEnabled,QuickScanAge,FullScanAge,AntivirusSignatureLastUpdated | ConvertTo-Json -Compress`).Output()
+	lang := getLang(r)
+	out, _ := execPS(`Get-MpComputerStatus | Select-Object AntivirusEnabled,RealTimeProtectionEnabled,QuickScanAge,FullScanAge,AntivirusSignatureLastUpdated | ConvertTo-Json -Compress`)
 
 	var status struct {
 		AntivirusEnabled              bool   `json:"AntivirusEnabled"`
@@ -295,15 +289,15 @@ func handleDefender(w http.ResponseWriter, r *http.Request) {
 
 	if !status.AntivirusEnabled {
 		score -= 30
-		issues = append(issues, "바이러스 백신 비활성화")
+		issues = append(issues, msgT("바이러스 백신 비활성화", "Antivirus disabled", lang))
 	}
 	if !status.RealTimeProtectionEnabled {
 		score -= 25
-		issues = append(issues, "실시간 보호 꺼짐")
+		issues = append(issues, msgT("실시간 보호 꺼짐", "Real-time protection off", lang))
 	}
 	if status.QuickScanAge > 7 {
 		score -= 10
-		issues = append(issues, fmt.Sprintf("마지막 빠른 검사 %d일 전", status.QuickScanAge))
+		issues = append(issues, fmt.Sprintf(msgT("마지막 빠른 검사 %d일 전", "Last quick scan %d days ago", lang), status.QuickScanAge))
 	}
 	if score < 0 {
 		score = 0
@@ -324,8 +318,7 @@ func handleDefender(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleAccountCheck(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-LocalUser | Select-Object Name,Enabled,LastLogon,PasswordRequired | ConvertTo-Json -Compress`).Output()
+	out, _ := execPS(`Get-LocalUser | Select-Object Name,Enabled,LastLogon,PasswordRequired | ConvertTo-Json -Compress`)
 
 	var accounts []struct {
 		Name             string `json:"Name"`

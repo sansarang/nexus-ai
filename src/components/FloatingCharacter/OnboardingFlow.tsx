@@ -40,7 +40,7 @@ const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', '
 const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
 const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
-const STEPS_TOTAL = 7
+const STEPS_TOTAL = 6
 
 // ─── Generic demo sequences (Step 0) ────────────────────────────────────────
 const GENERIC_DEMOS_KO = [
@@ -243,9 +243,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [selectedJobId, setSelectedJobId] = useState<string>('developer')
   const [jobSelected, setJobSelected]     = useState(false) // animation flag
-  const [gcalConnected, setGcalConnected] = useState(false)
-  const [gcalEmail, setGcalEmail]         = useState('')
-  const [gcalLoading, setGcalLoading]     = useState(false)
+
   const [selectedPlan, setSelectedPlan]   = useState<'free' | 'pro' | 'team'>('free')
 
   // Demo state for Step 2 (job-specific)
@@ -1385,145 +1383,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 () => {
                   setName(nameInput.trim() || (isEn ? 'Nexus' : '넥서스'))
                   setUserName(userInput.trim() || (isEn ? 'Boss' : '주인님'))
-                  setStep(6)
+                  void handleComplete()
                 },
-                isEn ? 'Next →' : '다음 →',
+                isEn ? `Start with ${nameInput.trim() || 'Nexus'} ✦` : `${nameInput.trim() || '넥서스'} 시작하기 ✦`,
               )}
               {backBtn(() => setStep(4), isEn ? '← Back' : '← 이전')}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ══════════════════════════════════════════════
-            Step 5: Complete (Google Calendar + finish)
-        ══════════════════════════════════════════════ */}
-        {step === 6 && (
-          <motion.div
-            key="step6-complete"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            style={card}
-          >
-            {progressBar}
-
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-                {isEn ? 'Connect Google Services' : 'Google 서비스 연동'}
-              </h2>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
-                {isEn
-                  ? 'Connect Calendar & Gmail so Nexus can manage your schedule and emails.'
-                  : 'Google 캘린더와 Gmail을 연동하면 일정과 메일을 관리할 수 있어요.'}
-              </p>
-            </div>
-
-            {/* Google Calendar + Gmail */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              <div style={{
-                background: gcalConnected ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${gcalConnected ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                borderRadius: 14, padding: '16px 18px',
-                display: 'flex', alignItems: 'center', gap: 14,
-              }}>
-                <div style={{
-                  width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                  background: 'rgba(66,133,244,0.15)', border: '1px solid rgba(66,133,244,0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                }}>📅</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: 'white', marginBottom: 2 }}>
-                    Google Calendar & Gmail
-                  </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                    {gcalConnected
-                      ? (gcalEmail || (isEn ? 'Connected' : '연결됨'))
-                      : (isEn ? 'Schedule management · Email read/send' : '일정 관리 · 메일 읽기/발송')}
-                  </div>
-                </div>
-                {gcalConnected ? (
-                  <div style={{ fontSize: 22 }}>✅</div>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      setGcalLoading(true)
-                      try {
-                        const BASE = 'http://127.0.0.1:17891'
-                        const res = await fetch(`${BASE}/api/calendar/google/auth`)
-                        const data = await res.json()
-                        if (data.url) {
-                          const { open } = await import('@tauri-apps/plugin-shell')
-                          await open(data.url)
-                          let tries = 0
-                          const poll = setInterval(async () => {
-                            tries++
-                            try {
-                              const s = await fetch(`${BASE}/api/calendar/google/status`)
-                              const st = await s.json()
-                              if (st.connected) {
-                                setGcalConnected(true)
-                                setGcalEmail(st.email || '')
-                                clearInterval(poll)
-                              }
-                            } catch {}
-                            if (tries > 24) clearInterval(poll)
-                          }, 5000)
-                        } else {
-                          alert(isEn ? 'Google OAuth not configured yet.' : 'Google OAuth가 아직 설정되지 않았습니다.')
-                        }
-                      } catch {}
-                      setGcalLoading(false)
-                    }}
-                    disabled={gcalLoading}
-                    style={{
-                      padding: '7px 14px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                      background: 'rgba(66,133,244,0.8)', color: 'white',
-                      fontSize: 12, fontWeight: 700, flexShrink: 0,
-                      opacity: gcalLoading ? 0.6 : 1,
-                    }}
-                  >
-                    {gcalLoading ? '...' : (isEn ? 'Connect' : '연동')}
-                  </button>
-                )}
-              </div>
-
-              {!gcalConnected && (
-                <div style={{
-                  padding: '10px 14px', background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10,
-                  fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 1.6,
-                }}>
-                  {isEn
-                    ? "💡 Can't connect now? Set it up later in Settings → Email/Calendar."
-                    : '💡 지금 연동이 어려우면 나중에 설정 → 이메일/캘린더에서 하실 수 있어요.'}
-                </div>
-              )}
-            </div>
-
-            {/* Summary */}
-            <div style={{
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 12, padding: '14px 18px', marginBottom: 16, fontSize: 13,
-              color: 'rgba(255,255,255,0.7)', lineHeight: 1.8,
-            }}>
-              <div>{isEn ? 'Job' : '직업'}: <strong style={{ color: 'white' }}>{selectedJob.emoji} {selectedJob.name}</strong></div>
-              <div>{isEn ? 'Plan' : '플랜'}: <strong style={{ color: selectedPlan === 'pro' ? '#a855f7' : selectedPlan === 'team' ? '#0ea5e9' : '#6b7280' }}>
-                {selectedPlan === 'pro' ? 'Pro $19/mo' : selectedPlan === 'team' ? 'Team $49/mo' : (isEn ? 'Free' : '무료')}
-              </strong></div>
-              <div>{isEn ? 'Assistant' : '비서'}: <strong style={{ color: 'white' }}>{assistantName}</strong></div>
-              <div>{isEn ? 'Your name' : '호칭'}: <strong style={{ color: 'white' }}>{userInput || (isEn ? 'Boss' : '주인님')}</strong></div>
-              <div>{isEn ? 'Character' : '캐릭터'}: <strong style={{ color: selectedStyle.primaryColor }}>{selectedStyle.name}</strong></div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {nextBtn(
-                () => void handleComplete(),
-                isEn
-                  ? (gcalConnected ? `Start with ${assistantName} ✦` : `Skip & Start ✦`)
-                  : (gcalConnected ? `${assistantName} 시작하기 ✦` : `건너뛰고 시작하기 ✦`),
-              )}
-              {backBtn(() => setStep(5), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}

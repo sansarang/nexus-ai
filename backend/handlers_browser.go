@@ -70,7 +70,7 @@ func groqFallbackSearch(w http.ResponseWriter, query string) {
 		"success": true,
 		"summary": text,
 		"items":   []any{},
-		"message": "⚠️ Chrome/Edge 미설치 — AI 지식 기반으로 답변합니다. 실시간 크롤링을 원하면 Chrome을 설치해주세요.",
+		"message": "⚠️ Chrome/Edge not installed — responding based on AI knowledge. Install Chrome for real-time crawling.",
 	})
 }
 
@@ -153,12 +153,13 @@ func withBrowserTimeout(timeout time.Duration) (context.Context, context.CancelF
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URL     string `json:"url"`
 		WaitFor string `json:"wait_for"` // selector to wait for
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url is required", lang)})
 		return
 	}
 	if !strings.HasPrefix(req.URL, "http") {
@@ -187,7 +188,7 @@ func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
 
 	if err := chromedp.Run(ctx, tasks...); err != nil {
 		browserBroken = true
-		writeJSON(w, 500, map[string]any{"success": false, "message": "탐색 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("탐색 실패: ", "Navigation failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -195,7 +196,7 @@ func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
 		"success":  true,
 		"title":    title,
 		"url":      currentURL,
-		"message":  fmt.Sprintf("'%s' 로 이동했습니다", title),
+		"message":  msgT(fmt.Sprintf("'%s' 로 이동했습니다", title), fmt.Sprintf("Navigated to '%s'", title), lang),
 	})
 }
 
@@ -204,6 +205,7 @@ func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Selector string `json:"selector"` // CSS selector, 없으면 body
 		Mode     string `json:"mode"`     // "text" | "html" | "links" | "table"
@@ -262,13 +264,13 @@ func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
 
 	if err := chromedp.Run(ctx, tasks...); err != nil {
 		browserBroken = true
-		writeJSON(w, 500, map[string]any{"success": false, "message": "추출 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("추출 실패: ", "Extraction failed: ", lang) + err.Error()})
 		return
 	}
 
 	// 텍스트 압축 (너무 길면 자름)
 	if len(result) > 5000 {
-		result = result[:5000] + "\n...(이하 생략)"
+		result = result[:5000] + msgT("\n...(이하 생략)", "\n...(truncated)", lang)
 	}
 
 	json200(w, map[string]any{
@@ -285,6 +287,7 @@ func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserClick(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Selector string `json:"selector"` // CSS selector
 		Text     string `json:"text"`     // 텍스트로 찾기 (selector 없을 때)
@@ -314,7 +317,7 @@ func handleBrowserClick(w http.ResponseWriter, r *http.Request) {
 			chromedp.Click(xpath, chromedp.BySearch),
 		)
 	} else {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "selector 또는 text 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("selector 또는 text 필요", "selector or text is required", lang)})
 		return
 	}
 
@@ -325,11 +328,11 @@ func handleBrowserClick(w http.ResponseWriter, r *http.Request) {
 	tasks = append(tasks, chromedp.Sleep(time.Duration(waitMs)*time.Millisecond))
 
 	if err := chromedp.Run(ctx, tasks...); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "클릭 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("클릭 실패: ", "Click failed: ", lang) + err.Error()})
 		return
 	}
 
-	json200(w, map[string]any{"success": true, "message": "클릭 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("클릭 완료", "Click completed", lang)})
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -337,6 +340,7 @@ func handleBrowserClick(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserFill(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Selector string `json:"selector"`
 		Value    string `json:"value"`
@@ -344,7 +348,7 @@ func handleBrowserFill(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Selector == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "selector 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("selector 필요", "selector is required", lang)})
 		return
 	}
 
@@ -365,11 +369,11 @@ func handleBrowserFill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := chromedp.Run(ctx, tasks...); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "입력 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("입력 실패: ", "Input failed: ", lang) + err.Error()})
 		return
 	}
 
-	json200(w, map[string]any{"success": true, "message": "입력 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("입력 완료", "Input completed", lang)})
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -377,6 +381,7 @@ func handleBrowserFill(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserScreenshot(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Selector string `json:"selector"` // 특정 요소만 캡처 (optional)
 	}
@@ -404,7 +409,7 @@ func handleBrowserScreenshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := chromedp.Run(ctx, tasks...); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "캡처 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("캡처 실패: ", "Screenshot failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -424,13 +429,14 @@ func handleBrowserScreenshot(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Command string `json:"command"` // "쿠팡에서 노트북 최저가 찾아줘"
 		MaxSteps int   `json:"max_steps"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Command == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "command 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command is required", lang)})
 		return
 	}
 	if req.MaxSteps == 0 {
@@ -441,7 +447,7 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
 	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "Groq API 키 미설정"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("Groq API 키 미설정", "Groq API key not configured", lang)})
 		return
 	}
 
@@ -472,7 +478,7 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 		{Role: "user", Content: planPrompt},
 	}, 1024, true)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "계획 수립 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("계획 수립 실패: ", "Plan creation failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -487,8 +493,8 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.Unmarshal([]byte(planStr), &plan); err != nil {
 		writeJSON(w, 500, map[string]any{
-			"success": false,
-			"message": "계획 파싱 실패: " + err.Error(),
+			"success":  false,
+			"message":  msgT("계획 파싱 실패: ", "Plan parsing failed: ", lang) + err.Error(),
 			"raw_plan": planStr,
 		})
 		return
@@ -698,6 +704,7 @@ If price comparison, use a table format. If information gathering, use a key con
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserClose(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	browserMu.Lock()
 	defer browserMu.Unlock()
 	if browserCancel != nil {
@@ -707,7 +714,7 @@ func handleBrowserClose(w http.ResponseWriter, r *http.Request) {
 		browserCtx = nil
 		browserBroken = false
 	}
-	json200(w, map[string]any{"success": true, "message": "브라우저가 닫혔습니다"})
+	json200(w, map[string]any{"success": true, "message": msgT("브라우저가 닫혔습니다", "Browser closed", lang)})
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -715,6 +722,7 @@ func handleBrowserClose(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserStatus(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	browserMu.Lock()
 	active := browserAlloc != nil && !browserBroken
 	browserMu.Unlock()
@@ -727,9 +735,9 @@ func handleBrowserStatus(w http.ResponseWriter, r *http.Request) {
 		"chrome_installed": chromeInstalled,
 		"message": func() string {
 			if active {
-				return "브라우저 세션 활성"
+				return msgT("브라우저 세션 활성", "Browser session active", lang)
 			}
-			return "브라우저 세션 없음"
+			return msgT("브라우저 세션 없음", "No browser session", lang)
 		}(),
 	})
 }

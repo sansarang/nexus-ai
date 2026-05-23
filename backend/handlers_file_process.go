@@ -88,8 +88,9 @@ func handleFileProcess(w http.ResponseWriter, r *http.Request) {
 		Params    map[string]string `json:"params"`
 		Query     string            `json:"query"`
 	}
+	lang := getLang(r)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.Files) == 0 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "files 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("files 필요", "files required", lang)})
 		return
 	}
 	if req.Params == nil {
@@ -101,15 +102,15 @@ func handleFileProcess(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Operation {
 	case "resize":
-		handleResize(w, req.Files[0], req.Params, req.Query)
+		handleResize(w, req.Files[0], req.Params, req.Query, lang)
 	case "to_gif":
-		handleToGIF(w, req.Files, req.Params)
+		handleToGIF(w, req.Files, req.Params, lang)
 	case "compare":
-		handleCompare(w, req.Files, req.Query)
+		handleCompare(w, req.Files, req.Query, lang)
 	case "convert":
-		handleConvert(w, req.Files[0], req.Params)
+		handleConvert(w, req.Files[0], req.Params, lang)
 	default:
-		writeJSON(w, 400, map[string]any{"success": false, "message": "지원하지 않는 operation: " + req.Operation})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("지원하지 않는 operation: "+req.Operation, "Unsupported operation: "+req.Operation, lang)})
 	}
 }
 
@@ -142,10 +143,10 @@ func detectFileOp(query string, files []fileInput) string {
 }
 
 // ── 이미지 리사이즈 ────────────────────────────────────────────
-func handleResize(w http.ResponseWriter, f fileInput, params map[string]string, query string) {
+func handleResize(w http.ResponseWriter, f fileInput, params map[string]string, query string, lang string) {
 	img, format, err := decodeImage(f.Data)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "이미지 디코딩 실패: " + err.Error()})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("이미지 디코딩 실패: "+err.Error(), "Image decode failed: "+err.Error(), lang)})
 		return
 	}
 
@@ -225,7 +226,7 @@ func resizeCropFit(src stdimage.Image, tw, th int) stdimage.Image {
 }
 
 // ── GIF 변환 ──────────────────────────────────────────────────
-func handleToGIF(w http.ResponseWriter, files []fileInput, params map[string]string) {
+func handleToGIF(w http.ResponseWriter, files []fileInput, params map[string]string, lang string) {
 	delay := 50
 	if d := params["delay"]; d != "" {
 		fmt.Sscanf(d, "%d", &delay)
@@ -252,7 +253,7 @@ func handleToGIF(w http.ResponseWriter, files []fileInput, params map[string]str
 	}
 
 	if len(frames) == 0 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "변환 가능한 이미지가 없습니다"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("변환 가능한 이미지가 없습니다", "No convertible images found", lang)})
 		return
 	}
 	if len(frames) == 1 {
@@ -305,9 +306,9 @@ func makeZoomAnimation(base *stdimage.Paletted, frameCount int) ([]*stdimage.Pal
 }
 
 // ── 문서 비교 ─────────────────────────────────────────────────
-func handleCompare(w http.ResponseWriter, files []fileInput, query string) {
+func handleCompare(w http.ResponseWriter, files []fileInput, query string, lang string) {
 	if len(files) < 2 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "비교하려면 파일 2개 이상 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("비교하려면 파일 2개 이상 필요", "At least 2 files required for comparison", lang)})
 		return
 	}
 	texts := make([]string, len(files))
@@ -367,10 +368,10 @@ func handleCompare(w http.ResponseWriter, files []fileInput, query string) {
 }
 
 // ── 포맷 변환 ─────────────────────────────────────────────────
-func handleConvert(w http.ResponseWriter, f fileInput, params map[string]string) {
+func handleConvert(w http.ResponseWriter, f fileInput, params map[string]string, lang string) {
 	img, _, err := decodeImage(f.Data)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "디코딩 실패: " + err.Error()})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("디코딩 실패: "+err.Error(), "Decode failed: "+err.Error(), lang)})
 		return
 	}
 	targetFmt := strings.ToLower(strings.TrimPrefix(params["format"], "."))

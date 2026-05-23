@@ -17,6 +17,7 @@ import (
 
 // POST /api/dictation/type — body: {text: string, app?: string}
 func handleDictationType(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Text string `json:"text"`
 		App  string `json:"app,omitempty"`
@@ -24,7 +25,7 @@ func handleDictationType(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Text == "" {
-		json200(w, map[string]interface{}{"success": false, "message": "text가 필요해요"})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("text가 필요해요", "text is required", lang)})
 		return
 	}
 
@@ -43,27 +44,28 @@ func handleDictationType(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "입력 실패: " + err.Error() + " " + string(out),
+			"message": msgT("입력 실패: ", "Input failed: ", lang) + err.Error() + " " + string(out),
 		})
 		return
 	}
 
 	json200(w, map[string]interface{}{
-		"success":      true,
-		"typed_chars":  utf8.RuneCountInString(req.Text),
-		"message":      fmt.Sprintf("%d자 입력 완료", utf8.RuneCountInString(req.Text)),
+		"success":     true,
+		"typed_chars": utf8.RuneCountInString(req.Text),
+		"message":     fmt.Sprintf(msgT("%d자 입력 완료", "%d characters typed", lang), utf8.RuneCountInString(req.Text)),
 	})
 }
 
 // POST /api/dictation/paste — body: {text: string}
 func handleDictationPaste(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Text string `json:"text"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Text == "" {
-		json200(w, map[string]interface{}{"success": false, "message": "text가 필요해요"})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("text가 필요해요", "text is required", lang)})
 		return
 	}
 
@@ -78,14 +80,14 @@ func handleDictationPaste(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "붙여넣기 실패: " + err.Error() + " " + string(out),
+			"message": msgT("붙여넣기 실패: ", "Paste failed: ", lang) + err.Error() + " " + string(out),
 		})
 		return
 	}
 
 	json200(w, map[string]interface{}{
 		"success": true,
-		"message": "클립보드 붙여넣기 완료",
+		"message": msgT("클립보드 붙여넣기 완료", "Clipboard paste complete", lang),
 	})
 }
 

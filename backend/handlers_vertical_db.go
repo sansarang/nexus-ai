@@ -838,6 +838,7 @@ func handleVerticalAPIKeysInfo(w http.ResponseWriter, r *http.Request) {
 // ─────────────────────────────────────────────────────────────
 
 func handleVerticalAPIKeysSave(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var keys VerticalAPIKeys
 	if err := json.NewDecoder(r.Body).Decode(&keys); err != nil {
 		http.Error(w, `{"ok":false,"error":"invalid body"}`, 400)
@@ -851,7 +852,7 @@ func handleVerticalAPIKeysSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"ok":false,"error":"save failed"}`, 500)
 		return
 	}
-	json200(w, map[string]any{"ok": true, "message": "API 키가 저장되었습니다."})
+	json200(w, map[string]any{"ok": true, "message": msgT("API 키가 저장되었습니다.", "API keys saved.", lang)})
 }
 
 // context 호환용 래퍼

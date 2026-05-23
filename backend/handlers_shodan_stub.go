@@ -43,6 +43,7 @@ type ShodanResult struct {
 
 // POST /api/security/shodan
 func handleShodanAudit(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Target   string `json:"target"`    // IP or domain
 		ShodanKey string `json:"shodan_key"` // 옵셔널 — 없으면 무료 API 사용
@@ -50,14 +51,14 @@ func handleShodanAudit(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Target == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "target(IP 또는 도메인) 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("target(IP 또는 도메인) 필요", "target (IP or domain) required", lang)})
 		return
 	}
 
 	// 도메인이면 IP로 변환
 	ip := resolveTarget(req.Target)
 	if ip == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "IP 조회 실패: " + req.Target})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("IP 조회 실패: ", "IP lookup failed: ", lang) + req.Target})
 		return
 	}
 
@@ -79,7 +80,7 @@ func handleShodanAudit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "조회 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("조회 실패: ", "Lookup failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -99,9 +100,10 @@ func handleShodanAudit(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/security/myip — 내 공인 IP 조회 후 Shodan 감사
 func handleMyIPAudit(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	myIP := getPublicIP()
 	if myIP == "" {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "공인 IP 조회 실패"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("공인 IP 조회 실패", "Failed to get public IP", lang)})
 		return
 	}
 
@@ -123,7 +125,8 @@ func handleMyIPAudit(w http.ResponseWriter, r *http.Request) {
 
 	result.RiskScore = calculateRiskScore(result.OpenPorts, result.Vulns)
 	result.RiskLevel = riskLevel(result.RiskScore)
-	msg := buildShodanReport(myIP+" (내 IP)", result)
+	myIPLabel := msgT(myIP+" (내 IP)", myIP+" (My IP)", lang)
+	msg := buildShodanReport(myIPLabel, result)
 
 	writeJSON(w, 200, map[string]any{
 		"success": true,

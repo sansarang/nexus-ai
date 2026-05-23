@@ -259,16 +259,17 @@ func handleTaskList(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/tasks/cancel — body: {id: "task_xxx"}
 func handleTaskCancel(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ ID string `json:"id"` }
 	json.NewDecoder(r.Body).Decode(&req)
 	task, ok := globalTaskQueue.GetTask(req.ID)
 	if !ok {
-		json200(w, map[string]any{"success": false, "message": "태스크를 찾을 수 없어요"})
+		json200(w, map[string]any{"success": false, "message": msgT("태스크를 찾을 수 없어요", "Task not found", lang)})
 		return
 	}
 	task.Cancel()
 	task.Status = TaskCancelled
 	fin := time.Now()
 	task.FinishedAt = &fin
-	json200(w, map[string]any{"success": true, "message": "태스크 취소 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("태스크 취소 완료", "Task cancelled", lang)})
 }

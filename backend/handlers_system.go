@@ -16,6 +16,7 @@ import (
 // ──────────────────────────────────────────
 
 func handleVolume(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Action string `json:"action"` // set | get | mute | unmute
 		Value  int    `json:"value"`  // 0-100
@@ -27,12 +28,12 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 		out, _ := exec.Command("powershell", "-NoProfile", "-Command",
 			`Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class Vol { [DllImport("winmm.dll")] public static extern int waveOutGetVolume(System.IntPtr h, out uint v); }'; $v = [uint32]0; [Vol]::waveOutGetVolume([System.IntPtr]::Zero, [ref]$v); [math]::Round(($v -band 0xFFFF) / 65535 * 100)`).Output()
 		vol, _ := strconv.Atoi(strings.TrimSpace(string(out)))
-		json200(w, map[string]any{"volume": vol, "message": fmt.Sprintf("현재 볼륨: %d%%", vol)})
+		json200(w, map[string]any{"volume": vol, "message": fmt.Sprintf(msgT("현재 볼륨: %d%%", "Current volume: %d%%", lang), vol)})
 
 	case "mute":
 		exec.Command("powershell", "-NoProfile", "-Command",
 			`(New-Object -ComObject WScript.Shell).SendKeys([char]173)`).Run()
-		json200(w, map[string]any{"success": true, "message": "음소거 처리했어요 🔇"})
+		json200(w, map[string]any{"success": true, "message": msgT("음소거 처리했어요 🔇", "Muted 🔇", lang)})
 
 	case "unmute":
 		// nircmd 없이 순수 Windows API로 음소거 강제 해제
@@ -52,7 +53,7 @@ Start-Sleep -Milliseconds 100
 [Audio]::waveOutGetVolume([System.IntPtr]::Zero, [ref]$v)
 if ($v -eq 0) { $obj.SendKeys([char]173) }
 `).Run()
-		json200(w, map[string]any{"success": true, "message": "음소거 해제했어요 🔊"})
+		json200(w, map[string]any{"success": true, "message": msgT("음소거 해제했어요 🔊", "Unmuted 🔊", lang)})
 
 	default: // "set"
 		if req.Value < 0 {
@@ -67,7 +68,7 @@ if ($v -eq 0) { $obj.SendKeys([char]173) }
 		)
 		execPSRun(script)
 		json200(w, map[string]any{"success": true, "volume": req.Value,
-			"message": fmt.Sprintf("볼륨을 %d%%로 설정했어요 🔊", req.Value)})
+			"message": fmt.Sprintf(msgT("볼륨을 %d%%로 설정했어요 🔊", "Volume set to %d%% 🔊", lang), req.Value)})
 	}
 }
 
@@ -76,6 +77,7 @@ if ($v -eq 0) { $obj.SendKeys([char]173) }
 // ──────────────────────────────────────────
 
 func handleBrightness(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Action string `json:"action"` // set | get
 		Value  int    `json:"value"`  // 0-100
@@ -86,7 +88,7 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 		out, _ := exec.Command("powershell", "-NoProfile", "-Command",
 			`(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightness).CurrentBrightness`).Output()
 		val, _ := strconv.Atoi(strings.TrimSpace(string(out)))
-		json200(w, map[string]any{"brightness": val, "message": fmt.Sprintf("현재 밝기: %d%%", val)})
+		json200(w, map[string]any{"brightness": val, "message": fmt.Sprintf(msgT("현재 밝기: %d%%", "Current brightness: %d%%", lang), val)})
 		return
 	}
 
@@ -102,11 +104,11 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 	)
 	err := execPSRun(script)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "밝기 조절 실패 (노트북 전용 기능이에요)"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("밝기 조절 실패 (노트북 전용 기능이에요)", "Brightness adjustment failed (laptop only)", lang)})
 		return
 	}
 	json200(w, map[string]any{"success": true, "brightness": req.Value,
-		"message": fmt.Sprintf("밝기를 %d%%로 설정했어요 ☀️", req.Value)})
+		"message": fmt.Sprintf(msgT("밝기를 %d%%로 설정했어요 ☀️", "Brightness set to %d%% ☀️", lang), req.Value)})
 }
 
 // ──────────────────────────────────────────
@@ -114,6 +116,7 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleWifi(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Action string `json:"action"` // on | off | status
 	}
@@ -129,10 +132,10 @@ func handleWifi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	action := "enable"
-	msg := "Wi-Fi를 켰어요 📶"
+	msg := msgT("Wi-Fi를 켰어요 📶", "Wi-Fi enabled 📶", lang)
 	if req.Action == "off" {
 		action = "disable"
-		msg = "Wi-Fi를 껐어요 📵"
+		msg = msgT("Wi-Fi를 껐어요 📵", "Wi-Fi disabled 📵", lang)
 	}
 
 	script := fmt.Sprintf(`netsh interface set interface "Wi-Fi" %s`, action)
@@ -145,6 +148,7 @@ func handleWifi(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handlePower(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Action string `json:"action"` // lock | sleep | restart | shutdown
 	}
@@ -156,19 +160,19 @@ func handlePower(w http.ResponseWriter, r *http.Request) {
 	switch req.Action {
 	case "lock":
 		cmd = exec.Command("rundll32.exe", "user32.dll,LockWorkStation")
-		msg = "화면을 잠갔어요 🔒"
+		msg = msgT("화면을 잠갔어요 🔒", "Screen locked 🔒", lang)
 	case "sleep":
 		cmd = exec.Command("powershell", "-NoProfile", "-Command",
 			`Add-Type -Assembly System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend',$false,$false)`)
-		msg = "절전 모드로 전환해요 😴"
+		msg = msgT("절전 모드로 전환해요 😴", "Entering sleep mode 😴", lang)
 	case "restart":
 		cmd = exec.Command("shutdown", "/r", "/t", "10")
-		msg = "10초 후 재시작합니다 🔄"
+		msg = msgT("10초 후 재시작합니다 🔄", "Restarting in 10 seconds 🔄", lang)
 	case "shutdown":
 		cmd = exec.Command("shutdown", "/s", "/t", "10")
-		msg = "10초 후 종료합니다 ⏻"
+		msg = msgT("10초 후 종료합니다 ⏻", "Shutting down in 10 seconds ⏻", lang)
 	default:
-		writeJSON(w, 400, map[string]any{"success": false, "message": "알 수 없는 명령"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("알 수 없는 명령", "Unknown command", lang)})
 		return
 	}
 
@@ -201,6 +205,7 @@ var appAliases = map[string]string{
 }
 
 func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		App string `json:"app"`
 	}
@@ -222,14 +227,14 @@ func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
 	if err := cmd.Start(); err != nil {
 		writeJSON(w, 500, map[string]any{
 			"success": false,
-			"message": fmt.Sprintf("'%s' 실행 실패: 설치되어 있는지 확인해주세요", req.App),
+			"message": fmt.Sprintf(msgT("'%s' 실행 실패: 설치되어 있는지 확인해주세요", "'%s' launch failed: please check if it is installed", lang), req.App),
 		})
 		return
 	}
 	json200(w, map[string]any{
 		"success": true,
 		"app":     req.App,
-		"message": fmt.Sprintf("'%s'을(를) 실행했어요 🚀", req.App),
+		"message": fmt.Sprintf(msgT("'%s'을(를) 실행했어요 🚀", "Launched '%s' 🚀", lang), req.App),
 	})
 }
 

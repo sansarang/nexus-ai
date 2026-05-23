@@ -153,11 +153,12 @@ func handlePersonaList(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePersonaSet(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == "" {
-		writeJSON(w, 400, map[string]string{"error": "id 필드가 필요합니다"})
+		writeJSON(w, 400, map[string]string{"error": msgT("id 필드가 필요합니다", "id field is required", lang)})
 		return
 	}
 	var found *Persona
@@ -168,7 +169,7 @@ func handlePersonaSet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if found == nil {
-		writeJSON(w, 400, map[string]string{"error": "알 수 없는 페르소나 ID: " + req.ID})
+		writeJSON(w, 400, map[string]string{"error": msgT("알 수 없는 페르소나 ID: ", "Unknown persona ID: ", lang) + req.ID})
 		return
 	}
 	personaMu.Lock()
@@ -178,7 +179,7 @@ func handlePersonaSet(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"ok":      true,
 		"persona": found,
-		"message": found.Emoji + " " + found.Name + " 페르소나로 전환했습니다.",
+		"message": found.Emoji + " " + found.Name + " " + msgT("페르소나로 전환했습니다.", "persona activated.", lang),
 	})
 }
 

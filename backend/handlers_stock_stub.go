@@ -198,13 +198,13 @@ func handleStockWatchlistAdd(w http.ResponseWriter, r *http.Request) {
 	symbol := strings.ToUpper(strings.TrimSpace(req["symbol"]))
 	name := req["name"]
 	if symbol == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "symbol 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("symbol 필요", "symbol required", getLang(r))})
 		return
 	}
 	list := loadWatchlist()
 	for _, item := range list {
 		if item["symbol"] == symbol {
-			json200(w, map[string]any{"success": true, "message": symbol + "은 이미 관심 종목이에요"})
+			json200(w, map[string]any{"success": true, "message": msgT(symbol+"은 이미 관심 종목이에요", symbol+" is already in your watchlist", getLang(r))})
 			return
 		}
 	}

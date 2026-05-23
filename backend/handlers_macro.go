@@ -88,14 +88,15 @@ func handleMacroList(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleMacroCreate(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var macro Macro
 	if err := json.NewDecoder(r.Body).Decode(&macro); err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 요청입니다"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("잘못된 요청입니다", "Invalid request", lang)})
 		return
 	}
 
 	if macro.Name == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "매크로 이름을 입력해주세요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("매크로 이름을 입력해주세요", "Please enter a macro name", lang)})
 		return
 	}
 
@@ -107,7 +108,7 @@ func handleMacroCreate(w http.ResponseWriter, r *http.Request) {
 	macros := loadMacros()
 	macros = append(macros, macro)
 	if err := saveMacros(macros); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "저장 실패"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("저장 실패", "Save failed", lang)})
 		return
 	}
 
@@ -119,7 +120,7 @@ func handleMacroCreate(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": true,
 		"macro":   macro,
-		"message": fmt.Sprintf("매크로 '%s' 등록 완료!", macro.Name),
+		"message": fmt.Sprintf(msgT("매크로 '%s' 등록 완료!", "Macro '%s' registered!", lang), macro.Name),
 	})
 }
 
@@ -128,6 +129,7 @@ func handleMacroCreate(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleMacroRun(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		ID string `json:"id"`
 	}
@@ -142,7 +144,7 @@ func handleMacroRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if target == nil {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "매크로를 찾을 수 없어요"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("매크로를 찾을 수 없어요", "Macro not found", lang)})
 		return
 	}
 
@@ -157,7 +159,7 @@ func handleMacroRun(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"name":    target.Name,
 		"results": results,
-		"message": fmt.Sprintf("매크로 '%s' 실행 완료 (%d개 동작)", target.Name, len(results)),
+		"message": fmt.Sprintf(msgT("매크로 '%s' 실행 완료 (%d개 동작)", "Macro '%s' executed (%d actions)", lang), target.Name, len(results)),
 	})
 }
 
@@ -336,6 +338,7 @@ Register-ScheduledTask -TaskName "Nexus_%s" -Action $action -Trigger $trigger -S
 // ──────────────────────────────────────────
 
 func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		ID string `json:"id"`
 	}
@@ -355,11 +358,11 @@ func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !found {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "매크로를 찾을 수 없어요"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("매크로를 찾을 수 없어요", "Macro not found", lang)})
 		return
 	}
 	saveMacros(updated)
-	json200(w, map[string]any{"success": true, "message": "매크로가 삭제됐어요"})
+	json200(w, map[string]any{"success": true, "message": msgT("매크로가 삭제됐어요", "Macro deleted", lang)})
 }
 
 // ──────────────────────────────────────────
@@ -367,6 +370,7 @@ func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleMacroParse(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Text string `json:"text"`
 	}
@@ -442,7 +446,7 @@ func handleMacroParse(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"macro":   macro,
 		"parsed":  true,
-		"message": fmt.Sprintf("'%s' 매크로를 만들었어요. 확인 후 등록해주세요!", macro.Name),
+		"message": fmt.Sprintf(msgT("'%s' 매크로를 만들었어요. 확인 후 등록해주세요!", "Macro '%s' created. Please review before registering!", lang), macro.Name),
 	})
 }
 

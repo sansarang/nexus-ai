@@ -438,6 +438,7 @@ func handleSettingsLang(w http.ResponseWriter, r *http.Request) {
 
 // GET|POST /api/llm/config
 func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	if r.Method == http.MethodGet {
 		llmMu.RLock()
 		pSet := llmPerplexityKey != ""
@@ -495,11 +496,12 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	llmMu.Unlock()
 	saveLLMConfig()
-	json200(w, map[string]any{"success": true, "message": "API 키 저장 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("API 키 저장 완료", "API key saved", lang)})
 }
 
 // POST /api/llm/chat
 func handleLLMChat(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Messages  []groqMsg `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
@@ -507,7 +509,7 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 		Fast      bool      `json:"fast"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.Messages) == 0 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "messages 배열 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("messages 배열 필요", "messages array required", lang)})
 		return
 	}
 	if req.MaxTokens == 0 {
@@ -562,15 +564,16 @@ func handleLLMDocSummary(w http.ResponseWriter, r *http.Request) {
 		FilePath string `json:"file_path"`
 		Question string `json:"question"`
 	}
+	lang := getLang(r)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FilePath == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "file_path 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("file_path 필요", "file_path required", lang)})
 		return
 	}
 
 	// 경로 순회 공격 방지
 	cleaned := filepath.Clean(req.FilePath)
 	if strings.Contains(cleaned, "..") {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 파일 경로"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("잘못된 파일 경로", "Invalid file path", lang)})
 		return
 	}
 
@@ -578,13 +581,13 @@ func handleLLMDocSummary(w http.ResponseWriter, r *http.Request) {
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
 	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "Perplexity API 키 미설정"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("Perplexity API 키 미설정", "Perplexity API key not configured", lang)})
 		return
 	}
 
 	text, err := extractDocumentText(cleaned)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "문서 읽기 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("문서 읽기 실패: "+err.Error(), "Failed to read document: "+err.Error(), lang)})
 		return
 	}
 	if len(text) > 8000 {
@@ -612,15 +615,16 @@ func handleLLMDocCompare(w http.ResponseWriter, r *http.Request) {
 		FileB string `json:"file_b"`
 		Focus string `json:"focus"`
 	}
+	lang2 := getLang(r)
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FileA == "" || req.FileB == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "file_a, file_b 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("file_a, file_b 필요", "file_a, file_b required", lang2)})
 		return
 	}
 	// 경로 순회 방지
 	cleanA := filepath.Clean(req.FileA)
 	cleanB := filepath.Clean(req.FileB)
 	if strings.Contains(cleanA, "..") || strings.Contains(cleanB, "..") {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 파일 경로"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("잘못된 파일 경로", "Invalid file path", lang2)})
 		return
 	}
 
@@ -628,18 +632,18 @@ func handleLLMDocCompare(w http.ResponseWriter, r *http.Request) {
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
 	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "Perplexity API 키 미설정"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("Perplexity API 키 미설정", "Perplexity API key not configured", lang2)})
 		return
 	}
 
 	textA, errA := extractDocumentText(cleanA)
 	textB, errB := extractDocumentText(cleanB)
 	if errA != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일A 오류: " + errA.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일A 오류: "+errA.Error(), "File A error: "+errA.Error(), lang2)})
 		return
 	}
 	if errB != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일B 오류: " + errB.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일B 오류: "+errB.Error(), "File B error: "+errB.Error(), lang2)})
 		return
 	}
 

@@ -17,6 +17,7 @@ import (
 
 // POST /api/process/kill — 프로세스 강제 종료
 func handleProcessKill(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		PID  int    `json:"pid"`
 		Name string `json:"name"`
@@ -41,7 +42,7 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 			return -1
 		}, req.Name)
 		if safeName == "" {
-			json200(w, map[string]interface{}{"success": false, "message": "잘못된 프로세스 이름"})
+			json200(w, map[string]interface{}{"success": false, "message": msgT("잘못된 프로세스 이름", "Invalid process name", lang)})
 			return
 		}
 		out, err = exec.Command("powershell", "-NoProfile", "-Command",
@@ -49,7 +50,7 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 	} else {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "PID 또는 프로세스 이름을 입력해주세요.",
+			"message": msgT("PID 또는 프로세스 이름을 입력해주세요.", "Please enter a PID or process name.", lang),
 		})
 		return
 	}
@@ -60,9 +61,9 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 		name = fmt.Sprintf("PID %d", req.PID)
 	}
 
-	msg := fmt.Sprintf("✅ '%s' 프로세스를 종료했어요.", name)
+	msg := msgT(fmt.Sprintf("✅ '%s' 프로세스를 종료했어요.", name), fmt.Sprintf("✅ Process '%s' terminated.", name), lang)
 	if !success {
-		msg = fmt.Sprintf("'%s' 종료에 실패했어요. 관리자 권한이 필요할 수 있어요.", name)
+		msg = msgT(fmt.Sprintf("'%s' 종료에 실패했어요. 관리자 권한이 필요할 수 있어요.", name), fmt.Sprintf("Failed to terminate '%s'. Admin privileges may be required.", name), lang)
 	}
 
 	json200(w, map[string]interface{}{
@@ -74,6 +75,7 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/app/permissions — 앱별 권한 사용 현황
 func handleAppPermissions(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	appName := r.URL.Query().Get("app")
 
 	script := `
@@ -116,7 +118,7 @@ if ($micApps) {
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "권한 정보를 가져오지 못했어요.",
+			"message": msgT("권한 정보를 가져오지 못했어요.", "Failed to retrieve permission info.", lang),
 		})
 		return
 	}
@@ -126,14 +128,14 @@ if ($micApps) {
 	if err := json.Unmarshal([]byte(outStr), &parsed); err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "권한 정보 파싱 실패",
+			"message": msgT("권한 정보 파싱 실패", "Failed to parse permission info", lang),
 		})
 		return
 	}
 
-	msg := "앱 권한 현황을 확인했어요 🔑"
+	msg := msgT("앱 권한 현황을 확인했어요 🔑", "App permission status retrieved 🔑", lang)
 	if appName != "" {
-		msg = fmt.Sprintf("'%s' 앱의 권한 현황이에요", appName)
+		msg = msgT(fmt.Sprintf("'%s' 앱의 권한 현황이에요", appName), fmt.Sprintf("Permission status for '%s'", appName), lang)
 	}
 
 	json200(w, map[string]interface{}{
@@ -146,6 +148,7 @@ if ($micApps) {
 
 // GET /api/system/updates — Windows Update 대기 목록
 func handleWindowsUpdates(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	script := `
 try {
   $UpdateSession = New-Object -ComObject Microsoft.Update.Session
@@ -175,7 +178,7 @@ try {
 			"success": false,
 			"count":   0,
 			"updates": []interface{}{},
-			"message": "Windows Update 확인 실패",
+			"message": msgT("Windows Update 확인 실패", "Failed to check Windows Update", lang),
 		})
 		return
 	}
@@ -186,7 +189,7 @@ try {
 			"success": false,
 			"count":   0,
 			"updates": []interface{}{},
-			"message": "Windows Update 서비스에 접근할 수 없어요.",
+			"message": msgT("Windows Update 서비스에 접근할 수 없어요.", "Cannot access Windows Update service.", lang),
 		})
 		return
 	}
@@ -195,7 +198,7 @@ try {
 	if err := json.Unmarshal([]byte(outStr), &parsed); err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "파싱 실패",
+			"message": msgT("파싱 실패", "Parsing failed", lang),
 		})
 		return
 	}
@@ -205,9 +208,9 @@ try {
 		count = int(c)
 	}
 
-	msg := "✅ 설치 대기 중인 업데이트가 없어요!"
+	msg := msgT("✅ 설치 대기 중인 업데이트가 없어요!", "✅ No pending updates!", lang)
 	if count > 0 {
-		msg = fmt.Sprintf("⚠️ Windows 업데이트 %d개가 대기 중이에요. 설치를 권장해요.", count)
+		msg = msgT(fmt.Sprintf("⚠️ Windows 업데이트 %d개가 대기 중이에요. 설치를 권장해요.", count), fmt.Sprintf("⚠️ %d Windows update(s) pending. Installation recommended.", count), lang)
 	}
 
 	json200(w, map[string]interface{}{
@@ -220,6 +223,7 @@ try {
 
 // GET /api/gpu/stats — GPU 상세 모니터링
 func handleGPUStats(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	// nvidia-smi 직접 실행 (PowerShell 경유 시 2>$null 백틱 충돌 방지)
 	nvidiaScript := "try {" +
 		" $s = & nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>$null;" +
@@ -266,7 +270,7 @@ try {
 		json200(w, map[string]interface{}{
 			"success": false,
 			"gpus":    []interface{}{},
-			"message": "GPU 정보를 가져오지 못했어요.",
+			"message": msgT("GPU 정보를 가져오지 못했어요.", "Failed to retrieve GPU info.", lang),
 		})
 		return
 	}
@@ -276,7 +280,7 @@ try {
 		json200(w, map[string]interface{}{
 			"success": false,
 			"gpus":    []interface{}{},
-			"message": "GPU 정보를 가져오지 못했어요.",
+			"message": msgT("GPU 정보를 가져오지 못했어요.", "Failed to retrieve GPU info.", lang),
 		})
 		return
 	}
@@ -290,12 +294,12 @@ try {
 		json200(w, map[string]interface{}{
 			"success": false,
 			"gpus":    []interface{}{},
-			"message": "GPU 데이터 파싱 실패",
+			"message": msgT("GPU 데이터 파싱 실패", "Failed to parse GPU data", lang),
 		})
 		return
 	}
 
-	msg := fmt.Sprintf("GPU %d개 확인했어요 🎮", len(gpus))
+	msg := msgT(fmt.Sprintf("GPU %d개 확인했어요 🎮", len(gpus)), fmt.Sprintf("Found %d GPU(s) 🎮", len(gpus)), lang)
 	json200(w, map[string]interface{}{
 		"success": true,
 		"gpus":    gpus,

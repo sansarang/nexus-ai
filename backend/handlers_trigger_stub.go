@@ -314,7 +314,7 @@ JSON만 출력:
 	}
 
 	if t == nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "트리거 조건을 파싱할 수 없습니다. 더 구체적으로 입력해주세요. 예: 'CPU 80% 넘으면 알려줘', '매일 9시에 알려줘'"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("트리거 조건을 파싱할 수 없습니다. 더 구체적으로 입력해주세요. 예: 'CPU 80% 넘으면 알려줘', '매일 9시에 알려줘'", "Cannot parse trigger condition. Please be more specific. e.g. 'Alert me when CPU exceeds 80%', 'Remind me every day at 9am'", getLang(r))})
 		return
 	}
 
@@ -350,11 +350,11 @@ func handleTriggerDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	triggerStoreMu.Unlock()
 	if !ok {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "트리거를 찾을 수 없습니다"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("트리거를 찾을 수 없습니다", "Trigger not found", getLang(r))})
 		return
 	}
 	saveTriggers()
-	json200(w, map[string]any{"success": true, "message": "트리거 삭제됨"})
+	json200(w, map[string]any{"success": true, "message": msgT("트리거 삭제됨", "Trigger deleted", getLang(r))})
 }
 
 // GET /api/trigger/events — SSE 스트림

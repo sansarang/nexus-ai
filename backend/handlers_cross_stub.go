@@ -38,7 +38,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 			json200(w, map[string]any{"success": true, "source": "llm", "summary": text})
 			return
 		}
-		writeJSON(w, 502, map[string]any{"success": false, "message": "날씨 정보를 가져올 수 없습니다"})
+		writeJSON(w, 502, map[string]any{"success": false, "message": msgT("날씨 정보를 가져올 수 없습니다", "Unable to fetch weather information", getLang(r))})
 	}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -119,19 +119,19 @@ func handleCalendarAdd(w http.ResponseWriter, r *http.Request) {
 	evs := loadEvents()
 	evs = append(evs, ev)
 	saveEvents(evs)
-	json200(w, map[string]any{"success": true, "event": ev, "message": "일정이 추가되었습니다"})
+	json200(w, map[string]any{"success": true, "event": ev, "message": msgT("일정이 추가되었습니다", "Event added", getLang(r))})
 }
 
 // ── 이메일 (스텁 — SMTP 설정 시 확장) ────────────────────────
 
 func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
-	json200(w, map[string]any{"success": true, "emails": []any{}, "message": "이메일 설정이 필요합니다 (설정 > 이메일)"})
+	json200(w, map[string]any{"success": true, "emails": []any{}, "message": msgT("이메일 설정이 필요합니다 (설정 > 이메일)", "Email setup required (Settings > Email)", getLang(r))})
 }
 func handleEmailSend(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"success": false, "message": "이메일 전송은 설정 후 사용 가능합니다"})
+	writeJSON(w, 200, map[string]any{"success": false, "message": msgT("이메일 전송은 설정 후 사용 가능합니다", "Email sending available after setup", getLang(r))})
 }
 func handleEmailSummarize(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"success": false, "message": "이메일 설정 후 사용 가능합니다"})
+	writeJSON(w, 200, map[string]any{"success": false, "message": msgT("이메일 설정 후 사용 가능합니다", "Available after email setup", getLang(r))})
 }
 
 // ── 페르소나 ──────────────────────────────────────────────────
@@ -349,7 +349,7 @@ func handlePersonaSet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, 400, map[string]any{"error": "알 수 없는 페르소나: " + req.ID})
+	writeJSON(w, 400, map[string]any{"error": msgT("알 수 없는 페르소나: "+req.ID, "Unknown persona: "+req.ID, getLang(r))})
 }
 
 func handlePersonaCurrent(w http.ResponseWriter, r *http.Request) {
@@ -400,7 +400,7 @@ func handleBrainStats(w http.ResponseWriter, r *http.Request) {
 
 func handleBrainRebuild(w http.ResponseWriter, r *http.Request) {
 	go rebuildBrainIndex()
-	json200(w, map[string]any{"success": true, "message": "인덱싱 시작됨"})
+	json200(w, map[string]any{"success": true, "message": msgT("인덱싱 시작됨", "Indexing started", getLang(r))})
 }
 
 func handleBrainIndex(w http.ResponseWriter, r *http.Request) {
@@ -446,7 +446,7 @@ func handleVirusTotal(w http.ResponseWriter, r *http.Request) {
 // ── 성능 이력 (스텁) ─────────────────────────────────────────
 
 func handleHistoryStats(w http.ResponseWriter, r *http.Request) {
-	json200(w, map[string]any{"success": true, "message": "성능 이력은 Windows에서 수집됩니다", "snapshots": []any{}})
+	json200(w, map[string]any{"success": true, "message": msgT("성능 이력은 Windows에서 수집됩니다", "Performance history is collected on Windows", getLang(r)), "snapshots": []any{}})
 }
 func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{"success": true, "anomalies": []any{}})

@@ -152,7 +152,7 @@ func handleVideoSetCookie(w http.ResponseWriter, r *http.Request) {
 	cookiePath := videoCookiePath(req.Platform)
 	os.MkdirAll(filepath.Dir(cookiePath), 0755)
 	if err := os.WriteFile(cookiePath, []byte(req.Cookie), 0600); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "쿠키 저장 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("쿠키 저장 실패: "+err.Error(), "Failed to save cookie: "+err.Error(), getLang(r))})
 		return
 	}
 
@@ -378,7 +378,7 @@ func handleVideoInfo(w http.ResponseWriter, r *http.Request) {
 	cmd := exec.Command(ytdlp, args...)
 	out, err := cmd.Output()
 	if err != nil {
-		writeJSON(w, 200, map[string]any{"success": false, "message": "정보 조회 실패: " + err.Error()})
+		writeJSON(w, 200, map[string]any{"success": false, "message": msgT("정보 조회 실패: "+err.Error(), "Info retrieval failed: "+err.Error(), getLang(r))})
 		return
 	}
 

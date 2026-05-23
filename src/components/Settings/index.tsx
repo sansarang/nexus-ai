@@ -278,41 +278,41 @@ export function SettingsView() {
       </Section>
 
       {/* 계정 */}
-      <Section title="계정">
+      <Section title={lang === 'en' ? 'Account' : '계정'}>
         {isLoggedIn ? (
           <>
             <Row icon={<Shield size={15} />} label={userEmail} desc={
               subscriptionStatus === 'trial'
-                ? `체험판 · ${subscriptionExpiry ? new Date(subscriptionExpiry).toLocaleDateString('ko-KR') + '까지' : ''}`
-                : subscriptionStatus === 'active' ? '구독 중' : '구독 만료'
+                ? lang === 'en' ? `Trial · ${subscriptionExpiry ? 'until ' + new Date(subscriptionExpiry).toLocaleDateString('en-US') : ''}` : `체험판 · ${subscriptionExpiry ? new Date(subscriptionExpiry).toLocaleDateString('ko-KR') + '까지' : ''}`
+                : subscriptionStatus === 'active' ? (lang === 'en' ? 'Subscribed' : '구독 중') : (lang === 'en' ? 'Subscription expired' : '구독 만료')
             }>
               <span style={{
                 padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                 background: subscriptionStatus === 'active' ? 'rgba(34,197,94,0.15)' : subscriptionStatus === 'trial' ? 'rgba(79,126,247,0.15)' : 'rgba(239,68,68,0.15)',
                 color: subscriptionStatus === 'active' ? 'var(--success)' : subscriptionStatus === 'trial' ? 'var(--accent-primary)' : 'var(--error)',
               }}>
-                {subscriptionStatus === 'active' ? '활성' : subscriptionStatus === 'trial' ? '체험' : '만료'}
+                {subscriptionStatus === 'active' ? (lang === 'en' ? 'Active' : '활성') : subscriptionStatus === 'trial' ? (lang === 'en' ? 'Trial' : '체험') : (lang === 'en' ? 'Expired' : '만료')}
               </span>
             </Row>
-            <Row icon={<span style={{ fontSize: 14 }}>🚪</span>} label="로그아웃" desc="">
+            <Row icon={<span style={{ fontSize: 14 }}>🚪</span>} label={lang === 'en' ? 'Sign out' : '로그아웃'} desc="">
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={setLoggedOut}
                 style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
               >
-                로그아웃
+                {lang === 'en' ? 'Sign out' : '로그아웃'}
               </motion.button>
             </Row>
           </>
         ) : (
-          <Row icon={<Shield size={15} />} label="로그인 필요" desc="Google 계정으로 로그인하세요">
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>미로그인</span>
+          <Row icon={<Shield size={15} />} label={lang === 'en' ? 'Login required' : '로그인 필요'} desc={lang === 'en' ? 'Sign in with your Google account' : 'Google 계정으로 로그인하세요'}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lang === 'en' ? 'Not signed in' : '미로그인'}</span>
           </Row>
         )}
       </Section>
 
       {/* 이메일 설정 */}
-      <Section title="이메일 (IMAP/SMTP)">
+      <Section title={lang === 'en' ? 'Email (IMAP/SMTP)' : '이메일 (IMAP/SMTP)'}>
         <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 6 }}>
             <div>

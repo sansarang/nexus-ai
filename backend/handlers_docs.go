@@ -406,12 +406,13 @@ type DocCompareResult struct {
 }
 
 func handleDocCompare(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		File1 string `json:"file1"`
 		File2 string `json:"file2"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.File1 == "" || req.File2 == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "두 파일 경로를 모두 입력해주세요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("두 파일 경로를 모두 입력해주세요", "Please provide both file paths", lang)})
 		return
 	}
 
@@ -420,7 +421,7 @@ func handleDocCompare(w http.ResponseWriter, r *http.Request) {
 	info2, err2 := os.Stat(req.File2)
 	if err1 != nil || err2 != nil {
 		writeJSON(w, 404, map[string]any{"success": false,
-			"message": fmt.Sprintf("파일을 찾을 수 없어요: %s / %s", req.File1, req.File2)})
+			"message": fmt.Sprintf(msgT("파일을 찾을 수 없어요: %s / %s", "File not found: %s / %s", lang), req.File1, req.File2)})
 		return
 	}
 
@@ -428,11 +429,11 @@ func handleDocCompare(w http.ResponseWriter, r *http.Request) {
 	text1, e1 := extractDocumentText(req.File1)
 	text2, e2 := extractDocumentText(req.File2)
 	if e1 != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일1 읽기 실패: " + e1.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일1 읽기 실패: ", "Failed to read file1: ", lang) + e1.Error()})
 		return
 	}
 	if e2 != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일2 읽기 실패: " + e2.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일2 읽기 실패: ", "Failed to read file2: ", lang) + e2.Error()})
 		return
 	}
 
@@ -461,7 +462,7 @@ func handleDocCompare(w http.ResponseWriter, r *http.Request) {
 
 	// 요약
 	summary := fmt.Sprintf(
-		"두 문서의 유사도는 %d%%입니다. 추가 %d줄, 삭제 %d줄, 숫자 불일치 %d건 발견.",
+		msgT("두 문서의 유사도는 %d%%입니다. 추가 %d줄, 삭제 %d줄, 숫자 불일치 %d건 발견.", "Document similarity: %d%%. Added %d lines, removed %d lines, %d number mismatches found.", lang),
 		similarity, added, removed, len(numMismatches),
 	)
 
@@ -505,6 +506,7 @@ type DocFindResult struct {
 }
 
 func handleDocFind(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query    string `json:"query"`
 		FileType string `json:"file_type"` // pdf|docx|xlsx|any
@@ -515,7 +517,7 @@ func handleDocFind(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "검색어를 입력해주세요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("검색어를 입력해주세요", "Please enter a search query", lang)})
 		return
 	}
 	if req.MaxDays == 0 {
@@ -598,6 +600,6 @@ func handleDocFind(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"results": results,
 		"total":   len(results),
-		"message": fmt.Sprintf("'%s' 검색 결과 %d개", req.Query, len(results)),
+		"message": fmt.Sprintf(msgT("'%s' 검색 결과 %d개", "Search results for '%s': %d found", lang), req.Query, len(results)),
 	})
 }

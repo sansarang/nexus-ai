@@ -438,6 +438,7 @@ func requestApproval(taskID string, action DesktopAction) bool {
 
 // POST /api/agent/desktop/approve — 사용자가 승인/거부
 func handleDesktopApprove(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		TaskID   string `json:"task_id"`
 		Approved bool   `json:"approved"`
@@ -449,7 +450,7 @@ func handleDesktopApprove(w http.ResponseWriter, r *http.Request) {
 	approvalMu.Unlock()
 
 	if !ok {
-		json200(w, map[string]any{"success": false, "message": "승인 요청을 찾을 수 없어요"})
+		json200(w, map[string]any{"success": false, "message": msgT("승인 요청을 찾을 수 없어요", "Approval request not found", lang)})
 		return
 	}
 	ch <- req.Approved
@@ -566,6 +567,7 @@ func runDesktopAgent(task *AgentTask, goal string, requireApproval bool, maxStep
 
 // POST /api/agent/desktop/run
 func handleDesktopAgentRun(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Goal            string `json:"goal"`
 		RequireApproval bool   `json:"require_approval"`
@@ -574,7 +576,7 @@ func handleDesktopAgentRun(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Goal == "" {
-		json200(w, map[string]any{"success": false, "message": "goal이 필요해요"})
+		json200(w, map[string]any{"success": false, "message": msgT("goal이 필요해요", "goal is required", lang)})
 		return
 	}
 	if req.MaxSteps == 0 {
@@ -598,12 +600,13 @@ func handleDesktopAgentRun(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": true,
 		"task_id": task.ID,
-		"message": fmt.Sprintf("Desktop Agent 시작: '%s'", req.Goal),
+		"message": msgT(fmt.Sprintf("Desktop Agent 시작: '%s'", req.Goal), fmt.Sprintf("Desktop Agent started: '%s'", req.Goal), lang),
 	})
 }
 
 // POST /api/agent/desktop/click — 직접 클릭
 func handleDesktopClick(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		X      int    `json:"x"`
 		Y      int    `json:"y"`
@@ -625,11 +628,12 @@ func handleDesktopClick(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "message": fmt.Sprintf("(%d,%d) 클릭 완료", req.X, req.Y)})
+	json200(w, map[string]any{"success": true, "message": msgT(fmt.Sprintf("(%d,%d) 클릭 완료", req.X, req.Y), fmt.Sprintf("(%d,%d) click done", req.X, req.Y), lang)})
 }
 
 // POST /api/agent/desktop/type — 텍스트 입력
 func handleDesktopType(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ Text string `json:"text"` }
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -637,11 +641,12 @@ func handleDesktopType(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "message": "입력 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("입력 완료", "Input done", lang)})
 }
 
 // POST /api/agent/desktop/key — 키 입력
 func handleDesktopKey(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ Key string `json:"key"` }
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -649,7 +654,7 @@ func handleDesktopKey(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "message": "키 입력 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("키 입력 완료", "Key input done", lang)})
 }
 
 // POST /api/agent/desktop/scroll
@@ -741,24 +746,25 @@ func handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/desktop/agent/cancel — 실행 중인 Desktop Agent 취소
 func handleDesktopAgentCancel(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		TaskID string `json:"task_id"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.TaskID == "" {
-		json200(w, map[string]any{"success": false, "message": "task_id가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("task_id가 필요합니다", "task_id is required", lang)})
 		return
 	}
 
 	task, ok := globalTaskQueue.GetTask(req.TaskID)
 	if !ok {
-		json200(w, map[string]any{"success": false, "message": "태스크를 찾을 수 없습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("태스크를 찾을 수 없습니다", "Task not found", lang)})
 		return
 	}
 	task.Cancel()
 	task.Status = TaskCancelled
 	fin := time.Now()
 	task.FinishedAt = &fin
-	json200(w, map[string]any{"success": true, "message": "Desktop Agent 취소 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("Desktop Agent 취소 완료", "Desktop Agent cancelled", lang)})
 }

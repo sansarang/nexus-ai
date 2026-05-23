@@ -59,11 +59,12 @@ type AIDocEditReply struct {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func handleDocUpload(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	r.ParseMultipartForm(50 << 20)
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "파일 필드 'file'이 없습니다"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("파일 필드 'file'이 없습니다", "File field 'file' is missing", lang)})
 		return
 	}
 	defer file.Close()
@@ -75,7 +76,7 @@ func handleDocUpload(w http.ResponseWriter, r *http.Request) {
 		".txt": true, ".csv": true, ".md": true, ".pdf": true,
 	}
 	if !allowed[ext] {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "지원하지 않는 파일 형식: " + ext})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("지원하지 않는 파일 형식: ", "Unsupported file format: ", lang) + ext})
 		return
 	}
 
@@ -88,7 +89,7 @@ func handleDocUpload(w http.ResponseWriter, r *http.Request) {
 
 	dst, err := os.Create(savePath)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "저장 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("저장 실패: ", "Save failed: ", lang) + err.Error()})
 		return
 	}
 	defer dst.Close()
@@ -116,6 +117,7 @@ func handleDocUpload(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func handleDocAIEdit(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		FilePath    string `json:"file_path"`
 		Instruction string `json:"instruction"`
@@ -123,11 +125,11 @@ func handleDocAIEdit(w http.ResponseWriter, r *http.Request) {
 		SheetName   string `json:"sheet_name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FilePath == "" || req.Instruction == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "file_path와 instruction 필수"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("file_path와 instruction 필수", "file_path and instruction are required", lang)})
 		return
 	}
 	if _, err := os.Stat(req.FilePath); err != nil {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "파일을 찾을 수 없습니다: " + req.FilePath})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("파일을 찾을 수 없습니다: ", "File not found: ", lang) + req.FilePath})
 		return
 	}
 
@@ -153,7 +155,7 @@ func handleDocAIEdit(w http.ResponseWriter, r *http.Request) {
 		"success":  true,
 		"out_path": outPath,
 		"summary":  summary,
-		"message":  fmt.Sprintf("문서 편집 완료: %s", filepath.Base(outPath)),
+		"message":  fmt.Sprintf(msgT("문서 편집 완료: %s", "Document editing complete: %s", lang), filepath.Base(outPath)),
 	}
 	if len(ops) > 0 {
 		resp["operations_count"] = len(ops)
@@ -171,10 +173,11 @@ func handleDocAIEdit(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func handleReadExcel(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	filePath := r.URL.Query().Get("path")
 	sheetName := r.URL.Query().Get("sheet")
 	if filePath == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "path 파라미터 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("path 파라미터 필요", "path parameter is required", lang)})
 		return
 	}
 	data, sheets, err := readExcelToJSON(filePath, sheetName)

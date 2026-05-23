@@ -4,7 +4,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -19,6 +21,18 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 		return false
 	}
 	return true
+}
+
+func recoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("[Nexus] panic recovered: %v", err)
+				writeJSON(w, 500, map[string]any{"success": false, "message": fmt.Sprintf("서버 오류: %v", err)})
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func cors(next http.Handler) http.Handler {
@@ -72,4 +86,23 @@ func httpPost(u string, body []byte) ([]byte, error) {
 // urlEncode: 쿼리 파라미터 URL 인코딩
 func urlEncode(s string) string {
 	return url.QueryEscape(s)
+}
+
+// getLang: 요청에서 언어 코드 추출 (header X-Lang 또는 query lang, 기본 "ko")
+func getLang(r *http.Request) string {
+	if l := r.Header.Get("X-Lang"); l == "en" {
+		return "en"
+	}
+	if l := r.URL.Query().Get("lang"); l == "en" {
+		return "en"
+	}
+	return "ko"
+}
+
+// msgT: 언어에 따라 ko 또는 en 반환
+func msgT(ko, en, lang string) string {
+	if lang == "en" {
+		return en
+	}
+	return ko
 }

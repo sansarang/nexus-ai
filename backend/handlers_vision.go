@@ -168,6 +168,7 @@ func handleScreenshot(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleOCRClipboard(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("nexus_clip_%d.png", time.Now().UnixNano()))
 	defer os.Remove(tmpFile)
 
@@ -185,20 +186,20 @@ if ($img -ne $null) {
 
 	out, _ := execPS(script)
 	if strings.TrimSpace(string(out)) != "OK" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "클립보드에 이미지가 없어요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("클립보드에 이미지가 없어요", "No image in clipboard", lang)})
 		return
 	}
 
 	ocrText, err := runWindowsOCR(tmpFile)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "OCR 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("OCR 실패: ", "OCR failed: ", lang) + err.Error()})
 		return
 	}
 
 	json200(w, map[string]any{
-		"success":  true,
-		"text":     ocrText,
-		"message":  fmt.Sprintf("텍스트 %d자 추출 완료", len(ocrText)),
+		"success": true,
+		"text":    ocrText,
+		"message": fmt.Sprintf(msgT("텍스트 %d자 추출 완료", "%d characters extracted", lang), len(ocrText)),
 	})
 }
 
@@ -242,6 +243,7 @@ func handleActiveWindow(w http.ResponseWriter, r *http.Request) {
 // DeepSearchResult — types.go 에서 정의됨
 
 func handleDeepSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query      string `json:"query"`
 		SearchIn   string `json:"search_in"` // content | filename | both
@@ -252,7 +254,7 @@ func handleDeepSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "검색어를 입력해주세요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("검색어를 입력해주세요", "Please enter a search term", lang)})
 		return
 	}
 	if req.SearchIn == "" {
@@ -360,7 +362,7 @@ func handleDeepSearch(w http.ResponseWriter, r *http.Request) {
 		"results": results,
 		"total":   len(results),
 		"query":   req.Query,
-		"message": fmt.Sprintf("'%s' 심층 검색 결과: %d개", req.Query, len(results)),
+		"message": fmt.Sprintf(msgT("'%s' 심층 검색 결과: %d개", "Deep search results for '%s': %d", lang), req.Query, len(results)),
 	})
 }
 

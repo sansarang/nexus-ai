@@ -39,6 +39,7 @@ type DocSummaryResult struct {
 // ──────────────────────────────────────────
 
 func handleDocSummary(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		FilePath   string `json:"file_path"`
 		UseAI      bool   `json:"use_ai"`    // Gemini Flash 사용 여부
@@ -47,20 +48,20 @@ func handleDocSummary(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.FilePath == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "파일 경로를 입력해주세요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("파일 경로를 입력해주세요", "Please enter a file path", lang)})
 		return
 	}
 
 	info, err := os.Stat(req.FilePath)
 	if err != nil {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "파일을 찾을 수 없어요: " + req.FilePath})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("파일을 찾을 수 없어요: ", "File not found: ", lang) + req.FilePath})
 		return
 	}
 
 	// 텍스트 추출 (handlers_docs.go의 extractDocumentText 재사용)
 	text, err := extractDocumentText(req.FilePath)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일 읽기 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일 읽기 실패: ", "Failed to read file: ", lang) + err.Error()})
 		return
 	}
 
@@ -249,6 +250,7 @@ func buildDocSummary(r DocSummaryResult) string {
 // ──────────────────────────────────────────
 
 func handleDocExportReport(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		File1      string `json:"file1"`
 		File2      string `json:"file2"`
@@ -258,7 +260,7 @@ func handleDocExportReport(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.File1 == "" || req.File2 == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "두 파일 경로가 필요해요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("두 파일 경로가 필요해요", "Two file paths are required", lang)})
 		return
 	}
 	if req.Format == "" {
@@ -300,7 +302,7 @@ func handleDocExportReport(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success":  true,
 		"path":     filename,
-		"message":  fmt.Sprintf("비교 리포트가 저장됐어요: %s", filepath.Base(filename)),
+		"message":  fmt.Sprintf(msgT("비교 리포트가 저장됐어요: %s", "Comparison report saved: %s", lang), filepath.Base(filename)),
 	})
 }
 

@@ -237,16 +237,17 @@ func extractWorkflowResult(result map[string]any) string {
 // ── HTTP 핸들러 ────────────────────────────────────────────────
 
 func handleWorkflowPlan(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Goal string `json:"goal"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Goal == "" {
-		writeJSON(w, 400, map[string]string{"error": "goal 필드가 필요합니다"})
+		writeJSON(w, 400, map[string]string{"error": msgT("goal 필드가 필요합니다", "goal field is required", lang)})
 		return
 	}
 	plan, err := planWorkflow(req.Goal)
 	if err != nil {
-		writeJSON(w, 500, map[string]string{"error": "계획 생성 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]string{"error": msgT("계획 생성 실패: ", "Plan generation failed: ", lang) + err.Error()})
 		return
 	}
 	json200(w, plan)
@@ -385,12 +386,13 @@ func runWithReflection(goal string) ([]WorkflowStep, string, int) {
 }
 
 func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
-		Goal            string `json:"goal"`
-		UseReflection   bool   `json:"use_reflection"` // true면 Reflection Loop 사용
+		Goal          string `json:"goal"`
+		UseReflection bool   `json:"use_reflection"` // true면 Reflection Loop 사용
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Goal == "" {
-		writeJSON(w, 400, map[string]string{"error": "goal 필드가 필요합니다"})
+		writeJSON(w, 400, map[string]string{"error": msgT("goal 필드가 필요합니다", "goal field is required", lang)})
 		return
 	}
 
@@ -411,7 +413,7 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	// 기존 단순 실행 (fallback)
 	plan, err := planWorkflow(req.Goal)
 	if err != nil {
-		writeJSON(w, 500, map[string]string{"error": "계획 생성 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]string{"error": msgT("계획 생성 실패: ", "Plan generation failed: ", lang) + err.Error()})
 		return
 	}
 	var executedSteps []WorkflowStep

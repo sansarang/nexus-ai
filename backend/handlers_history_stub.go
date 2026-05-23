@@ -132,6 +132,7 @@ type TikTokHistoryItem struct {
 
 // GET /api/history/tiktok?days=7
 func handleTikTokHistory(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	days := 7
 	fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days)
 
@@ -141,7 +142,7 @@ func handleTikTokHistory(w http.ResponseWriter, r *http.Request) {
 		llmMu.RLock()
 		tKey := llmTavilyKey
 		llmMu.RUnlock()
-		msg := fmt.Sprintf("브라우저 히스토리 접근 불가 (%v). 대신 TikTok 인기 영상을 검색할게요.", err)
+		msg := fmt.Sprintf(msgT("브라우저 히스토리 접근 불가 (%v). 대신 TikTok 인기 영상을 검색할게요.", "Cannot access browser history (%v). Searching TikTok trending videos instead.", lang), err)
 		if tKey != "" {
 			tr, ok := tavilySearch(tKey, "tiktok 이번주 인기 영상 트렌드", 8)
 			if ok {
@@ -202,7 +203,7 @@ func handleTikTokHistory(w http.ResponseWriter, r *http.Request) {
 		"items":   items,
 		"count":   len(items),
 		"days":    days,
-		"message": fmt.Sprintf("최근 %d일간 TikTok 시청 기록 %d개", days, len(items)),
+		"message": fmt.Sprintf(msgT("최근 %d일간 TikTok 시청 기록 %d개", "TikTok watch history for the last %d days: %d items", lang), days, len(items)),
 	})
 }
 
@@ -210,6 +211,7 @@ func handleTikTokHistory(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/history/youtube?days=7
 func handleYouTubeHistory(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	days := 7
 	fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days)
 
@@ -255,7 +257,7 @@ func handleYouTubeHistory(w http.ResponseWriter, r *http.Request) {
 		"items":   items,
 		"count":   len(items),
 		"days":    days,
-		"message": fmt.Sprintf("최근 %d일간 YouTube 시청 기록 %d개", days, len(items)),
+		"message": fmt.Sprintf(msgT("최근 %d일간 YouTube 시청 기록 %d개", "YouTube watch history for the last %d days: %d items", lang), days, len(items)),
 	})
 }
 
@@ -263,6 +265,7 @@ func handleYouTubeHistory(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/history/keywords?days=7
 func handleHistoryKeywords(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	days := 7
 	fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days)
 
@@ -331,7 +334,7 @@ func handleHistoryKeywords(w http.ResponseWriter, r *http.Request) {
 		"total_pages":    len(rows),
 		"days":           days,
 		"recommendation": recommendation,
-		"message":        fmt.Sprintf("최근 %d일 키워드 분석 완료 (총 %d페이지 방문)", days, len(rows)),
+		"message":        fmt.Sprintf(msgT("최근 %d일 키워드 분석 완료 (총 %d페이지 방문)", "Keyword analysis for the last %d days complete (total %d pages visited)", lang), days, len(rows)),
 	})
 }
 
@@ -339,6 +342,7 @@ func handleHistoryKeywords(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/history/summary?days=7
 func handleHistorySummary(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	days := 7
 	fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days)
 
@@ -387,6 +391,6 @@ func handleHistorySummary(w http.ResponseWriter, r *http.Request) {
 		"youtube_visits": ytCount,
 		"top_domains":  domains,
 		"days":         days,
-		"message":      fmt.Sprintf("최근 %d일: 총 %d회 방문, TikTok %d회, YouTube %d회", days, len(rows), tiktokCount, ytCount),
+		"message":      fmt.Sprintf(msgT("최근 %d일: 총 %d회 방문, TikTok %d회, YouTube %d회", "Last %d days: %d total visits, TikTok %d, YouTube %d", lang), days, len(rows), tiktokCount, ytCount),
 	})
 }

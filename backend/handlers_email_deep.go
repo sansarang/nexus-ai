@@ -31,6 +31,7 @@ type EmailClassification struct {
 
 // POST /api/email/classify — 받은 편지함 자동 분류
 func handleEmailClassify(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Limit int `json:"limit"`
 	}
@@ -41,7 +42,7 @@ func handleEmailClassify(w http.ResponseWriter, r *http.Request) {
 
 	emails, err := getOutlookInbox(req.Limit)
 	if err != nil || len(emails) == 0 {
-		json200(w, map[string]any{"success": false, "message": "이메일을 불러올 수 없습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("이메일을 불러올 수 없습니다", "Failed to load emails", lang)})
 		return
 	}
 
@@ -61,8 +62,8 @@ func handleEmailClassify(w http.ResponseWriter, r *http.Request) {
 			publishAlert(Alert{
 				ID:      fmt.Sprintf("urgent_email_%s", cls.Sender),
 				Level:   "critical",
-				Title:   "긴급 이메일 도착! 📧",
-				Message: fmt.Sprintf("보낸 사람: %s\n제목: %s\n%s", cls.Sender, cls.Subject, cls.Summary),
+				Title:   msgT("긴급 이메일 도착! 📧", "Urgent Email Arrived! 📧", lang),
+				Message: fmt.Sprintf(msgT("보낸 사람: %s\n제목: %s\n%s", "From: %s\nSubject: %s\n%s", lang), cls.Sender, cls.Subject, cls.Summary),
 				Action:  "email_inbox",
 			})
 		}
@@ -78,7 +79,7 @@ func handleEmailClassify(w http.ResponseWriter, r *http.Request) {
 		"success":    true,
 		"classified": classified,
 		"counts":     counts,
-		"message":    fmt.Sprintf("이메일 %d개 분류 완료: 긴급 %d, 일반 %d, 광고 %d, 참조 %d", len(classified), counts["urgent"], counts["normal"], counts["promo"], counts["fyi"]),
+		"message":    fmt.Sprintf(msgT("이메일 %d개 분류 완료: 긴급 %d, 일반 %d, 광고 %d, 참조 %d", "Classified %d emails: urgent %d, normal %d, promo %d, fyi %d", lang), len(classified), counts["urgent"], counts["normal"], counts["promo"], counts["fyi"]),
 	})
 }
 
@@ -155,6 +156,7 @@ Body: %s`, email.Subject, email.Sender, bodySnippet)
 
 // POST /api/email/draft-reply — 스마트 답장 초안 생성
 func handleEmailDraftReply(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Subject string `json:"subject"`
 		Sender  string `json:"sender"`
@@ -164,7 +166,7 @@ func handleEmailDraftReply(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Subject == "" && req.Body == "" {
-		json200(w, map[string]any{"success": false, "message": "이메일 내용이 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("이메일 내용이 필요합니다", "Email content is required", lang)})
 		return
 	}
 	if req.Tone == "" {
@@ -176,7 +178,7 @@ func handleEmailDraftReply(w http.ResponseWriter, r *http.Request) {
 	llmMu.RUnlock()
 
 	if gKey == "" {
-		json200(w, map[string]any{"success": false, "message": "Groq API 키가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("Groq API 키가 필요합니다", "Groq API key is required", lang)})
 		return
 	}
 
@@ -203,19 +205,20 @@ Format: Subject line + Body. No markdown.`, toneDesc[req.Tone])
 	}, 400, false)
 
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "답장 초안 생성 실패: " + err.Error()})
+		json200(w, map[string]any{"success": false, "message": msgT("답장 초안 생성 실패: ", "Failed to generate reply draft: ", lang) + err.Error()})
 		return
 	}
 
 	json200(w, map[string]any{
 		"success": true,
 		"draft":   draft,
-		"message": "답장 초안이 준비됐습니다. 확인 후 수정하거나 바로 전송할 수 있어요.",
+		"message": msgT("답장 초안이 준비됐습니다. 확인 후 수정하거나 바로 전송할 수 있어요.", "Reply draft is ready. You can edit it or send it right away.", lang),
 	})
 }
 
 // POST /api/email/extract-events — 이메일에서 일정 추출 + 캘린더 제안
 func handleEmailExtractEvents(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Subject string `json:"subject"`
 		Body    string `json:"body"`
@@ -228,7 +231,7 @@ func handleEmailExtractEvents(w http.ResponseWriter, r *http.Request) {
 	llmMu.RUnlock()
 
 	if gKey == "" {
-		json200(w, map[string]any{"success": false, "message": "Groq API 키가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("Groq API 키가 필요합니다", "Groq API key is required", lang)})
 		return
 	}
 
@@ -258,7 +261,7 @@ Body: %s`, today, req.Subject, req.Sender, req.Body)
 	}, 300, true)
 
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "일정 추출 실패"})
+		json200(w, map[string]any{"success": false, "message": msgT("일정 추출 실패", "Failed to extract events", lang)})
 		return
 	}
 
@@ -268,7 +271,7 @@ Body: %s`, today, req.Subject, req.Sender, req.Body)
 	json200(w, map[string]any{
 		"success": true,
 		"result":  result,
-		"message": "이메일에서 일정을 추출했습니다",
+		"message": msgT("이메일에서 일정을 추출했습니다", "Events extracted from email", lang),
 	})
 }
 
@@ -276,6 +279,7 @@ Body: %s`, today, req.Subject, req.Sender, req.Body)
 
 // POST /api/calendar/find-slot — 빈 시간대 찾기
 func handleCalendarFindSlot(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		DurationMin int    `json:"duration_min"` // 미팅 길이 (분)
 		PreferTime  string `json:"prefer_time"`  // morning|afternoon|evening
@@ -345,19 +349,20 @@ func handleCalendarFindSlot(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": true,
 		"slots":   slots,
-		"message": fmt.Sprintf("%d분 미팅을 위한 빈 시간대 %d개를 찾았습니다", req.DurationMin, len(slots)),
+		"message": fmt.Sprintf(msgT("%d분 미팅을 위한 빈 시간대 %d개를 찾았습니다", "Found %d available slots for a %d-minute meeting", lang), req.DurationMin, len(slots)),
 	})
 }
 
 // POST /api/calendar/smart-add — 자연어로 일정 추가 (중복/충돌 감지)
 func handleCalendarSmartAdd(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Text string `json:"text"` // "다음주 화요일 오후 3시 팀 미팅"
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Text == "" {
-		json200(w, map[string]any{"success": false, "message": "일정 내용을 입력해주세요"})
+		json200(w, map[string]any{"success": false, "message": msgT("일정 내용을 입력해주세요", "Please enter event details", lang)})
 		return
 	}
 
@@ -377,7 +382,7 @@ Text: %s`, today, req.Text)
 	}, 150, true)
 
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "일정 파싱 실패"})
+		json200(w, map[string]any{"success": false, "message": msgT("일정 파싱 실패", "Failed to parse event", lang)})
 		return
 	}
 
@@ -390,7 +395,7 @@ Text: %s`, today, req.Text)
 	}
 
 	if json.Unmarshal([]byte(raw), &event) != nil {
-		json200(w, map[string]any{"success": false, "message": "일정 형식을 인식하지 못했습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("일정 형식을 인식하지 못했습니다", "Could not recognize event format", lang)})
 		return
 	}
 
@@ -398,7 +403,7 @@ Text: %s`, today, req.Text)
 	json200(w, map[string]any{
 		"success":  true,
 		"event":    event,
-		"message":  fmt.Sprintf("'%s' 일정이 %s %s에 추가됩니다. 확인 후 실제 캘린더에 저장할까요?", event.Title, event.Date, event.Time),
+		"message":  fmt.Sprintf(msgT("'%s' 일정이 %s %s에 추가됩니다. 확인 후 실제 캘린더에 저장할까요?", "'%s' will be added on %s at %s. Save to calendar?", lang), event.Title, event.Date, event.Time),
 		"confirm_needed": true,
 	})
 }

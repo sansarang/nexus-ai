@@ -298,7 +298,27 @@ export function SystemActionCard({ icon, title, detail, success = true, accentCo
       <span style={{ fontSize: 28 }}>{icon}</span>
       <div>
         <div style={{ fontSize: 13, fontWeight: 800, color: success ? accentColor : '#ef4444' }}>{title}</div>
-        {detail && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{detail}</div>}
+        {detail && (
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+            {detail.split('\n').map((line, i) => {
+              const urlMatch = line.match(/(https?:\/\/[^\s]+)/)
+              if (urlMatch) {
+                const url = urlMatch[1]
+                const label = line.replace(url, '').trim() || url
+                return (
+                  <div key={i}>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      style={{ color: accentColor, textDecoration: 'underline', cursor: 'pointer' }}
+                      onClick={e => { e.preventDefault(); window.open(url, '_blank') }}>
+                      {label || url}
+                    </a>
+                  </div>
+                )
+              }
+              return <div key={i}>{line}</div>
+            })}
+          </div>
+        )}
       </div>
     </motion.div>
   )

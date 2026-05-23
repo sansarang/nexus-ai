@@ -265,8 +265,9 @@ func handleVideoQuickSearch(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	lang := getLang(r)
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query is required", lang)})
 		return
 	}
 	if req.MaxItems == 0 {

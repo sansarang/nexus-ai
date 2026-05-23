@@ -354,11 +354,11 @@ func handleCronDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	globalCronEngine.mu.Unlock()
 	if !exists {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "작업을 찾을 수 없어요"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("작업을 찾을 수 없어요", "Task not found", getLang(r))})
 		return
 	}
 	globalCronEngine.save()
-	json200(w, map[string]any{"success": true, "message": "삭제됨"})
+	json200(w, map[string]any{"success": true, "message": msgT("삭제됨", "Deleted", getLang(r))})
 }
 
 // POST /api/cron/run-now?id=xxx
@@ -368,9 +368,9 @@ func handleCronRunNow(w http.ResponseWriter, r *http.Request) {
 	task, exists := globalCronEngine.tasks[id]
 	globalCronEngine.mu.RUnlock()
 	if !exists {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "작업을 찾을 수 없어요"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("작업을 찾을 수 없어요", "Task not found", getLang(r))})
 		return
 	}
 	go globalCronEngine.execute(task)
-	json200(w, map[string]any{"success": true, "message": fmt.Sprintf("'%s' 즉시 실행 시작됨", task.Name)})
+	json200(w, map[string]any{"success": true, "message": msgT(fmt.Sprintf("'%s' 즉시 실행 시작됨", task.Name), fmt.Sprintf("'%s' running now", task.Name), getLang(r))})
 }

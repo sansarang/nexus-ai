@@ -78,6 +78,87 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
       case 'workflow_run': return ['Generating workflow plan...', 'Executing steps...', 'Compiling results']
       case 'multi_agent': return ['Preparing agents...', 'Deploying team', 'Running in parallel']
       case 'briefing_now': return ['Checking weather...', 'Fetching calendar...', 'Checking email...', 'Generating briefing']
+      case 'open_folder': return ['Identifying folder...', 'Checking path', 'Opening Explorer']
+      case 'remote_access': return ['Scanning remote tools...', 'Checking RDP port', 'Matching processes']
+      case 'process_security': return ['Collecting processes...', 'Checking risk patterns', 'Scanning ports']
+      case 'startup_items': return ['Loading startup items...', 'Analyzing suspicious keywords']
+      case 'defender_status': return ['Checking Windows Defender...']
+      case 'account_check': return ['Listing local accounts...', 'Analyzing anomalies']
+      case 'volume_control': return ['Adjusting volume...']
+      case 'brightness': return ['Adjusting brightness...']
+      case 'wifi_toggle': return ['Checking Wi-Fi...', 'Changing setting']
+      case 'power_action': return ['Executing power command...']
+      case 'launch_app': return ['Finding app path...', 'Launching']
+      case 'process_top': return ['Collecting processes...', 'Sorting by CPU/Memory']
+      case 'driver_check': return ['Querying drivers...', 'Filtering issues']
+      case 'network_analysis': return ['Checking network adapters...', 'Looking up DNS/IP', 'Measuring ping']
+      case 'programs_list': return ['Listing installed programs...']
+      case 'boot_analysis': return ['Analyzing boot event log...', 'Counting startup items']
+      case 'file_duplicates': return ['Collecting files...', 'Finding duplicates']
+      case 'browser_clean': return ['Finding browser cache...', 'Cleaning data']
+      case 'registry_clean': return ['Scanning registry...', 'Removing invalid entries']
+      case 'restore_create': return ['Creating restore point...']
+      case 'focus_mode': return ['Configuring focus mode...']
+      case 'notes': return ['Loading notes...']
+      case 'doc_find': return ['Starting file scan...', 'Matching name/content', 'Sorting results']
+      case 'vision_ocr': return ['Checking clipboard image...', 'Running Windows OCR', 'Extracting text']
+      case 'smart_organize': return ['Collecting files...', 'Classifying types', 'Moving to folders', 'Done']
+      case 'journal_today': return ['Collecting recent file history...', 'Analyzing app usage', 'Estimating work hours', 'Generating journal']
+      case 'journal_generate': return ['Collecting journal data...', 'Generating format', 'Saving file']
+      case 'journal_history': return ['Loading past journals...']
+      case 'macro_list': return ['Loading macro list...']
+      case 'macro_create': return ['Parsing command...', 'Building actions', 'Registering schedule']
+      case 'macro_run': return ['Running macro...', 'Processing actions', 'Verifying completion']
+      case 'pc_report': return ['Collecting system state...', 'Running security check', 'Generating report', 'Saving HTML']
+      case 'report_email': return ['Generating report...', 'Connecting SMTP', 'Sending email']
+      case 'doc_summary': return ['Opening file...', 'Extracting text', 'Analyzing key points', 'Generating summary']
+      case 'calendar_today': return ['Connecting to Outlook...', 'Loading today\'s schedule']
+      case 'calendar_week': return ['Connecting to Outlook...', 'Loading this week\'s schedule']
+      case 'calendar_add': return ['Creating event...', 'Saving to Outlook']
+      case 'email_send': return ['Composing email...', 'Sending via SMTP']
+      case 'email_summarize': return ['Fetching inbox...', 'Generating AI summary']
+      case 'virus_check': return ['Computing file hash...', 'Querying VirusTotal', 'Analyzing results']
+      case 'perf_history': return ['Loading performance history...', 'Analyzing trends']
+      case 'perf_anomaly': return ['Analyzing history data...', 'Detecting anomalies']
+      case 'multi_action': return ['Starting multi-action...', 'Searching', 'Compiling results', 'Saving file']
+      case 'schedule_list': return ['Loading schedule list...']
+      case 'schedule_add': return ['Parsing command...', 'Registering schedule']
+      case 'schedule_delete': return ['Deleting schedule...']
+      case 'process_kill': return ['Finding process...', 'Force terminating']
+      case 'app_permissions': return ['Checking registry...', 'Collecting permissions']
+      case 'windows_updates': return ['Connecting to Windows Update...', 'Checking update list']
+      case 'gpu_stats': return ['Collecting GPU info...', 'Checking nvidia-smi']
+      case 'recall_search': return ['Searching screen memory...', 'Sorting matches']
+      case 'recall_capture': return ['Capturing screen...', 'Extracting OCR text', 'Saving memory']
+      case 'meeting_start': return ['Checking microphone...', 'Starting recording']
+      case 'meeting_stop': return ['Stopping recording...', 'Saving file']
+      case 'meeting_summary': return ['Checking recording file...', 'Transcribing with Whisper...', 'Generating AI summary']
+      case 'meeting_list': return ['Loading meeting list...']
+      case 'dictation_start': return ['Analyzing text...', 'Typing into current app']
+      case 'travel_time': return ['Looking up coordinates...', 'Calculating route']
+      case 'translate': return ['Checking clipboard...', 'Translating...']
+      case 'clipboard_ai': return ['Getting clipboard content...', 'Processing with AI']
+      case 'voice_todo': return ['Analyzing content...', 'Saving note', 'Registering to calendar']
+      case 'persona_list': return ['Loading persona list...']
+      case 'persona_switch': return ['Switching persona...']
+      case 'brain_search': return ['🧠 Searching Second Brain...', 'Analyzing related memories']
+      case 'brain_stats': return ['Loading index stats...']
+      case 'workflow_plan': return ['⚡ Generating workflow plan...']
+      case 'caption_start': return ['🎬 Initializing audio capture...', 'Starting live captions']
+      case 'caption_stop': return ['Stopping captions...']
+      case 'video_download': return ['Checking video URL...', 'Downloading with yt-dlp...', 'Saving file']
+      case 'video_transcript': return ['Checking video URL...', 'Extracting subtitles...', 'Generating AI summary']
+      case 'email_classify': return ['Fetching inbox...', 'Classifying with AI...', 'Sorting by priority']
+      case 'email_draft': return ['Analyzing email...', 'Drafting reply with AI']
+      case 'calendar_find_slot': return ['Checking calendar...', 'Finding free slots', 'Listing options']
+      case 'calendar_smart_add': return ['Parsing natural language...', 'Creating event', 'Saving to Outlook']
+      case 'workflow_list': return ['Loading saved workflows...']
+      case 'workflow_create': return ['Parsing natural language...', 'Building workflow', 'Saving']
+      case 'workflow_templates': return ['Loading workflow templates...']
+      case 'imap_inbox': return ['Connecting to IMAP server...', 'Fetching inbox']
+      case 'imap_send': return ['Connecting to IMAP server...', 'Sending email']
+      case 'task_cancel': return ['Checking running tasks...', 'Sending cancel signal']
+      case 'search_pdf': return ['Searching web...', 'Collecting results', 'Generating PDF report', 'Saving file']
       default: return ['Processing...', 'Analyzing', 'Done']
     }
   }
@@ -200,6 +281,99 @@ function intentResponseText(intent: Intent, lang: 'ko' | 'en', assistantName: st
       case 'clean': return `Cleanup complete! I freed up some disk space for you.`
       case 'daily_report': return `Here's today's PC report summary:`
       case 'repair': return `Repair operation finished!`
+      case 'file_search': return `Here are the file search results:`
+      case 'deep_search': return `Deep search complete! Here are the top results:`
+      case 'doc_find': return `Document search complete! Found the following:`
+      case 'doc_compare': return `Document comparison complete! Here are the differences:`
+      case 'doc_summary': return `Here's the document summary:`
+      case 'news_search': return `Here are the latest news results:`
+      case 'youtube_search': return `Here are the video results:`
+      case 'reddit_search': return `Here are the Reddit posts:`
+      case 'price_compare': return `Here are the price comparison results:`
+      case 'email_inbox': return `Here's your inbox:`
+      case 'email_summarize': return `Here's your email summary:`
+      case 'email_classify': return `Email classification complete:`
+      case 'email_draft': return `Here's the draft reply:`
+      case 'calendar_today': return `Here's today's schedule:`
+      case 'calendar_week': return `Here's this week's schedule:`
+      case 'calendar_add': return `Event added to your calendar!`
+      case 'calendar_find_slot': return `Here are available time slots:`
+      case 'calendar_smart_add': return `Schedule created!`
+      case 'weather': return `Here's the weather forecast:`
+      case 'travel_time': return `Here's your travel time estimate:`
+      case 'notes': return `Here are your notes:`
+      case 'journal_today': return `Today's work journal is ready:`
+      case 'journal_generate': return `Journal generated and saved!`
+      case 'journal_history': return `Here's your journal history:`
+      case 'macro_list': return `Here are your macros:`
+      case 'macro_create': return `Macro created!`
+      case 'macro_run': return `Macro executed!`
+      case 'schedule_list': return `Here are your scheduled tasks:`
+      case 'schedule_add': return `Task scheduled!`
+      case 'schedule_delete': return `Schedule deleted!`
+      case 'recall_capture': return `Screen memory saved!`
+      case 'recall_search': return `Here are the matching screen memories:`
+      case 'meeting_start': return `Recording started!`
+      case 'meeting_stop': return `Recording stopped and saved!`
+      case 'meeting_summary': return `Here's the meeting summary:`
+      case 'meeting_list': return `Here are your recorded meetings:`
+      case 'workflow_run': return `Workflow complete! Here are the results:`
+      case 'workflow_plan': return `Here's the workflow plan:`
+      case 'workflow_list': return `Here are your saved workflows:`
+      case 'workflow_create': return `Workflow created!`
+      case 'workflow_templates': return `Here are available workflow templates:`
+      case 'multi_agent': return `Multi-agent task complete!`
+      case 'briefing_now': return `Here's your morning briefing:`
+      case 'remote_access': return `Remote access scan complete:`
+      case 'process_security': return `Process security scan complete:`
+      case 'startup_items': return `Here are your startup items:`
+      case 'defender_status': return `Windows Defender status:`
+      case 'account_check': return `Account security check complete:`
+      case 'driver_check': return `Driver check complete:`
+      case 'network_analysis': return `Network analysis complete:`
+      case 'programs_list': return `Here are your installed programs:`
+      case 'boot_analysis': return `Boot analysis complete:`
+      case 'process_top': return `Here are the top resource-consuming processes:`
+      case 'process_kill': return `Process terminated!`
+      case 'gpu_stats': return `Here are your GPU stats:`
+      case 'windows_updates': return `Here are the available Windows updates:`
+      case 'virus_check': return `VirusTotal scan complete:`
+      case 'perf_history': return `Here's your performance history:`
+      case 'perf_anomaly': return `Performance anomaly analysis complete:`
+      case 'focus_mode': return `Focus mode configured!`
+      case 'volume_control': return `Volume adjusted!`
+      case 'brightness': return `Brightness adjusted!`
+      case 'wifi_toggle': return `Wi-Fi setting changed!`
+      case 'launch_app': return `App launched!`
+      case 'open_folder': return `Folder opened!`
+      case 'power_action': return `Power command executed!`
+      case 'restore_create': return `Restore point created!`
+      case 'browser_clean': return `Browser data cleaned!`
+      case 'registry_clean': return `Registry cleaned!`
+      case 'pc_report': return `PC health report generated!`
+      case 'persona_list': return `Here are your available personas:`
+      case 'persona_switch': return `Persona switched!`
+      case 'brain_search': return `Here are the matching memories from your Second Brain:`
+      case 'brain_stats': return `Here are your Second Brain stats:`
+      case 'caption_start': return `Live captions started!`
+      case 'caption_stop': return `Captions stopped!`
+      case 'video_download': return `Video download complete!`
+      case 'video_transcript': return `Here's the video transcript summary:`
+      case 'translate': return `Translation complete:`
+      case 'clipboard_ai': return `Here's the AI result:`
+      case 'dictation_start': return `Text has been typed!`
+      case 'voice_todo': return `Note saved and event registered!`
+      case 'task_cancel': return `Task cancellation requested!`
+      case 'search_pdf': return `PDF report generated!`
+      case 'imap_inbox': return `Here's your IMAP inbox:`
+      case 'imap_send': return `Email sent via IMAP!`
+      case 'app_permissions': return `Here are your app permissions:`
+      case 'file_organize': return `Files organized!`
+      case 'file_duplicates': return `Here are the duplicate files found:`
+      case 'smart_organize': return `Smart organization complete!`
+      case 'vision_screen': return `Here's the screen analysis result:`
+      case 'vision_ocr': return `Here's the extracted text:`
+      case 'multi_action': return `Multi-action complete! Here are the results:`
       default: return ''
     }
   }
@@ -210,6 +384,99 @@ function intentResponseText(intent: Intent, lang: 'ko' | 'en', assistantName: st
     case 'clean': return `정리 완료! 디스크 공간을 확보했어요 🧹`
     case 'daily_report': return `오늘의 PC 리포트예요 📊`
     case 'repair': return `수리 작업을 완료했어요 🔧`
+    case 'file_search': return `파일 검색 결과예요:`
+    case 'deep_search': return `딥서치 완료! 상위 결과를 정리했어요:`
+    case 'doc_find': return `문서 검색 완료! 찾은 파일이에요:`
+    case 'doc_compare': return `문서 비교 완료! 차이점을 정리했어요:`
+    case 'doc_summary': return `문서 요약 결과예요:`
+    case 'news_search': return `최신 뉴스 결과예요:`
+    case 'youtube_search': return `영상 검색 결과예요:`
+    case 'reddit_search': return `Reddit 게시물이에요:`
+    case 'price_compare': return `가격 비교 결과예요:`
+    case 'email_inbox': return `받은 편지함이에요:`
+    case 'email_summarize': return `이메일 요약이에요:`
+    case 'email_classify': return `이메일 분류 완료:`
+    case 'email_draft': return `답장 초안이에요:`
+    case 'calendar_today': return `오늘 일정이에요:`
+    case 'calendar_week': return `이번 주 일정이에요:`
+    case 'calendar_add': return `일정이 추가됐어요!`
+    case 'calendar_find_slot': return `가능한 시간 슬롯이에요:`
+    case 'calendar_smart_add': return `일정을 만들었어요!`
+    case 'weather': return `날씨 예보예요:`
+    case 'travel_time': return `소요 시간 결과예요:`
+    case 'notes': return `메모 목록이에요:`
+    case 'journal_today': return `오늘 업무 일지예요:`
+    case 'journal_generate': return `일지를 생성하고 저장했어요!`
+    case 'journal_history': return `과거 일지 목록이에요:`
+    case 'macro_list': return `매크로 목록이에요:`
+    case 'macro_create': return `매크로가 생성됐어요!`
+    case 'macro_run': return `매크로를 실행했어요!`
+    case 'schedule_list': return `예약된 작업 목록이에요:`
+    case 'schedule_add': return `작업이 예약됐어요!`
+    case 'schedule_delete': return `스케줄이 삭제됐어요!`
+    case 'recall_capture': return `화면 기억을 저장했어요!`
+    case 'recall_search': return `매칭된 화면 기억이에요:`
+    case 'meeting_start': return `녹음이 시작됐어요!`
+    case 'meeting_stop': return `녹음을 저장했어요!`
+    case 'meeting_summary': return `회의 요약이에요:`
+    case 'meeting_list': return `녹음된 회의 목록이에요:`
+    case 'workflow_run': return `워크플로 완료! 결과를 정리했어요:`
+    case 'workflow_plan': return `워크플로 계획이에요:`
+    case 'workflow_list': return `저장된 워크플로 목록이에요:`
+    case 'workflow_create': return `워크플로가 생성됐어요!`
+    case 'workflow_templates': return `워크플로 템플릿이에요:`
+    case 'multi_agent': return `멀티 에이전트 작업 완료!`
+    case 'briefing_now': return `모닝 브리핑이에요:`
+    case 'remote_access': return `원격 접속 스캔 완료:`
+    case 'process_security': return `프로세스 보안 스캔 완료:`
+    case 'startup_items': return `시작 프로그램 목록이에요:`
+    case 'defender_status': return `Windows Defender 상태:`
+    case 'account_check': return `계정 보안 점검 완료:`
+    case 'driver_check': return `드라이버 점검 완료:`
+    case 'network_analysis': return `네트워크 분석 완료:`
+    case 'programs_list': return `설치된 프로그램 목록이에요:`
+    case 'boot_analysis': return `부팅 분석 완료:`
+    case 'process_top': return `리소스 상위 프로세스예요:`
+    case 'process_kill': return `프로세스를 종료했어요!`
+    case 'gpu_stats': return `GPU 정보예요:`
+    case 'windows_updates': return `Windows 업데이트 목록이에요:`
+    case 'virus_check': return `VirusTotal 스캔 완료:`
+    case 'perf_history': return `성능 이력이에요:`
+    case 'perf_anomaly': return `성능 이상 분석 완료:`
+    case 'focus_mode': return `집중 모드가 설정됐어요!`
+    case 'volume_control': return `볼륨을 조절했어요!`
+    case 'brightness': return `밝기를 조절했어요!`
+    case 'wifi_toggle': return `Wi-Fi 설정을 변경했어요!`
+    case 'launch_app': return `앱을 실행했어요!`
+    case 'open_folder': return `폴더를 열었어요!`
+    case 'power_action': return `전원 명령을 실행했어요!`
+    case 'restore_create': return `복구 포인트를 만들었어요!`
+    case 'browser_clean': return `브라우저 데이터를 정리했어요!`
+    case 'registry_clean': return `레지스트리를 정리했어요!`
+    case 'pc_report': return `PC 건강 리포트가 생성됐어요!`
+    case 'persona_list': return `페르소나 목록이에요:`
+    case 'persona_switch': return `페르소나를 전환했어요!`
+    case 'brain_search': return `Second Brain에서 찾은 기억이에요:`
+    case 'brain_stats': return `Second Brain 통계예요:`
+    case 'caption_start': return `실시간 자막을 시작했어요!`
+    case 'caption_stop': return `자막을 종료했어요!`
+    case 'video_download': return `영상 다운로드 완료!`
+    case 'video_transcript': return `영상 자막 요약이에요:`
+    case 'translate': return `번역 결과예요:`
+    case 'clipboard_ai': return `AI 처리 결과예요:`
+    case 'dictation_start': return `텍스트를 입력했어요!`
+    case 'voice_todo': return `메모 저장 및 일정 등록 완료!`
+    case 'task_cancel': return `작업 취소를 요청했어요!`
+    case 'search_pdf': return `PDF 리포트가 생성됐어요!`
+    case 'imap_inbox': return `IMAP 받은 편지함이에요:`
+    case 'imap_send': return `IMAP으로 메일을 보냈어요!`
+    case 'app_permissions': return `앱 권한 목록이에요:`
+    case 'file_organize': return `파일을 정리했어요!`
+    case 'file_duplicates': return `중복 파일 결과예요:`
+    case 'smart_organize': return `스마트 정리 완료!`
+    case 'vision_screen': return `화면 분석 결과예요:`
+    case 'vision_ocr': return `추출된 텍스트예요:`
+    case 'multi_action': return `멀티 액션 완료! 결과를 정리했어요:`
     default: return ''
   }
 }
@@ -246,6 +513,7 @@ export interface ChatIntentDeps {
   resetClarify: () => void
   openPreview: (url: string, title: string) => Promise<void>
   pushModelHistory: (userText: string, modelText: string) => void
+  openEmailSetup?: () => void
 }
 
 export async function handleBackendIntentImpl(
@@ -349,34 +617,34 @@ export async function handleBackendIntentImpl(
         /* ── 보안 상세 ── */
         case 'remote_access': {
           const data = await backendAPI.securityRemote().catch(() => ({ found: false, tools: [], rdp_open: false, score: 100 }))
-          return { text: data.found ? `⚠️ 실행 중인 원격 접속 도구 발견! 점수: ${data.score}` : '✅ 원격 접속 도구 없음, 안전합니다.',
+          return { text: data.found ? t(`⚠️ 실행 중인 원격 접속 도구 발견! 점수: ${data.score}`, `⚠️ Remote access tool detected! Score: ${data.score}`, userLang) : t('✅ 원격 접속 도구 없음, 안전합니다.', '✅ No remote access tools found. You\'re safe.', userLang),
             card2: { type: 'remote_access', data }, emotion: data.found ? 'alert' : 'happy' }
         }
         case 'process_security': {
           const data = await backendAPI.securityProcs().catch(() => ({ suspicious_processes: [], open_ports: [], score: 100 }))
-          return { text: data.score < 80 ? `⚠️ 수상한 프로세스/포트 발견 (보안 점수: ${data.score})` : '✅ 수상한 프로세스 없음.',
+          return { text: data.score < 80 ? t(`⚠️ 수상한 프로세스/포트 발견 (보안 점수: ${data.score})`, `⚠️ Suspicious processes/ports found (score: ${data.score})`, userLang) : t('✅ 수상한 프로세스 없음.', '✅ No suspicious processes found.', userLang),
             card2: { type: 'process_security', data }, emotion: data.score < 80 ? 'alert' : 'happy' }
         }
         case 'hosts_check': {
           const data = await backendAPI.securityHosts().catch(() => ({ score: 100, modified: false, entries: 0, suspicious: [] }))
-          return { text: data.modified ? `⚠️ hosts 파일 변조 의심! 수상한 항목 ${data.suspicious.length}개` : '✅ hosts 파일 정상',
-            card2: { type: 'system_action', icon: data.modified ? '⚠️' : '✅', title: data.modified ? 'Hosts 파일 변조 감지' : 'Hosts 파일 정상', detail: `총 ${data.entries}개 항목`, success: !data.modified },
+          return { text: data.modified ? t(`⚠️ hosts 파일 변조 의심! 수상한 항목 ${data.suspicious.length}개`, `⚠️ Hosts file may be tampered! ${data.suspicious.length} suspicious entries`, userLang) : t('✅ hosts 파일 정상', '✅ Hosts file is clean', userLang),
+            card2: { type: 'system_action', icon: data.modified ? '⚠️' : '✅', title: data.modified ? t('Hosts 파일 변조 감지', 'Hosts file tampered', userLang) : t('Hosts 파일 정상', 'Hosts file clean', userLang), detail: t(`총 ${data.entries}개 항목`, `${data.entries} entries total`, userLang), success: !data.modified },
             emotion: data.modified ? 'alert' : 'happy' }
         }
         case 'startup_items': {
           const data = await backendAPI.securityStartup().catch(() => ({ items: [], total: 0, suspicious_count: 0 }))
-          return { text: `시작 프로그램 ${data.total}개, 수상한 항목 ${data.suspicious_count}개`,
+          return { text: t(`시작 프로그램 ${data.total}개, 수상한 항목 ${data.suspicious_count}개`, `${data.total} startup items, ${data.suspicious_count} suspicious`, userLang),
             card2: { type: 'startup_items', data }, emotion: data.suspicious_count > 0 ? 'concerned' : 'happy' }
         }
         case 'defender_status': {
           const data = await backendAPI.securityDefender().catch(() => ({ antivirus_enabled: true, realtime_protection: true, quick_scan_age: 0, full_scan_age: 0, score: 100, issues: [] }))
-          return { text: data.score >= 80 ? '🛡️ Windows Defender 정상 작동 중' : `⚠️ 보안 점수 ${data.score} — ${data.issues[0] ?? ''}`,
+          return { text: data.score >= 80 ? t('🛡️ Windows Defender 정상 작동 중', '🛡️ Windows Defender is running normally', userLang) : t(`⚠️ 보안 점수 ${data.score} — ${data.issues[0] ?? ''}`, `⚠️ Security score ${data.score} — ${data.issues[0] ?? ''}`, userLang),
             card2: { type: 'defender', data }, emotion: data.score >= 80 ? 'happy' : 'alert' }
         }
         case 'account_check': {
           const data = await backendAPI.securityAccounts().catch(() => ({ total: 0, suspicious: [], suspicious_count: 0, score: 100 }))
-          return { text: data.suspicious_count ? `⚠️ 이상 계정 ${data.suspicious_count}개 감지됨` : `✅ 계정 정상 (${data.total}개)`,
-            card2: { type: 'system_action', icon: data.suspicious_count ? '⚠️' : '✅', title: data.suspicious_count ? `이상 계정 ${data.suspicious_count}개` : '계정 정상', success: !data.suspicious_count },
+          return { text: data.suspicious_count ? t(`⚠️ 이상 계정 ${data.suspicious_count}개 감지됨`, `⚠️ ${data.suspicious_count} suspicious account(s) detected`, userLang) : t(`✅ 계정 정상 (${data.total}개)`, `✅ Accounts look normal (${data.total} total)`, userLang),
+            card2: { type: 'system_action', icon: data.suspicious_count ? '⚠️' : '✅', title: data.suspicious_count ? t(`이상 계정 ${data.suspicious_count}개`, `${data.suspicious_count} suspicious accounts`, userLang) : t('계정 정상', 'Accounts normal', userLang), success: !data.suspicious_count },
             emotion: data.suspicious_count ? 'alert' : 'happy' }
         }
 
@@ -449,7 +717,7 @@ export async function handleBackendIntentImpl(
         }
         case 'network_analysis': {
           const data = await backendAPI.networkAnalysis().catch(() => ({ adapters: [], dns_servers: '', public_ip: '', ping_ms: '', connected: false }))
-          return { text: data.connected ? `🌐 인터넷 연결됨 · 공개 IP: ${data.public_ip || '알 수 없음'}` : '📵 인터넷 연결 없음',
+          return { text: data.connected ? t(`🌐 인터넷 연결됨 · 공개 IP: ${data.public_ip || '알 수 없음'}`, `🌐 Internet connected · Public IP: ${data.public_ip || 'Unknown'}`, userLang) : t('📵 인터넷 연결 없음', '📵 No internet connection', userLang),
             card2: { type: 'network', data }, emotion: data.connected ? 'happy' : 'concerned' }
         }
         case 'restore_create': {
@@ -518,9 +786,9 @@ export async function handleBackendIntentImpl(
             emotion: res.active ? 'happy' : 'neutral' }
         }
         case 'clipboard': {
-          const data = await backendAPI.clipboard().catch(() => ({ current: '', tip: 'Windows + V 로 클립보드를 확인해보세요' }))
-          return { text: data.current ? `클립보드: "${data.current.slice(0, 50)}..."` : data.tip,
-            card2: { type: 'system_action', icon: '📋', title: data.current ? `클립보드 내용 확인` : '클립보드 비어있음', detail: data.current?.slice(0, 60) },
+          const data = await backendAPI.clipboard().catch(() => ({ current: '', tip: t('Windows + V 로 클립보드를 확인해보세요', 'Press Windows + V to view clipboard history', userLang) }))
+          return { text: data.current ? t(`클립보드: "${data.current.slice(0, 50)}..."`, `Clipboard: "${data.current.slice(0, 50)}..."`, userLang) : data.tip,
+            card2: { type: 'system_action', icon: '📋', title: data.current ? t('클립보드 내용 확인', 'Clipboard content', userLang) : t('클립보드 비어있음', 'Clipboard is empty', userLang), detail: data.current?.slice(0, 60) },
             emotion: 'neutral' }
         }
         case 'notes': {
@@ -624,7 +892,7 @@ export async function handleBackendIntentImpl(
           // 스크린샷 캡처 (OCR 포함)
           const ss = await backendAPI.screenshot(true).catch(() => ({ success: false, base64: '', width: 0, height: 0, mime: 'image/png', captured: '' }))
           if (!ss.success || !ss.base64) {
-            return { text: '화면 캡처에 실패했어요. Tauri 앱 환경에서 실행해주세요.', emotion: 'concerned' }
+            return { text: t('화면 캡처에 실패했어요. Tauri 앱 환경에서 실행해주세요.', 'Screen capture failed. Please run in Tauri app environment.', userLang), emotion: 'concerned' }
           }
           // Gemini Flash에 이미지 + 질문 전달
           const { callGeminiWithImage } = await import('../../lib/nexus/gemini_engine')
@@ -734,7 +1002,7 @@ export async function handleBackendIntentImpl(
           }
           const data = await backendAPI.docsSummary(filePath)
           return {
-            text: (data as { summary?: string }).summary?.slice(0, 100) || '문서 요약이 완료됐어요!',
+            text: t('문서 요약이 완료됐어요! 📄', 'Document summary complete! 📄', userLang),
             card4: { type: 'doc_summary', data: data as unknown as Parameters<typeof import('./InlineCards4').DocSummaryCard>[0]['data'] },
             emotion: 'happy',
           }
@@ -785,11 +1053,15 @@ export async function handleBackendIntentImpl(
 
         /* ── 📧 이메일 ── */
         case 'email_inbox': {
-          const data = await emailInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'Outlook이 필요합니다.' }))
+          const data = await emailInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
+          if ((data as any).action === 'outlook_setup_required') {
+            d.openEmailSetup?.()
+            return { text: t('Outlook 연동이 필요합니다. 설정 창을 열었어요 📧', 'Outlook setup required. Opening settings 📧', userLang), emotion: 'neutral' }
+          }
           return {
             text: data.message,
-            card2: { type: 'system_action', icon: '📧', title: `받은 메일 ${data.total}개 (읽지 않음 ${data.unread}개)`, detail: data.emails.slice(0,3).map(e => `${e.is_read ? '📨' : '📩'} ${e.subject} — ${e.sender}`).join('\n'), success: data.success },
-            emotion: data.unread > 0 ? 'concerned' : 'neutral',
+            card2: { type: 'system_action', icon: '📧', title: `받은 메일 ${data.total}개 (읽지 않음 ${data.unread}개)`, detail: (data.emails as any[]).slice(0,3).map((e: any) => `${e.is_read ? '📨' : '📩'} ${e.subject} — ${e.sender}`).join('\n'), success: data.success },
+            emotion: (data.unread as number) > 0 ? 'concerned' : 'neutral',
           }
         }
         case 'email_send': {
@@ -806,7 +1078,11 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'email_summarize': {
-          const data = await emailSummarize().catch(() => ({ success: false, emails: [], summary: '', message: 'Outlook이 필요합니다.' }))
+          const data = await emailSummarize().catch(() => ({ success: false, emails: [], summary: '', message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
+          if ((data as any).action === 'outlook_setup_required') {
+            d.openEmailSetup?.()
+            return { text: t('Outlook 연동이 필요합니다. 설정 창을 열었어요 📧', 'Outlook setup required. Opening settings 📧', userLang), emotion: 'neutral' }
+          }
           return {
             text: data.message,
             card2: { type: 'system_action', icon: '📧', title: '이메일 요약', detail: data.summary, success: data.success },
@@ -876,8 +1152,8 @@ export async function handleBackendIntentImpl(
             })))
           }
           return {
-            text: data.summary || `'${query}' 뉴스 검색 완료!`,
-            card2: { type: 'system_action', icon: '📰', title: `뉴스: ${query}`, detail: articles.slice(0,3).map((a: { title: string }) => `• ${a.title}`).join('\n'), success: data.success },
+            text: data.summary || t(`'${query}' 뉴스 검색 완료!`, `News search for '${query}' done!`, userLang),
+            card2: { type: 'system_action', icon: '📰', title: `${t('뉴스', 'News', userLang)}: ${query}`, detail: articles.slice(0,3).map((a: { title: string }) => `• ${a.title}`).join('\n'), success: data.success },
             emotion: 'neutral',
           }
         }
@@ -889,15 +1165,14 @@ export async function handleBackendIntentImpl(
           const data = isTiktok
             ? await tiktokSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
             : await youtubeSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
-          const platform = isTiktok ? '틱톡' : '유튜브'
+          const platform = isTiktok ? t('틱톡', 'TikTok', userLang) : t('유튜브', 'YouTube', userLang)
           const icon = isTiktok ? '🎵' : '🎬'
           const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
           const detail = articles.slice(0, 5).map(a => `• ${a.title}\n  ${a.url}`).join('\n\n')
-          // 플로팅 미리보기 패널에 영상 링크 표시
           if (articles.length > 0) setFloatingPreview(articles.slice(0, 5).map(a => ({ title: a.title, url: a.url })))
           return {
-            text: data.summary || `${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`,
-            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || '결과를 가져오는 중...', success: data.success },
+            text: data.summary || t(`${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`, `Found ${articles.length} video(s) for "${query}" on ${platform}!`, userLang),
+            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || t('결과를 가져오는 중...', 'Loading results...', userLang), success: data.success },
             emotion: 'happy',
           }
         }
@@ -924,12 +1199,12 @@ export async function handleBackendIntentImpl(
             `• ${p.title}${p.score ? ` ↑${p.score}` : ''}${p.comments ? ` 💬${p.comments}` : ''}\n  ${p.url}`
           ).join('\n\n')
           return {
-            text: data.message || `Reddit에서 "${query || '트렌딩'}" 게시물 ${posts.length}개를 찾았어요!`,
+            text: data.message || t(`Reddit에서 "${query || '트렌딩'}" 게시물 ${posts.length}개를 찾았어요!`, `Found ${posts.length} Reddit post(s) for "${query || 'trending'}"!`, userLang),
             card2: {
               type: 'system_action',
               icon: '🔴',
-              title: `Reddit${subreddit ? ` r/${subreddit}` : ''}: ${query || '트렌딩'}`,
-              detail: detail || '결과를 가져오는 중...',
+              title: `Reddit${subreddit ? ` r/${subreddit}` : ''}: ${query || t('트렌딩', 'trending', userLang)}`,
+              detail: detail || t('결과를 가져오는 중...', 'Loading results...', userLang),
               success: data.success,
             },
             emotion: posts.length > 0 ? 'happy' : 'neutral',
@@ -957,10 +1232,10 @@ export async function handleBackendIntentImpl(
             card2: {
               type: 'system_action',
               icon: data.success ? '✅' : '⚠️',
-              title: data.success ? '영상 다운로드 완료' : 'yt-dlp 설치 필요',
+              title: data.success ? t('영상 다운로드 완료', 'Video download complete', userLang) : t('yt-dlp 설치 필요', 'yt-dlp installation required', userLang),
               detail: data.success
-                ? `저장 위치: ${data.save_path}`
-                : `yt-dlp 설치 후 다시 시도해주세요.\n${data.install_url ?? ''}`,
+                ? t(`저장 위치: ${data.save_path}`, `Saved to: ${data.save_path}`, userLang)
+                : t(`yt-dlp 설치 후 다시 시도해주세요.\n${data.install_url ?? ''}`, `Please install yt-dlp and try again.\n${data.install_url ?? ''}`, userLang),
               success: data.success,
             },
             emotion: data.success ? 'happy' : 'concerned',
@@ -1098,7 +1373,7 @@ export async function handleBackendIntentImpl(
             card2: {
               type: 'system_action', icon: '🚗',
               title: `${origin} → ${destination}`,
-              detail: `거리 ${data.distance_km.toFixed(1)}km · 약 ${data.duration_min}분\n출발 ${data.departure_time} → 도착 ${data.arrival_time}`,
+              detail: t(`거리 ${data.distance_km.toFixed(1)}km · 약 ${data.duration_min}분\n출발 ${data.departure_time} → 도착 ${data.arrival_time}`, `Distance ${data.distance_km.toFixed(1)}km · ~${data.duration_min}min\nDepart ${data.departure_time} → Arrive ${data.arrival_time}`, userLang),
               success: data.success,
             },
             emotion: 'neutral',
@@ -1115,7 +1390,7 @@ export async function handleBackendIntentImpl(
           // 클립보드 내용 가져와서 번역
           const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
           const textToTranslate = clip.current || originalText.replace(/번역.*해줘|번역해|이거.*영어로|translate.*to|translate/gi, '').trim()
-          if (!textToTranslate) return { text: '번역할 내용이 없어요. 텍스트를 먼저 복사해주세요.', emotion: 'neutral' }
+          if (!textToTranslate) return { text: t('번역할 내용이 없어요. 텍스트를 먼저 복사해주세요.', 'Nothing to translate. Please copy some text first.', userLang), emotion: 'neutral' }
 
           const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
           let translated = ''
@@ -1194,11 +1469,11 @@ export async function handleBackendIntentImpl(
             calMsg = calRes.success ? ` + 캘린더에도 등록했어요 📅` : ''
           }
           return {
-            text: noteRes.success ? `메모 저장 완료!${calMsg}` : '메모 저장에 실패했어요.',
+            text: noteRes.success ? t(`메모 저장 완료!${calMsg}`, `Note saved!${calMsg}`, userLang) : t('메모 저장에 실패했어요.', 'Failed to save note.', userLang),
             card2: {
               type: 'system_action', icon: '📝',
-              title: '메모 + 할일 등록',
-              detail: `내용: ${content.slice(0, 80)}${dateStr ? `\n날짜: ${dateStr} ${timeStr}` : ''}`,
+              title: t('메모 + 할일 등록', 'Note + Task registered', userLang),
+              detail: t(`내용: ${content.slice(0, 80)}${dateStr ? `\n날짜: ${dateStr} ${timeStr}` : ''}`, `Content: ${content.slice(0, 80)}${dateStr ? `\nDate: ${dateStr} ${timeStr}` : ''}`, userLang),
               success: noteRes.success,
             },
             emotion: noteRes.success ? 'happy' : 'concerned',
@@ -1209,8 +1484,8 @@ export async function handleBackendIntentImpl(
         case 'recall_capture': {
           const data = await recallCapture().catch(() => ({ success: false, timestamp: '', ocr_text: '', message: '화면 캡처 실패' }))
           return {
-            text: data.success ? `화면을 기억했어요 🖥️ "${data.ocr_text.slice(0, 40)}..."` : data.message,
-            card2: { type: 'system_action', icon: '🖥️', title: '화면 기억 저장', detail: data.ocr_text.slice(0, 100), success: data.success },
+            text: data.success ? t(`화면을 기억했어요 🖥️ "${data.ocr_text.slice(0, 40)}..."`, `Screen saved to memory 🖥️ "${data.ocr_text.slice(0, 40)}..."`, userLang) : data.message,
+            card2: { type: 'system_action', icon: '🖥️', title: t('화면 기억 저장', 'Screen memory saved', userLang), detail: data.ocr_text.slice(0, 100), success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1218,10 +1493,10 @@ export async function handleBackendIntentImpl(
           const query = originalText.replace(/기억.*찾아|화면.*기억|언제.*봤던|어제.*봤던|전에.*봤던|화면.*검색|recall/gi, '').trim() || originalText
           const data = await recallSearch(query).catch(() => ({ success: false, results: [], total: 0, message: '검색 실패 — 먼저 화면을 기억시켜주세요.' }))
           return {
-            text: data.total > 0 ? `"${query}" 관련 화면 ${data.total}개 찾았어요!` : `"${query}" 관련 기억이 없어요.`,
+            text: data.total > 0 ? t(`"${query}" 관련 화면 ${data.total}개 찾았어요!`, `Found ${data.total} screen memory match(es) for "${query}"!`, userLang) : t(`"${query}" 관련 기억이 없어요.`, `No screen memories found for "${query}".`, userLang),
             card2: {
               type: 'system_action', icon: '🔍',
-              title: `화면 기억 검색: ${query}`,
+              title: t(`화면 기억 검색: ${query}`, `Screen memory search: ${query}`, userLang),
               detail: data.results.slice(0, 3).map(r => `${r.timestamp}: ${r.snippet}`).join('\n'),
               success: data.success,
             },
@@ -1234,7 +1509,7 @@ export async function handleBackendIntentImpl(
           const res = await meetingStart().catch(() => ({ success: false, file_path: '', message: '녹음 시작 실패' }))
           return {
             text: res.message,
-            card2: { type: 'system_action', icon: '🔴', title: res.success ? '녹음 중...' : '녹음 실패', detail: res.file_path, success: res.success },
+            card2: { type: 'system_action', icon: '🔴', title: res.success ? t('녹음 중...', 'Recording...', userLang) : t('녹음 실패', 'Recording failed', userLang), detail: res.file_path, success: res.success },
             emotion: res.success ? 'happy' : 'concerned',
           }
         }
@@ -1242,7 +1517,7 @@ export async function handleBackendIntentImpl(
           const res = await meetingStop().catch(() => ({ success: false, file_path: '', duration_sec: 0, message: '녹음 종료 실패' }))
           return {
             text: res.message,
-            card2: { type: 'system_action', icon: '⏹️', title: `녹음 완료 (${Math.round(res.duration_sec / 60)}분)`, detail: res.file_path, success: res.success },
+            card2: { type: 'system_action', icon: '⏹️', title: t(`녹음 완료 (${Math.round(res.duration_sec / 60)}분)`, `Recording done (${Math.round(res.duration_sec / 60)}min)`, userLang), detail: res.file_path, success: res.success },
             emotion: res.success ? 'happy' : 'concerned',
           }
         }
@@ -1268,11 +1543,11 @@ export async function handleBackendIntentImpl(
           if (!transcribed.success || !transcribed.text) return { text: t('회의 전사 실패. Perplexity API 키를 확인해주세요.', 'Transcription failed. Please check your Perplexity API key.', userLang), emotion: 'concerned' }
           const summary = await meetingSummarize(transcribed.text).catch(() => ({ success: false, summary: '', action_items: [], decisions: [], message: '요약 실패' }))
           return {
-            text: summary.success ? `회의 요약 완료! 액션 아이템 ${summary.action_items.length}개` : '회의 요약에 실패했어요.',
+            text: summary.success ? t(`회의 요약 완료! 액션 아이템 ${summary.action_items.length}개`, `Meeting summary done! ${summary.action_items.length} action item(s)`, userLang) : t('회의 요약에 실패했어요.', 'Meeting summary failed.', userLang),
             card2: {
               type: 'system_action', icon: '📋',
-              title: '회의 요약',
-              detail: `요약: ${summary.summary.slice(0, 100)}\n\n액션: ${summary.action_items.slice(0, 3).join(' / ')}`,
+              title: t('회의 요약', 'Meeting Summary', userLang),
+              detail: t(`요약: ${summary.summary.slice(0, 100)}\n\n액션: ${summary.action_items.slice(0, 3).join(' / ')}`, `Summary: ${summary.summary.slice(0, 100)}\n\nActions: ${summary.action_items.slice(0, 3).join(' / ')}`, userLang),
               success: summary.success,
             },
             emotion: summary.success ? 'happy' : 'concerned',
@@ -1327,7 +1602,7 @@ export async function handleBackendIntentImpl(
           const data = await brainSearch(query, 8).catch(() => ({ results: [], total: 0, summary: '', query }))
           const items = data.results.slice(0, 5).map((r) => `[${r.entry.source}] ${r.entry.title}`)
           return {
-            text: data.summary || (data.results.length > 0 ? `"${query}" 관련 기억 ${data.results.length}건 찾았어요:\n${items.join('\n')}` : `"${query}"에 대한 기억이 없어요.`),
+            text: data.summary || (data.results.length > 0 ? t(`"${query}" 관련 기억 ${data.results.length}건 찾았어요:\n${items.join('\n')}`, `Found ${data.results.length} memory match(es) for "${query}":\n${items.join('\n')}`, userLang) : t(`"${query}"에 대한 기억이 없어요.`, `No memories found for "${query}".`, userLang)),
             emotion: data.results.length > 0 ? 'happy' as const : 'neutral' as const,
           }
         }
@@ -1336,7 +1611,7 @@ export async function handleBackendIntentImpl(
           const data = await brainStats().catch(() => ({ total: 0, by_source: {} as Record<string, number>, updated_at: '' }))
           const src = Object.entries(data.by_source).map(([k, v]) => `${k}: ${v}개`).join(', ')
           return {
-            text: `🧠 Second Brain 현황\n총 ${data.total}개 기억 저장됨\n${src}\n마지막 업데이트: ${data.updated_at.slice(0, 10) || '없음'}`,
+            text: t(`🧠 Second Brain 현황\n총 ${data.total}개 기억 저장됨\n${src}\n마지막 업데이트: ${data.updated_at.slice(0, 10) || '없음'}`, `🧠 Second Brain Status\n${data.total} memories stored\n${src}\nLast updated: ${data.updated_at.slice(0, 10) || 'N/A'}`, userLang),
             emotion: 'neutral' as const,
           }
         }
@@ -1358,8 +1633,8 @@ export async function handleBackendIntentImpl(
           const doneSteps = result.steps.filter((s) => s.status === 'done').length
           const totalSteps = result.steps.length
           return {
-            text: `✅ 워크플로 완료 (${doneSteps}/${totalSteps}단계)\n\n${result.summary}`,
-            card2: { type: 'system_action', icon: '⚡', title: `워크플로: ${goal.slice(0, 30)}`, detail: `${doneSteps}/${totalSteps}단계 완료`, success: result.ok },
+            text: t(`✅ 워크플로 완료 (${doneSteps}/${totalSteps}단계)\n\n${result.summary}`, `✅ Workflow complete (${doneSteps}/${totalSteps} steps)\n\n${result.summary}`, userLang),
+            card2: { type: 'system_action', icon: '⚡', title: t(`워크플로: ${goal.slice(0, 30)}`, `Workflow: ${goal.slice(0, 30)}`, userLang), detail: t(`${doneSteps}/${totalSteps}단계 완료`, `${doneSteps}/${totalSteps} steps done`, userLang), success: result.ok },
             emotion: result.ok ? 'happy' as const : 'concerned' as const,
           }
         }
@@ -1382,7 +1657,7 @@ export async function handleBackendIntentImpl(
           const res = await captionStop().catch(() => ({ ok: false, message: '자막 종료 실패', entries: 0 }))
           if (res.ok) setCaptionRunning(false)
           return {
-            text: `${res.message} (총 ${res.entries}개 자막)`,
+            text: t(`${res.message} (총 ${res.entries}개 자막)`, `${res.message} (${res.entries} captions total)`, userLang),
             emotion: 'neutral' as const,
           }
         }
@@ -1390,10 +1665,10 @@ export async function handleBackendIntentImpl(
         /* ── 📧 이메일 분류 ── */
         case 'email_classify': {
           const data = await emailClassify(20).catch(() => ({ success: false, classified: [], counts: {}, message: 'Outlook이 필요합니다.' }))
-          const countStr = Object.entries(data.counts ?? {}).map(([k, v]) => `${k}: ${v}개`).join(' · ')
+          const countStr = Object.entries(data.counts ?? {}).map(([k, v]) => `${k}: ${v}`).join(' · ')
           return {
-            text: data.message || `이메일 분류 완료! ${countStr}`,
-            card2: { type: 'system_action', icon: '📊', title: '이메일 AI 분류', detail: countStr || '분류 결과 없음', success: data.success },
+            text: data.message || t(`이메일 분류 완료! ${countStr}`, `Email classification done! ${countStr}`, userLang),
+            card2: { type: 'system_action', icon: '📊', title: t('이메일 AI 분류', 'Email AI Classification', userLang), detail: countStr || t('분류 결과 없음', 'No results', userLang), success: data.success },
             emotion: 'happy',
           }
         }
@@ -1402,7 +1677,7 @@ export async function handleBackendIntentImpl(
         case 'email_draft': {
           const inbox = await emailInbox(1).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: '' }))
           const latest = inbox.emails?.[0]
-          if (!latest) return { text: '답장할 메일이 없어요. 먼저 받은 메일함을 확인해주세요.', emotion: 'neutral' }
+          if (!latest) return { text: t('답장할 메일이 없어요. 먼저 받은 메일함을 확인해주세요.', 'No emails to reply to. Please check your inbox first.', userLang), emotion: 'neutral' }
           const tone = /격식|formal|정중/.test(originalText) ? 'formal' : 'casual'
           const data = await emailDraftReply(latest.subject, latest.sender, latest.body, tone).catch(() => ({ success: false, draft: '', message: '초안 작성 실패' }))
           return {
@@ -1506,8 +1781,8 @@ export async function handleBackendIntentImpl(
           const goal = originalText.replace(/멀티.*에이전트|여러.*ai.*동시|multi.*agent|에이전트.*팀/gi, '').trim() || originalText
           const data = await multiAgentRun(goal).catch(() => ({ success: false, task_id: '', message: '멀티 에이전트 실행 실패' }))
           return {
-            text: data.message || `멀티 에이전트 작업이 시작됐어요! 작업 ID: ${data.task_id}`,
-            card2: { type: 'system_action', icon: '🤖', title: '멀티 에이전트 실행', detail: `목표: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, success: data.success },
+            text: data.message || t(`멀티 에이전트 작업이 시작됐어요! 작업 ID: ${data.task_id}`, `Multi-agent task started! Task ID: ${data.task_id}`, userLang),
+            card2: { type: 'system_action', icon: '🤖', title: t('멀티 에이전트 실행', 'Multi-agent running', userLang), detail: t(`목표: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, `Goal: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, userLang), success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1516,8 +1791,8 @@ export async function handleBackendIntentImpl(
         case 'briefing_now': {
           const data = await briefingNow().catch(() => ({ success: false, task_id: '', message: '브리핑 시작 실패' }))
           return {
-            text: data.message || '모닝 브리핑이 시작됐어요! 날씨·일정·이메일 정보를 수집 중이에요.',
-            card2: { type: 'system_action', icon: '📢', title: '모닝 브리핑 시작', detail: `Task ID: ${data.task_id}`, success: data.success },
+            text: data.message || t('모닝 브리핑이 시작됐어요! 날씨·일정·이메일 정보를 수집 중이에요.', 'Morning briefing started! Collecting weather, schedule & email info.', userLang),
+            card2: { type: 'system_action', icon: '📢', title: t('모닝 브리핑 시작', 'Morning Briefing', userLang), detail: `Task ID: ${data.task_id}`, success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1529,7 +1804,7 @@ export async function handleBackendIntentImpl(
           const first = (tasks.tasks as Array<{id: string; name?: string}>)[0]
           const res = await taskCancel(first.id).catch(() => ({ success: false, message: '취소 실패' }))
           return {
-            text: res.message || `작업 "${first.name ?? first.id}"을 취소했어요.`,
+            text: res.message || t(`작업 "${first.name ?? first.id}"을 취소했어요.`, `Task "${first.name ?? first.id}" cancelled.`, userLang),
             card2: { type: 'system_action', icon: '❌', title: res.message, success: res.success },
             emotion: res.success ? 'neutral' : 'concerned',
           }
@@ -1540,8 +1815,8 @@ export async function handleBackendIntentImpl(
           const query = originalText.replace(/검색.*pdf|pdf.*보고서|웹.*검색.*pdf|조사.*보고서|search.*pdf/gi, '').trim() || originalText
           const data = await searchAndPDF(query, 8, '', true).catch(() => ({ success: false, pdf_path: '', html_path: '', query, item_count: 0, summary: '생성 실패', duration: '' }))
           return {
-            text: data.success ? `PDF 보고서 생성 완료! ${data.item_count}개 항목 수집, ${data.duration} 소요.` : data.summary,
-            card2: { type: 'system_action', icon: '📄', title: `PDF 보고서: ${query.slice(0, 30)}`, detail: `경로: ${data.pdf_path || '생성 실패'}\n${data.summary?.slice(0, 100) ?? ''}`, success: data.success },
+            text: data.success ? t(`PDF 보고서 생성 완료! ${data.item_count}개 항목 수집, ${data.duration} 소요.`, `PDF report generated! ${data.item_count} items collected in ${data.duration}.`, userLang) : data.summary,
+            card2: { type: 'system_action', icon: '📄', title: t(`PDF 보고서: ${query.slice(0, 30)}`, `PDF Report: ${query.slice(0, 30)}`, userLang), detail: t(`경로: ${data.pdf_path || '생성 실패'}\n${data.summary?.slice(0, 100) ?? ''}`, `Path: ${data.pdf_path || 'Failed'}\n${data.summary?.slice(0, 100) ?? ''}`, userLang), success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1552,7 +1827,7 @@ export async function handleBackendIntentImpl(
           const gpu = data.gpus?.[0]
           return {
             text: data.message,
-            card2: { type: 'system_action', icon: '🎮', title: gpu ? `${gpu.name}` : 'GPU 정보', detail: gpu ? `사용률 ${gpu.usage_pct}% · 온도 ${gpu.temp_c}°C · VRAM ${gpu.mem_used_mb}/${gpu.mem_total_mb}MB` : '정보 없음', success: data.success },
+            card2: { type: 'system_action', icon: '🎮', title: gpu ? `${gpu.name}` : t('GPU 정보', 'GPU Info', userLang), detail: gpu ? t(`사용률 ${gpu.usage_pct}% · 온도 ${gpu.temp_c}°C · VRAM ${gpu.mem_used_mb}/${gpu.mem_total_mb}MB`, `Usage ${gpu.usage_pct}% · Temp ${gpu.temp_c}°C · VRAM ${gpu.mem_used_mb}/${gpu.mem_total_mb}MB`, userLang) : t('정보 없음', 'No info', userLang), success: data.success },
             emotion: gpu && gpu.temp_c > 80 ? 'alert' : gpu && gpu.usage_pct > 90 ? 'concerned' : 'neutral',
           }
         }

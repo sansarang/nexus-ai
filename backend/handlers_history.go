@@ -80,6 +80,7 @@ func handleHistorySnapshot(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/history/stats — 과거 성능 이력 조회
 func handleHistoryStats(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	daysStr := r.URL.Query().Get("days")
 	days := 7
 	if daysStr != "" {
@@ -190,7 +191,7 @@ func handleHistoryStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	msg := fmt.Sprintf("최근 %d일 성능 분석 — 평균 CPU %.0f%%, 메모리 %.0f%%", days, avgCPU, avgMem)
+	msg := fmt.Sprintf(msgT("최근 %d일 성능 분석 — 평균 CPU %.0f%%, 메모리 %.0f%%", "Performance analysis for last %d days — Avg CPU %.0f%%, Memory %.0f%%", lang), days, avgCPU, avgMem)
 
 	json200(w, map[string]interface{}{
 		"success":        true,
@@ -207,6 +208,7 @@ func handleHistoryStats(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/history/anomalies — 이상 탐지 (평균 대비 이상 데이터)
 func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	h := loadHistory()
 	cutoff := time.Now().Add(-7 * 24 * time.Hour)
 
@@ -222,7 +224,7 @@ func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]interface{}{
 			"success":   false,
 			"anomalies": []interface{}{},
-			"message":   "데이터가 부족해요. 최소 1일 이상 사용 후 이상 탐지가 가능해요.",
+			"message":   msgT("데이터가 부족해요. 최소 1일 이상 사용 후 이상 탐지가 가능해요.", "Not enough data. Anomaly detection requires at least 1 day of usage.", lang),
 		})
 		return
 	}
@@ -255,7 +257,7 @@ func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
 				Value:     s.CPU,
 				AvgValue:  round2(avgCPU),
 				DiffPct:   round2((s.CPU - avgCPU) / avgCPU * 100),
-				Message:   fmt.Sprintf("CPU 급등: %.0f%% (평균 %.0f%%보다 %.0f%% 높음)", s.CPU, avgCPU, s.CPU-avgCPU),
+				Message:   fmt.Sprintf(msgT("CPU 급등: %.0f%% (평균 %.0f%%보다 %.0f%% 높음)", "CPU spike: %.0f%% (%.0f%% above avg %.0f%%)", lang), s.CPU, avgCPU, s.CPU-avgCPU),
 			})
 		}
 		if s.Mem > avgMem*1.3 && s.Mem > 85 {
@@ -265,7 +267,7 @@ func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
 				Value:     s.Mem,
 				AvgValue:  round2(avgMem),
 				DiffPct:   round2((s.Mem - avgMem) / avgMem * 100),
-				Message:   fmt.Sprintf("메모리 급등: %.0f%% (평균 %.0f%%보다 %.0f%% 높음)", s.Mem, avgMem, s.Mem-avgMem),
+				Message:   fmt.Sprintf(msgT("메모리 급등: %.0f%% (평균 %.0f%%보다 %.0f%% 높음)", "Memory spike: %.0f%% (%.0f%% above avg %.0f%%)", lang), s.Mem, avgMem, s.Mem-avgMem),
 			})
 		}
 		if s.CPUTemp > 80 {
@@ -275,7 +277,7 @@ func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
 				Value:     s.CPUTemp,
 				AvgValue:  0,
 				DiffPct:   0,
-				Message:   fmt.Sprintf("과열 감지: %.0f°C", s.CPUTemp),
+				Message:   fmt.Sprintf(msgT("과열 감지: %.0f°C", "Overheating detected: %.0f°C", lang), s.CPUTemp),
 			})
 		}
 	}
@@ -285,9 +287,9 @@ func handleHistoryAnomalies(w http.ResponseWriter, r *http.Request) {
 		anomalies = anomalies[len(anomalies)-10:]
 	}
 
-	msg := fmt.Sprintf("이상 이벤트 %d개 발견됐어요", len(anomalies))
+	msg := fmt.Sprintf(msgT("이상 이벤트 %d개 발견됐어요", "%d anomaly event(s) detected", lang), len(anomalies))
 	if len(anomalies) == 0 {
-		msg = "✅ 최근 7일간 이상 없어요. PC가 건강하게 동작하고 있어요!"
+		msg = msgT("✅ 최근 7일간 이상 없어요. PC가 건강하게 동작하고 있어요!", "✅ No anomalies in the last 7 days. Your PC is running healthy!", lang)
 	}
 
 	json200(w, map[string]interface{}{

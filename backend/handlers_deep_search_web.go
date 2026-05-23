@@ -13,13 +13,14 @@ import (
 // POST /api/llm/deep-search-web
 // 여러 소스를 병렬로 검색하고 AI로 통합 요약
 func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query      string `json:"query"`
 		MaxResults int    `json:"max_results"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
 	}
 	if req.MaxResults == 0 {

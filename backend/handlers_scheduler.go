@@ -106,42 +106,26 @@ func (s *SchedulerStore) checkAndRun() {
 }
 
 func (s *SchedulerStore) executeTask(t *ScheduledTask) {
-	result := ""
+	type taskResult struct {
+		result string
+		err    error
+	}
+	ch := make(chan taskResult, 1)
+
+	go func() {
+		r, e := s.runTaskAction(t)
+		ch <- taskResult{r, e}
+	}()
+
+	var result string
 	var execErr error
-
-	switch t.Action {
-	case "browser_agent":
-		var params map[string]interface{}
-		json.Unmarshal([]byte(t.ActionParams), &params)
-		cmd, _ := params["command"].(string)
-		result, execErr = runBrowserAgentTask(cmd)
-
-	case "summarize_emails":
-		result, execErr = runEmailSummaryTask()
-
-	case "weekly_report":
-		result, execErr = runWeeklyReportTask()
-
-	case "pc_report":
-		result, execErr = runPCReportTask()
-
-	case "powershell":
-		var params map[string]interface{}
-		json.Unmarshal([]byte(t.ActionParams), &params)
-		script, _ := params["script"].(string)
-		result, execErr = runPowerShellScript(script)
-
-	case "llm_task":
-		var params map[string]interface{}
-		json.Unmarshal([]byte(t.ActionParams), &params)
-		prompt, _ := params["prompt"].(string)
-		result, execErr = runLLMTask(prompt)
-
-	default:
-		result = fmt.Sprintf("알 수 없는 액션: %s", t.Action)
+	select {
+	case res := <-ch:
+		result, execErr = res.result, res.err
+	case <-time.After(5 * time.Minute):
+		execErr = fmt.Errorf("태스크 타임아웃 (5분 초과)")
 	}
 
-	// 결과 저장
 	s.mu.Lock()
 	if st, ok := s.tasks[t.ID]; ok {
 		st.LastRun = time.Now()
@@ -154,13 +138,11 @@ func (s *SchedulerStore) executeTask(t *ScheduledTask) {
 				st.LastResult = st.LastResult[:500] + "..."
 			}
 		}
-		// 다음 실행 시간 계산
 		st.NextRun = calcNextRun(st.CronExpr, time.Now())
 	}
 	s.mu.Unlock()
 	s.save()
 
-	// 메모리에 결과 저장
 	saveAgentMemory(AgentMemoryEntry{
 		ID:        fmt.Sprintf("sched_%s_%d", t.ID, time.Now().Unix()),
 		Timestamp: time.Now().Format(time.RFC3339),
@@ -169,6 +151,40 @@ func (s *SchedulerStore) executeTask(t *ScheduledTask) {
 		Result:    result,
 		Success:   execErr == nil,
 	})
+}
+
+func (s *SchedulerStore) runTaskAction(t *ScheduledTask) (string, error) {
+	switch t.Action {
+	case "browser_agent":
+		var params map[string]interface{}
+		json.Unmarshal([]byte(t.ActionParams), &params)
+		cmd, _ := params["command"].(string)
+		return runBrowserAgentTask(cmd)
+
+	case "summarize_emails":
+		return runEmailSummaryTask()
+
+	case "weekly_report":
+		return runWeeklyReportTask()
+
+	case "pc_report":
+		return runPCReportTask()
+
+	case "powershell":
+		var params map[string]interface{}
+		json.Unmarshal([]byte(t.ActionParams), &params)
+		script, _ := params["script"].(string)
+		return runPowerShellScript(script)
+
+	case "llm_task":
+		var params map[string]interface{}
+		json.Unmarshal([]byte(t.ActionParams), &params)
+		prompt, _ := params["prompt"].(string)
+		return runLLMTask(prompt)
+
+	default:
+		return fmt.Sprintf("알 수 없는 액션: %s", t.Action), nil
+	}
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -540,13 +556,14 @@ func runPowerShellScript(script string) (string, error) {
 
 // POST /api/scheduler/add
 func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Command    string `json:"command"`       // 자연어 명령
 		UseWindows bool   `json:"use_windows"`   // Windows Task Scheduler 연동 여부
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Command == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "command 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command is required", lang)})
 		return
 	}
 
@@ -556,7 +573,7 @@ func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
 
 	parsed, err := parseNaturalSchedule(req.Command, gKey)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "스케줄 파싱 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("스케줄 파싱 실패: ", "Schedule parsing failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -589,7 +606,7 @@ func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
 		"success":     true,
 		"task":        task,
 		"next_run_kr": task.NextRun.Format("2006년 01월 02일 15:04"),
-		"message":     fmt.Sprintf("'%s' 스케줄 등록 완료. 다음 실행: %s", task.Name, task.NextRun.Format("2006-01-02 15:04")),
+		"message":     fmt.Sprintf(msgT("'%s' 스케줄 등록 완료. 다음 실행: %s", "Schedule '%s' registered. Next run: %s", lang), task.Name, task.NextRun.Format("2006-01-02 15:04")),
 	})
 }
 
@@ -615,9 +632,10 @@ func handleSchedulerList(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/scheduler/delete?id=xxx
 func handleSchedulerDelete(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	id := r.URL.Query().Get("id")
 	if id == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "id 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("id 필요", "id is required", lang)})
 		return
 	}
 
@@ -629,7 +647,7 @@ func handleSchedulerDelete(w http.ResponseWriter, r *http.Request) {
 	globalScheduler.mu.Unlock()
 
 	if !ok {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "태스크 없음"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("태스크 없음", "Task not found", lang)})
 		return
 	}
 
@@ -638,15 +656,16 @@ func handleSchedulerDelete(w http.ResponseWriter, r *http.Request) {
 
 	json200(w, map[string]any{
 		"success": true,
-		"message": fmt.Sprintf("'%s' 스케줄 삭제 완료", task.Name),
+		"message": fmt.Sprintf(msgT("'%s' 스케줄 삭제 완료", "Schedule '%s' deleted", lang), task.Name),
 	})
 }
 
 // POST /api/scheduler/run-now?id=xxx
 func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	id := r.URL.Query().Get("id")
 	if id == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "id 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("id 필요", "id is required", lang)})
 		return
 	}
 
@@ -655,7 +674,7 @@ func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
 	globalScheduler.mu.RUnlock()
 
 	if !ok {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "태스크 없음"})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("태스크 없음", "Task not found", lang)})
 		return
 	}
 
@@ -663,19 +682,20 @@ func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
 
 	json200(w, map[string]any{
 		"success": true,
-		"message": fmt.Sprintf("'%s' 즉시 실행 시작됨", task.Name),
+		"message": fmt.Sprintf(msgT("'%s' 즉시 실행 시작됨", "Running '%s' now", lang), task.Name),
 	})
 }
 
 // POST /api/scheduler/parse
 // 자연어 → 스케줄 미리보기 (실제 등록 없이)
 func handleSchedulerParse(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Command string `json:"command"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Command == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "command 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command is required", lang)})
 		return
 	}
 
@@ -685,7 +705,7 @@ func handleSchedulerParse(w http.ResponseWriter, r *http.Request) {
 
 	parsed, err := parseNaturalSchedule(req.Command, gKey)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파싱 실패: ", "Parse failed: ", lang) + err.Error()})
 		return
 	}
 

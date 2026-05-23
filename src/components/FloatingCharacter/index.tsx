@@ -852,6 +852,7 @@ export function FloatingCharacter() {
       setFocusEndMs, setPreviewType, setToastAlerts, setSoundEnabled,
       setIsActive, setHistoryVersion, speakText, resetClarify, openPreview,
       pushModelHistory, setUserLang,
+      openEmailSetup: () => setShowEmailSetup(true),
     })
   }, [userLang, assistantName, emotion, isActive, soundEnabled,
     clarifyPendingIntent, clarifyPendingParams, clarifyPendingQuestion,

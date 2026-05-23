@@ -185,7 +185,7 @@ func handleScreenshotTranslate(w http.ResponseWriter, r *http.Request) {
 
 	b64, err := captureScreen()
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "캡처 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("캡처 실패: "+err.Error(), "Capture failed: "+err.Error(), getLang(r))})
 		return
 	}
 	q := "이 화면의 모든 텍스트를 한국어로 번역해주세요. 원문 → 번역 순서로 보여주세요."

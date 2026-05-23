@@ -293,9 +293,10 @@ func handleWorkflowList(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/workflow/save
 func handleWorkflowSave(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var wf VisualWorkflow
 	if err := json.NewDecoder(r.Body).Decode(&wf); err != nil {
-		json200(w, map[string]any{"success": false, "message": "형식 오류"})
+		json200(w, map[string]any{"success": false, "message": msgT("형식 오류", "Invalid format", lang)})
 		return
 	}
 	if wf.ID == "" {
@@ -311,25 +312,27 @@ func handleWorkflowSave(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "id": wf.ID, "message": "워크플로우 저장 완료"})
+	json200(w, map[string]any{"success": true, "id": wf.ID, "message": msgT("워크플로우 저장 완료", "Workflow saved", lang)})
 }
 
 // DELETE /api/workflow/delete — query: ?id=wf_xxx
 func handleWorkflowDelete(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	id := r.URL.Query().Get("id")
 	if id == "" {
-		json200(w, map[string]any{"success": false, "message": "id가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("id가 필요합니다", "id is required", lang)})
 		return
 	}
 	if err := deleteWorkflow(id); err != nil {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "message": "워크플로우 삭제 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("워크플로우 삭제 완료", "Workflow deleted", lang)})
 }
 
 // POST /api/workflow/run-now — body: {id: "wf_xxx"}
 func handleWorkflowRunNow(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ ID string `json:"id"` }
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -343,7 +346,7 @@ func handleWorkflowRunNow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if target == nil {
-		json200(w, map[string]any{"success": false, "message": "워크플로우를 찾을 수 없습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("워크플로우를 찾을 수 없습니다", "Workflow not found", lang)})
 		return
 	}
 
@@ -357,16 +360,17 @@ func handleWorkflowRunNow(w http.ResponseWriter, r *http.Request) {
 			saveWorkflow(wf)
 		})
 
-	json200(w, map[string]any{"success": true, "task_id": task.ID, "message": "워크플로우 실행 시작"})
+	json200(w, map[string]any{"success": true, "task_id": task.ID, "message": msgT("워크플로우 실행 시작", "Workflow execution started", lang)})
 }
 
 // POST /api/workflow/from-text — 자연어로 워크플로우 생성
 func handleWorkflowFromText(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ Text string `json:"text"` }
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Text == "" {
-		json200(w, map[string]any{"success": false, "message": "텍스트가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("텍스트가 필요합니다", "text is required", lang)})
 		return
 	}
 
@@ -393,7 +397,7 @@ Return JSON only with this structure:
 	}, 500, true)
 
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "워크플로우 생성 실패"})
+		json200(w, map[string]any{"success": false, "message": msgT("워크플로우 생성 실패", "Workflow generation failed", lang)})
 		return
 	}
 
@@ -408,7 +412,7 @@ Return JSON only with this structure:
 
 	var wf VisualWorkflow
 	if err := json.Unmarshal([]byte(clean), &wf); err != nil {
-		json200(w, map[string]any{"success": false, "message": "생성된 워크플로우 파싱 실패"})
+		json200(w, map[string]any{"success": false, "message": msgT("생성된 워크플로우 파싱 실패", "Failed to parse generated workflow", lang)})
 		return
 	}
 
@@ -420,7 +424,7 @@ Return JSON only with this structure:
 	json200(w, map[string]any{
 		"success":  true,
 		"workflow": wf,
-		"message":  fmt.Sprintf("'%s' 워크플로우가 생성됐습니다. 저장 전 내용을 확인해주세요.", wf.Name),
+		"message":  fmt.Sprintf(msgT("'%s' 워크플로우가 생성됐습니다. 저장 전 내용을 확인해주세요.", "'%s' workflow created. Please review before saving.", lang), wf.Name),
 	})
 }
 

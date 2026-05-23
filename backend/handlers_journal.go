@@ -305,8 +305,9 @@ func handleJournalGenerate(w http.ResponseWriter, r *http.Request) {
 	sb.WriteString(journal.Summary)
 	sb.WriteString("\n\n---\n자동 생성: Nexus AI 비서\n")
 
+	lang := getLang(r)
 	if err := os.WriteFile(outPath, []byte(sb.String()), 0644); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일 저장 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일 저장 실패: ", "Failed to save file: ", lang) + err.Error()})
 		return
 	}
 
@@ -317,7 +318,7 @@ func handleJournalGenerate(w http.ResponseWriter, r *http.Request) {
 		"success":  true,
 		"path":     outPath,
 		"filename": filename,
-		"message":  fmt.Sprintf("업무 일지가 바탕화면에 저장됐어요: %s", filename),
+		"message":  fmt.Sprintf(msgT("업무 일지가 바탕화면에 저장됐어요: %s", "Work journal saved to desktop: %s", lang), filename),
 		"preview":  sb.String()[:min(sb.Len(), 400)],
 	})
 }

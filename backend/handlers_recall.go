@@ -37,6 +37,7 @@ func recallDir() string {
 
 // POST /api/recall/capture
 func handleRecallCapture(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	ts := time.Now().Format("20060102_150405")
 	dir := recallDir()
 	imgPath := filepath.Join(dir, "screen_"+ts+".png")
@@ -92,25 +93,26 @@ try {
 		"timestamp":  entry.Timestamp,
 		"file_path":  imgPath,
 		"ocr_length": len(ocrText),
-		"message":    "화면 캡처 및 OCR 완료",
+		"message":    msgT("화면 캡처 및 OCR 완료", "Screen capture and OCR complete", lang),
 	})
 }
 
 // POST /api/recall/search — body: {query: string}
 func handleRecallSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query string `json:"query"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Query == "" {
-		json200(w, map[string]interface{}{"success": false, "message": "query가 필요해요"})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("query가 필요해요", "query is required", lang)})
 		return
 	}
 
 	dir := recallDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "recall 디렉토리 접근 실패"})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("recall 디렉토리 접근 실패", "Failed to access recall directory", lang)})
 		return
 	}
 
@@ -163,7 +165,7 @@ func handleRecallSearch(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"results": results,
 		"total":   len(results),
-		"message": fmt.Sprintf("'%s' 검색 결과 %d건", req.Query, len(results)),
+		"message": fmt.Sprintf(msgT("'%s' 검색 결과 %d건", "'%s' search results: %d", lang), req.Query, len(results)),
 	})
 }
 

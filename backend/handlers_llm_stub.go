@@ -942,7 +942,7 @@ func handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 			"api_keys": map[string]any{
 				"ok":      apiReady,
 				"tavily":  tavilyReady,
-				"message": map[bool]string{true: "API 키 설정됨", false: "번들 기본 키 사용 중"}[apiReady],
+				"message": map[bool]string{true: msgT("API 키 설정됨", "API key configured", getLang(r)), false: msgT("번들 기본 키 사용 중", "Using bundled default key", getLang(r))}[apiReady],
 			},
 			"chrome": map[string]any{
 				"ok":      chromeOk,

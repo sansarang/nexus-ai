@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -19,8 +18,9 @@ import (
 // ──────────────────────────────────────────
 
 func handleDrivers(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-PnpDevice | Where-Object {$_.Status -ne 'OK'} | Select-Object FriendlyName,Status,Class | ConvertTo-Json -Compress`).Output()
+	lang := getLang(r)
+	// Get-PnpDevice 은 느릴 수 있으므로 15초 타임아웃
+	out, _ := safePS(15*time.Second, `Get-PnpDevice | Where-Object {$_.Status -ne 'OK'} | Select-Object FriendlyName,Status,Class | ConvertTo-Json -Compress`)
 
 	var problematic []struct {
 		FriendlyName string `json:"FriendlyName"`
@@ -29,8 +29,7 @@ func handleDrivers(w http.ResponseWriter, r *http.Request) {
 	}
 	json.Unmarshal(out, &problematic)
 
-	allOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-PnpDevice | Measure-Object).Count`).Output()
+	allOut, _ := safePS(15*time.Second, `(Get-PnpDevice | Measure-Object).Count`)
 	total := 0
 	fmt.Sscanf(strings.TrimSpace(string(allOut)), "%d", &total)
 
@@ -59,7 +58,7 @@ func handleDrivers(w http.ResponseWriter, r *http.Request) {
 		"problematic":  items,
 		"problem_count": len(items),
 		"score":        score,
-		"message":      fmt.Sprintf("전체 %d개 드라이버 중 %d개에 문제가 있어요", total, len(items)),
+		"message":      fmt.Sprintf(msgT("전체 %d개 드라이버 중 %d개에 문제가 있어요", "Found %d driver issues out of %d total", lang), total, len(items)),
 	})
 }
 
@@ -68,6 +67,7 @@ func handleDrivers(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleRegistryClean(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	// 무효 .exe 참조 제거 (MRU / 최근 파일 목록)
 	script := `
 $cleaned = 0
@@ -91,7 +91,7 @@ $cleaned
 	json200(w, map[string]any{
 		"success":       true,
 		"cleaned_keys":  cleaned,
-		"message":       fmt.Sprintf("레지스트리 %d개 항목 정리 완료 ✅", cleaned),
+		"message":       fmt.Sprintf(msgT("레지스트리 %d개 항목 정리 완료 ✅", "Cleaned %d registry entries ✅", lang), cleaned),
 	})
 }
 
@@ -100,8 +100,7 @@ $cleaned
 // ──────────────────────────────────────────
 
 func handlePowerPlans(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`powercfg /list`).Output()
+	out, _ := execPS(`powercfg /list`)
 
 	lines := strings.Split(string(out), "\n")
 	type Plan struct {
@@ -137,6 +136,7 @@ func handlePowerPlans(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSetPowerPlan(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		GUID string `json:"guid"`
 		Name string `json:"name"` // balanced | performance | powersaver
@@ -155,13 +155,13 @@ func handleSetPowerPlan(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err := exec.Command("powercfg", "/setactive", guid).Run()
+	err := execPSRun(fmt.Sprintf("powercfg /setactive %s", guid))
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "전원 계획 변경 실패"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("전원 계획 변경 실패", "Failed to change power plan", lang)})
 		return
 	}
 	json200(w, map[string]any{"success": true, "guid": guid,
-		"message": "전원 계획을 변경했어요 ⚡"})
+		"message": msgT("전원 계획을 변경했어요 ⚡", "Power plan changed ⚡", lang)})
 }
 
 // ──────────────────────────────────────────
@@ -169,9 +169,8 @@ func handleSetPowerPlan(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleNetworkAnalysis(w http.ResponseWriter, r *http.Request) {
-	// 어댑터 정보
-	adapterOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object Name,InterfaceDescription,LinkSpeed,MacAddress | ConvertTo-Json -Compress`).Output()
+	// 어댑터 정보 (10초 타임아웃)
+	adapterOut, _ := execPS(`Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object Name,InterfaceDescription,LinkSpeed,MacAddress | ConvertTo-Json -Compress`)
 
 	var adapters []struct {
 		Name                 string `json:"Name"`
@@ -182,18 +181,15 @@ func handleNetworkAnalysis(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(adapterOut, &adapters)
 
 	// DNS 서버
-	dnsOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object {$_.ServerAddresses} | Select-Object -First 1).ServerAddresses -join ','`).Output()
+	dnsOut, _ := execPS(`(Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object {$_.ServerAddresses} | Select-Object -First 1).ServerAddresses -join ','`)
 	dnsServers := strings.TrimSpace(string(dnsOut))
 
-	// 외부 IP (간단 방법 - hostname)
-	ipOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Invoke-WebRequest -Uri 'https://api.ipify.org' -UseBasicParsing -TimeoutSec 3).Content`).Output()
+	// 외부 IP (3초 타임아웃 명시)
+	ipOut, _ := execPS(`try { (Invoke-WebRequest -Uri 'https://api.ipify.org' -UseBasicParsing -TimeoutSec 3).Content } catch { '' }`)
 	publicIP := strings.TrimSpace(string(ipOut))
 
 	// ping 지연
-	pingOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Test-Connection -ComputerName 8.8.8.8 -Count 1 -EA SilentlyContinue).ResponseTime`).Output()
+	pingOut, _ := execPS(`(Test-Connection -ComputerName 8.8.8.8 -Count 1 -EA SilentlyContinue).ResponseTime`)
 	ping := strings.TrimSpace(string(pingOut))
 
 	type AdapterInfo struct {
@@ -225,6 +221,7 @@ func handleNetworkAnalysis(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleRestoreCreate(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Description string `json:"description"`
 	}
@@ -237,11 +234,11 @@ func handleRestoreCreate(w http.ResponseWriter, r *http.Request) {
 	err := execPSRun(script)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false,
-			"message": "복구 포인트 생성 실패 (시스템 보호 활성화 필요)"})
+			"message": msgT("복구 포인트 생성 실패 (시스템 보호 활성화 필요)", "Failed to create restore point (system protection must be enabled)", lang)})
 		return
 	}
 	json200(w, map[string]any{"success": true, "description": req.Description,
-		"message": fmt.Sprintf("복구 포인트 생성 완료: %s", req.Description)})
+		"message": fmt.Sprintf(msgT("복구 포인트 생성 완료: %s", "Restore point created: %s", lang), req.Description)})
 }
 
 // ──────────────────────────────────────────
@@ -249,6 +246,7 @@ func handleRestoreCreate(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleDiskCheck(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Drive string `json:"drive"` // default "C:"
 	}
@@ -257,19 +255,10 @@ func handleDiskCheck(w http.ResponseWriter, r *http.Request) {
 		req.Drive = "C:"
 	}
 
-	// 다음 재시작 시 CHKDSK 예약 (/f = fix, /r = recover)
-	out, err := exec.Command("cmd", "/c",
-		fmt.Sprintf("echo Y | chkdsk %s /f /r /x", req.Drive)).Output()
-	if err != nil {
-		// CHKDSK 잠긴 경우 재시작 예약
-		exec.Command("cmd", "/c",
-			fmt.Sprintf("echo Y | chkntfs /c %s", req.Drive)).Run()
-		json200(w, map[string]any{"success": true, "scheduled": true,
-			"message": fmt.Sprintf("%s 디스크 검사가 다음 재시작 시 실행됩니다", req.Drive)})
-		return
-	}
-	json200(w, map[string]any{"success": true, "output": string(out),
-		"message": fmt.Sprintf("%s 디스크 검사 완료", req.Drive)})
+	// 즉시 실행은 수시간 소요 가능 — 항상 재시작 예약 방식으로만 처리
+	execPSRun(fmt.Sprintf(`chkntfs /c %s`, req.Drive))
+	json200(w, map[string]any{"success": true, "scheduled": true,
+		"message": fmt.Sprintf(msgT("%s 디스크 검사가 다음 재시작 시 자동으로 실행됩니다 ✅", "Disk check for %s scheduled for next restart ✅", lang), req.Drive)})
 }
 
 // ──────────────────────────────────────────
@@ -277,6 +266,7 @@ func handleDiskCheck(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleBrowserClean(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Browsers []string `json:"browsers"` // chrome | edge | firefox | all
 		Targets  []string `json:"targets"`  // cache | history | cookies | downloads
@@ -367,7 +357,7 @@ func handleBrowserClean(w http.ResponseWriter, r *http.Request) {
 		"results":    results,
 		"total_mb":   float64(totalFreed) / (1 << 20),
 		"total_freed": formatBytes(totalFreed),
-		"message":    fmt.Sprintf("브라우저 데이터 정리 완료: %s 확보", formatBytes(totalFreed)),
+		"message":    fmt.Sprintf(msgT("브라우저 데이터 정리 완료: %s 확보", "Browser data cleaned: %s freed", lang), formatBytes(totalFreed)),
 	})
 }
 
@@ -376,8 +366,7 @@ func handleBrowserClean(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleProgramsList(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-Package | Select-Object Name,Version,Source | Sort-Object Name | ConvertTo-Json -Compress`).Output()
+	out, _ := execPS(`Get-Package | Select-Object Name,Version,Source | Sort-Object Name | ConvertTo-Json -Compress`)
 
 	var programs []struct {
 		Name    string `json:"Name"`
@@ -387,9 +376,8 @@ func handleProgramsList(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(out, &programs)
 
 	if len(programs) == 0 {
-		// WMIC fallback
-		wmicOut, _ := exec.Command("wmic", "product", "get", "name,version",
-			"/format:csv").Output()
+		// WMIC fallback — 30초 타임아웃 적용
+		wmicOut, _ := execPS(`wmic product get name,version /format:csv`)
 		lines := strings.Split(string(wmicOut), "\n")
 		for _, line := range lines[2:] {
 			parts := strings.Split(strings.TrimSpace(line), ",")
@@ -423,9 +411,8 @@ func handleProgramsList(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleBootAnalysis(w http.ResponseWriter, r *http.Request) {
-	// 최근 부팅 이벤트 (이벤트 ID 12 = Kernel startup)
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-WinEvent -FilterHashtable @{LogName='System';Id=12} -MaxEvents 5 -EA SilentlyContinue | Select-Object TimeCreated,Message | ConvertTo-Json -Compress`).Output()
+	// 최근 부팅 이벤트 (10초 타임아웃)
+	out, _ := safePS(10*time.Second, `Get-WinEvent -FilterHashtable @{LogName='System';Id=12} -MaxEvents 5 -EA SilentlyContinue | Select-Object TimeCreated,Message | ConvertTo-Json -Compress`)
 
 	var events []struct {
 		TimeCreated string `json:"TimeCreated"`
@@ -434,13 +421,11 @@ func handleBootAnalysis(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(out, &events)
 
 	// 마지막 부팅 시간
-	bootOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalMinutes`).Output()
+	bootOut, _ := safePS(10*time.Second, `(Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalMinutes`)
 	uptime := strings.TrimSpace(string(bootOut))
 
 	// 시작 프로그램 수
-	startupOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`(Get-CimInstance Win32_StartupCommand | Measure-Object).Count`).Output()
+	startupOut, _ := safePS(10*time.Second, `(Get-CimInstance Win32_StartupCommand | Measure-Object).Count`)
 	startupCount := strings.TrimSpace(string(startupOut))
 
 	type BootEvent struct {
@@ -456,7 +441,7 @@ func handleBootAnalysis(w http.ResponseWriter, r *http.Request) {
 		"uptime_minutes":  uptime,
 		"startup_count":   startupCount,
 		"recent_boots":    bootHistory,
-		"message":         fmt.Sprintf("현재 가동 시간: %s분, 시작 프로그램: %s개", uptime, startupCount),
+		"message":         msgT(fmt.Sprintf("현재 가동 시간: %s분, 시작 프로그램: %s개", uptime, startupCount), fmt.Sprintf("Uptime: %s min, Startup programs: %s", uptime, startupCount), getLang(r)),
 	})
 }
 
@@ -501,12 +486,13 @@ func handleFilesSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	var results []FileResult
 
+	deadline := time.Now().Add(15 * time.Second)
 	filepath.Walk(req.Path, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
-		if len(results) >= 50 {
-			return nil
+		if len(results) >= 50 || time.Now().After(deadline) {
+			return filepath.SkipAll
 		}
 		if info.ModTime().Before(cutoff) {
 			return nil
@@ -574,7 +560,7 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := os.ReadDir(req.Path)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "폴더를 읽을 수 없어요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("폴더를 읽을 수 없어요", "Cannot read folder", getLang(r))})
 		return
 	}
 
@@ -643,10 +629,16 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 	}
 	seen := map[FileKey][]string{}
 
+	dupDeadline := time.Now().Add(15 * time.Second)
+	scanned := 0
 	filepath.Walk(req.Path, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
+		if scanned >= 5000 || time.Now().After(dupDeadline) {
+			return filepath.SkipAll
+		}
+		scanned++
 		key := FileKey{Name: info.Name(), Size: info.Size()}
 		seen[key] = append(seen[key], p)
 		return nil
@@ -685,7 +677,7 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 		"total_groups": len(groups),
 		"waste_mb":    float64(totalWaste) / (1 << 20),
 		"waste":       formatBytes(totalWaste),
-		"message":     fmt.Sprintf("중복 파일 %d그룹 발견, 낭비 공간 %s", len(groups), formatBytes(totalWaste)),
+		"message":     msgT(fmt.Sprintf("중복 파일 %d그룹 발견, 낭비 공간 %s", len(groups), formatBytes(totalWaste)), fmt.Sprintf("Found %d duplicate groups, wasted space %s", len(groups), formatBytes(totalWaste)), getLang(r)),
 	})
 }
 
@@ -699,18 +691,17 @@ func handleFocusMode(w http.ResponseWriter, r *http.Request) {
 		Duration int    `json:"duration"` // minutes
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	lang := getLang(r)
 
 	if req.Action == "off" {
 		// 알림 다시 켜기
-		exec.Command("powershell", "-NoProfile", "-Command",
-			`Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 1 -EA SilentlyContinue`).Run()
-		json200(w, map[string]any{"success": true, "active": false, "message": "집중 모드 해제 완료 🔔"})
+		execPSRun(`Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 1 -EA SilentlyContinue`)
+		json200(w, map[string]any{"success": true, "active": false, "message": msgT("집중 모드 해제 완료 🔔", "Focus mode disabled 🔔", lang)})
 		return
 	}
 
 	// 알림 끄기 (방해 금지)
-	exec.Command("powershell", "-NoProfile", "-Command",
-		`Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 0 -EA SilentlyContinue`).Run()
+	execPSRun(`Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 0 -EA SilentlyContinue`)
 
 	if req.Duration == 0 {
 		req.Duration = 25
@@ -719,7 +710,7 @@ func handleFocusMode(w http.ResponseWriter, r *http.Request) {
 		"success":  true,
 		"active":   true,
 		"duration": req.Duration,
-		"message":  fmt.Sprintf("집중 모드 시작! %d분 동안 알림이 차단됩니다 🎯", req.Duration),
+		"message":  msgT(fmt.Sprintf("집중 모드 시작! %d분 동안 알림이 차단됩니다 🎯", req.Duration), fmt.Sprintf("Focus mode on! Notifications blocked for %d min 🎯", req.Duration), lang),
 	})
 }
 
@@ -728,8 +719,7 @@ func handleFocusMode(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleClipboard(w http.ResponseWriter, r *http.Request) {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
-		`Get-Clipboard -Format Text`).Output()
+	out, _ := execPS(`Get-Clipboard -Format Text`)
 	current := strings.TrimSpace(string(out))
 
 	json200(w, map[string]any{
@@ -791,12 +781,12 @@ func handleSaveNote(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		saveNotes(filtered)
-		json200(w, map[string]any{"success": true, "message": "메모 삭제 완료"})
+		json200(w, map[string]any{"success": true, "message": msgT("메모 삭제 완료", "Note deleted", getLang(r))})
 		return
 	}
 
 	if req.Content == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "메모 내용을 입력해주세요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("메모 내용을 입력해주세요", "Please enter note content", getLang(r))})
 		return
 	}
 
@@ -810,5 +800,5 @@ func handleSaveNote(w http.ResponseWriter, r *http.Request) {
 		notes = notes[:100]
 	}
 	saveNotes(notes)
-	json200(w, map[string]any{"success": true, "note": note, "message": "메모 저장 완료 📝"})
+	json200(w, map[string]any{"success": true, "note": note, "message": msgT("메모 저장 완료 📝", "Note saved 📝", getLang(r))})
 }

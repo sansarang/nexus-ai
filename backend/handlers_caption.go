@@ -44,7 +44,7 @@ func handleCaptionStart(w http.ResponseWriter, r *http.Request) {
 	captionMu.Lock()
 	if captionRunning {
 		captionMu.Unlock()
-		json200(w, map[string]any{"ok": false, "message": "이미 자막이 실행 중입니다."})
+		json200(w, map[string]any{"ok": false, "message": msgT("이미 자막이 실행 중입니다.", "Caption is already running.", getLang(r))})
 		return
 	}
 	captionRunning = true
@@ -61,14 +61,14 @@ func handleCaptionStart(w http.ResponseWriter, r *http.Request) {
 
 	go runCaptionLoop()
 
-	json200(w, map[string]any{"ok": true, "message": "🎙️ 실시간 자막을 시작했습니다.", "target_lang": captionLang})
+	json200(w, map[string]any{"ok": true, "message": msgT("🎙️ 실시간 자막을 시작했습니다.", "🎙️ Live caption started.", getLang(r)), "target_lang": captionLang})
 }
 
 func handleCaptionStop(w http.ResponseWriter, r *http.Request) {
 	captionMu.Lock()
 	defer captionMu.Unlock()
 	if !captionRunning {
-		json200(w, map[string]any{"ok": false, "message": "자막이 실행 중이 아닙니다."})
+		json200(w, map[string]any{"ok": false, "message": msgT("자막이 실행 중이 아닙니다.", "Caption is not running.", getLang(r))})
 		return
 	}
 	captionRunning = false
@@ -76,7 +76,7 @@ func handleCaptionStop(w http.ResponseWriter, r *http.Request) {
 		captionCmd.Process.Kill()
 		captionCmd = nil
 	}
-	json200(w, map[string]any{"ok": true, "message": "자막을 종료했습니다.", "entries": len(captionBuffer)})
+	json200(w, map[string]any{"ok": true, "message": msgT("자막을 종료했습니다.", "Caption stopped.", getLang(r)), "entries": len(captionBuffer)})
 }
 
 func handleCaptionStream(w http.ResponseWriter, r *http.Request) {

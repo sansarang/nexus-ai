@@ -235,10 +235,11 @@ func handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/memory/clear?type=xxx
 func handleMemoryClear(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	memType := r.URL.Query().Get("type")
 
 	if globalMemory == nil {
-		json200(w, map[string]any{"success": true, "message": "메모리 없음"})
+		json200(w, map[string]any{"success": true, "message": msgT("메모리 없음", "No memory", lang)})
 		return
 	}
 
@@ -259,7 +260,7 @@ func handleMemoryClear(w http.ResponseWriter, r *http.Request) {
 
 	json200(w, map[string]any{
 		"success": true,
-		"message": "메모리 초기화 완료",
+		"message": msgT("메모리 초기화 완료", "Memory cleared", lang),
 	})
 }
 

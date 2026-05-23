@@ -37,6 +37,7 @@ func meetingsDir() string {
 
 // POST /api/meeting/start
 func handleMeetingStart(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	meetingMu.Lock()
 	defer meetingMu.Unlock()
 
@@ -55,7 +56,7 @@ func handleMeetingStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err2 := cmd.Start(); err2 != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "녹음 시작 실패: " + err2.Error()})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("녹음 시작 실패: ", "Recording start failed: ", lang) + err2.Error()})
 		return
 	}
 
@@ -66,17 +67,18 @@ func handleMeetingStart(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]interface{}{
 		"success":   true,
 		"file_path": fp,
-		"message":   "녹음을 시작했어요",
+		"message":   msgT("녹음을 시작했어요", "Recording started", lang),
 	})
 }
 
 // POST /api/meeting/stop
 func handleMeetingStop(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	meetingMu.Lock()
 	defer meetingMu.Unlock()
 
 	if meetingProc == nil {
-		json200(w, map[string]interface{}{"success": false, "message": "진행 중인 녹음이 없어요"})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("진행 중인 녹음이 없어요", "No recording in progress", lang)})
 		return
 	}
 
@@ -91,12 +93,13 @@ func handleMeetingStop(w http.ResponseWriter, r *http.Request) {
 		"success":      true,
 		"file_path":    fp,
 		"duration_sec": int(duration),
-		"message":      fmt.Sprintf("녹음 완료 (%.0f초)", duration),
+		"message":      fmt.Sprintf(msgT("녹음 완료 (%.0f초)", "Recording complete (%.0fs)", lang), duration),
 	})
 }
 
 // POST /api/meeting/transcribe — Groq Whisper로 오디오 전사
 func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
+	uiLang := getLang(r)
 	var req struct {
 		MeetingID string `json:"meeting_id"` // 파일명 (확장자 제외)
 		FilePath  string `json:"file_path"`  // 직접 경로 지정 시
@@ -114,7 +117,7 @@ func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
 	if groqKey == "" || !strings.HasPrefix(groqKey, "gsk_") {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "Groq API 키가 필요합니다. 설정 > API 키에서 Groq 키(gsk_...)를 입력해주세요.",
+			"message": msgT("Groq API 키가 필요합니다. 설정 > API 키에서 Groq 키(gsk_...)를 입력해주세요.", "Groq API key required. Please enter your Groq key (gsk_...) in Settings > API Keys.", uiLang),
 		})
 		return
 	}
@@ -135,12 +138,12 @@ func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
 	if audioPath == "" {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "오디오 파일을 찾을 수 없습니다. meeting_id 또는 file_path를 지정해주세요.",
+			"message": msgT("오디오 파일을 찾을 수 없습니다. meeting_id 또는 file_path를 지정해주세요.", "Audio file not found. Please specify meeting_id or file_path.", uiLang),
 		})
 		return
 	}
 	if _, err := os.Stat(audioPath); err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "파일이 존재하지 않습니다: " + audioPath})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("파일이 존재하지 않습니다: ", "File does not exist: ", uiLang) + audioPath})
 		return
 	}
 
@@ -154,7 +157,7 @@ func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
 	if transcript == "" {
 		json200(w, map[string]interface{}{
 			"success": false,
-			"message": "전사 실패: Groq Whisper API 오류이거나 오디오에 음성이 없을 수 있습니다.",
+			"message": msgT("전사 실패: Groq Whisper API 오류이거나 오디오에 음성이 없을 수 있습니다.", "Transcription failed: Groq Whisper API error or no speech in audio.", uiLang),
 		})
 		return
 	}
@@ -162,7 +165,7 @@ func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]interface{}{
 		"success":    true,
 		"transcript": transcript,
-		"message":    "전사 완료",
+		"message":    msgT("전사 완료", "Transcription complete", uiLang),
 		"lang":       lang,
 	})
 }
@@ -207,13 +210,14 @@ func handleMeetingList(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/meeting/summarize — body: {text, groq_key}
 func handleMeetingSummarize(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Text string `json:"text"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Text == "" {
-		json200(w, map[string]interface{}{"success": false, "message": "text가 필요해요"})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("text가 필요해요", "text is required", lang)})
 		return
 	}
 
@@ -232,7 +236,7 @@ func handleMeetingSummarize(w http.ResponseWriter, r *http.Request) {
 	}
 	contentStr, _, err := callGroqWithFallback(msgs, 1024, true)
 	if err != nil {
-		json200(w, map[string]interface{}{"success": false, "message": "AI 호출 실패: " + err.Error()})
+		json200(w, map[string]interface{}{"success": false, "message": msgT("AI 호출 실패: ", "AI call failed: ", lang) + err.Error()})
 		return
 	}
 	content := contentStr
@@ -267,6 +271,6 @@ func handleMeetingSummarize(w http.ResponseWriter, r *http.Request) {
 		"summary":      parsed.Summary,
 		"action_items": parsed.ActionItems,
 		"decisions":    parsed.Decisions,
-		"message":      "회의 요약 완료",
+		"message":      msgT("회의 요약 완료", "Meeting summary complete", lang),
 	})
 }

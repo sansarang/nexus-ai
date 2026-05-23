@@ -262,6 +262,7 @@ func handleCheckPath(w http.ResponseWriter, r *http.Request) {
 
 // GET/POST /api/ollama/config — 로컬 LLM 설정
 func handleOllamaConfig(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	if r.Method == http.MethodGet {
 		ollamaMu.RLock()
 		cfg := ollamaCfg
@@ -281,28 +282,30 @@ func handleOllamaConfig(w http.ResponseWriter, r *http.Request) {
 	ollamaCfg.Enabled = req.Enabled
 	ollamaMu.Unlock()
 	saveOllamaConfig()
-	json200(w, map[string]any{"success": true, "message": "로컬 LLM 설정 저장 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("로컬 LLM 설정 저장 완료", "Local LLM settings saved", lang)})
 }
 
 // POST /api/ollama/test — Ollama 연결 테스트
 func handleOllamaTest(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	ans, err := callOllamaLocal("안녕하세요, 테스트 응답을 한 문장으로 해주세요.")
 	if err != nil {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "response": ans, "message": "로컬 LLM 연결 성공!"})
+	json200(w, map[string]any{"success": true, "response": ans, "message": msgT("로컬 LLM 연결 성공!", "Local LLM connected successfully!", lang)})
 }
 
 // GET /api/ollama/models — 설치된 모델 목록
 func handleOllamaModels(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	ollamaMu.RLock()
 	url := ollamaCfg.URL
 	ollamaMu.RUnlock()
 
 	resp, err := httpGet(url + "/api/tags")
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인해주세요.", "install_url": "https://ollama.ai"})
+		json200(w, map[string]any{"success": false, "message": msgT("Ollama에 연결할 수 없습니다. Ollama가 실행 중인지 확인해주세요.", "Cannot connect to Ollama. Please check if Ollama is running.", lang), "install_url": "https://ollama.ai"})
 		return
 	}
 

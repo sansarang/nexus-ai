@@ -28,17 +28,14 @@ func handleStockAnalysis(w http.ResponseWriter, r *http.Request) {
 		Lang   string `json:"lang"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if req.Ticker == "" && req.Query == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json200(w, map[string]any{"ok": false, "error": "ticker 또는 query가 필요합니다"})
-		return
-	}
 	lang := req.Lang
 	if lang == "" {
-		lang = r.Header.Get("Accept-Language")
-		if lang == "" {
-			lang = "ko"
-		}
+		lang = getLang(r)
+	}
+	if req.Ticker == "" && req.Query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json200(w, map[string]any{"ok": false, "error": msgT("ticker 또는 query가 필요합니다", "ticker or query is required", lang)})
+		return
 	}
 	res, _ := stockAnalysisLogic(req.Ticker, req.Query, lang)
 	json200(w, res)
@@ -53,17 +50,14 @@ func handleMedicalSearch(w http.ResponseWriter, r *http.Request) {
 		Lang  string `json:"lang"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if req.Query == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json200(w, map[string]any{"ok": false, "error": "query가 필요합니다"})
-		return
-	}
 	lang := req.Lang
 	if lang == "" {
-		lang = r.Header.Get("Accept-Language")
-		if lang == "" {
-			lang = "ko"
-		}
+		lang = getLang(r)
+	}
+	if req.Query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json200(w, map[string]any{"ok": false, "error": msgT("query가 필요합니다", "query is required", lang)})
+		return
 	}
 	res, _ := medicalSearchLogic(req.Query, req.Type, lang)
 	json200(w, res)
@@ -81,10 +75,7 @@ func handleContractReview(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 	lang := req.Lang
 	if lang == "" {
-		lang = r.Header.Get("Accept-Language")
-		if lang == "" {
-			lang = "ko"
-		}
+		lang = getLang(r)
 	}
 	res, _ := contractReviewLogic(req.FilePath, req.Content, req.Focus, lang)
 	json200(w, res)
@@ -101,17 +92,14 @@ func handleContentScript(w http.ResponseWriter, r *http.Request) {
 		Lang     string `json:"lang"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if req.Topic == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json200(w, map[string]any{"ok": false, "error": "topic이 필요합니다"})
-		return
-	}
 	lang := req.Lang
 	if lang == "" {
-		lang = r.Header.Get("Accept-Language")
-		if lang == "" {
-			lang = "ko"
-		}
+		lang = getLang(r)
+	}
+	if req.Topic == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json200(w, map[string]any{"ok": false, "error": msgT("topic이 필요합니다", "topic is required", lang)})
+		return
 	}
 	res, _ := contentScriptLogic(req.Topic, req.Platform, req.Duration, req.Style, lang)
 	json200(w, res)
@@ -418,17 +406,14 @@ func handleLegalSearch(w http.ResponseWriter, r *http.Request) {
 		Lang  string `json:"lang"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if req.Query == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json200(w, map[string]any{"ok": false, "error": "query가 필요합니다"})
-		return
-	}
 	lang := req.Lang
 	if lang == "" {
-		lang = r.Header.Get("Accept-Language")
-		if lang == "" {
-			lang = "ko"
-		}
+		lang = getLang(r)
+	}
+	if req.Query == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json200(w, map[string]any{"ok": false, "error": msgT("query가 필요합니다", "query is required", lang)})
+		return
 	}
 	res, _ := legalSearchLogic(req.Query, req.Type, lang)
 	json200(w, res)

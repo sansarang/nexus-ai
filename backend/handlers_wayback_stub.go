@@ -27,6 +27,7 @@ type WaybackSnapshot struct {
 // POST /api/wayback/snapshots
 // body: { "url": "https://...", "from_year": 2015, "to_year": 2024, "limit": 20 }
 func handleWaybackSnapshots(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URL      string `json:"url"`
 		FromYear int    `json:"from_year"`
@@ -36,7 +37,7 @@ func handleWaybackSnapshots(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.URL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return
 	}
 	if !strings.HasPrefix(req.URL, "http") {
@@ -54,7 +55,7 @@ func handleWaybackSnapshots(w http.ResponseWriter, r *http.Request) {
 
 	snapshots, err := fetchWaybackCDX(req.URL, req.FromYear, req.ToYear, req.Limit)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "Wayback API 오류: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("Wayback API 오류: ", "Wayback API error: ", lang) + err.Error()})
 		return
 	}
 
@@ -74,9 +75,10 @@ func handleWaybackSnapshots(w http.ResponseWriter, r *http.Request) {
 // GET /api/wayback/available?url=...
 // 해당 URL의 가장 최근 스냅샷 단건 조회
 func handleWaybackAvailable(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	targetURL := r.URL.Query().Get("url")
 	if targetURL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url 쿼리 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 쿼리 필요", "url query required", lang)})
 		return
 	}
 	if !strings.HasPrefix(targetURL, "http") {
@@ -91,9 +93,14 @@ func handleWaybackAvailable(w http.ResponseWriter, r *http.Request) {
 
 	var msg string
 	if snap.Available {
-		msg = fmt.Sprintf("✅ **%s** 의 가장 최근 아카이브 스냅샷을 찾았습니다.\n\n📅 캡처일: **%s**\n🔗 [아카이브 보기](%s)", targetURL, snap.Date, snap.ArchiveURL)
+		msg = fmt.Sprintf(
+			msgT("✅ **%s** 의 가장 최근 아카이브 스냅샷을 찾았습니다.\n\n📅 캡처일: **%s**\n🔗 [아카이브 보기](%s)",
+				"✅ Found the latest archive snapshot for **%s**.\n\n📅 Captured: **%s**\n🔗 [View Archive](%s)", lang),
+			targetURL, snap.Date, snap.ArchiveURL)
 	} else {
-		msg = fmt.Sprintf("❌ **%s** 의 아카이브 스냅샷을 찾을 수 없습니다.", targetURL)
+		msg = fmt.Sprintf(
+			msgT("❌ **%s** 의 아카이브 스냅샷을 찾을 수 없습니다.", "❌ No archive snapshot found for **%s**.", lang),
+			targetURL)
 	}
 
 	writeJSON(w, 200, map[string]any{

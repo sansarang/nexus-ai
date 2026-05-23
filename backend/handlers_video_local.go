@@ -53,6 +53,7 @@ func findFFprobe() string {
 
 // GET /api/video/check-deps
 func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	ffmpegPath, _ := exec.LookPath("ffmpeg")
 	if ffmpegPath == "" {
 		ffmpegPath = findFFmpeg()
@@ -76,19 +77,23 @@ func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
 		missing = append(missing, "ffmpeg")
 	}
 	if groqKey == "" {
-		missing = append(missing, "Groq API 키")
+		missing = append(missing, msgT("Groq API 키", "Groq API key", lang))
 	}
 
 	if len(missing) > 0 {
 		result["ready"] = false
-		result["message"] = fmt.Sprintf("영상 분석에 필요한 항목이 없습니다: %s", strings.Join(missing, ", "))
+		result["message"] = msgT(
+			fmt.Sprintf("영상 분석에 필요한 항목이 없습니다: %s", strings.Join(missing, ", ")),
+			fmt.Sprintf("Missing required items for video analysis: %s", strings.Join(missing, ", ")),
+			lang,
+		)
 		result["install_hint"] = map[string]string{
-			"ffmpeg": "Windows: https://ffmpeg.org/download.html 에서 다운로드 후 C:\\ffmpeg\\bin 에 설치하거나, winget install ffmpeg 또는 choco install ffmpeg 실행",
-			"groq":   "설정 > API 키에서 Groq API 키를 입력하세요",
+			"ffmpeg": msgT("Windows: https://ffmpeg.org/download.html 에서 다운로드 후 C:\\ffmpeg\\bin 에 설치하거나, winget install ffmpeg 또는 choco install ffmpeg 실행", "Windows: Download from https://ffmpeg.org/download.html and install to C:\\ffmpeg\\bin, or run: winget install ffmpeg", lang),
+			"groq":   msgT("설정 > API 키에서 Groq API 키를 입력하세요", "Enter your Groq API key in Settings > API Keys", lang),
 		}
 	} else {
 		result["ready"] = true
-		result["message"] = "영상 분석 준비 완료"
+		result["message"] = msgT("영상 분석 준비 완료", "Ready for video analysis", lang)
 	}
 
 	writeJSON(w, 200, result)
@@ -98,6 +103,7 @@ func handleVideoCheckDeps(w http.ResponseWriter, r *http.Request) {
 // body: { "file_data": "<base64>", "file_name": "video.mp4", "lang": "ko", "query": "요약해줘" }
 // 로컬에 첨부된 영상 파일 → ffmpeg 오디오 추출 → Groq Whisper 전사 → LLM 요약
 func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		FileData string `json:"file_data"` // base64 (data:video/mp4;base64,... 또는 순수 base64)
 		FileName string `json:"file_name"`
@@ -106,7 +112,7 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.FileData == "" || req.FileName == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "file_data와 file_name이 필요합니다"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("file_data와 file_name이 필요합니다", "file_data and file_name are required", lang)})
 		return
 	}
 	if req.Lang == "" {
@@ -120,14 +126,14 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 	}
 	videoBytes, err := base64.StdEncoding.DecodeString(raw)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "base64 디코딩 실패: " + err.Error()})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("base64 디코딩 실패: ", "base64 decode failed: ", lang) + err.Error()})
 		return
 	}
 
 	// 임시 디렉토리 생성
 	tmp, err := os.MkdirTemp("", "nexus_video_*")
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "임시 디렉토리 생성 실패"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("임시 디렉토리 생성 실패", "Failed to create temporary directory", lang)})
 		return
 	}
 	defer os.RemoveAll(tmp)
@@ -139,7 +145,7 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 	}
 	videoPath := filepath.Join(tmp, "input"+ext)
 	if err := os.WriteFile(videoPath, videoBytes, 0644); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "파일 저장 실패"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("파일 저장 실패", "File save failed", lang)})
 		return
 	}
 

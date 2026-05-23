@@ -56,6 +56,7 @@ func saveEmailConfig(cfg EmailConfig) error {
 // ──────────────────────────────────────────
 
 func handleEmailConfig(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	if r.Method == http.MethodGet {
 		cfg := loadEmailConfig()
 		cfg.Password = "" // 비밀번호 마스킹
@@ -64,11 +65,11 @@ func handleEmailConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	var cfg EmailConfig
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 요청"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("잘못된 요청", "Invalid request", lang)})
 		return
 	}
 	saveEmailConfig(cfg)
-	json200(w, map[string]any{"success": true, "message": "이메일 설정이 저장됐어요"})
+	json200(w, map[string]any{"success": true, "message": msgT("이메일 설정이 저장됐어요", "Email settings saved", lang)})
 }
 
 // ──────────────────────────────────────────
@@ -267,6 +268,7 @@ func buildHTMLReport(score int, stats map[string]any, issues []ReportIssue, sugg
 // ──────────────────────────────────────────
 
 func handleReportEmail(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		ToEmail string `json:"to_email"`
 	}
@@ -280,7 +282,7 @@ func handleReportEmail(w http.ResponseWriter, r *http.Request) {
 	if cfg.Username == "" || cfg.Password == "" {
 		writeJSON(w, 400, map[string]any{
 			"success": false,
-			"message": "이메일 설정이 필요해요. 설정 > 이메일 리포트에서 SMTP를 등록해주세요.",
+			"message": msgT("이메일 설정이 필요해요. 설정 > 이메일 리포트에서 SMTP를 등록해주세요.", "Email settings required. Please configure SMTP in Settings > Email Report.", lang),
 		})
 		return
 	}
@@ -298,7 +300,7 @@ func handleReportEmail(w http.ResponseWriter, r *http.Request) {
 	if err := sendEmail(cfg, html); err != nil {
 		writeJSON(w, 500, map[string]any{
 			"success": false,
-			"message": "이메일 전송 실패: " + err.Error(),
+			"message": msgT("이메일 전송 실패: ", "Email send failed: ", lang) + err.Error(),
 		})
 		return
 	}
@@ -308,7 +310,7 @@ func handleReportEmail(w http.ResponseWriter, r *http.Request) {
 
 	json200(w, map[string]any{
 		"success": true,
-		"message": fmt.Sprintf("%s 로 PC 건강 리포트가 전송됐어요!", cfg.ToEmail),
+		"message": fmt.Sprintf(msgT("%s 로 PC 건강 리포트가 전송됐어요!", "PC health report sent to %s!", lang), cfg.ToEmail),
 	})
 }
 
@@ -359,11 +361,12 @@ func sendEmail(cfg EmailConfig, htmlContent string) error {
 // ──────────────────────────────────────────
 
 func handleReportSchedule(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
-		Schedule string `json:"schedule"` // weekly | monthly | off
-		ToEmail  string `json:"to_email"`
-		DayOfWeek int   `json:"day_of_week"` // 0=일~6=토
-		Time     string `json:"time"`        // "09:00"
+		Schedule  string `json:"schedule"`    // weekly | monthly | off
+		ToEmail   string `json:"to_email"`
+		DayOfWeek int    `json:"day_of_week"` // 0=일~6=토
+		Time      string `json:"time"`        // "09:00"
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -377,7 +380,7 @@ func handleReportSchedule(w http.ResponseWriter, r *http.Request) {
 	if req.Schedule == "off" {
 		exec.Command("powershell", "-NoProfile", "-Command",
 			`Unregister-ScheduledTask -TaskName "NexusPCReport" -Confirm:$false -ErrorAction SilentlyContinue`).Start()
-		json200(w, map[string]any{"success": true, "message": "정기 리포트 예약이 취소됐어요"})
+		json200(w, map[string]any{"success": true, "message": msgT("정기 리포트 예약이 취소됐어요", "Scheduled report cancelled", lang)})
 		return
 	}
 
@@ -403,7 +406,7 @@ Register-ScheduledTask -TaskName "NexusPCReport" -Action $action -Trigger $trigg
 	json200(w, map[string]any{
 		"success":  true,
 		"schedule": req.Schedule,
-		"message":  fmt.Sprintf("매 %s마다 %s에 %s 로 리포트가 발송돼요!", req.Schedule, taskTime, cfg.ToEmail),
+		"message":  fmt.Sprintf(msgT("매 %s마다 %s에 %s 로 리포트가 발송돼요!", "Report will be sent to %s at %s every %s!", lang), req.Schedule, taskTime, cfg.ToEmail),
 	})
 }
 

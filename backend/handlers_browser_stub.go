@@ -101,13 +101,14 @@ func handleBrowserStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URL    string `json:"url"`
 		WaitFor string `json:"wait_for"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.URL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return
 	}
 	ctx, cancel, err := getBrowserCtxMac()
@@ -154,19 +155,21 @@ func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
 	}
 	actions = append(actions, chromedp.Text(sel, &text, chromedp.ByQuery))
 	if err := chromedp.Run(tCtx, actions); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "페이지 추출 실패: " + err.Error()})
+		lang := getLang(r)
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("페이지 추출 실패: ", "Page extraction failed: ", lang) + err.Error()})
 		return
 	}
 	json200(w, map[string]any{"success": true, "text": text, "url": req.URL})
 }
 
-func handleBrowserClick(w http.ResponseWriter, r *http.Request)    { writeJSON(w, 200, map[string]any{"success": false, "message": "미구현"}) }
-func handleBrowserFill(w http.ResponseWriter, r *http.Request)     { writeJSON(w, 200, map[string]any{"success": false, "message": "미구현"}) }
-func handleBrowserScreenshot(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]any{"success": false, "message": "미구현"}) }
-func handleBrowserAgent(w http.ResponseWriter, r *http.Request)    { writeJSON(w, 200, map[string]any{"success": false, "message": "미구현"}) }
+func handleBrowserClick(w http.ResponseWriter, r *http.Request)    { lang := getLang(r); writeJSON(w, 200, map[string]any{"success": false, "message": msgT("미구현", "Not implemented", lang)}) }
+func handleBrowserFill(w http.ResponseWriter, r *http.Request)     { lang := getLang(r); writeJSON(w, 200, map[string]any{"success": false, "message": msgT("미구현", "Not implemented", lang)}) }
+func handleBrowserScreenshot(w http.ResponseWriter, r *http.Request) { lang := getLang(r); writeJSON(w, 200, map[string]any{"success": false, "message": msgT("미구현", "Not implemented", lang)}) }
+func handleBrowserAgent(w http.ResponseWriter, r *http.Request)    { lang := getLang(r); writeJSON(w, 200, map[string]any{"success": false, "message": msgT("미구현", "Not implemented", lang)}) }
 func handleBrowserClose(w http.ResponseWriter, r *http.Request)    { json200(w, map[string]any{"success": true}) }
 
 func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Command    string `json:"command"`
 		MaxResults int    `json:"max_results"`
@@ -176,7 +179,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
 	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "Groq API 키 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("Groq API 키 필요", "Groq API key required", lang)})
 		return
 	}
 	result := runWebSearchMac(gKey, req.Command, "auto", req.MaxResults)
@@ -208,7 +211,8 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"success": false, "message": "로그인 세션은 Windows에서 지원됩니다"})
+	lang := getLang(r)
+	writeJSON(w, 200, map[string]any{"success": false, "message": msgT("로그인 세션은 Windows에서 지원됩니다", "Login session is supported on Windows only", lang)})
 }
 
 func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
@@ -230,12 +234,14 @@ func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleOpenFile(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"success": false, "message": "파일 열기는 Windows에서 지원됩니다"})
+	lang := getLang(r)
+	writeJSON(w, 200, map[string]any{"success": false, "message": msgT("파일 열기는 Windows에서 지원됩니다", "File open is supported on Windows only", lang)})
 }
 
 // ── Excel ─────────────────────────────────────────────────────
 func handleExcelSave(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"success": false, "message": "Excel 저장은 Windows에서 지원됩니다"})
+	lang := getLang(r)
+	writeJSON(w, 200, map[string]any{"success": false, "message": msgT("Excel 저장은 Windows에서 지원됩니다", "Excel save is supported on Windows only", lang)})
 }
 func handleExcelList(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{"files": []any{}})
@@ -264,12 +270,13 @@ var (
 func initScheduler() {}
 
 func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Name    string `json:"name"`
 		Command string `json:"command"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "잘못된 요청"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("잘못된 요청", "Invalid request", lang)})
 		return
 	}
 
@@ -306,7 +313,8 @@ JSON만 반환: {"cron": "0 18 * * 5", "name": "작업명"}
 	schedulerTasksMu.Lock()
 	scheduledTasks = append(scheduledTasks, task)
 	schedulerTasksMu.Unlock()
-	msg := fmt.Sprintf("스케줄 등록됨: %s", taskName)
+	regLabel := msgT("스케줄 등록됨: ", "Schedule registered: ", lang)
+	msg := regLabel + taskName
 	if cronExpr != "" {
 		msg += fmt.Sprintf(" (cron: %s)", cronExpr)
 	}
@@ -348,6 +356,7 @@ func handleMemoryClear(w http.ResponseWriter, r *http.Request)  { json200(w, map
 func handleMemoryStats(w http.ResponseWriter, r *http.Request)  { json200(w, map[string]any{"total": 0}) }
 
 func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ ID string `json:"id"` }
 	json.NewDecoder(r.Body).Decode(&req)
 	schedulerTasksMu.RLock()
@@ -356,18 +365,19 @@ func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
 	schedulerTasksMu.RUnlock()
 	for _, t := range tasksCopy {
 		if t.ID == req.ID {
-			json200(w, map[string]any{"success": true, "message": "작업 실행 요청됨: " + t.Name})
+			json200(w, map[string]any{"success": true, "message": msgT("작업 실행 요청됨: ", "Task execution requested: ", lang) + t.Name})
 			return
 		}
 	}
-	writeJSON(w, 404, map[string]any{"success": false, "message": "작업을 찾을 수 없어요"})
+	writeJSON(w, 404, map[string]any{"success": false, "message": msgT("작업을 찾을 수 없어요", "Task not found", lang)})
 }
 
 func handleSchedulerParse(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct{ Text string `json:"text"` }
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Text == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "text 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("text 필요", "text required", lang)})
 		return
 	}
 	prompt := `자연어 스케줄을 cron 표현식(분 시 일 월 요일)으로 변환해줘.
@@ -379,13 +389,14 @@ JSON으로만 응답: {"cron": "0 9 * * 1-5", "description": "설명"}`
 		json200(w, map[string]any{"success": true, "cron": parsed["cron"], "description": parsed["description"]})
 		return
 	}
-	json200(w, map[string]any{"success": false, "message": "파싱 실패", "raw": result})
+	json200(w, map[string]any{"success": false, "message": msgT("파싱 실패", "Parsing failed", lang), "raw": result})
 }
 
 func handleClipboard(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	out, err := exec.Command("pbpaste").Output()
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "클립보드 읽기 실패", "text": ""})
+		json200(w, map[string]any{"success": false, "message": msgT("클립보드 읽기 실패", "Failed to read clipboard", lang), "text": ""})
 		return
 	}
 	text := strings.TrimSpace(string(out))

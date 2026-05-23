@@ -1,7 +1,7 @@
 /**
  * InlineCards3 — 문서 비교 / Vision / Deep Search 전용 카드
  */
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import type { DocCompareResult, DocFindResult, DeepSearchResult, DiffLine, NumberMismatch } from '../../lib/nexus/backendAPI'
 
 /* ──────────────────────────────────────────
@@ -53,6 +53,8 @@ const row: React.CSSProperties = {
 export function DocCompareCard({ data }: { data: DocCompareResult }) {
   const [showDiff, setShowDiff] = useState(false)
   const [showNums, setShowNums] = useState(false)
+  const [diffPage, setDiffPage] = useState(1)
+  const DIFF_PAGE_SIZE = 30
 
   const sim = data.similarity_pct
   const simColor = sim >= 80 ? '#48bb78' : sim >= 50 ? '#ecc94b' : '#fc8181'
@@ -136,8 +138,19 @@ export function DocCompareCard({ data }: { data: DocCompareResult }) {
             📝 변경 내용 {showDiff ? '접기' : '펼치기'} ({data.diff.length}건)
           </button>
           {showDiff && (
-            <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 6 }}>
-              {data.diff.map((d, i) => <DiffRow key={i} d={d} />)}
+            <div style={{ marginTop: 6 }}>
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {data.diff.slice(0, diffPage * DIFF_PAGE_SIZE).map((d, i) => <DiffRow key={i} d={d} />)}
+              </div>
+              {diffPage * DIFF_PAGE_SIZE < data.diff.length && (
+                <button onClick={() => setDiffPage(p => p + 1)} style={{
+                  background: 'rgba(66,153,225,0.15)', border: '1px solid rgba(66,153,225,0.3)',
+                  borderRadius: 6, color: '#90cdf4', padding: '3px 10px', fontSize: 11,
+                  cursor: 'pointer', marginTop: 4, width: '100%',
+                }}>
+                  더 보기 ({Math.min((diffPage) * DIFF_PAGE_SIZE + 1, data.diff.length)}–{Math.min((diffPage + 1) * DIFF_PAGE_SIZE, data.diff.length)} / {data.diff.length})
+                </button>
+              )}
             </div>
           )}
         </>
@@ -192,6 +205,13 @@ export function DocFindCard({ data }: { data: { results: DocFindResult[]; total:
     return '📂'
   }
 
+  const openFile = useCallback(async (path: string) => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell')
+      await open(path)
+    } catch { /* desktop only */ }
+  }, [])
+
   return (
     <div style={card}>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#90cdf4' }}>
@@ -204,12 +224,18 @@ export function DocFindCard({ data }: { data: { results: DocFindResult[]; total:
           <div key={i} style={{
             display: 'flex', gap: 8, alignItems: 'flex-start',
             padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.07)',
-          }}>
+            cursor: 'pointer',
+          }} onClick={() => r.path && openFile(r.path)}>
             <span style={{ fontSize: 16 }}>{iconFor(r.name)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ color: '#90cdf4', fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: 'underline' }}>
                 {r.name}
               </div>
+              {r.path && (
+                <div style={{ color: '#4a5568', fontSize: 10, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {r.path}
+                </div>
+              )}
               {r.snippet && (
                 <div style={{ color: '#a0aec0', fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>
                   {r.snippet.slice(0, 100)}
@@ -234,6 +260,13 @@ export function DocFindCard({ data }: { data: { results: DocFindResult[]; total:
    3. Deep Search 카드
 ────────────────────────────────────────── */
 export function DeepSearchCard({ data }: { data: { results: DeepSearchResult[]; total: number; query: string; message: string } }) {
+  const openFile = useCallback(async (path: string) => {
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell')
+      await open(path)
+    } catch { /* desktop only */ }
+  }, [])
+
   return (
     <div style={card}>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#b794f4' }}>
@@ -245,13 +278,19 @@ export function DeepSearchCard({ data }: { data: { results: DeepSearchResult[]; 
         data.results.slice(0, 8).map((r, i) => (
           <div key={i} style={{
             padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.07)',
-          }}>
+            cursor: 'pointer',
+          }} onClick={() => r.path && openFile(r.path)}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}>
+              <span style={{ color: '#b794f4', fontWeight: 600, fontSize: 12, textDecoration: 'underline' }}>
                 {r.name}
               </span>
               <ScoreBadge score={r.score} />
             </div>
+            {r.path && (
+              <div style={{ color: '#4a5568', fontSize: 10, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {r.path}
+              </div>
+            )}
             {r.snippet && (
               <div style={{ color: '#a0aec0', fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>
                 {r.snippet.slice(0, 120)}

@@ -43,11 +43,12 @@ type SearchPDFResult struct {
 }
 
 func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req SearchPDFRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요 (예: '에어팟 프로 최신')"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요 (예: '에어팟 프로 최신')", "query required (e.g. 'AirPods Pro latest')", lang)})
 		return
 	}
 	if req.MaxItems == 0 {
@@ -158,7 +159,7 @@ Analyze these products and write a 3-4 line buying guide in English. Use lowest 
 
 	// HTML 저장
 	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
-		result.Error = "HTML 저장 실패: " + err.Error()
+		result.Error = msgT("HTML 저장 실패: ", "HTML save failed: ", lang) + err.Error()
 		writeJSON(w, 500, result)
 		return
 	}
@@ -541,13 +542,14 @@ body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:#f5
 // ──────────────────────────────────────────────────────────────
 
 func handleOpenFile(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	path := r.URL.Query().Get("path")
 	if path == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "path 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("path 필요", "path required", lang)})
 		return
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		writeJSON(w, 404, map[string]any{"success": false, "message": "파일 없음: " + path})
+		writeJSON(w, 404, map[string]any{"success": false, "message": msgT("파일 없음: ", "File not found: ", lang) + path})
 		return
 	}
 
@@ -557,6 +559,6 @@ func handleOpenFile(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": true,
 		"path":    path,
-		"message": "파일을 열었습니다: " + filepath.Base(path),
+		"message": msgT("파일을 열었습니다: ", "File opened: ", lang) + filepath.Base(path),
 	})
 }

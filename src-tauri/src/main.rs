@@ -411,7 +411,8 @@ async fn main() {
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
-                    let mut flag = get_focus_requested().lock().await;
+                    let focus_arc = get_focus_requested();
+                    let mut flag = focus_arc.lock().await;
                     if *flag {
                         *flag = false;
                         if let Some(win) = focus_handle.get_webview_window("main") {

@@ -42,6 +42,7 @@ type YTVideoItem struct {
 
 // GET /api/youtube/subscriptions
 func handleYouTubeSubscriptions(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	summarize := r.URL.Query().Get("summarize") == "true"
 
 	ctx, cancel := newChromedpCtx(45 * time.Second)
@@ -85,14 +86,14 @@ func handleYouTubeSubscriptions(w http.ResponseWriter, r *http.Request) {
 				json200(w, map[string]any{
 					"success": true,
 					"source":  "search_fallback",
-					"message": "YouTube 로그인이 필요해요. 대신 오늘 인기 영상을 검색했어요.",
+					"message": msgT("YouTube 로그인이 필요해요. 대신 오늘 인기 영상을 검색했어요.", "YouTube login required. Showing trending videos instead.", lang),
 					"items":   tr.Items,
 					"summary": tr.Summary,
 				})
 				return
 			}
 		}
-		writeJSON(w, 500, map[string]any{"success": false, "message": fmt.Sprintf("YouTube 크롤링 실패: %v", err)})
+		writeJSON(w, 500, map[string]any{"success": false, "message": fmt.Sprintf(msgT("YouTube 크롤링 실패: %v", "YouTube crawl failed: %v", lang), err)})
 		return
 	}
 
@@ -137,7 +138,7 @@ func handleYouTubeSubscriptions(w http.ResponseWriter, r *http.Request) {
 			"items":   items,
 			"count":   len(items),
 			"summary": summary,
-			"message": fmt.Sprintf("구독 채널 오늘 영상 %d개", len(items)),
+			"message": fmt.Sprintf(msgT("구독 채널 오늘 영상 %d개", "Today's videos from subscriptions: %d", lang), len(items)),
 		})
 		return
 	}
@@ -146,7 +147,7 @@ func handleYouTubeSubscriptions(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"items":   items,
 		"count":   len(items),
-		"message": fmt.Sprintf("구독 채널 오늘 영상 %d개", len(items)),
+		"message": fmt.Sprintf(msgT("구독 채널 오늘 영상 %d개", "Today's videos from subscriptions: %d", lang), len(items)),
 	})
 }
 
@@ -154,13 +155,14 @@ func handleYouTubeSubscriptions(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/youtube/playlist/add  {"video_url":"https://youtube.com/watch?v=xxx","playlist":"나중에 볼 동영상"}
 func handleYouTubePlaylistAdd(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		VideoURL string `json:"video_url"`
 		Playlist string `json:"playlist"` // "나중에 볼 동영상" or playlist name
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.VideoURL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "video_url 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("video_url 필요", "video_url required", lang)})
 		return
 	}
 	if req.Playlist == "" {
@@ -201,7 +203,7 @@ func handleYouTubePlaylistAdd(w http.ResponseWriter, r *http.Request) {
 	if errMsg != "" {
 		json200(w, map[string]any{
 			"success": false,
-			"message": fmt.Sprintf("플레이리스트 추가 실패 (로그인 필요하거나 UI 변경): %s", errMsg),
+			"message": fmt.Sprintf(msgT("플레이리스트 추가 실패 (로그인 필요하거나 UI 변경): %s", "Playlist add failed (login required or UI changed): %s", lang), errMsg),
 			"url":     req.VideoURL,
 		})
 		return
@@ -209,20 +211,21 @@ func handleYouTubePlaylistAdd(w http.ResponseWriter, r *http.Request) {
 
 	json200(w, map[string]any{
 		"success":  true,
-		"message":  fmt.Sprintf("'%s' 플레이리스트에 추가됨", req.Playlist),
+		"message":  fmt.Sprintf(msgT("'%s' 플레이리스트에 추가됨", "Added to '%s' playlist", lang), req.Playlist),
 		"video_url": req.VideoURL,
 	})
 }
 
 // POST /api/youtube/playlist/batch  {"urls":["...","..."],"playlist":"나중에 볼 동영상"}
 func handleYouTubePlaylistBatch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URLs     []string `json:"urls"`
 		Playlist string   `json:"playlist"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if len(req.URLs) == 0 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "urls 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("urls 필요", "urls required", lang)})
 		return
 	}
 	if req.Playlist == "" {
@@ -252,7 +255,7 @@ func handleYouTubePlaylistBatch(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"added":   added,
 		"failed":  failed,
-		"message": fmt.Sprintf("플레이리스트 추가: %d개 성공, %d개 실패", added, failed),
+		"message": fmt.Sprintf(msgT("플레이리스트 추가: %d개 성공, %d개 실패", "Playlist add: %d succeeded, %d failed", lang), added, failed),
 	})
 }
 
@@ -260,13 +263,14 @@ func handleYouTubePlaylistBatch(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/youtube/search  {"query":"...", "max_items":10}
 func handleYouTubeSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query    string `json:"query"`
 		MaxItems int    `json:"max_items"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
 	}
 	if req.MaxItems == 0 {
@@ -290,5 +294,5 @@ func handleYouTubeSearch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, 500, map[string]any{"success": false, "message": "검색 실패"})
+	writeJSON(w, 500, map[string]any{"success": false, "message": msgT("검색 실패", "Search failed", lang)})
 }

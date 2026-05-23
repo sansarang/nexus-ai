@@ -78,7 +78,7 @@ func handleFileOrganize(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := os.ReadDir(req.Folder)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "폴더를 열 수 없습니다: " + err.Error()})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("폴더를 열 수 없습니다: "+err.Error(), "Cannot open folder: "+err.Error(), getLang(r))})
 		return
 	}
 

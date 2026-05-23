@@ -229,9 +229,10 @@ func extractTags(content string) []string {
 // ── HTTP 핸들러 ────────────────────────────────────────────────
 
 func handleBrainIndex(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var entry BrainEntry
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
-		writeJSON(w, 400, map[string]string{"error": "잘못된 요청"})
+		writeJSON(w, 400, map[string]string{"error": msgT("잘못된 요청", "Invalid request", lang)})
 		return
 	}
 	if entry.ID == "" {
@@ -245,13 +246,14 @@ func handleBrainIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrainSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query  string `json:"query"`
 		Limit  int    `json:"limit"`
 		Source string `json:"source"` // 필터: "" = 전체
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Query == "" {
-		writeJSON(w, 400, map[string]string{"error": "query 필드가 필요합니다"})
+		writeJSON(w, 400, map[string]string{"error": msgT("query 필드가 필요합니다", "query field is required", lang)})
 		return
 	}
 	if req.Limit <= 0 {
@@ -307,11 +309,12 @@ func handleBrainSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleBrainRebuild(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	go rebuildBrainIndex()
 	brainMu.RLock()
 	total := len(brainIndex.Entries)
 	brainMu.RUnlock()
-	json200(w, map[string]any{"ok": true, "message": "인덱스 재구축 중...", "current_entries": total})
+	json200(w, map[string]any{"ok": true, "message": msgT("인덱스 재구축 중...", "Rebuilding index...", lang), "current_entries": total})
 }
 
 func handleBrainStats(w http.ResponseWriter, r *http.Request) {

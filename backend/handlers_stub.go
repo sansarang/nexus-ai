@@ -172,7 +172,7 @@ func handleSaveNote(w http.ResponseWriter, r *http.Request) {
 		notes = notes[:100]
 	}
 	saveNotesMac(notes)
-	json200(w, map[string]any{"success": true, "message": "노트가 저장됐어요", "note": note})
+	json200(w, map[string]any{"success": true, "message": msgT("노트가 저장됐어요", "Note saved", getLang(r)), "note": note})
 }
 
 func loadNotesMac() []map[string]any {

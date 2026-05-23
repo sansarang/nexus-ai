@@ -166,6 +166,7 @@ func sanitizeExcelSheet(s string) string {
 // ──────────────────────────────────────────────────────────────
 
 func handleExcelSave(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Data     [][]string `json:"data"`       // 행 × 열 데이터
 		Title    string     `json:"title"`      // 시트 제목
@@ -175,7 +176,7 @@ func handleExcelSave(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if len(req.Data) == 0 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "data 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("data 필요", "data is required", lang)})
 		return
 	}
 
@@ -194,7 +195,7 @@ func handleExcelSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := saveToExcel(req.Data, savePath, req.Title); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "Excel 저장 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("Excel 저장 실패: ", "Excel save failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -202,7 +203,7 @@ func handleExcelSave(w http.ResponseWriter, r *http.Request) {
 		"success":   true,
 		"path":      savePath,
 		"rows":      len(req.Data) - 1,
-		"message":   fmt.Sprintf("Excel 저장 완료: %s (%d행)", savePath, len(req.Data)-1),
+		"message":   fmt.Sprintf(msgT("Excel 저장 완료: %s (%d행)", "Excel saved: %s (%d rows)", lang), savePath, len(req.Data)-1),
 	})
 }
 

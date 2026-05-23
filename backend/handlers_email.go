@@ -16,6 +16,7 @@ import (
 
 // GET /api/email/inbox — 받은 편지함 최근 N개
 func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	limitStr := r.URL.Query().Get("limit")
 	limit := 10
 	if limitStr != "" {
@@ -31,7 +32,8 @@ func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
 			"success": false,
 			"emails":  []EmailItem{},
 			"total":   0,
-			"message": "Outlook이 설치되지 않았거나 접근 권한이 없어요.",
+			"action":  "outlook_setup_required",
+			"message": msgT("Outlook이 설치되지 않았거나 연동이 필요해요. 설정에서 이메일을 연결해주세요.", "Outlook is not installed or not connected. Please set up email in Settings.", lang),
 		})
 		return
 	}
@@ -43,9 +45,9 @@ func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	msg := fmt.Sprintf("최근 이메일 %d개를 가져왔어요. 읽지 않은 메일 %d개 있어요 📧", len(emails), unread)
+	msg := fmt.Sprintf(msgT("최근 이메일 %d개를 가져왔어요. 읽지 않은 메일 %d개 있어요 📧", "Fetched %d recent emails. %d unread 📧", lang), len(emails), unread)
 	if len(emails) == 0 {
-		msg = "받은 편지함이 비어있어요 📭"
+		msg = msgT("받은 편지함이 비어있어요 📭", "Inbox is empty 📭", lang)
 	}
 
 	json200(w, map[string]interface{}{
@@ -59,6 +61,7 @@ func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/email/send — 이메일 전송
 func handleEmailSend(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		To      string `json:"to"`
 		Subject string `json:"subject"`
@@ -86,9 +89,9 @@ try {
 	out, err := execPS(script)
 	success := err == nil && strings.Contains(string(out), "OK")
 
-	msg := fmt.Sprintf("'%s'에게 메일을 보냈어요 📤", req.To)
+	msg := fmt.Sprintf(msgT("'%s'에게 메일을 보냈어요 📤", "Email sent to '%s' 📤", lang), req.To)
 	if !success {
-		msg = "메일 전송에 실패했어요. Outlook 설정을 확인해주세요."
+		msg = msgT("메일 전송에 실패했어요. Outlook 설정을 확인해주세요.", "Failed to send email. Please check Outlook settings.", lang)
 	}
 
 	json200(w, map[string]interface{}{
@@ -99,12 +102,14 @@ try {
 
 // POST /api/email/summarize — 받은 메일 AI 요약
 func handleEmailSummarize(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	emails, err := getOutlookInbox(5)
 	if err != nil || len(emails) == 0 {
 		json200(w, map[string]interface{}{
 			"success": false,
 			"summary": "",
-			"message": "요약할 이메일이 없어요.",
+			"action":  "outlook_setup_required",
+			"message": msgT("Outlook이 설치되지 않았거나 연동이 필요해요. 설정에서 이메일을 연결해주세요.", "Outlook is not installed or not connected. Please set up email in Settings.", lang),
 		})
 		return
 	}
@@ -124,7 +129,7 @@ func handleEmailSummarize(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"emails":  emails,
 		"summary": summary,
-		"message": fmt.Sprintf("최근 이메일 %d개를 요약했어요 📧", len(emails)),
+		"message": fmt.Sprintf(msgT("최근 이메일 %d개를 요약했어요 📧", "Summarized %d recent emails 📧", lang), len(emails)),
 	})
 }
 

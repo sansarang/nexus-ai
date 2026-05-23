@@ -35,6 +35,7 @@ type VTResult struct {
 
 // POST /api/security/virustotal — 파일 해시 VirusTotal 조회
 func handleVirusTotal(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		FilePath string `json:"file_path"`
 		APIKey   string `json:"api_key"`
@@ -47,7 +48,7 @@ func handleVirusTotal(w http.ResponseWriter, r *http.Request) {
 	if req.FilePath == "" {
 		json200(w, VTResult{
 			Success: false,
-			Message: "파일 경로를 입력해주세요.",
+			Message: msgT("파일 경로를 입력해주세요.", "Please enter a file path.", lang),
 		})
 		return
 	}
@@ -58,7 +59,7 @@ func handleVirusTotal(w http.ResponseWriter, r *http.Request) {
 		json200(w, VTResult{
 			Success:  false,
 			FilePath: req.FilePath,
-			Message:  "파일을 찾을 수 없어요. 경로를 다시 확인해주세요.",
+			Message:  msgT("파일을 찾을 수 없어요. 경로를 다시 확인해주세요.", "File not found. Please check the path again.", lang),
 		})
 		return
 	}
@@ -69,7 +70,7 @@ func handleVirusTotal(w http.ResponseWriter, r *http.Request) {
 			Success:  true,
 			FilePath: req.FilePath,
 			FileHash: hash,
-			Message:  fmt.Sprintf("파일 MD5: %s\nVirusTotal API 키가 없어서 온라인 조회는 불가능해요. 설정에서 API 키를 입력해주세요.", hash),
+			Message:  msgT(fmt.Sprintf("파일 MD5: %s\nVirusTotal API 키가 없어서 온라인 조회는 불가능해요. 설정에서 API 키를 입력해주세요.", hash), fmt.Sprintf("File MD5: %s\nOnline lookup unavailable without a VirusTotal API key. Please enter one in Settings.", hash), lang),
 		})
 		return
 	}
@@ -81,7 +82,7 @@ func handleVirusTotal(w http.ResponseWriter, r *http.Request) {
 			Success:  false,
 			FilePath: req.FilePath,
 			FileHash: hash,
-			Message:  "VirusTotal 조회 실패: " + err.Error(),
+			Message:  msgT("VirusTotal 조회 실패: ", "VirusTotal lookup failed: ", lang) + err.Error(),
 		})
 		return
 	}

@@ -45,6 +45,7 @@ type SmartAgentResult struct {
 }
 
 func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Command    string `json:"command"`    // "쿠팡에서 노트북 최저가 5곳 찾아 Excel로 정리해"
 		MaxResults int    `json:"max_results"`
@@ -53,7 +54,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Command == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "command 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command required", lang)})
 		return
 	}
 	if req.MaxResults == 0 {
@@ -64,7 +65,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
 	if gKey == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "Groq API 키 미설정"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("Groq API 키 미설정", "Groq API key not set", lang)})
 		return
 	}
 
@@ -110,7 +111,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 
 	planStr, _, planErr := callGroqWithFallback([]groqMsg{{Role: "user", Content: planPrompt}}, 1024, true)
 	if planErr != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "계획 수립 실패: " + planErr.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("계획 수립 실패: ", "Plan generation failed: ", lang) + planErr.Error()})
 		return
 	}
 
@@ -140,7 +141,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 	// ── Step 2: Stealth 브라우저 실행 ─────────────────────────
 	ctx, cancel, err := withStealthBrowserTimeout(5 * time.Minute)
 	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "브라우저 시작 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("브라우저 시작 실패: ", "Browser start failed: ", lang) + err.Error()})
 		return
 	}
 	defer cancel()
@@ -477,6 +478,7 @@ func performSearch(ctx interface{}, site, query string, maxItems int) ([]map[str
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserCollectPrice(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		ProductQuery string   `json:"product_query"` // "삼성 갤럭시북4 프로 16인치"
 		Sites        []string `json:"sites"`          // ["coupang.com", "danawa.com"]
@@ -486,7 +488,7 @@ func handleBrowserCollectPrice(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.ProductQuery == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "product_query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("product_query 필요", "product_query required", lang)})
 		return
 	}
 	if len(req.Sites) == 0 {
@@ -595,6 +597,7 @@ Sort by lowest price and recommend the best product in English.`, req.ProductQue
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query     string `json:"query"`  // "삼성전자 오늘 뉴스"
 		Site      string `json:"site"`   // "finance.naver.com"
@@ -603,7 +606,7 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
 	}
 	if req.Site == "" {
@@ -625,7 +628,7 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 		chromedp.Navigate(searchURL),
 		humanDelay(1500, 2500),
 	); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "페이지 이동 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("페이지 이동 실패: ", "Page navigation failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -705,6 +708,7 @@ Summarize the main trends and key points from these news articles in 3-5 lines i
 // ──────────────────────────────────────────────────────────────
 
 func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URL          string `json:"url"`
 		UsernameSel  string `json:"username_selector"`
@@ -718,7 +722,7 @@ func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.URL == "" || req.Username == "" || req.Password == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url, username, password 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url, username, password 필요", "url, username, password required", lang)})
 		return
 	}
 	if req.SessionKey == "" {
@@ -753,18 +757,18 @@ func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
 		chromedp.Navigate(req.URL),
 		humanDelay(1000, 2000),
 	); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "페이지 이동 실패"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("페이지 이동 실패", "Page navigation failed", lang)})
 		return
 	}
 
 	if err := humanType(ctx, usernameSel, req.Username); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "아이디 입력 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("아이디 입력 실패: ", "Username input failed: ", lang) + err.Error()})
 		return
 	}
 	chromedp.Run(ctx, humanDelay(300, 700))
 
 	if err := humanType(ctx, passwordSel, req.Password); err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "비밀번호 입력 실패: " + err.Error()})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("비밀번호 입력 실패: ", "Password input failed: ", lang) + err.Error()})
 		return
 	}
 	chromedp.Run(ctx, humanDelay(500, 1000))
@@ -797,9 +801,9 @@ func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
 		"session_key": req.SessionKey,
 		"message": func() string {
 			if loginSuccess {
-				return "로그인 성공 - 세션 저장됨"
+				return msgT("로그인 성공 - 세션 저장됨", "Login successful - session saved", lang)
 			}
-			return "로그인 실패 (비밀번호 확인 필요)"
+			return msgT("로그인 실패 (비밀번호 확인 필요)", "Login failed (please check password)", lang)
 		}(),
 	})
 }
@@ -811,6 +815,7 @@ func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
 // POST /api/browser/video-download
 // yt-dlp로 YouTube/TikTok 영상 다운로드. yt-dlp 없으면 직접 링크 반환.
 func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URL      string `json:"url"`       // 영상 URL
 		Quality  string `json:"quality"`   // "best", "720p", "480p"
@@ -819,7 +824,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.URL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return
 	}
 	if req.Quality == "" {
@@ -841,7 +846,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{
 			"success":    false,
 			"url":        req.URL,
-			"message":    "yt-dlp가 설치되어 있지 않습니다. https://github.com/yt-dlp/yt-dlp 에서 설치 후 다시 시도해주세요.",
+			"message":    msgT("yt-dlp가 설치되어 있지 않습니다. https://github.com/yt-dlp/yt-dlp 에서 설치 후 다시 시도해주세요.", "yt-dlp is not installed. Please install from https://github.com/yt-dlp/yt-dlp and try again.", lang),
 			"install_url": "https://github.com/yt-dlp/yt-dlp/releases/latest",
 			"direct_url": req.URL,
 		})
@@ -866,7 +871,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, 500, map[string]any{
 			"success": false,
-			"message": "다운로드 실패: " + string(out),
+			"message": msgT("다운로드 실패: ", "Download failed: ", lang) + string(out),
 			"error":   err.Error(),
 		})
 		return
@@ -876,7 +881,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 		"success":   true,
 		"url":       req.URL,
 		"save_path": savePath,
-		"message":   "다운로드 완료! " + savePath + " 에 저장됐어요.",
+		"message":   msgT("다운로드 완료! "+savePath+" 에 저장됐어요.", "Download complete! Saved to "+savePath, lang),
 		"output":    string(out),
 	})
 }

@@ -615,6 +615,7 @@ func handleIMAPAccountList(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/imap/accounts
 func handleIMAPAccountAdd(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`
@@ -626,7 +627,7 @@ func handleIMAPAccountAdd(w http.ResponseWriter, r *http.Request) {
 		SMTPPort int    `json:"smtp_port"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" || req.Password == "" {
-		json200(w, map[string]any{"success": false, "message": "이메일과 비밀번호가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("이메일과 비밀번호가 필요합니다", "Email and password are required", lang)})
 		return
 	}
 
@@ -640,7 +641,7 @@ func handleIMAPAccountAdd(w http.ResponseWriter, r *http.Request) {
 	// 비밀번호 암호화
 	encPw, err := imapEncrypt(req.Password)
 	if err != nil {
-		json200(w, map[string]any{"success": false, "message": "암호화 실패: " + err.Error()})
+		json200(w, map[string]any{"success": false, "message": msgT("암호화 실패: ", "Encryption failed: ", lang) + err.Error()})
 		return
 	}
 
@@ -665,13 +666,13 @@ func handleIMAPAccountAdd(w http.ResponseWriter, r *http.Request) {
 
 	ic, connErr := dialIMAP(host, port)
 	if connErr != nil {
-		json200(w, map[string]any{"success": false, "message": "IMAP 연결 실패: " + connErr.Error()})
+		json200(w, map[string]any{"success": false, "message": msgT("IMAP 연결 실패: ", "IMAP connection failed: ", lang) + connErr.Error()})
 		return
 	}
 	loginErr := ic.login(req.Email, req.Password)
 	ic.close()
 	if loginErr != nil {
-		json200(w, map[string]any{"success": false, "message": "로그인 실패: " + loginErr.Error()})
+		json200(w, map[string]any{"success": false, "message": msgT("로그인 실패: ", "Login failed: ", lang) + loginErr.Error()})
 		return
 	}
 
@@ -699,15 +700,16 @@ func handleIMAPAccountAdd(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": true,
 		"id":      acc.ID,
-		"message": fmt.Sprintf("%s 계정이 추가됐습니다", req.Email),
+		"message": fmt.Sprintf(msgT("%s 계정이 추가됐습니다", "%s account added", lang), req.Email),
 	})
 }
 
 // DELETE /api/imap/accounts/:id — query param: ?id=xxx
 func handleIMAPAccountDelete(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	id := r.URL.Query().Get("id")
 	if id == "" {
-		json200(w, map[string]any{"success": false, "message": "id가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("id가 필요합니다", "id is required", lang)})
 		return
 	}
 
@@ -723,16 +725,17 @@ func handleIMAPAccountDelete(w http.ResponseWriter, r *http.Request) {
 	imapAccountsMu.Unlock()
 
 	if !found {
-		json200(w, map[string]any{"success": false, "message": "계정을 찾을 수 없습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("계정을 찾을 수 없습니다", "Account not found", lang)})
 		return
 	}
 
 	saveIMAPAccounts()
-	json200(w, map[string]any{"success": true, "message": "계정이 삭제됐습니다"})
+	json200(w, map[string]any{"success": true, "message": msgT("계정이 삭제됐습니다", "Account deleted", lang)})
 }
 
 // GET /api/imap/inbox?account_id=&limit=
 func handleIMAPInbox(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	accID := r.URL.Query().Get("account_id")
 	limit := 20
 	fmt.Sscanf(r.URL.Query().Get("limit"), "%d", &limit)
@@ -752,7 +755,7 @@ func handleIMAPInbox(w http.ResponseWriter, r *http.Request) {
 	imapAccountsMu.RUnlock()
 
 	if acc == nil {
-		json200(w, map[string]any{"success": false, "message": "계정을 찾을 수 없습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("계정을 찾을 수 없습니다", "Account not found", lang)})
 		return
 	}
 
@@ -761,7 +764,7 @@ func handleIMAPInbox(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{
 			"success": false,
 			"emails":  []EmailItem{},
-			"message": "메일 가져오기 실패: " + err.Error(),
+			"message": msgT("메일 가져오기 실패: ", "Failed to fetch emails: ", lang) + err.Error(),
 		})
 		return
 	}
@@ -778,12 +781,13 @@ func handleIMAPInbox(w http.ResponseWriter, r *http.Request) {
 		"emails":  emails,
 		"total":   len(emails),
 		"unread":  unread,
-		"message": fmt.Sprintf("메일 %d개를 가져왔습니다", len(emails)),
+		"message": fmt.Sprintf(msgT("메일 %d개를 가져왔습니다", "Fetched %d emails", lang), len(emails)),
 	})
 }
 
 // POST /api/imap/send
 func handleIMAPSend(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		AccountID string `json:"account_id"`
 		To        string `json:"to"`
@@ -791,7 +795,7 @@ func handleIMAPSend(w http.ResponseWriter, r *http.Request) {
 		Body      string `json:"body"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.To == "" {
-		json200(w, map[string]any{"success": false, "message": "수신자가 필요합니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("수신자가 필요합니다", "Recipient is required", lang)})
 		return
 	}
 
@@ -807,7 +811,7 @@ func handleIMAPSend(w http.ResponseWriter, r *http.Request) {
 	imapAccountsMu.RUnlock()
 
 	if acc == nil && req.AccountID != "" {
-		json200(w, map[string]any{"success": false, "message": "계정을 찾을 수 없습니다"})
+		json200(w, map[string]any{"success": false, "message": msgT("계정을 찾을 수 없습니다", "Account not found", lang)})
 		return
 	}
 
@@ -815,18 +819,18 @@ func handleIMAPSend(w http.ResponseWriter, r *http.Request) {
 	if acc == nil {
 		err := sendOutlookEmail(req.To, req.Subject, req.Body)
 		if err != nil {
-			json200(w, map[string]any{"success": false, "message": "발송 실패: " + err.Error()})
+			json200(w, map[string]any{"success": false, "message": msgT("발송 실패: ", "Send failed: ", lang) + err.Error()})
 			return
 		}
-		json200(w, map[string]any{"success": true, "message": "이메일을 발송했습니다 (Outlook)"})
+		json200(w, map[string]any{"success": true, "message": msgT("이메일을 발송했습니다 (Outlook)", "Email sent (Outlook)", lang)})
 		return
 	}
 
 	if err := sendIMAPEmail(*acc, req.To, req.Subject, req.Body); err != nil {
-		json200(w, map[string]any{"success": false, "message": "발송 실패: " + err.Error()})
+		json200(w, map[string]any{"success": false, "message": msgT("발송 실패: ", "Send failed: ", lang) + err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "message": fmt.Sprintf("%s에게 이메일을 발송했습니다", req.To)})
+	json200(w, map[string]any{"success": true, "message": fmt.Sprintf(msgT("%s에게 이메일을 발송했습니다", "Email sent to %s", lang), req.To)})
 }
 
 // GET /api/imap/reply-suggestions?subject=&body=

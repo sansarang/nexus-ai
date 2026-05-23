@@ -272,6 +272,7 @@ func startBriefingScheduler() {
 
 // POST /api/briefing/now — 지금 즉시 브리핑 실행
 func handleBriefingNow(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	task := globalTaskQueue.Enqueue("아침 브리핑 생성", PriorityNormal, nil, func(t *AgentTask) {
 		t.UpdateProgress(30, "날씨 정보 수집 중...")
 		briefing := generateMorningBriefing()
@@ -288,7 +289,7 @@ func handleBriefingNow(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": true,
 		"task_id": task.ID,
-		"message": "브리핑 생성 중...",
+		"message": msgT("브리핑 생성 중...", "Generating briefing...", lang),
 	})
 }
 
@@ -317,5 +318,5 @@ func handleBriefingConfig(w http.ResponseWriter, r *http.Request) {
 	briefingMu.Unlock()
 	saveBriefingConfig()
 
-	json200(w, map[string]any{"success": true, "message": "브리핑 설정 저장 완료"})
+	json200(w, map[string]any{"success": true, "message": msgT("브리핑 설정 저장 완료", "Briefing settings saved", getLang(r))})
 }

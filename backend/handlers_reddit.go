@@ -30,6 +30,7 @@ type RedditPost struct {
 // POST /api/reddit/search
 // body: { "query": "...", "subreddit": "stocks", "limit": 10, "sort": "hot" }
 func handleRedditSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query     string `json:"query"`
 		Subreddit string `json:"subreddit"`
@@ -38,7 +39,7 @@ func handleRedditSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query is required", lang)})
 		return
 	}
 	if req.Limit == 0 || req.Limit > 25 {
@@ -72,7 +73,7 @@ func handleRedditSearch(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		msg := "Reddit 크롤링 실패"
+		msg := msgT("Reddit 크롤링 실패", "Reddit crawl failed", lang)
 		if err != nil {
 			msg += ": " + err.Error()
 		}

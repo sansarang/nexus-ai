@@ -16,6 +16,7 @@ import (
 // ── 파일 검색 (cross-platform) ────────────────────────────────
 
 func handleFilesSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query   string `json:"query"`
 		Path    string `json:"path"`
@@ -83,7 +84,7 @@ func handleFilesSearch(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"results": results,
 		"total":   len(results),
-		"message": fmt.Sprintf("'%s' 검색 결과: %d개", req.Query, len(results)),
+		"message": fmt.Sprintf(msgT("'%s' 검색 결과: %d개", "'%s' search results: %d", lang), req.Query, len(results)),
 	})
 }
 
@@ -100,6 +101,7 @@ var organizeExtMac = map[string]string{
 }
 
 func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Path string `json:"path"`
 		Mode string `json:"mode"` // type | date
@@ -114,7 +116,7 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, err := os.ReadDir(req.Path)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "폴더를 읽을 수 없어요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("폴더를 읽을 수 없어요", "Cannot read folder", lang)})
 		return
 	}
 	moved, skipped := 0, 0
@@ -149,13 +151,14 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"moved":   moved,
 		"skipped": skipped,
-		"message": fmt.Sprintf("%d개 파일 정리 완료 📁", moved),
+		"message": fmt.Sprintf(msgT("%d개 파일 정리 완료 📁", "%d files organized 📁", lang), moved),
 	})
 }
 
 // ── 중복 파일 탐지 (cross-platform) ──────────────────────────
 
 func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Path string `json:"path"`
 	}
@@ -205,6 +208,6 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 		"total_groups": len(groups),
 		"waste_mb":     float64(totalWaste) / (1 << 20),
 		"waste":        waste,
-		"message":      fmt.Sprintf("중복 파일 %d그룹 발견, 낭비 공간 %s", len(groups), waste),
+		"message":      fmt.Sprintf(msgT("중복 파일 %d그룹 발견, 낭비 공간 %s", "Found %d duplicate groups, wasted space %s", lang), len(groups), waste),
 	})
 }

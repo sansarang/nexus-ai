@@ -19,6 +19,7 @@ import (
 // POST /api/video/transcript
 // body: { "url": "...", "platform": "youtube|tiktok|twitter", "lang": "ko", "summarize": true }
 func handleVideoTranscript(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URL       string `json:"url"`
 		Platform  string `json:"platform"`
@@ -27,7 +28,7 @@ func handleVideoTranscript(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.URL == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return
 	}
 	if req.Lang == "" {
@@ -36,7 +37,7 @@ func handleVideoTranscript(w http.ResponseWriter, r *http.Request) {
 
 	ytdlp := findYtDlpOrInstall()
 	if ytdlp == "" {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "yt-dlp 설치 실패. 터미널에서 `pip install yt-dlp` 실행 후 재시도해주세요."})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("yt-dlp 설치 실패. 터미널에서 `pip install yt-dlp` 실행 후 재시도해주세요.", "yt-dlp installation failed. Run `pip install yt-dlp` in terminal and try again.", lang)})
 		return
 	}
 
@@ -93,7 +94,7 @@ func handleVideoTranscript(w http.ResponseWriter, r *http.Request) {
 	if rawText == "" {
 		writeJSON(w, 200, map[string]any{
 			"success":    false,
-			"message":    "이 영상에는 자막이 없거나 추출할 수 없습니다.\n\n```\n" + limitStr(string(rawOut), 300) + "\n```",
+			"message":    msgT("이 영상에는 자막이 없거나 추출할 수 없습니다.\n\n```\n"+limitStr(string(rawOut), 300)+"\n```", "No subtitles found or could not be extracted.\n\n```\n"+limitStr(string(rawOut), 300)+"\n```", lang),
 			"transcript": "",
 		})
 		return
@@ -126,6 +127,7 @@ func handleVideoTranscript(w http.ResponseWriter, r *http.Request) {
 // body: { "urls": ["...","..."], "lang": "ko" }
 // 여러 영상을 한 번에 요약 → 통합 리포트 생성
 func handleVideoTranscriptBatch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		URLs  []string `json:"urls"`
 		Lang  string   `json:"lang"`
@@ -133,7 +135,7 @@ func handleVideoTranscriptBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if len(req.URLs) == 0 {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "urls 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("urls 필요", "urls required", lang)})
 		return
 	}
 	if req.Lang == "" {
@@ -145,7 +147,7 @@ func handleVideoTranscriptBatch(w http.ResponseWriter, r *http.Request) {
 
 	ytdlp := findYtDlpOrInstall()
 	if ytdlp == "" {
-		writeJSON(w, 500, map[string]any{"success": false, "message": "yt-dlp 미설치"})
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("yt-dlp 미설치", "yt-dlp not installed", lang)})
 		return
 	}
 

@@ -33,11 +33,13 @@ async function request<T>(method: string, path: string, body?: unknown, timeout 
   const timer = setTimeout(() => ctrl.abort(), timeout)
   try {
     const authHeader = await getAuthHeader()
+    const lang = localStorage.getItem('nexus-lang') ?? 'ko'
     const res = await fetch(`${BASE}${path}`, {
       method,
       headers: {
         ...(body ? { 'Content-Type': 'application/json' } : {}),
         ...authHeader,
+        'X-Lang': lang,
       },
       body: body ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,

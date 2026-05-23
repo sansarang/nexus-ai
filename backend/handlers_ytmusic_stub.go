@@ -107,12 +107,13 @@ JSON 배열로만 출력: [{"title":"노래제목","artist":"아티스트"}]
 
 // POST /api/ytmusic/search  {"query":"Sabrina Carpenter Espresso"}
 func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
 	var req struct {
 		Query string `json:"query"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
 	}
 
