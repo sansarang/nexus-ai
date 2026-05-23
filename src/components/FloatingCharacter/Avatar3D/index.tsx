@@ -13,7 +13,7 @@
  */
 import React from 'react'
 import { Canvas } from '@react-three/fiber'
-import { ContactShadows, OrbitControls, Environment } from '@react-three/drei'
+import { ContactShadows, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { AvatarEmotion, CharacterPreset } from './ProceduralHumanoid'
 import { AvatarModel } from './AvatarModel'
@@ -83,14 +83,13 @@ export function Avatar3D({
         shadows
         dpr={quality === 'high' ? [1, 2] : [1, 1.5]}
       >
-        {/* ── IBL 환경광 — studio preset (외부 fetch 없음) ── */}
-        <Environment preset="studio" />
-        <ambientLight intensity={0.4} />
+        {/* ── 전체 기본광 — PBR 재질 색상 표현용 ── */}
+        <ambientLight intensity={1.8} color="#ffffff" />
 
         {/* ── 주 조명 (키 라이트) ── */}
         <directionalLight
           position={[1.2, 2.8, 2.5]}
-          intensity={1.6}
+          intensity={2.2}
           castShadow
           shadow-mapSize-width={shadowSize}
           shadow-mapSize-height={shadowSize}
@@ -102,35 +101,39 @@ export function Avatar3D({
         {/* ── 보조 조명 (필 라이트 — 왼쪽) ── */}
         <directionalLight
           position={[-1.8, 1.5, 1.0]}
-          intensity={0.55}
+          intensity={1.2}
           color={new THREE.Color('#cce0ff')}
         />
 
         {/* ── 림 라이트 (캐릭터 색상 기반) ── */}
         <pointLight
           position={[-1.2, 1.8, -1.0]}
-          intensity={0.9}
+          intensity={1.4}
           color={pColor}
-          distance={4}
+          distance={5}
         />
 
         {/* ── 어깨 하이라이트 (accent 색) ── */}
         <pointLight
           position={[0, 1.5, -0.8]}
-          intensity={0.45}
+          intensity={0.8}
           color={aColor}
-          distance={3}
+          distance={4}
         />
 
         {/* ── 전면 소프트 필 ── */}
         <directionalLight
           position={[0, 0.5, 3.5]}
-          intensity={0.3}
+          intensity={0.9}
           color={new THREE.Color('#fff5e8')}
         />
 
-        {/* ── 앰비언트 (약하게) ── */}
-        <ambientLight intensity={0.22} />
+        {/* ── 하단 바운스 ── */}
+        <directionalLight
+          position={[0, -1.5, 1.0]}
+          intensity={0.5}
+          color={new THREE.Color('#e8f4ff')}
+        />
 
         {/* ── 아바타 렌더링 ── */}
         <group
