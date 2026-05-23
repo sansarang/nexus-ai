@@ -40,7 +40,7 @@ const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', '
 const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
 const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
-const STEPS_TOTAL = 6
+const STEPS_TOTAL = 5
 
 // ─── Generic demo sequences (Step 0) ────────────────────────────────────────
 const GENERIC_DEMOS_KO = [
@@ -227,7 +227,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const isEn                          = lang === 'en'
   const JOB_PERSONAS                  = isEn ? JOB_PERSONAS_EN : JOB_PERSONAS_KO
   const USER_NAMES                    = isEn ? USER_NAMES_EN : USER_NAMES_KO
-  const [step, setStep]               = useState(0)
+  const [step, setStep]               = useState(1)
   const [styleId, setStyleId]         = useState<RealisticStyleId>('kpop_star')
   const [assistantName, setName]      = useState(isEn ? 'Nexus' : '넥서스')
   const [nameInput, setNameInput]     = useState(isEn ? 'Nexus' : '넥서스')
@@ -489,11 +489,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em' }}>NEXUS SETUP</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{step + 1} / {STEPS_TOTAL}</span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{step} / {STEPS_TOTAL}</span>
       </div>
       <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }}>
         <motion.div
-          animate={{ width: `${((step + 1) / STEPS_TOTAL) * 100}%` }}
+          animate={{ width: `${(step / STEPS_TOTAL) * 100}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
           style={{
             height: '100%', borderRadius: 4,
