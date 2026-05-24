@@ -3,12 +3,18 @@ import { openCheckout, PADDLE_PRICES } from '../../lib/paddle'
 import { useAppStore } from '../../stores/appStore'
 
 const FEATURE_LABELS: Record<string, string> = {
-  stock_analysis:  '주식 분석',
-  medical_search:  '의료 정보 검색',
-  contract_review: '계약서 검토',
-  legal_search:    '법률 검색',
-  content_script:  '콘텐츠 스크립트',
-  workflow_run:    '워크플로우 실행',
+  stock_analysis:    '주식 분석',
+  medical_search:    '의료 정보 검색',
+  contract_review:   '계약서 검토',
+  legal_search:      '법률 검색',
+  content_script:    '콘텐츠 스크립트',
+  workflow_run:      '워크플로우 실행',
+  ai_request:        'AI 요청',
+  vision_analyze:    '화면 분석',
+  screen_translate:  '화면 번역',
+  email_summary:     '이메일 요약',
+  content_recommend: '콘텐츠 추천',
+  weekly_report:     '주간 리포트',
 }
 
 interface Props {
@@ -93,14 +99,24 @@ export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props
               lineHeight: 1.6,
             }}
           >
-            <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong>은(는){' '}
-            오늘{' '}
-            <span style={{ color: '#f38ba8', fontWeight: 700 }}>
-              {used}/{limit}회
-            </span>{' '}
-            사용했습니다.
-            <br />
-            Pro로 업그레이드하면 <strong>무제한</strong>으로 사용할 수 있어요.
+            {limit > 0 ? (
+            <>
+              <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong>은(는){' '}
+              오늘{' '}
+              <span style={{ color: '#f38ba8', fontWeight: 700 }}>
+                {used}/{limit}회
+              </span>{' '}
+              사용했습니다.
+              <br />
+              Pro로 업그레이드하면 <strong>무제한</strong>으로 사용할 수 있어요.
+            </>
+          ) : (
+            <>
+              오늘 <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong> 한도를 모두 소진했습니다.
+              <br />
+              Pro로 업그레이드하면 하루 <strong>2,000회</strong> 사용할 수 있어요.
+            </>
+          )}
           </div>
 
           {/* CTA buttons */}

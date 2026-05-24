@@ -388,7 +388,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const handleGoogleLogin = async () => {
     if (!SUPABASE_URL || SUPABASE_URL.includes('placeholder')) {
-      const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       const demoEmail = 'user@gmail.com'
       localStorage.setItem('nexus-user-email', demoEmail)
       localStorage.setItem('nexus-sub-status', 'trial')
@@ -403,7 +403,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       await signInWithGoogle(hint)
     } catch (e) {
       console.warn('Google OAuth failed, starting trial:', e)
-      const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       const demoEmail = 'user@gmail.com'
       localStorage.setItem('nexus-user-email', demoEmail)
       localStorage.setItem('nexus-sub-status', 'trial')
@@ -1015,10 +1015,16 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 const planLabel = isPro ? (isEn ? '✨ PRO' : '✨ PRO') : isTeam ? (isEn ? 'TEAM' : 'TEAM') : (isEn ? 'FREE' : 'FREE')
                 const planPrice = isPro ? '$19/mo' : isTeam ? '$49/mo' : (isEn ? 'Free' : '무료')
                 const planFeats = isPro
-                  ? (isEn ? ['Pro features unlimited', '+ Marketplace'] : ['Pro 기능 무제한', '+ 마켓플레이스'])
+                  ? (isEn
+                    ? ['2,000 AI requests/day', 'Web search · Screen analysis', 'Email assist · Content rec.', 'All Free features included']
+                    : ['하루 2,000건 AI 요청', '웹검색 · 화면분석 · 번역', '이메일 보조 · 콘텐츠 추천', '무료 기능 전체 포함'])
                   : isTeam
-                  ? (isEn ? ['Team sharing + API', '+ Brand customization'] : ['팀 공유 + API', '+ 기업 브랜딩'])
-                  : (isEn ? ['Basic features', 'Daily limit'] : ['기본 기능', '일일 제한'])
+                  ? (isEn
+                    ? ['All Pro features', 'Team sharing + API access', 'Brand customization', 'Priority support']
+                    : ['Pro 전체 기능 포함', '팀 공유 + API 접근', '기업 브랜딩 설정', '우선 지원'])
+                  : (isEn
+                    ? ['30 AI requests/day', 'Basic chat & weather', 'News & calendar sync', '7-day free trial']
+                    : ['하루 30건 AI 요청', '기본 채팅 · 날씨', '뉴스 · 캘린더 연동', '7일 무료 체험'])
 
                 return (
                   <button
@@ -1100,8 +1106,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </h2>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
                 {isEn
-                  ? <>Sign in with Google and your<br />3-day free trial starts automatically.</>
-                  : <>구글 계정으로 로그인하면<br />3일 무료 체험이 자동으로 시작됩니다.</>}
+                  ? <>Sign in with Google and your<br />7-day free trial starts automatically.</>
+                  : <>구글 계정으로 로그인하면<br />7일 무료 체험이 자동으로 시작됩니다.</>}
               </p>
             </div>
 
@@ -1188,7 +1194,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80' }}>{googleEmail}</div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
-                  {isEn ? '3-day free trial ready to start' : '3일 무료 체험 시작 준비 완료'}
+                  {isEn ? '7-day free trial ready to start' : '7일 무료 체험 시작 준비 완료'}
                 </div>
               </div>
             )}
@@ -1201,8 +1207,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               color: 'rgba(255,255,255,0.6)', lineHeight: 2,
             }}>
               {(isEn
-                ? ['✦ Unlimited access to all AI features', '✦ Deep Search · Real-time web search', '✦ Auto updates', '✦ Early Bird $12.99/mo after 3 days · Cancel anytime']
-                : ['✦ 모든 AI 기능 무제한 사용', '✦ 딥서치 · 실시간 웹 검색', '✦ 자동 업데이트', '✦ 3일 후 Early Bird 월 14,900원 · 언제든 해지 가능']
+                ? ['✦ Unlimited access to all AI features', '✦ Deep Search · Real-time web search', '✦ Auto updates', '✦ Early Bird $12.99/mo after 7 days · Cancel anytime']
+                : ['✦ 모든 AI 기능 무제한 사용', '✦ 딥서치 · 실시간 웹 검색', '✦ 자동 업데이트', '✦ 7일 후 Early Bird 월 14,900원 · 언제든 해지 가능']
               ).map(t => <div key={t}>{t}</div>)}
             </div>
 

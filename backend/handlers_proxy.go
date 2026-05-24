@@ -107,6 +107,9 @@ func callProxyCtx(ctx context.Context, action string, payload map[string]interfa
 		return nil, fmt.Errorf("proxy parse error: %w", err)
 	}
 	if resp.StatusCode != 200 {
+		if pr.Code == "usage_limit" || pr.Code == "subscription_expired" {
+			return nil, fmt.Errorf("[%s] %s", pr.Code, pr.Error)
+		}
 		if pr.Error != "" {
 			return nil, fmt.Errorf("%s", pr.Error)
 		}

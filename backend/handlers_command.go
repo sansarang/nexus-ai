@@ -716,6 +716,13 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		raw, _, err := callGroqWithFallback([]groqMsg{
 			{Role: "user", Content: resolvePrompt},
 		}, 256, true)
+		if isProxyLimitError(err) {
+			dur := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
+			resp := upgradeRequiredResponse("ai_request", 0, 0)
+			resp.Duration = dur
+			json200(w, resp)
+			return
+		}
 		if err != nil || raw == "" {
 			// 해소 실패 → 사용자 답변을 pending 파라미터에 병합해서 직접 실행
 			intentAction = req.PendingIntent
@@ -893,6 +900,13 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			intentMsgs = append(intentMsgs, groqMsg{Role: "user", Content: req.Message})
 
 			raw, _, err := callGroqWithFallback(intentMsgs, 512, true)
+			if isProxyLimitError(err) {
+				dur := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
+				resp := upgradeRequiredResponse("ai_request", 0, 0)
+				resp.Duration = dur
+				json200(w, resp)
+				return
+			}
 			if err != nil {
 				raw = `{"action":"chat","params":{}}`
 			}

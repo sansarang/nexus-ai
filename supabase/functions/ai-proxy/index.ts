@@ -9,12 +9,16 @@ const PERPLEXITY_KEY = Deno.env.get('PERPLEXITY_KEY') ?? GROQ_KEY  // fallback t
 const CLAUDE_KEY     = Deno.env.get('CLAUDE_KEY')!
 const TAVILY_KEY     = Deno.env.get('TAVILY_KEY')!
 
-const DAILY_FREE_LIMIT    = 500
-const DAILY_PREMIUM_LIMIT = 50
+const DAILY_FREE_LIMIT    = 30
+const DAILY_PREMIUM_LIMIT = 2000
 
 const PREMIUM_ACTIONS = new Set([
   'web_search', 'trip_plan', 'price_compare',
   'video_search', 'workflow_preset', 'multi_action', 'weather',
+  'vision_analyze', 'claude_vision',
+  'tavily_search', 'tavily_search_domain',
+  'email_summary', 'file_organize', 'screen_translate',
+  'weekly_report', 'content_recommend',
 ])
 
 Deno.serve(async (req) => {

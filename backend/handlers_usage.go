@@ -331,12 +331,18 @@ func upgradeRequiredResponse(feature string, used, limit int) CommandResponse {
 		"legal_search":    "법률 검색",
 		"content_script":  "콘텐츠 스크립트",
 		"workflow_run":    "워크플로우 실행",
+		"ai_request":      "AI 요청",
 	}
 	label := featureLabel[feature]
 	if label == "" {
 		label = feature
 	}
-	msg := fmt.Sprintf("%s은(는) 오늘 %d/%d회 사용했습니다. Pro로 업그레이드하면 무제한으로 사용할 수 있어요.", label, used, limit)
+	var msg string
+	if limit == 0 {
+		msg = fmt.Sprintf("오늘 %s 사용량을 모두 소진했습니다. Pro로 업그레이드하면 하루 2,000회 사용할 수 있어요.", label)
+	} else {
+		msg = fmt.Sprintf("%s은(는) 오늘 %d/%d회 사용했습니다. Pro로 업그레이드하면 무제한으로 사용할 수 있어요.", label, used, limit)
+	}
 	return CommandResponse{
 		Success:         false,
 		Message:         msg,

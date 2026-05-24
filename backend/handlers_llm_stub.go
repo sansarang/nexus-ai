@@ -300,10 +300,20 @@ func callGroq(apiKey, model string, msgs []groqMsg, maxTokens int, jsonMode bool
 	return callOpenAICompat(key, endpoint, resolvedModel, msgs, maxTokens, jsonMode)
 }
 
+func isProxyLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.HasPrefix(msg, "[usage_limit]") || strings.HasPrefix(msg, "[subscription_expired]")
+}
+
 func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
 	// 1순위: Supabase Edge Function 프록시
 	if content, err := callGroqViaProxy(msgs, maxTokens, jsonMode); err == nil {
 		return content, "groq-proxy", nil
+	} else if isProxyLimitError(err) {
+		return "", "", err // 한도 초과 — 직접 키 폴백 없이 즉시 반환
 	}
 
 	// 2순위: 번들 키 직접 호출
