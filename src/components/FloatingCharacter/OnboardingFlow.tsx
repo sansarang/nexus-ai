@@ -471,18 +471,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   /* ── 공통 스타일 ── */
   const card: React.CSSProperties = {
     position: 'fixed',
-    top: '50%', left: '50%',
-    transform: 'translate(-50%, -50%)',
+    inset: 0,
     zIndex: 99999,
-    width: 560,
-    maxHeight: '90vh',
-    background: '#1e2035',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: 28,
-    padding: '32px 36px',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+    width: '100%',
+    height: '100%',
+    background: '#080a12',
     overflowX: 'hidden',
     overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '32px 24px',
   }
 
   const progressBar = (
@@ -582,10 +582,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             exit={{ opacity: 0, y: -20 }}
             style={{
               width: '100%', maxWidth: 620,
-              background: '#0d0f1a',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 24, overflow: 'hidden',
-              boxShadow: `0 0 80px ${selectedStyle.primaryColor}22, 0 32px 80px rgba(0,0,0,0.6)`,
               position: 'relative',
             }}
           >
@@ -842,11 +838,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             exit={{ opacity: 0, y: -20 }}
             style={{
               width: '100%', maxWidth: 620,
-              background: '#0d0f1a',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 24,
-              overflow: 'hidden',
-              boxShadow: `0 0 80px ${jobColor}22, 0 32px 80px rgba(0,0,0,0.6)`,
               position: 'relative',
             }}
           >
