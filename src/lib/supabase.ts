@@ -34,7 +34,7 @@ export const BACKEND = 'http://127.0.0.1:17891'
  * Rust가 포트 17891을 직접 소유하므로 Go 백엔드 실행 여부 무관.
  * Chrome "앱 열기" 다이얼로그 없음.
  */
-export async function signInWithGoogle(onSuccess?: () => void, loginHint?: string): Promise<void> {
+export async function signInWithGoogle(loginHint?: string): Promise<void> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -51,43 +51,7 @@ export async function signInWithGoogle(onSuccess?: () => void, loginHint?: strin
   if (data.url) {
     const { open } = await import('@tauri-apps/plugin-shell')
     await open(data.url)
-    startOAuthPolling(onSuccess)
   }
-}
-
-function startOAuthPolling(onSuccess?: () => void) {
-  const maxAttempts = 360 // 3분
-  let attempts = 0
-  const timer = setInterval(async () => {
-    attempts++
-    if (attempts > maxAttempts) { clearInterval(timer); return }
-    try {
-      const res = await fetch(`${BACKEND}/api/auth/callback/pending`)
-      const json = await res.json() as { token?: string }
-      if (json.token) {
-        clearInterval(timer)
-        const params = new URLSearchParams(json.token)
-        const code = params.get('code')
-        const accessToken = params.get('access_token')
-        const refreshToken = params.get('refresh_token')
-
-        const focusApp = async () => {
-          try {
-            const { invoke } = await import('@tauri-apps/api/core')
-            await invoke('open_chat_window')
-          } catch { /* 브라우저 환경 무시 */ }
-        }
-
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (!error) { console.log('[OAuth] PKCE 로그인 성공'); await focusApp(); onSuccess?.() }
-        } else if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          if (!error) { console.log('[OAuth] 로그인 성공'); await focusApp(); onSuccess?.() }
-        }
-      }
-    } catch { /* Rust 서버 미응답 무시 */ }
-  }, 500)
 }
 
 /** 로그아웃 */

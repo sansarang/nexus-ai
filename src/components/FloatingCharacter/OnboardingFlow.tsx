@@ -274,6 +274,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     if (isLoggedIn && userEmail && step >= 3 && step <= 5 && !didAutoComplete.current) {
       didAutoComplete.current = true
       setGoogleEmail(userEmail)
+      setGoogleLoading(false)
       setStep(5)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -399,12 +400,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setGoogleLoading(true)
     try {
       const hint = localStorage.getItem('nexus-user-email') ?? undefined
-      await signInWithGoogle(() => {
-        const email = localStorage.getItem('nexus-user-email') || 'user@gmail.com'
-        setGoogleEmail(email)
-        setGoogleLoading(false)
-        setStep(5)
-      }, hint)
+      await signInWithGoogle(hint)
     } catch (e) {
       console.warn('Google OAuth failed, starting trial:', e)
       const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -1425,7 +1421,7 @@ export function LoginScreen() {
     setLoading(true)
     setError('')
     try {
-      await signInWithGoogle(() => setLoading(false))
+      await signInWithGoogle()
     } catch (e: any) {
       setError(e?.message || '로그인 실패. 다시 시도해주세요.')
       setLoading(false)
