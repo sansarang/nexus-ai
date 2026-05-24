@@ -38,7 +38,7 @@ export async function signInWithGoogle(onSuccess?: () => void, loginHint?: strin
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${BACKEND}/auth/callback`,
+      redirectTo: 'nexus://auth/callback',
       skipBrowserRedirect: true,
       queryParams: {
         access_type: 'offline',
