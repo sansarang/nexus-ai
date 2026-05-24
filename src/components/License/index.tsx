@@ -32,9 +32,7 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
     setLoading(true)
     setError('')
     try {
-      await signInWithGoogle(() => {
-        setLoading(false)
-      })
+      await signInWithGoogle()
     } catch (e: any) {
       console.error('Google OAuth failed:', e)
       setError('로그인 실패: ' + (e?.message || '다시 시도해주세요.'))

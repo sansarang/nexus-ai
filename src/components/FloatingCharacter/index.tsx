@@ -562,17 +562,21 @@ export function FloatingCharacter() {
 
     // ⑩ 백엔드 자동 재연결: disconnected 상태면 30초마다 재시도
     let wasDisconnected = false
-    const reconnectId = setInterval(async () => {
+    let isReconnecting = false
+    const reconnectId = setInterval(() => {
+      if (isReconnecting) return
       setBackendStatus(prev => {
         if (prev === 'disconnected') {
           wasDisconnected = true
+          isReconnecting = true
           connectAndSync().then(newStatus => {
+            isReconnecting = false
             if (newStatus === 'connected' && wasDisconnected) {
               wasDisconnected = false
               setBubbleText(userLang === 'ko' ? '백엔드에 다시 연결됐습니다.' : 'Reconnected to backend.')
               setTimeout(() => setBubbleText(''), 3000)
             }
-          })
+          }).catch(() => { isReconnecting = false })
         }
         return prev
       })

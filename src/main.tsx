@@ -33,21 +33,24 @@ async function setupTauriEvents() {
         const code = urlObj.searchParams.get('code')
         if (code) {
           _oauthProcessing = true
-          const { supabase, fetchSubscription, createTrialSubscription, resolveStatus } = await import('./lib/supabase')
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-          if (!error && data.session?.user) {
-            const user = data.session.user
-            const email = user.email ?? ''
-            let row = await fetchSubscription(user.id)
-            if (!row) {
-              await createTrialSubscription(user.id)
-              row = await fetchSubscription(user.id)
+          try {
+            const { supabase, fetchSubscription, createTrialSubscription, resolveStatus } = await import('./lib/supabase')
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+            if (!error && data.session?.user) {
+              const user = data.session.user
+              const email = user.email ?? ''
+              let row = await fetchSubscription(user.id)
+              if (!row) {
+                await createTrialSubscription(user.id)
+                row = await fetchSubscription(user.id)
+              }
+              const status = resolveStatus(row)
+              const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
+              useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
             }
-            const status = resolveStatus(row)
-            const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
-            useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
+          } finally {
+            setTimeout(() => { _oauthProcessing = false }, 3000)
           }
-          setTimeout(() => { _oauthProcessing = false }, 3000)
         }
       } catch { /* 무시 */ }
     })
