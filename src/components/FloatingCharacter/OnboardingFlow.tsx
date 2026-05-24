@@ -416,7 +416,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   const handleComplete = async (email?: string) => {
-    if (openaiKey.trim()) localStorage.setItem('nexus-openai-key', openaiKey.trim())
     localStorage.setItem('nexus-persona-id', selectedJobId)
 
     const resolvedEmail = email ?? googleEmail
@@ -442,14 +441,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lang: isEn ? 'en' : 'ko' }),
       }).catch(() => {})
-      const configPayload: Record<string, string> = {}
-      if (openaiKey.trim()) configPayload['claude_key'] = openaiKey.trim()
-      if (Object.keys(configPayload).length > 0) {
-        fetch(`${BASE}/api/llm/config`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(configPayload),
-        }).catch(() => {})
-      }
       fetch(`${BASE}/api/setup/status`)
         .then(r => r.json())
         .then((status: unknown) => { localStorage.setItem('nexus-setup-status', JSON.stringify(status)) })

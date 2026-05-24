@@ -142,10 +142,41 @@ Deno.serve(async (req) => {
         break
       }
 
-      case 'tavily_search': {
+      case 'tavily_search':
+      case 'tavily_search_domain': {
         const res = await fetch('https://api.tavily.com/search', {
           method: 'POST',
           headers: { Authorization: `Bearer ${TAVILY_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        result = await res.json()
+        break
+      }
+
+      case 'vision_analyze': {
+        // Groq Vision (llama-4-scout-17b — 멀티모달)
+        const { model, messages, max_tokens } = payload as {
+          model: string
+          messages: unknown[]
+          max_tokens: number
+        }
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages, max_tokens }),
+        })
+        result = await res.json()
+        break
+      }
+
+      case 'claude_vision': {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': CLAUDE_KEY,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
           body: JSON.stringify(payload),
         })
         result = await res.json()

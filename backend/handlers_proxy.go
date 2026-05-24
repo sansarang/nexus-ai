@@ -150,11 +150,24 @@ func callGroqViaProxy(msgs []groqMsg, maxTokens int, jsonMode bool) (string, err
 
 // callTavilyViaProxy: Edge Function을 통해 Tavily 검색
 func callTavilyViaProxy(query string, maxResults int) (tavilyResult, bool) {
-	pr, err := callProxy("tavily_search", map[string]interface{}{
+	return callTavilyDomainViaProxy(query, maxResults, "")
+}
+
+// callTavilyDomainViaProxy: 도메인 필터 포함 Tavily 검색
+func callTavilyDomainViaProxy(query string, maxResults int, domain string) (tavilyResult, bool) {
+	payload := map[string]interface{}{
 		"query":        query,
 		"max_results":  maxResults,
 		"search_depth": "basic",
-	})
+	}
+	if domain != "" {
+		payload["include_domains"] = []string{domain}
+	}
+	action := "tavily_search"
+	if domain != "" {
+		action = "tavily_search_domain"
+	}
+	pr, err := callProxy(action, payload)
 	if err != nil {
 		return tavilyResult{}, false
 	}
@@ -181,6 +194,48 @@ func callTavilyViaProxy(query string, maxResults int) (tavilyResult, bool) {
 		})
 	}
 	return res, true
+}
+
+// callVisionViaProxy: Edge Function을 통해 이미지 분석 (Groq Vision)
+func callVisionViaProxy(b64img, question, lang string) (string, error) {
+	if question == "" {
+		if lang == "en" {
+			question = "What is on this screen? Describe the main content and notable elements."
+		} else {
+			question = "이 화면에 무엇이 있나요? 주요 내용을 설명해주세요."
+		}
+	}
+	systemMsg := "화면 캡처를 분석하는 AI 비서입니다."
+	if lang == "en" {
+		systemMsg = "You are an AI assistant analyzing screen captures."
+	}
+	payload := map[string]interface{}{
+		"model":      groqVisionModel,
+		"max_tokens": 1024,
+		"messages": []map[string]interface{}{
+			{"role": "system", "content": systemMsg},
+			{"role": "user", "content": []map[string]interface{}{
+				{"type": "text", "text": question},
+				{"type": "image_url", "image_url": map[string]string{
+					"url": "data:image/png;base64," + b64img,
+				}},
+			}},
+		},
+	}
+	pr, err := callProxy("vision_analyze", payload)
+	if err != nil {
+		return "", err
+	}
+	raw, _ := json.Marshal(pr.Result)
+	var gr struct {
+		Choices []struct {
+			Message struct{ Content string `json:"content"` } `json:"message"`
+		} `json:"choices"`
+	}
+	if json.Unmarshal(raw, &gr) != nil || len(gr.Choices) == 0 {
+		return "", fmt.Errorf("vision proxy 응답 파싱 실패")
+	}
+	return gr.Choices[0].Message.Content, nil
 }
 
 // requireAuth: 인증 필요 엔드포인트 — JWT 없으면 401

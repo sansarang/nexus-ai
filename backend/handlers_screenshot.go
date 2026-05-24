@@ -45,6 +45,11 @@ $bmp.Dispose()
 }
 
 func analyzeImageWithGroqVision(b64img, question, lang string) (string, error) {
+	// 1순위: Supabase Edge Function 프록시
+	if content, err := callVisionViaProxy(b64img, question, lang); err == nil {
+		return content, nil
+	}
+	// 2순위: 로컬 Groq 키 직접 호출
 	llmMu.RLock()
 	gKey := llmGroqKey
 	llmMu.RUnlock()

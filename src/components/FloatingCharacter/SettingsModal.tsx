@@ -12,17 +12,12 @@ interface SettingsModalProps {
 export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProps) {
   const { micEnabled, setMicEnabled, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut } = useAppStore()
   const [clarifyAutoMic, setClarifyAutoMic] = useState(localStorage.getItem('nexus-clarify-auto-mic') !== 'false')
-  const [groqKey,     setGroqKey]     = useState(localStorage.getItem('nexus-groq-key') ?? '')
-  const [pplxKey,     setPplxKey]     = useState(localStorage.getItem('nexus-pplx-key') ?? '')
   const [openaiKey,   setOpenaiKey]   = useState(localStorage.getItem('nexus-openai-key') ?? '')
-  const [groqStatus,  setGroqStatus]  = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle')
   const [ollamaUrl,   setOllamaUrl]   = useState(localStorage.getItem('nexus-ollama-url') ?? 'http://localhost:11434')
   const [emailTo,           setEmailTo]           = useState(localStorage.getItem('nexus-report-email') ?? '')
   const [customInstructions, setCustomInstructions] = useState(localStorage.getItem('nexus-custom-instructions') ?? '')
   const [saved,             setSaved]             = useState(false)
   const [tab,         setTab]         = useState<'account' | 'ai' | 'email' | 'about'>('account')
-  const [pplxStatus,  setPplxStatus]  = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle')
-
   const subLabel = {
     active:  { text: '구독 중', color: '#4ade80' },
     trial:   { text: '7일 무료 체험 중', color: '#facc15' },
@@ -34,37 +29,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     ? new Date(subscriptionExpiry).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
 
-  const testGroq = async () => {
-    const key = groqKey.trim()
-    if (!key) return
-    setGroqStatus('testing')
-    try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [{ role: 'user', content: 'hi' }],
-          max_tokens: 5,
-        }),
-      })
-      setGroqStatus(res.ok ? 'ok' : 'fail')
-    } catch {
-      setGroqStatus('fail')
-    }
-    setTimeout(() => setGroqStatus('idle'), 3000)
-  }
-
   const save = () => {
-    // Groq 키 저장 (핵심 AI)
-    const gKey = groqKey.trim()
-    if (gKey) localStorage.setItem('nexus-groq-key', gKey)
-    else      localStorage.removeItem('nexus-groq-key')
-
-    const key = pplxKey.trim()
-    if (key) localStorage.setItem('nexus-pplx-key', key)
-    else     localStorage.removeItem('nexus-pplx-key')
-
     if (openaiKey.trim()) localStorage.setItem('nexus-openai-key', openaiKey.trim())
     else                  localStorage.removeItem('nexus-openai-key')
 
@@ -75,40 +40,15 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     if (customInstructions.trim()) localStorage.setItem('nexus-custom-instructions', customInstructions.trim())
     else localStorage.removeItem('nexus-custom-instructions')
 
-    // 백엔드에 API 키 즉시 동기화
+    // Ollama URL 백엔드 동기화
     fetch('http://127.0.0.1:17891/api/llm/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        groq_key: gKey || undefined,
-        perplexity_key: key || undefined,
-        claude_key: openaiKey.trim() || undefined,
-      }),
+      body: JSON.stringify({ ollama_url: ollamaUrl.trim() || undefined }),
     }).catch(() => {})
 
     setSaved(true)
     setTimeout(() => { setSaved(false); onClose() }, 1400)
-  }
-
-  const testPplx = async () => {
-    const key = pplxKey.trim()
-    if (!key) return
-    setPplxStatus('testing')
-    try {
-      const res = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({
-          model: 'sonar',
-          messages: [{ role: 'user', content: '안녕? 한 단어로만 대답해.' }],
-          max_tokens: 10,
-        }),
-      })
-      setPplxStatus(res.ok ? 'ok' : 'fail')
-    } catch {
-      setPplxStatus('fail')
-    }
-    setTimeout(() => setPplxStatus('idle'), 3000)
   }
 
   const inputStyle = (active: boolean): React.CSSProperties => ({
@@ -348,68 +288,15 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   </button>
                 </div>
 
-                {/* Groq API 키 (핵심 AI — 워크플로우/직업군/멀티에이전트/회의) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ ...labelStyle, color: '#f6e05e' }}>
-                      🔑 GROQ API KEY <span style={{ color: '#fc8181', fontSize: 10 }}>★ 필수</span> (워크플로우·직업군·회의·멀티에이전트)
-                    </label>
-                    <button onClick={testGroq} style={{
-                      padding: '2px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                      background: groqStatus === 'ok' ? 'rgba(72,187,120,0.3)'
-                        : groqStatus === 'fail' ? 'rgba(252,129,129,0.3)'
-                        : groqStatus === 'testing' ? 'rgba(237,137,54,0.3)'
-                        : 'rgba(255,255,255,0.08)',
-                      color: groqStatus === 'ok' ? '#68d391' : groqStatus === 'fail' ? '#fc8181' : '#a0aec0',
-                      fontSize: 11,
-                    }}>
-                      {groqStatus === 'testing' ? '⏳ 확인 중...' : groqStatus === 'ok' ? '✅ 연결됨' : groqStatus === 'fail' ? '❌ 실패' : '연결 테스트'}
-                    </button>
-                  </div>
-                  <input
-                    type="password"
-                    value={groqKey}
-                    onChange={e => setGroqKey(e.target.value)}
-                    placeholder="gsk_..."
-                    autoComplete="off"
-                    style={inputStyle(!!groqKey)}
-                  />
-                  <div style={{ fontSize: 10, color: '#4a5568' }}>
-                    무료 키 발급: https://console.groq.com
-                  </div>
-                </div>
-
-                {/* Perplexity API 키 (메인) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ ...labelStyle, color: '#f6ad55' }}>
-                      ⚡ PERPLEXITY API KEY (AI 검색 · 웹 실시간)
-                    </label>
-                    <button onClick={testPplx} style={{
-                      padding: '2px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                      background: pplxStatus === 'ok' ? 'rgba(72,187,120,0.3)'
-                        : pplxStatus === 'fail' ? 'rgba(252,129,129,0.3)'
-                        : pplxStatus === 'testing' ? 'rgba(237,137,54,0.3)'
-                        : 'rgba(255,255,255,0.08)',
-                      color: pplxStatus === 'ok' ? '#68d391' : pplxStatus === 'fail' ? '#fc8181' : '#a0aec0',
-                      fontSize: 11,
-                    }}>
-                      {pplxStatus === 'testing' ? '⏳ 확인 중...' : pplxStatus === 'ok' ? '✅ 연결됨' : pplxStatus === 'fail' ? '❌ 실패' : '연결 테스트'}
-                    </button>
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="password"
-                      value={pplxKey}
-                      onChange={e => setPplxKey(e.target.value)}
-                      placeholder="pplx-..."
-                      autoComplete="off"
-                      style={inputStyle(!!pplxKey)}
-                    />
-                  </div>
-                  <div style={{ fontSize: 10, color: '#4a5568' }}>
-                    https://www.perplexity.ai/settings/api 에서 키 발급
-                  </div>
+                {/* AI 서버 안내 */}
+                <div style={{
+                  background: 'rgba(72,187,120,0.08)', border: '1px solid rgba(72,187,120,0.2)',
+                  borderRadius: 10, padding: '10px 14px', fontSize: 11, color: '#68d391',
+                }}>
+                  ✅ AI 기능은 Nexus 서버에서 자동으로 제공됩니다.<br/>
+                  <span style={{ color: '#718096', marginTop: 4, display: 'block' }}>
+                    별도 API 키 입력 없이 구독만으로 모든 AI 기능이 활성화됩니다.
+                  </span>
                 </div>
 
                 {/* Ollama URL */}
@@ -451,7 +338,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   <div style={{ color: '#a0aec0', marginBottom: 4, fontWeight: 600 }}>⚡ AI 응답 우선순위</div>
                   {[
                     ['1위', 'Ollama 로컬', '완전 무료 · 오프라인', '#68d391'],
-                    ['2위', 'Perplexity API', '웹 검색 내장 · 실시간 정보', '#f6ad55'],
+                    ['2위', 'Nexus 서버', '구독 포함 · 키 불필요', '#f6ad55'],
                     ['3위', '내장 키워드', '항상 동작 · LLM 불필요', '#90cdf4'],
                   ].map(([rank, name, desc, color]) => (
                     <div key={rank} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0' }}>

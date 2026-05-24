@@ -34,7 +34,7 @@ func tavilySearch(apiKey, query string, maxItems int) (tavilyResult, bool) {
 	if res, ok := callTavilyViaProxy(query, maxItems); ok {
 		return res, true
 	}
-	// 2순위: 번들 키 직접 호출
+	// 2순위: 로컬 키 직접 호출
 	return tavilySearchDomain(apiKey, query, maxItems, "")
 }
 
@@ -71,6 +71,15 @@ func tavilySearchImages(apiKey, query string, maxItems int) ([]string, bool) {
 
 // 특정 도메인에서만 검색 (include_domains 사용)
 func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavilyResult, bool) {
+	// 1순위: Supabase Edge Function 프록시 (도메인 필터 포함)
+	if res, ok := callTavilyDomainViaProxy(query, maxItems, domain); ok {
+		return res, true
+	}
+	// 2순위: 로컬 키 직접 호출
+	return tavilySearchDomainDirect(apiKey, query, maxItems, domain)
+}
+
+func tavilySearchDomainDirect(apiKey, query string, maxItems int, domain string) (tavilyResult, bool) {
 	payload := map[string]any{
 		"api_key":      apiKey,
 		"query":        query,
