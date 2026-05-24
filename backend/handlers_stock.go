@@ -16,8 +16,12 @@ import (
 // ── 주식 관심 종목 저장 경로 ────────────────────────────────
 
 func stockWatchlistPath() string {
-	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, ".nexus")
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		home, _ := os.UserHomeDir()
+		appData = filepath.Join(home, "AppData", "Roaming")
+	}
+	dir := filepath.Join(appData, "Nexus")
 	os.MkdirAll(dir, 0755)
 	return filepath.Join(dir, "watchlist.json")
 }

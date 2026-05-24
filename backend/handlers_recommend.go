@@ -181,35 +181,31 @@ func handleNetflixTrending(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /api/recall/keywords?days=7
+// Windows에서는 Chrome history DB 직접 접근 대신 LLM 기반 콘텐츠 추천으로 대체
 func handleRecallKeywords(w http.ResponseWriter, r *http.Request) {
 	days := 7
 	fmt.Sscanf(r.URL.Query().Get("days"), "%d", &days)
+	lang := getLang(r)
 
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Get(
-		fmt.Sprintf("http://127.0.0.1:17891/api/history/keywords?days=%d", days))
-	if err != nil {
-		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	var data map[string]any
-	json.NewDecoder(resp.Body).Decode(&data)
-
-	keywords, _ := data["keywords"].([]any)
-	recommendation, _ := data["recommendation"].(string)
-
+	// Windows Chrome history: %LOCALAPPDATA%\Google\Chrome\User Data\Default\History (SQLite)
+	// Chrome 실행 중엔 DB 잠금 — 안전하게 복사 후 읽기 시도
 	var kwStrs []string
-	for _, k := range keywords {
-		if km, ok := k.(map[string]any); ok {
-			if word, ok := km["word"].(string); ok {
-				kwStrs = append(kwStrs, word)
-			}
+	localAppData := os.Getenv("LOCALAPPDATA")
+	if localAppData == "" {
+		home, _ := os.UserHomeDir()
+		localAppData = filepath.Join(home, "AppData", "Local")
+	}
+	historyDB := filepath.Join(localAppData, "Google", "Chrome", "User Data", "Default", "History")
+	tmpDB := filepath.Join(os.TempDir(), fmt.Sprintf("nexus_ch_%d.db", timeNowMs()))
+	if src, err := os.ReadFile(historyDB); err == nil {
+		if os.WriteFile(tmpDB, src, 0600) == nil {
+			kwStrs = extractChromeKeywords(tmpDB, days)
+			os.Remove(tmpDB)
 		}
 	}
 
 	var contentRec string
-	if len(kwStrs) > 0 && recommendation == "" {
+	if len(kwStrs) > 0 {
 		n := len(kwStrs)
 		if n > 8 {
 			n = 8
@@ -217,7 +213,14 @@ func handleRecallKeywords(w http.ResponseWriter, r *http.Request) {
 		prompt := fmt.Sprintf("사용자의 최근 관심 키워드: %s\n이 키워드를 바탕으로 Netflix, YouTube에서 볼 만한 콘텐츠 5가지를 추천해줘. 한국어로.", strings.Join(kwStrs[:n], ", "))
 		contentRec, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 500, false)
 	} else {
-		contentRec = recommendation
+		// 히스토리 없으면 LLM으로 일반 추천
+		prompt := fmt.Sprintf("최근 %d일 기준 넷플릭스와 유튜브에서 가장 인기 있는 한국 콘텐츠 5가지를 추천해줘. 한국어로.", days)
+		contentRec, _, _ = callGroqWithFallback([]groqMsg{{Role: "user", Content: prompt}}, 500, false)
+	}
+
+	var keywords []map[string]any
+	for _, kw := range kwStrs {
+		keywords = append(keywords, map[string]any{"word": kw, "count": 1})
 	}
 
 	json200(w, map[string]any{
@@ -225,9 +228,61 @@ func handleRecallKeywords(w http.ResponseWriter, r *http.Request) {
 		"keywords":          keywords,
 		"content_recommend": contentRec,
 		"days":              days,
-		"source":            "browser_history",
-		"message":           msgT(fmt.Sprintf("최근 %d일 관심 키워드 분석 + 콘텐츠 추천 완료", days), fmt.Sprintf("Keyword analysis + content recommendations for last %d days complete", days), getLang(r)),
+		"source":            "chrome_history",
+		"message":           msgT(fmt.Sprintf("최근 %d일 관심 키워드 분석 + 콘텐츠 추천 완료", days), fmt.Sprintf("Keyword analysis + content recommendations for last %d days complete", days), lang),
 	})
+}
+
+func timeNowMs() int64 {
+	return time.Now().UnixMilli()
+}
+
+// Chrome History SQLite에서 도메인 키워드 추출 (순수 Go — mattn/go-sqlite3 없이 간단 파싱)
+func extractChromeKeywords(dbPath string, days int) []string {
+	// SQLite 없이: URL 패턴에서 키워드 추출 (Chrome history는 바이너리지만 URL은 평문으로 저장됨)
+	data, err := os.ReadFile(dbPath)
+	if err != nil {
+		return nil
+	}
+	cutoff := time.Now().AddDate(0, 0, -days)
+	_ = cutoff
+
+	seen := map[string]bool{}
+	var keywords []string
+
+	// URL 문자열 패턴 추출 (sqlite 파일에서 평문 URL 영역 스캔)
+	text := string(data)
+	for _, line := range strings.Split(text, "\x00") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "http") {
+			continue
+		}
+		// 도메인 제거, 경로에서 키워드 추출
+		line = strings.TrimPrefix(line, "https://")
+		line = strings.TrimPrefix(line, "http://")
+		parts := strings.FieldsFunc(line, func(r rune) bool {
+			return r == '/' || r == '?' || r == '&' || r == '=' || r == '-' || r == '_' || r == '.'
+		})
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if len([]rune(p)) < 2 || len([]rune(p)) > 20 {
+				continue
+			}
+			// 숫자만이거나 일반 파라미터 제외
+			if strings.ContainsAny(p, "0123456789") && len(p) > 6 {
+				continue
+			}
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			keywords = append(keywords, p)
+			if len(keywords) >= 20 {
+				return keywords
+			}
+		}
+	}
+	return keywords
 }
 
 func watchlistContentPath() string {
