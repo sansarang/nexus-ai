@@ -583,11 +583,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             exit={{ opacity: 0, y: -20 }}
             style={{
               width: '100%', maxWidth: 620,
-              background: 'rgba(10,10,20,0.97)',
+              background: '#0d0f1a',
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: 24, overflow: 'hidden',
               boxShadow: `0 0 80px ${selectedStyle.primaryColor}22, 0 32px 80px rgba(0,0,0,0.6)`,
-              backdropFilter: 'blur(24px)',
               position: 'relative',
             }}
           >
@@ -844,12 +843,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             exit={{ opacity: 0, y: -20 }}
             style={{
               width: '100%', maxWidth: 620,
-              background: 'rgba(10,10,20,0.97)',
+              background: '#0d0f1a',
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: 24,
               overflow: 'hidden',
               boxShadow: `0 0 80px ${jobColor}22, 0 32px 80px rgba(0,0,0,0.6)`,
-              backdropFilter: 'blur(24px)',
               position: 'relative',
             }}
           >
