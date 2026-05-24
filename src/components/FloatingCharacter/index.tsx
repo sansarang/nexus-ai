@@ -1440,8 +1440,8 @@ export function FloatingCharacter() {
   ]
 
   if (!isOnboarded) {
-    // character 창(380px 위젯)에서는 온보딩 렌더링 안 함 — main 창에서만
-    if (window.location.pathname === '/character') return null
+    // character 창(380px 위젯)에서는 온보딩 렌더링 안 함 — main 창(760px)에서만
+    if (window.innerWidth <= 420) return null
     return <OnboardingFlow onComplete={handleOnboardingComplete} />
   }
 
