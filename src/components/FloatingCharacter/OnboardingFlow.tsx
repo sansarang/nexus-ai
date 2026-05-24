@@ -549,6 +549,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   return (
     <>
+      {/* 전체 배경 — 바탕화면 안 비치게 */}
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: '#080a12',
+        zIndex: 99990,
+      }} />
 
       {/* 닫기 버튼 — 우측 상단 고정 */}
       <button
