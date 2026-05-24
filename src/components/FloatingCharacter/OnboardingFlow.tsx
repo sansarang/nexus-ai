@@ -40,7 +40,7 @@ const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', '
 const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
 const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
-const STEPS_TOTAL = 5
+const STEPS_TOTAL = 6
 
 // ─── Generic demo sequences (Step 0) ────────────────────────────────────────
 const GENERIC_DEMOS_KO = [
@@ -227,7 +227,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const isEn                          = lang === 'en'
   const JOB_PERSONAS                  = isEn ? JOB_PERSONAS_EN : JOB_PERSONAS_KO
   const USER_NAMES                    = isEn ? USER_NAMES_EN : USER_NAMES_KO
-  const [step, setStep]               = useState(1)
+  const [step, setStep]               = useState(0)
   const [styleId, setStyleId]         = useState<RealisticStyleId>('kpop_star')
   const [assistantName, setName]      = useState(isEn ? 'Nexus' : '넥서스')
   const [nameInput, setNameInput]     = useState(isEn ? 'Nexus' : '넥서스')
@@ -489,11 +489,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em' }}>NEXUS SETUP</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{step} / {STEPS_TOTAL}</span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{step + 1} / {STEPS_TOTAL}</span>
       </div>
       <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }}>
         <motion.div
-          animate={{ width: `${(step / STEPS_TOTAL) * 100}%` }}
+          animate={{ width: `${((step + 1) / STEPS_TOTAL) * 100}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
           style={{
             height: '100%', borderRadius: 4,
@@ -617,15 +617,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             {/* 우주 캐릭터 + Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px 10px' }}>
-              <div style={{ flexShrink: 0, width: 90, height: 90 }}>
-                <Avatar3D
-                  emotion="happy" speaking={false} listening={false}
-                  glbUrl="/char_astronaut.glb"
-                  primaryColor="#6366f1" accentColor="#a855f7"
-                  preset={'kpop_star' as CharacterPreset} width={90} height={90}
-                  preview scale={0.7} characterOffsetY={-0.3} quality="balanced"
-                />
-              </div>
+              <div style={{
+                flexShrink: 0, width: 80, height: 80,
+                background: 'linear-gradient(135deg, #6366f122, #a855f722)',
+                border: '1.5px solid #6366f144',
+                borderRadius: 20,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 42,
+              }}>🚀</div>
               <div>
                 <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 4, fontWeight: 600 }}>NEXUS AI</div>
                 <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 3, lineHeight: 1.3 }}>
