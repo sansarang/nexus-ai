@@ -374,6 +374,31 @@ func main() {
 	mux.HandleFunc("POST /api/tiktok/search", handleTikTokSearch)
 	mux.HandleFunc("GET /api/tiktok/trending", handleTikTokTrending)
 	mux.HandleFunc("POST /api/tiktok/profile", handleTikTokProfile)
+	mux.HandleFunc("GET /api/tiktok/hot-songs", handleTikTokHotSongs)
+	mux.HandleFunc("POST /api/tiktok/songs-to-ytmusic", handleTikTokSongsToYTMusic)
+
+	// YouTube Music
+	mux.HandleFunc("POST /api/ytmusic/search", handleYTMusicSearch)
+	mux.HandleFunc("POST /api/ytmusic/playlist/add", handleYTMusicPlaylistAdd)
+
+	// 콘텐츠 추천
+	mux.HandleFunc("POST /api/recommend/content", handleContentRecommend)
+	mux.HandleFunc("GET /api/netflix/trending", handleNetflixTrending)
+	mux.HandleFunc("GET /api/recall/keywords", handleRecallKeywords)
+	mux.HandleFunc("GET /api/wishlist/content", handleContentWishlist)
+	mux.HandleFunc("POST /api/wishlist/content", handleContentWishlistAdd)
+
+	// 조건부 알림 트리거
+	mux.HandleFunc("POST /api/trigger/add", handleTriggerAdd)
+	mux.HandleFunc("GET /api/trigger/list", handleTriggerList)
+	mux.HandleFunc("DELETE /api/trigger/delete", handleTriggerDelete)
+	mux.HandleFunc("GET /api/trigger/events", handleTriggerEvents)
+
+	// 스케줄 자동 실행 (Cron)
+	mux.HandleFunc("POST /api/cron/add", handleCronAdd)
+	mux.HandleFunc("GET /api/cron/list", handleCronList)
+	mux.HandleFunc("DELETE /api/cron/delete", handleCronDelete)
+	mux.HandleFunc("POST /api/cron/run-now", handleCronRunNow)
 
 	// Reddit Intelligence
 	mux.HandleFunc("POST /api/reddit/search", handleRedditSearch)
@@ -412,6 +437,8 @@ func main() {
 	initScheduler()
 	initMemory()
 	initTaskQueue()
+	initCronEngine()
+	initTriggerEngine()
 	loadLLMConfig()
 	loadPersonaConfig()
 	loadBrainIndex()
