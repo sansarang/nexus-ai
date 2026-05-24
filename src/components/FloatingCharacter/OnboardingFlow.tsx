@@ -399,7 +399,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setGoogleLoading(true)
     try {
       const hint = localStorage.getItem('nexus-user-email') ?? undefined
-      await signInWithGoogle(undefined, hint)
+      await signInWithGoogle(() => {
+        const email = localStorage.getItem('nexus-user-email') || 'user@gmail.com'
+        setGoogleEmail(email)
+        setGoogleLoading(false)
+        setStep(5)
+      }, hint)
     } catch (e) {
       console.warn('Google OAuth failed, starting trial:', e)
       const trialExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -548,7 +553,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   )
 
   return (
-    <>
+    <div style={{ position: 'fixed', inset: 0, background: '#080a12', zIndex: 99995, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       {/* 닫기 버튼 — 우측 상단 고정 */}
       <button
         onClick={async () => {
@@ -1217,10 +1222,33 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
               {googleEmail
                 ? nextBtn(() => setStep(5), isEn ? 'Continue →' : '다음 →')
-                : <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
-                    {isEn ? 'Sign in with Google to continue' : '구글 로그인 후 계속 진행할 수 있습니다'}
-                  </div>
+                : <>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+                      {isEn ? 'Sign in with Google to continue' : '구글 로그인 후 계속 진행할 수 있습니다'}
+                    </div>
+                    {/* 기존 가입자 로그인 */}
+                    <button
+                      onClick={() => setShowAdminLogin(v => !v)}
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 0', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}
+                    >
+                      {isEn ? 'Already have an account? Log in' : '이미 계정이 있어요 → 로그인'}
+                    </button>
+                  </>
               }
+              {/* 로그아웃 버튼 (이미 로그인된 경우) */}
+              {googleEmail && (
+                <button
+                  onClick={async () => {
+                    const { signOut } = await import('../../lib/supabase')
+                    await signOut()
+                    setGoogleEmail('')
+                    localStorage.removeItem('nexus-user-email')
+                  }}
+                  style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 0', color: 'rgba(239,68,68,0.7)', fontSize: 13, cursor: 'pointer' }}
+                >
+                  {isEn ? 'Log out' : '로그아웃'}
+                </button>
+              )}
               {backBtn(() => setStep(3), isEn ? '← Change Plan' : '← 플랜 변경')}
             </div>
           </motion.div>
@@ -1377,7 +1405,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         )}
 
       </AnimatePresence>
-    </>
+    </div>
   )
 }
 
