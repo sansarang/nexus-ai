@@ -10,23 +10,26 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProps) {
-  const { micEnabled, setMicEnabled, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut } = useAppStore()
+  const { micEnabled, setMicEnabled, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut, userLang, setUserLang } = useAppStore()
   const [clarifyAutoMic, setClarifyAutoMic] = useState(localStorage.getItem('nexus-clarify-auto-mic') !== 'false')
   const [openaiKey,   setOpenaiKey]   = useState(localStorage.getItem('nexus-openai-key') ?? '')
   const [ollamaUrl,   setOllamaUrl]   = useState(localStorage.getItem('nexus-ollama-url') ?? 'http://localhost:11434')
-  const [emailTo,           setEmailTo]           = useState(localStorage.getItem('nexus-report-email') ?? '')
-  const [customInstructions, setCustomInstructions] = useState(localStorage.getItem('nexus-custom-instructions') ?? '')
-  const [saved,             setSaved]             = useState(false)
-  const [tab,         setTab]         = useState<'account' | 'ai' | 'email' | 'about'>('account')
+  const [emailTo,             setEmailTo]             = useState(localStorage.getItem('nexus-report-email') ?? '')
+  const [customInstructions,  setCustomInstructions]  = useState(localStorage.getItem('nexus-custom-instructions') ?? '')
+  const [saved,               setSaved]               = useState(false)
+  const [tab, setTab] = useState<'account' | 'ai' | 'email' | 'about'>('account')
+
+  const isEn = userLang === 'en'
+
   const subLabel = {
-    active:  { text: '구독 중', color: '#4ade80' },
-    trial:   { text: '7일 무료 체험 중', color: '#facc15' },
-    expired: { text: '구독 만료', color: '#f87171' },
-    none:    { text: '미가입', color: '#718096' },
+    active:  { text: isEn ? 'Active'          : '구독 중',          color: '#4ade80' },
+    trial:   { text: isEn ? '7-Day Free Trial' : '7일 무료 체험 중', color: '#facc15' },
+    expired: { text: isEn ? 'Expired'          : '구독 만료',        color: '#f87171' },
+    none:    { text: isEn ? 'Not subscribed'   : '미가입',           color: '#718096' },
   }[subscriptionStatus]
 
   const expiryFormatted = subscriptionExpiry
-    ? new Date(subscriptionExpiry).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+    ? new Date(subscriptionExpiry).toLocaleDateString(isEn ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
 
   const save = () => {
@@ -40,7 +43,6 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     if (customInstructions.trim()) localStorage.setItem('nexus-custom-instructions', customInstructions.trim())
     else localStorage.removeItem('nexus-custom-instructions')
 
-    // Ollama URL 백엔드 동기화
     fetch('http://127.0.0.1:17891/api/llm/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,6 +78,8 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     fontSize: 12, fontWeight: active ? 700 : 400,
     transition: 'all 0.15s',
   })
+
+  const assistantName = localStorage.getItem('nexus-assistant-name') ?? 'Nexus'
 
   return (
     <AnimatePresence>
@@ -120,20 +124,38 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 20 }}>⚙️</span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: 'rgba(255,255,255,0.95)' }}>
-                  Nexus 설정
+                  {isEn ? 'Settings' : 'Nexus 설정'}
                 </span>
               </div>
-              <button onClick={onClose} style={{
-                width: 28, height: 28, borderRadius: '50%', border: 'none',
-                background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
-                fontSize: 14, cursor: 'pointer',
-              }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* 언어 토글 */}
+                <div style={{ display: 'flex', gap: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 3 }}>
+                  {(['ko', 'en'] as const).map(l => (
+                    <button key={l} onClick={() => setUserLang(l)} style={{
+                      padding: '2px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                      background: userLang === l ? `${primaryColor}55` : 'transparent',
+                      color: userLang === l ? 'white' : 'rgba(255,255,255,0.35)',
+                      transition: 'all 0.15s',
+                    }}>
+                      {l === 'ko' ? '🇰🇷 KO' : '🇺🇸 EN'}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={onClose} style={{
+                  width: 28, height: 28, borderRadius: '50%', border: 'none',
+                  background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
+                  fontSize: 14, cursor: 'pointer',
+                }}>✕</button>
+              </div>
             </div>
 
             {/* 탭 */}
             <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 4 }}>
-              {([['account', '👤 계정'], ['ai', '🤖 AI 설정'], ['email', '📧 이메일'], ['about', 'ℹ️ 정보']] as const).map(([key, label]) => (
-                <button key={key} onClick={() => setTab(key)} style={tabStyle(tab === key)}>{label}</button>
+              {(isEn
+                ? [['account', '👤 Account'], ['ai', '🤖 AI'], ['email', '📧 Email'], ['about', 'ℹ️ About']] as const
+                : [['account', '👤 계정'], ['ai', '🤖 AI 설정'], ['email', '📧 이메일'], ['about', 'ℹ️ 정보']] as const
+              ).map(([key, label]) => (
+                <button key={key} onClick={() => setTab(key as typeof tab)} style={tabStyle(tab === key)}>{label}</button>
               ))}
             </div>
 
@@ -153,7 +175,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   }}>👤</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {userEmail || '로그인 필요'}
+                      {userEmail || (isEn ? 'Login required' : '로그인 필요')}
                     </div>
                     <div style={{ fontSize: 11, color: subLabel.color, marginTop: 3, fontWeight: 600 }}>
                       ● {subLabel.text}
@@ -168,11 +190,13 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                     background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
                     borderRadius: 10, padding: '12px 14px', fontSize: 12, color: '#fca5a5',
                   }}>
-                    ⚠️ 구독이 {subscriptionStatus === 'expired' ? '만료되었습니다' : '없습니다'}. 일부 AI 기능이 제한됩니다.
+                    {isEn
+                      ? `⚠️ Subscription ${subscriptionStatus === 'expired' ? 'has expired' : 'not active'}. Some AI features are restricted.`
+                      : `⚠️ 구독이 ${subscriptionStatus === 'expired' ? '만료되었습니다' : '없습니다'}. 일부 AI 기능이 제한됩니다.`}
                   </div>
                 )}
 
-                {/* 구독하기 버튼 — Paddle Checkout */}
+                {/* 구독하기 버튼 */}
                 {(subscriptionStatus === 'expired' || subscriptionStatus === 'none' || subscriptionStatus === 'trial') && (
                   <button
                     onClick={() => openCheckout(userEmail, localStorage.getItem('nexus-user-id') ?? undefined)}
@@ -182,11 +206,13 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                       color: 'white', fontSize: 14, fontWeight: 800,
                     }}
                   >
-                    💳 {subscriptionStatus === 'trial' ? '지금 구독하기' : '구독하기'} — 월 9,900원
+                    {isEn
+                      ? `💳 ${subscriptionStatus === 'trial' ? 'Subscribe Now' : 'Subscribe'} — $19/mo`
+                      : `💳 ${subscriptionStatus === 'trial' ? '지금 구독하기' : '구독하기'} — ₩14,900/월`}
                   </button>
                 )}
 
-                {/* 구독 관리 — Paddle 빌링 포털 */}
+                {/* 구독 관리 */}
                 {subscriptionStatus === 'active' && (
                   <button
                     onClick={() => openBillingPortal(userEmail)}
@@ -195,7 +221,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                       background: 'transparent', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer',
                     }}
                   >
-                    구독 관리 (결제수단 변경 · 해지)
+                    {isEn ? 'Manage Subscription (change payment · cancel)' : '구독 관리 (결제수단 변경 · 해지)'}
                   </button>
                 )}
 
@@ -208,17 +234,20 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                       background: 'rgba(248,113,113,0.06)', color: '#f87171', fontSize: 13, cursor: 'pointer',
                     }}
                   >
-                    로그아웃
+                    {isEn ? 'Log Out' : '로그아웃'}
                   </button>
                 )}
 
                 {/* 혜택 안내 */}
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: '12px 14px', fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.9 }}>
-                  <div style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700, marginBottom: 4 }}>구독 혜택</div>
-                  <div>✦ 모든 AI 기능 무제한</div>
-                  <div>✦ 실시간 웹 검색 (Perplexity)</div>
-                  <div>✦ 자동 업데이트</div>
-                  <div>✦ 언제든 해지 가능</div>
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700, marginBottom: 4 }}>
+                    {isEn ? 'Subscription Benefits' : '구독 혜택'}
+                  </div>
+                  <div>{isEn ? '✦ 2,000 AI requests/day (all features)' : '✦ 하루 2,000건 AI 요청 (모든 기능)'}</div>
+                  <div>{isEn ? '✦ Real-time web search (Perplexity)' : '✦ 실시간 웹 검색 (Perplexity)'}</div>
+                  <div>{isEn ? '✦ Screen analysis & translation' : '✦ 화면 분석 · 번역'}</div>
+                  <div>{isEn ? '✦ Automatic updates' : '✦ 자동 업데이트'}</div>
+                  <div>{isEn ? '✦ Cancel anytime' : '✦ 언제든 해지 가능'}</div>
                 </div>
               </div>
             )}
@@ -233,9 +262,13 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   padding: '12px 16px', marginBottom: 4,
                 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>🎙️ 음성 인식 (웨이크워드)</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>
+                      {isEn ? '🎙️ Voice Recognition (Wake Word)' : '🎙️ 음성 인식 (웨이크워드)'}
+                    </div>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                      {micEnabled ? `"${localStorage.getItem('nexus-assistant-name') ?? 'Nexus'}" 라고 부르면 활성화` : '비활성화 — 버튼으로만 사용'}
+                      {micEnabled
+                        ? (isEn ? `Say "${assistantName}" to activate` : `"${assistantName}" 라고 부르면 활성화`)
+                        : (isEn ? 'Disabled — button only' : '비활성화 — 버튼으로만 사용')}
                     </div>
                   </div>
                   <button
@@ -262,9 +295,11 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   padding: '12px 16px', marginBottom: 4,
                 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>🎤 질문 후 마이크 자동 시작</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>
+                      {isEn ? '🎤 Auto-mic after AI question' : '🎤 질문 후 마이크 자동 시작'}
+                    </div>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-                      AI가 되물을 때 자동으로 마이크 켜기
+                      {isEn ? 'Automatically open mic when AI asks back' : 'AI가 되물을 때 자동으로 마이크 켜기'}
                     </div>
                   </div>
                   <button
@@ -293,16 +328,18 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   background: 'rgba(72,187,120,0.08)', border: '1px solid rgba(72,187,120,0.2)',
                   borderRadius: 10, padding: '10px 14px', fontSize: 11, color: '#68d391',
                 }}>
-                  ✅ AI 기능은 Nexus 서버에서 자동으로 제공됩니다.<br/>
+                  {isEn ? '✅ AI features are provided automatically via Nexus server.' : '✅ AI 기능은 Nexus 서버에서 자동으로 제공됩니다.'}<br/>
                   <span style={{ color: '#718096', marginTop: 4, display: 'block' }}>
-                    별도 API 키 입력 없이 구독만으로 모든 AI 기능이 활성화됩니다.
+                    {isEn
+                      ? 'No API key needed — all AI features activate with your subscription.'
+                      : '별도 API 키 입력 없이 구독만으로 모든 AI 기능이 활성화됩니다.'}
                   </span>
                 </div>
 
                 {/* Ollama URL */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ ...labelStyle, color: '#68d391' }}>
-                    🦙 OLLAMA 서버 (로컬 무료 LLM · 우선순위 1위)
+                    {isEn ? '🦙 OLLAMA SERVER (local free LLM · priority #1)' : '🦙 OLLAMA 서버 (로컬 무료 LLM · 우선순위 1위)'}
                   </label>
                   <input
                     type="text"
@@ -312,14 +349,14 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                     style={inputStyle(true)}
                   />
                   <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                    Ollama 실행 중이면 비용 0원으로 오프라인 AI 사용 가능
+                    {isEn ? 'Use offline AI at zero cost when Ollama is running' : 'Ollama 실행 중이면 비용 0원으로 오프라인 AI 사용 가능'}
                   </span>
                 </div>
 
                 {/* OpenAI TTS */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ ...labelStyle, color: primaryColor }}>
-                    🎵 OPENAI API KEY (고품질 TTS · 선택)
+                    {isEn ? '🎵 OPENAI API KEY (high-quality TTS · optional)' : '🎵 OPENAI API KEY (고품질 TTS · 선택)'}
                   </label>
                   <input
                     type="password"
@@ -329,18 +366,24 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                     style={inputStyle(!!openaiKey)}
                   />
                   <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                    없으면 브라우저 기본 TTS 사용 (무료)
+                    {isEn ? 'Falls back to browser TTS if not set (free)' : '없으면 브라우저 기본 TTS 사용 (무료)'}
                   </span>
                 </div>
 
                 {/* AI 우선순위 안내 */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 12px', fontSize: 11 }}>
-                  <div style={{ color: '#a0aec0', marginBottom: 4, fontWeight: 600 }}>⚡ AI 응답 우선순위</div>
-                  {[
-                    ['1위', 'Ollama 로컬', '완전 무료 · 오프라인', '#68d391'],
-                    ['2위', 'Nexus 서버', '구독 포함 · 키 불필요', '#f6ad55'],
-                    ['3위', '내장 키워드', '항상 동작 · LLM 불필요', '#90cdf4'],
-                  ].map(([rank, name, desc, color]) => (
+                  <div style={{ color: '#a0aec0', marginBottom: 4, fontWeight: 600 }}>
+                    {isEn ? '⚡ AI Response Priority' : '⚡ AI 응답 우선순위'}
+                  </div>
+                  {(isEn ? [
+                    ['#1', 'Ollama Local',   'Fully free · offline',         '#68d391'],
+                    ['#2', 'Nexus Server',   'Subscription incl. · no key',  '#f6ad55'],
+                    ['#3', 'Built-in Logic', 'Always works · no LLM needed', '#90cdf4'],
+                  ] : [
+                    ['1위', 'Ollama 로컬',  '완전 무료 · 오프라인',      '#68d391'],
+                    ['2위', 'Nexus 서버',   '구독 포함 · 키 불필요',     '#f6ad55'],
+                    ['3위', '내장 키워드',  '항상 동작 · LLM 불필요',   '#90cdf4'],
+                  ]).map(([rank, name, desc, color]) => (
                     <div key={rank} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0' }}>
                       <span style={{ color, fontWeight: 700, minWidth: 28 }}>{rank}</span>
                       <span style={{ color: '#e2e8f0' }}>{name}</span>
@@ -355,12 +398,14 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
             {tab === 'ai' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <label style={{ ...labelStyle, color: '#b794f4' }}>
-                  🧠 Custom Instructions (나만의 AI 스타일 설정)
+                  {isEn ? '🧠 Custom Instructions (personalize AI style)' : '🧠 Custom Instructions (나만의 AI 스타일 설정)'}
                 </label>
                 <textarea
                   value={customInstructions}
                   onChange={e => setCustomInstructions(e.target.value)}
-                  placeholder={"예시:\n- 항상 bullet point로 정리해줘\n- 답변은 3줄 이내로\n- 요리 레시피는 재료표 먼저 보여줘\n- 코드는 항상 TypeScript로"}
+                  placeholder={isEn
+                    ? 'Examples:\n- Always use bullet points\n- Keep answers under 3 lines\n- Show ingredients table first for recipes\n- Always write code in TypeScript'
+                    : '예시:\n- 항상 bullet point로 정리해줘\n- 답변은 3줄 이내로\n- 요리 레시피는 재료표 먼저 보여줘\n- 코드는 항상 TypeScript로'}
                   rows={5}
                   style={{
                     ...inputStyle(!!customInstructions),
@@ -371,7 +416,9 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   }}
                 />
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                  여기에 입력한 내용은 모든 AI 답변에 자동으로 반영됩니다.
+                  {isEn
+                    ? 'These instructions are applied automatically to all AI responses.'
+                    : '여기에 입력한 내용은 모든 AI 답변에 자동으로 반영됩니다.'}
                 </span>
               </div>
             )}
@@ -380,7 +427,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
             {tab === 'email' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <label style={{ ...labelStyle, color: '#90cdf4' }}>
-                  📧 PC 건강 리포트 수신 이메일
+                  {isEn ? '📧 PC Health Report Email' : '📧 PC 건강 리포트 수신 이메일'}
                 </label>
                 <input
                   type="email"
@@ -390,11 +437,14 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   style={inputStyle(!!emailTo)}
                 />
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                  "PC 리포트 이메일로 보내줘" 명령 시 이 주소로 발송됩니다.
-                  이메일 전송에는 SMTP 설정이 필요합니다.
+                  {isEn
+                    ? '"Send PC report by email" command will deliver to this address. SMTP setup required.'
+                    : '"PC 리포트 이메일로 보내줘" 명령 시 이 주소로 발송됩니다. 이메일 전송에는 SMTP 설정이 필요합니다.'}
                 </span>
                 <div style={{ background: 'rgba(144,205,244,0.06)', borderRadius: 8, padding: '8px 10px', fontSize: 11, color: '#718096' }}>
-                  💡 Gmail 사용 시: 구글 계정 &gt; 보안 &gt; 앱 비밀번호에서 SMTP 비밀번호 발급
+                  {isEn
+                    ? '💡 Gmail: Google Account > Security > App Passwords to get SMTP password'
+                    : '💡 Gmail 사용 시: 구글 계정 > 보안 > 앱 비밀번호에서 SMTP 비밀번호 발급'}
                 </div>
               </div>
             )}
@@ -404,17 +454,26 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ textAlign: 'center', padding: '8px 0' }}>
                   <div style={{ fontSize: 32 }}>🤖</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#e2e8f0', marginTop: 4 }}>Nexus AI 비서</div>
-                  <div style={{ fontSize: 12, color: '#718096' }}>v2.5.0 — Perplexity 엔진</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#e2e8f0', marginTop: 4 }}>
+                    {isEn ? 'Nexus AI Assistant' : 'Nexus AI 비서'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#718096' }}>v2.5.0 — Perplexity {isEn ? 'engine' : '엔진'}</div>
                 </div>
-                {[
-                  ['AI 엔진', 'Perplexity (sonar-pro · 웹 검색 내장)'],
-                  ['Vision', '미지원'],
-                  ['로컬 AI', 'Ollama (선택)'],
-                  ['백엔드', 'Go + Windows API'],
+                {(isEn ? [
+                  ['AI Engine',  'Perplexity (sonar-pro · web search built-in)'],
+                  ['Vision',     'Not supported'],
+                  ['Local AI',   'Ollama (optional)'],
+                  ['Backend',    'Go + Windows API'],
+                  ['Frontend',   'React + Framer Motion'],
+                  ['Packaging',  'Tauri (.exe)'],
+                ] : [
+                  ['AI 엔진',    'Perplexity (sonar-pro · 웹 검색 내장)'],
+                  ['Vision',     '미지원'],
+                  ['로컬 AI',    'Ollama (선택)'],
+                  ['백엔드',     'Go + Windows API'],
                   ['프론트엔드', 'React + Framer Motion'],
-                  ['배포', 'Tauri (.exe)'],
-                ].map(([k, v]) => (
+                  ['배포',       'Tauri (.exe)'],
+                ]).map(([k, v]) => (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ color: '#718096' }}>{k}</span>
                     <span style={{ color: '#e2e8f0' }}>{v}</span>
@@ -445,11 +504,13 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                 transition: 'background 0.3s',
               }}
             >
-              {saved ? '✓ 저장됨!' : '💾 저장하기'}
+              {saved ? (isEn ? '✓ Saved!' : '✓ 저장됨!') : (isEn ? '💾 Save' : '💾 저장하기')}
             </motion.button>
 
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', margin: 0 }}>
-              키는 이 기기에만 저장되며 외부 서버로 전송되지 않습니다
+              {isEn
+                ? 'Keys are stored on this device only and never sent to external servers.'
+                : '키는 이 기기에만 저장되며 외부 서버로 전송되지 않습니다'}
             </p>
           </motion.div>
         </motion.div>

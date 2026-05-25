@@ -66,17 +66,20 @@ Deno.serve(async (req) => {
     const isActive = sub?.status === 'active' ||
       (sub?.status === 'trial' && sub?.current_period_end && new Date(sub.current_period_end) > new Date())
 
-    if (!isActive) {
+    // ── 3. 사용량 체크 ───────────────────────────────────────
+    const body = await req.json()
+    const { action, payload } = body
+
+    // 구독 미활성 + 프리미엄 액션 → 구독 필요
+    if (!isActive && PREMIUM_ACTIONS.has(action)) {
       return json({
-        error: '구독이 만료되었습니다. 요금제를 확인해주세요.',
+        error: '이 기능은 Pro 플랜 전용입니다. 업그레이드하면 바로 사용할 수 있어요.',
         code: 'subscription_expired',
       }, 402)
     }
 
-    // ── 3. 사용량 체크 ───────────────────────────────────────
-    const body = await req.json()
-    const { action, payload } = body
-    const tier = PREMIUM_ACTIONS.has(action) ? 'premium' : 'free'
+    // 구독 미활성이어도 무료 액션은 FREE 한도 내에서 허용
+    const tier = (isActive && PREMIUM_ACTIONS.has(action)) ? 'premium' : 'free'
     const limitCol = tier === 'premium' ? 'premium_count' : 'free_count'
     const dailyLimit = tier === 'premium' ? DAILY_PREMIUM_LIMIT : DAILY_FREE_LIMIT
 

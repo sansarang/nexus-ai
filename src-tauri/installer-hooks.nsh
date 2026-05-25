@@ -7,6 +7,12 @@
 
 !macro customInstall
 
+  ; ── 0. 기존 프로세스 강제 종료 (파일 잠금 방지) ──────────────────
+  DetailPrint "Stopping existing Nexus processes..."
+  nsExec::Exec 'taskkill /F /IM nexus.exe /T'
+  nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
+  Sleep 1000
+
   ; ── 1. Microsoft Visual C++ Redistributable 확인 ─────────────────
   DetailPrint "Checking Visual C++ Redistributable..."
   ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" "Installed"
