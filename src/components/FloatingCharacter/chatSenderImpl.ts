@@ -809,7 +809,9 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
         try {
           const auth = await getAuthHeader()
           const messages = [
-            { role: 'system', content: `당신은 Nexus AI 비서입니다. 사용자를 "주인님"으로 부르며 친절하게 답변하세요.` },
+            { role: 'system', content: detectedLang === 'en'
+              ? `You are Nexus AI, a helpful assistant. Answer naturally and helpfully in English.`
+              : `당신은 Nexus AI 비서입니다. 사용자를 "주인님"으로 부르며 친절하게 답변하세요.` },
             ...historyRef.current.slice(-6).map((t: { role: string; parts: Array<{ text: string }> }) => ({
               role: t.role === 'user' ? 'user' : 'assistant',
               content: t.parts[0]?.text ?? '',

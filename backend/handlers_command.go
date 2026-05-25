@@ -879,8 +879,11 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			// 페르소나 컨텍스트를 라우팅 프롬프트 앞에 주입
 			personaCtx := getPersonaSystemPrompt()
 			routingPrompt := nexusSystemPrompt
+			if lang == "en" {
+				routingPrompt = "Respond in English.\n\n" + routingPrompt
+			}
 			if personaCtx != "" {
-				routingPrompt = "▶ 현재 사용자 컨텍스트:\n" + personaCtx + "\n\n" + nexusSystemPrompt
+				routingPrompt = "▶ 현재 사용자 컨텍스트:\n" + personaCtx + "\n\n" + routingPrompt
 			}
 			intentMsgs := []groqMsg{{Role: "system", Content: routingPrompt}}
 			for _, h := range req.History {

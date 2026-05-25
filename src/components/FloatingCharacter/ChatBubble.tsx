@@ -1,6 +1,49 @@
 import { useEffect, useRef, useState, useCallback, useReducer, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split('\n')
+  const nodes: React.ReactNode[] = []
+  let codeBlock = false; let codeLines: string[] = []; let codeKey = 0
+
+  const inline = (line: string, k: number): React.ReactNode => {
+    const parts: React.ReactNode[] = []; let i = 0; let buf = ''
+    while (i < line.length) {
+      if (line[i] === '`' && line[i+1] !== '`') {
+        const end = line.indexOf('`', i+1)
+        if (end !== -1) { if (buf) parts.push(buf); buf = ''; parts.push(<code key={`c${i}`} style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 3, padding: '1px 4px', fontFamily: 'monospace', fontSize: 10.5 }}>{line.slice(i+1, end)}</code>); i = end+1; continue }
+      }
+      if (line[i] === '*' && line[i+1] === '*') {
+        const end = line.indexOf('**', i+2)
+        if (end !== -1) { if (buf) parts.push(buf); buf = ''; parts.push(<strong key={`b${i}`}>{line.slice(i+2, end)}</strong>); i = end+2; continue }
+      }
+      buf += line[i]; i++
+    }
+    if (buf) parts.push(buf)
+    return <span key={k}>{parts}</span>
+  }
+
+  lines.forEach((line, idx) => {
+    if (line.startsWith('```')) {
+      if (!codeBlock) { codeBlock = true; codeLines = [] }
+      else { const k = `code-${codeKey++}`; nodes.push(<pre key={k} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: '6px 10px', overflowX: 'auto', fontSize: 10.5, fontFamily: 'monospace', margin: '4px 0', lineHeight: 1.5 }}><code style={{ color: '#e2e8f0' }}>{codeLines.join('\n')}</code></pre>); codeBlock = false }
+      return
+    }
+    if (codeBlock) { codeLines.push(line); return }
+    if (!line.trim()) { nodes.push(<div key={idx} style={{ height: 4 }} />); return }
+    if (/^#{1,3}\s/.test(line)) {
+      const lv = line.match(/^(#+)/)?.[1].length ?? 1
+      nodes.push(<div key={idx} style={{ fontWeight: 700, fontSize: [13,12.5,12][Math.min(lv-1,2)], marginTop: 6, marginBottom: 2 }}>{line.replace(/^#+\s/, '')}</div>)
+      return
+    }
+    if (/^[-*]\s/.test(line)) { nodes.push(<div key={idx} style={{ display: 'flex', gap: 5, marginTop: 1 }}><span style={{ opacity: 0.5, flexShrink: 0 }}>•</span><span>{inline(line.replace(/^[-*]\s/, ''), idx)}</span></div>); return }
+    if (/^\d+\.\s/.test(line)) { const n = line.match(/^(\d+)/)?.[1]; nodes.push(<div key={idx} style={{ display: 'flex', gap: 5, marginTop: 1 }}><span style={{ opacity: 0.5, flexShrink: 0, minWidth: 14 }}>{n}.</span><span>{inline(line.replace(/^\d+\.\s/, ''), idx)}</span></div>); return }
+    if (line.startsWith('---') || line.startsWith('===')) { nodes.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '5px 0' }} />); return }
+    nodes.push(<div key={idx} style={{ lineHeight: 1.65, marginTop: 1 }}>{inline(line, idx)}</div>)
+  })
+  return nodes
+}
+
 const TYPING_MSGS_KO = ['생각하는 중...', '검색하는 중...', '답변 준비 중...', '분석하는 중...']
 const TYPING_MSGS_EN = ['Thinking...', 'Searching...', 'Preparing answer...', 'Analyzing...']
 
@@ -609,10 +652,10 @@ export function ChatBubble({
                       fontSize: 11.5,
                       color: 'rgba(255,255,255,0.9)',
                       lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap',
+                      whiteSpace: isUser ? 'pre-wrap' : 'normal',
                       wordBreak: 'break-word',
                     }}>
-                      {displayText}
+                      {isUser ? displayText : renderMarkdown(displayText)}
                       {isLong && (
                         <span
                           onClick={() => toggleExpand(msg.id)}

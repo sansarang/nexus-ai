@@ -734,12 +734,12 @@
       .features-grid { grid-template-columns: 1fr; }
       .strengths-grid { grid-template-columns: 1fr 1fr; }
       .trust-inner { gap: 28px; }
-      footer { flex-direction: column; text-align: center; padding: 32px 20px; }
+      footer { flex-direction: column; text-align: center; padding: 32px 20px; gap: 16px; }
+      .footer-links { justify-content: center; }
       .price-card.featured { transform: scale(1); }
       .persona-grid { grid-template-columns: repeat(2, 1fr); }
       .compare-table { font-size: 12px; min-width: 560px; }
       .compare-table th, .compare-table td { padding: 10px 8px; }
-      /* 데모 모바일: 사이드바 숨기고 버튼 가로 스크롤 */
       .demo-body { flex-direction: column; height: auto; }
       .demo-sidebar { width: 100%; flex-direction: row; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); overflow-x: auto; }
       .demo-avatar-zone { display: none; }
@@ -748,22 +748,26 @@
       .demo-btns { flex-direction: row; padding: 10px 12px; gap: 8px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
       .demo-btn { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 8px 10px; }
       .demo-messages { min-height: 200px; max-height: 260px; }
-      /* 가격 카드 모바일 */
       .pricing-grid { grid-template-columns: 1fr; }
       .btn-primary, .btn-secondary { min-height: 48px; font-size: 15px; padding: 14px 24px; }
       .btn-plan { min-height: 48px; }
       .section { padding: 64px 16px; }
+      .section-sub { font-size: 15px; }
+      .cta-final { padding: 80px 16px; }
     }
     @media (max-width: 480px) {
       .strengths-grid { grid-template-columns: 1fr; }
       .persona-grid { grid-template-columns: 1fr; }
+      .hero { padding: 80px 16px 60px; min-height: auto; }
       .hero-btns { flex-direction: column; align-items: stretch; }
       .hero h1 { letter-spacing: -1.5px; }
-      .trust-inner { gap: 20px; }
+      .trust-inner { gap: 16px; }
       .trust-num { font-size: 22px; }
+      .trust-label { font-size: 11px; }
       footer { padding: 28px 16px; }
-      .footer-links { gap: 14px; }
-      .cta-final { padding: 80px 16px; }
+      .footer-links { gap: 12px; }
+      .section { padding: 56px 12px; }
+      .cta-final { padding: 60px 12px; }
     }
   </style>
 </head>
