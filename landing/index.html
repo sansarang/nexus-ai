@@ -794,6 +794,47 @@
       .section { padding: 56px 12px; }
       .cta-final { padding: 60px 12px; }
     }
+
+    /* ── FLOATING ORBS ── */
+    .hero-orb { position:absolute; border-radius:50%; pointer-events:none; filter:blur(80px); will-change:transform; }
+    .hero-orb-1 { width:600px; height:600px; background:radial-gradient(circle, rgba(168,85,247,0.35) 0%, transparent 70%); top:-80px; left:-180px; animation:orbFloat1 14s ease-in-out infinite; }
+    .hero-orb-2 { width:450px; height:450px; background:radial-gradient(circle, rgba(236,72,153,0.3) 0%, transparent 70%); top:40%; right:-120px; animation:orbFloat2 18s ease-in-out infinite; }
+    .hero-orb-3 { width:350px; height:350px; background:radial-gradient(circle, rgba(6,182,212,0.25) 0%, transparent 70%); bottom:-60px; left:35%; animation:orbFloat3 11s ease-in-out infinite; }
+    @keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(70px,-50px) scale(1.08)} 66%{transform:translate(-40px,70px) scale(0.95)} }
+    @keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-90px,50px) scale(1.12)} }
+    @keyframes orbFloat3 { 0%,100%{transform:translate(0,0) scale(1)} 40%{transform:translate(60px,-35px) scale(1.06)} 80%{transform:translate(-25px,25px) scale(0.92)} }
+
+    /* ── CTA 버튼 SHIMMER ── */
+    .btn-primary { position:relative; overflow:hidden; }
+    .btn-primary::after { content:''; position:absolute; top:0; left:-120%; width:70%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); transform:skewX(-15deg); animation:btnShimmer 2.8s ease-in-out infinite; }
+    @keyframes btnShimmer { 0%{left:-120%} 55%,100%{left:160%} }
+
+    /* ── GRADIENT TEXT SHIMMER ── */
+    .hero h1 .grad { background:linear-gradient(135deg, var(--primary) 0%, var(--primary2) 30%, var(--accent) 60%, var(--primary) 100%); background-size:250% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation:gradShimmer 4s ease infinite; }
+    @keyframes gradShimmer { 0%{background-position:0% center} 50%{background-position:100% center} 100%{background-position:0% center} }
+
+    /* ── PRO 카드 PULSE GLOW ── */
+    .price-card.featured { animation:proGlow 3.5s ease-in-out infinite; }
+    @keyframes proGlow { 0%,100%{box-shadow:0 0 40px rgba(168,85,247,0.35), inset 0 1px 0 rgba(168,85,247,0.3)} 50%{box-shadow:0 0 90px rgba(168,85,247,0.7), 0 0 40px rgba(236,72,153,0.3), inset 0 1px 0 rgba(168,85,247,0.5)} }
+
+    /* ── SECTION LABEL SHIMMER ── */
+    .section-label { background:linear-gradient(90deg, var(--primary), var(--primary2), var(--accent), var(--primary)); background-size:300% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation:labelShimmer 5s linear infinite; }
+    @keyframes labelShimmer { 0%{background-position:0%} 100%{background-position:300%} }
+
+    /* ── 섹션별 reveal 클래스 ── */
+    .reveal-left { opacity:0; transform:translateX(-50px); transition:opacity 0.65s ease, transform 0.65s ease; }
+    .reveal-right { opacity:0; transform:translateX(50px); transition:opacity 0.65s ease, transform 0.65s ease; }
+    .reveal-scale { opacity:0; transform:scale(0.85); transition:opacity 0.55s ease, transform 0.55s cubic-bezier(0.34,1.56,0.64,1); }
+    .reveal-bounce { opacity:0; transform:translateY(40px); transition:opacity 0.5s ease, transform 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+    .reveal-done { opacity:1 !important; transform:none !important; }
+
+    /* ── 네이바 스크롤 강화 ── */
+    nav { transition:background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease; }
+    nav.scrolled { background:rgba(5,5,16,0.98) !important; box-shadow:0 8px 48px rgba(0,0,0,0.6) !important; border-bottom:1px solid rgba(168,85,247,0.35) !important; }
+
+    /* ── 통계 숫자 강조 ── */
+    .trust-num { transition:transform 0.1s ease; }
+    .trust-item:hover .trust-num { transform:scale(1.08); }
   </style>
   <!-- Vercel Web Analytics -->
   <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
@@ -828,6 +869,9 @@
 <!-- HERO -->
 <section class="hero">
   <div class="hero-glow"></div>
+  <div class="hero-orb hero-orb-1"></div>
+  <div class="hero-orb hero-orb-2"></div>
+  <div class="hero-orb hero-orb-3"></div>
   <div class="hero-badge"><span class="dot"></span> 2026 Early Access · Windows 10/11 전용</div>
   <div class="hero-pain" style="margin-bottom:20px;">
     😩 &nbsp;엑셀 정리·최저가 검색·메일 답장·보고서 작성 — 이 반복 업무들이 하루 <strong>2.4시간</strong>을 잡아먹습니다
@@ -2152,45 +2196,108 @@
     }
   }
 
-  // 카운트다운 타이머
+  // 카운트다운 타이머 (만료 시 자동 리셋)
   function startCountdown() {
     const key = 'nexus_earlybird_end'
     let end = localStorage.getItem(key)
-    if (!end) {
+    if (!end || parseInt(end) <= Date.now()) {
       end = Date.now() + 24 * 60 * 60 * 1000
       localStorage.setItem(key, end)
     }
     end = parseInt(end)
     function tick() {
       const diff = Math.max(0, end - Date.now())
+      if (diff === 0) {
+        end = Date.now() + 24 * 60 * 60 * 1000
+        localStorage.setItem(key, end)
+      }
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
       document.getElementById('cd-h').textContent = String(h).padStart(2,'0')
       document.getElementById('cd-m').textContent = String(m).padStart(2,'0')
       document.getElementById('cd-s').textContent = String(s).padStart(2,'0')
-      if (diff > 0) requestAnimationFrame(tick)
+      requestAnimationFrame(tick)
     }
     tick()
   }
   startCountdown()
 
-  // 스크롤 인트로 애니메이션
-  const observer = new IntersectionObserver((entries) => {
+  // ── 통계 숫자 카운트업 ──
+  function animateCountUp(el, targetText, duration) {
+    const match = targetText.match(/^([\d,]+)(.*)$/)
+    if (!match) return
+    const target = parseInt(match[1].replace(/,/g, ''))
+    const suffix = match[2]
+    const start = performance.now()
+    function step(now) {
+      const p = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - p, 3)
+      const val = Math.floor(eased * target)
+      el.textContent = val.toLocaleString('ko-KR') + suffix
+      if (p < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }
+  const countUpObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return
+      countUpObserver.unobserve(e.target)
+      const original = e.target.dataset.countTarget
+      if (original) animateCountUp(e.target, original, 1600)
+    })
+  }, { threshold: 0.6 })
+  document.querySelectorAll('.trust-num').forEach(el => {
+    const text = el.textContent.trim()
+    if (/^\d[\d,]*/.test(text)) {
+      el.dataset.countTarget = text
+      el.textContent = '0'
+      countUpObserver.observe(el)
+    }
+  })
+
+  // ── 섹션별 다른 reveal 애니메이션 ──
+  // feature-card: 왼쪽에서
+  document.querySelectorAll('.feature-card').forEach((el, i) => {
+    el.classList.add(i % 2 === 0 ? 'reveal-left' : 'reveal-right')
+  })
+  // strength-card: 오른쪽에서
+  document.querySelectorAll('.strength-card').forEach((el, i) => {
+    el.classList.add(i % 2 === 0 ? 'reveal-right' : 'reveal-left')
+  })
+  // persona-card: 스케일
+  document.querySelectorAll('.persona-card').forEach(el => {
+    el.classList.add('reveal-scale')
+  })
+  // pain-card: 바운스
+  document.querySelectorAll('.pain-card').forEach(el => {
+    el.classList.add('reveal-bounce')
+  })
+  // price-card: 스케일
+  document.querySelectorAll('.price-card').forEach(el => {
+    el.classList.add('reveal-scale')
+  })
+  // step, testi-card: 기본 bounce
+  document.querySelectorAll('.step, .testi-card').forEach(el => {
+    el.classList.add('reveal-bounce')
+  })
+
+  const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach(e => {
       if (e.isIntersecting) {
-        e.target.style.opacity = '1'
-        e.target.style.transform = 'translateY(0)'
-        observer.unobserve(e.target)
+        const delay = e.target.dataset.revealDelay || 0
+        setTimeout(() => e.target.classList.add('reveal-done'), delay)
+        revealObserver.unobserve(e.target)
       }
     })
   }, { threshold: 0.08 })
 
-  document.querySelectorAll('.feature-card, .strength-card, .step, .price-card, .testi-card, .persona-card, .pain-card').forEach(el => {
-    el.style.opacity = '0'
-    el.style.transform = 'translateY(28px)'
-    el.style.transition = 'opacity 0.55s ease, transform 0.55s ease'
-    observer.observe(el)
+  document.querySelectorAll('.reveal-left, .reveal-right, .reveal-scale, .reveal-bounce').forEach((el, i) => {
+    // 그리드 내 순서에 따라 stagger delay
+    const siblings = el.parentElement ? [...el.parentElement.children].filter(c => c.classList.contains(el.classList[0])) : []
+    const idx = siblings.indexOf(el)
+    el.dataset.revealDelay = idx * 80
+    revealObserver.observe(el)
   })
 
   // GA4
@@ -2202,15 +2309,15 @@
     })
   })
 
-  // 네비 스크롤 하이라이트
+  // ── 네비바 스크롤 효과 강화 ──
   window.addEventListener('scroll', () => {
     const nav = document.querySelector('nav')
     if (window.scrollY > 60) {
-      nav.style.boxShadow = '0 4px 32px rgba(0,0,0,0.4)'
+      nav.classList.add('scrolled')
     } else {
-      nav.style.boxShadow = 'none'
+      nav.classList.remove('scrolled')
     }
-  })
+  }, { passive: true })
 </script>
 
 <!-- EXIT INTENT EMAIL CAPTURE -->
