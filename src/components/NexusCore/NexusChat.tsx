@@ -55,6 +55,7 @@ const PERSONA_META: Record<string, { emoji: string; name: string; color: string 
   hr:         { emoji: '👥', name: 'HR',         color: '#8b5cf6' },
   engineer:   { emoji: '⚙️', name: '엔지니어',  color: '#10b981' },
   smallbiz:   { emoji: '🏪', name: '소상공인',   color: '#f97316' },
+  corporate:  { emoji: '🏢', name: '기업/법인',  color: '#0ea5e9' },
   investor:   { emoji: '📈', name: '투자',       color: '#22c55e' },
   general:    { emoji: '🌟', name: '일반',       color: '#ec4899' },
   nexus:      { emoji: '🤖', name: 'Nexus',      color: '#7c3aed' },

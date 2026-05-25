@@ -91,7 +91,9 @@ const JOB_PERSONAS_KO = [
   { id: 'teacher',    emoji: '📚', name: '교사 / 강사',             desc: '교육부 공지·수능일정·EBS 콘텐츠', color: '#0ea5e9', proFeature: null, proLabel: null },
   { id: 'hr',         emoji: '👥', name: 'HR / 인사 담당자',        desc: '채용뉴스·최저임금·워크넷 공고', color: '#8b5cf6', proFeature: null, proLabel: null },
   { id: 'engineer',   emoji: '⚙️', name: '엔지니어 / 제조업',      desc: '산업뉴스·원자재시세·KS규격', color: '#10b981', proFeature: null, proLabel: null },
-  { id: 'general',    emoji: '🌟', name: '일반 사용자',             desc: '날씨·뉴스·해커뉴스 토픽', color: '#ec4899', proFeature: null, proLabel: null },
+  { id: 'smallbiz',  emoji: '🏪', name: '소상공인 / 자영업자',     desc: '배달앱·카드수수료·지원정책·사업자 조회', color: '#f97316', proFeature: null, proLabel: null },
+  { id: 'corporate', emoji: '🏢', name: '기업 / 법인',             desc: '법인세·4대보험·세금계산서·계약 관리', color: '#0ea5e9', proFeature: null, proLabel: null },
+  { id: 'general',   emoji: '🌟', name: '일반 사용자',             desc: '날씨·뉴스·해커뉴스 토픽', color: '#ec4899', proFeature: null, proLabel: null },
 ]
 
 const JOB_PERSONAS_EN = [
@@ -104,7 +106,9 @@ const JOB_PERSONAS_EN = [
   { id: 'teacher',    emoji: '📚', name: 'Teacher / Instructor',        desc: 'Education news · Exam schedule · Resources', color: '#0ea5e9', proFeature: null, proLabel: null },
   { id: 'hr',         emoji: '👥', name: 'HR / Recruiter',              desc: 'Hiring news · Min wage · Job postings', color: '#8b5cf6', proFeature: null, proLabel: null },
   { id: 'engineer',   emoji: '⚙️', name: 'Engineer / Manufacturing',   desc: 'Industry news · Metal prices · ISO standards', color: '#10b981', proFeature: null, proLabel: null },
-  { id: 'general',    emoji: '🌟', name: 'General User',                desc: 'Weather · News · Hacker News topics', color: '#ec4899', proFeature: null, proLabel: null },
+  { id: 'smallbiz',  emoji: '🏪', name: 'Small Business / Self-Employed', desc: 'Delivery apps · Card fees · Gov. support · Biz lookup', color: '#f97316', proFeature: null, proLabel: null },
+  { id: 'corporate', emoji: '🏢', name: 'Corporate / Legal Entity',    desc: 'Corporate tax · Insurance · Invoices · Contract mgmt', color: '#0ea5e9', proFeature: null, proLabel: null },
+  { id: 'general',   emoji: '🌟', name: 'General User',                desc: 'Weather · News · Hacker News topics', color: '#ec4899', proFeature: null, proLabel: null },
 ]
 
 // ─── Job-specific WOW demos ───────────────────────────────────────────────────
@@ -156,6 +160,16 @@ const JOB_DEMOS: Record<string, { query: string; steps: string[]; result: string
     query: '오늘 산업 뉴스랑 원자재 시세 알려줘',
     steps: ['⚙️ 산업·제조 뉴스 수집 중...', '📦 원자재 시세 조회 중...', '📐 KS/ISO 규격 업데이트 확인 중...'],
     result: '⚙️ 오늘의 엔지니어링 브리핑\n\n📰 산업·제조 뉴스\n• 반도체 후공정 자동화 투자 급증\n  패키징 공정 로봇화 2025년 40% 확대\n• 탄소중립 공정 전환 보조금 신청 시작\n  중소 제조업 최대 5억원 지원\n\n📦 원자재 시세\n철강(열연) ₩750,000/톤 ▲+1.2%\n구리(LME) $9,850/톤 ▲+0.8%\n알루미늄 $2,420/톤 ▼-0.3%\n\n📐 KS/ISO 업데이트\n• KS B ISO 9001:2025 개정 준비 중\n• 전기차 배터리 안전규격 KS C 신설\n\n💡 핵심: 탄소중립 보조금 신청 기한 확인하세요!',
+  },
+  smallbiz: {
+    query: '사업자등록번호 123-45-67890 조회해줘',
+    steps: ['🏪 국세청 사업자 조회 중...', '📋 사업자 상태 확인 중...', '💰 지원정책 검색 중...'],
+    result: '🏪 사업자 조회 결과\n\n✅ 사업자 상태: 계속사업자 (정상)\n📌 사업자번호: 123-45-67890\n🏢 업태: 음식점업 / 업종: 한식\n👤 대표자명: 홍길동\n📍 사업장: 서울특별시 강남구\n\n💳 카드수수료 현황\n• 영세: 0.5% / 중소: 1.1% (연매출 기준)\n• 배민 수수료: 6.8% · 쿠팡이츠: 9.8%\n\n🏛️ 이번 달 지원정책\n• 소상공인 경영개선 자금 (최대 2천만원)\n• 배달앱 수수료 환급 신청 6/30 마감\n\n💡 배달앱 수수료 환급 놓치지 마세요!',
+  },
+  corporate: {
+    query: '법인 세금계산서 발행하고 이번 달 법인세 일정 알려줘',
+    steps: ['🏢 법인세 일정 조회 중...', '🧾 전자세금계산서 확인 중...', '📊 4대보험 공제액 계산 중...'],
+    result: '🏢 법인 세무 브리핑\n\n📅 이번 달 법인 일정\n• 법인세 중간예납 (8/31 마감)\n• 부가세 1기 확정신고 (7/25 마감)\n• 전자세금계산서 발급 기한: 익월 10일\n\n🧾 세금계산서 현황 (이번 달)\n발행: 47건 / 수취: 23건\n불일치 의심: 2건 → 즉시 확인 필요 ⚠️\n\n👥 4대보험 공제액 (직원 10인 기준)\n국민연금: ₩1,240,000\n건강보험: ₩892,000\n고용보험: ₩178,000\n\n💡 부가세 신고까지 D-29일!',
   },
   general: {
     query: '오늘 날씨랑 주요 뉴스 알려줘',
@@ -212,6 +226,16 @@ const JOB_DEMOS_EN: Record<string, { query: string; steps: string[]; result: str
     query: "Today's industry news and metal prices",
     steps: ['⚙️ Fetching industry & manufacturing news...', '📦 Fetching raw material prices...', '📐 Checking ISO standards updates...'],
     result: "⚙️ Engineering Briefing\n\n📰 Industry News\n• US manufacturing PMI 52.3 — expansion continues\n• EV battery production capacity up 35% YoY\n• Semiconductor supply chain normalizing by Q4\n\n📦 Raw Material Prices\nSteel (HRC) $680/ton ▲+1.2%\nCopper (LME) $9,850/ton ▲+0.8%\nAluminum $2,420/ton ▼-0.3%\n\n📐 Standards Updates\n• ISO 9001:2025 revision in progress\n• ASME B31.3 process piping code updated\n\n💡 Key: Copper prices rising — plan procurement now",
+  },
+  smallbiz: {
+    query: 'Look up business number 123-45-67890',
+    steps: ['🏪 Querying NTS business registry...', '📋 Checking business status...', '💰 Searching support programs...'],
+    result: '🏪 Business Lookup Result\n\n✅ Status: Active Business\n📌 Reg. No.: 123-45-67890\n🏢 Type: Food & Beverage / Korean Cuisine\n👤 Owner: Hong Gil-dong\n📍 Location: Gangnam-gu, Seoul\n\nNote: For non-Korean businesses, visit your country\'s official business registry.\n\n💡 Check your local government\'s small business support programs!',
+  },
+  corporate: {
+    query: 'Show this month\'s corporate tax schedule and invoice status',
+    steps: ['🏢 Fetching corporate tax deadlines...', '🧾 Checking e-invoice status...', '📊 Calculating payroll deductions...'],
+    result: "🏢 Corporate Tax Briefing\n\n📅 This Month's Deadlines\n• Corporate interim tax payment (Aug 31)\n• VAT Q1 final return (Jul 25)\n• E-invoice issuance: by 10th of next month\n\n🧾 Invoice Status (This Month)\nIssued: 47 / Received: 23\n⚠️ 2 discrepancies found → Review required\n\n👥 Payroll Deductions (10 employees)\nPension: ₩1,240,000\nHealth: ₩892,000\nEmployment: ₩178,000\n\n💡 VAT filing in 29 days!",
   },
   general: {
     query: "What's today's weather and top news?",

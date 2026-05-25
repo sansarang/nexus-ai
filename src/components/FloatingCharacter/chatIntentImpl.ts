@@ -846,7 +846,8 @@ export async function handleBackendIntentImpl(
             hr:         `${query} 채용 인사 노동법 면접`,
             developer:  `${query} 코드 개발 GitHub 프레임워크`,
             engineer:   `${query} 설계 규격 공정 KS ISO`,
-            smallbiz:   `${query} 소상공인 배달앱 재고 원가 지원정책`,
+            smallbiz:   `${query} 소상공인 배달앱 재고 원가 지원정책 사업자`,
+            corporate:  `${query} 법인 세금계산서 법인세 4대보험 계약`,
             investor:   `${query} 주식 투자 종목 ETF PER ROE`,
             general:    query,
           }
@@ -866,6 +867,7 @@ export async function handleBackendIntentImpl(
             developer:  { icon: '💻', label: '개발 파일 검색' },
             engineer:   { icon: '⚙️', label: '기술 문서 검색' },
             smallbiz:   { icon: '🏪', label: '소상공인 자료 검색' },
+            corporate:  { icon: '🏢', label: '법인·세무 문서 검색' },
             investor:   { icon: '📈', label: '투자·종목 문서 검색' },
             general:    { icon: '🔍', label: '파일 심층 검색' },
           }

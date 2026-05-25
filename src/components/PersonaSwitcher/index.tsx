@@ -18,6 +18,8 @@ const PERSONAS: PersonaDef[] = [
   { id: 'pm',         name: 'PM / 기획자',            emoji: '📋', description: '문서 요약·로드맵·의사결정',    color: '#0ea5e9' },
   { id: 'designer',   name: '디자이너 / 크리에이터',  emoji: '🎨', description: '레퍼런스·파일 정리·콘텐츠',   color: '#ec4899' },
   { id: 'freelancer', name: '프리랜서 / 1인 사업자',  emoji: '🚀', description: '견적·클라이언트·세금·효율',   color: '#8b5cf6' },
+  { id: 'smallbiz',  name: '소상공인 / 자영업자',    emoji: '🏪', description: '배달앱·카드수수료·지원정책',   color: '#f97316' },
+  { id: 'corporate', name: '기업 / 법인',            emoji: '🏢', description: '법인세·4대보험·세금계산서',    color: '#0ea5e9' },
 ]
 
 interface Props {

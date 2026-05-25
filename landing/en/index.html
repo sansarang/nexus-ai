@@ -1514,6 +1514,8 @@
       '📚 Teacher → Curriculum notices + exam schedule briefing',
       '👥 HR → Job postings + wage update digest',
       '⚙️ Engineer → Raw material prices + standard specs digest',
+      '🏪 Small Biz → Delivery fees + gov. support grants',
+      '🏢 Corporate → Corp. tax calendar + invoice tracking',
     ]
     const el = document.getElementById('hero-rotating-tagline')
     if (!el) return
@@ -1934,6 +1936,14 @@
       q:'Today\'s industry news + commodity prices',
       steps:['⚙️ Industrial news...','📦 Commodity prices...'],
       a:'⚙️ Engineering Briefing\n\n📰 Industry News\n• Semiconductor back-end automation +40% YoY\n• DOE EV battery grant applications open\n\n📦 Commodity Prices\nSteel (HRC) $720/ton ▲+1.1%\nCopper (LME) $9,850/ton ▲+0.8%\nAluminum $2,480/ton ▼-0.3%\n\n💡 Check DOE grant deadline: June 30' },
+    { emoji:'🏪', name:'Small Business / Self-Employed', desc:'Delivery fees · Support grants · Biz lookup', tasks:'Auto Briefing',
+      q:'Look up business number 123-45-67890',
+      steps:['🏪 Querying business registry...','💳 Checking fee rates...','🏛️ Finding support grants...'],
+      a:'🏪 Business Lookup\n\n✅ Status: Active Business\n📌 Reg No: 123-45-67890\n🏢 Type: Food & Beverage\n\n📍 Korean users: NTS real-time verification\n🌍 Non-KR: Visit your country\'s official registry\n\n🏛️ Support This Month\n• Small Biz Improvement Fund (up to ₩20M)\n• Delivery fee rebate — apply by Jun 30\n\n💡 Don\'t miss the rebate deadline!' },
+    { emoji:'🏢', name:'Corporate / Legal Entity', desc:'Corp. tax · Payroll · Invoices · Contracts', tasks:'Auto Briefing',
+      q:'This month\'s corporate tax schedule + invoice status',
+      steps:['🏢 Corporate tax deadlines...','🧾 E-invoice status...','👥 Payroll deductions...'],
+      a:'🏢 Corporate Briefing\n\n📅 Deadlines This Month\n• Corporate interim tax (Aug 31)\n• VAT Q1 final return (Jul 25)\n• E-invoice: issue by 10th of next month\n\n🧾 Invoice Status\nIssued: 47 / Received: 23\n⚠️ 2 discrepancies → review needed\n\n👥 Payroll Deductions (10 staff)\nPension ₩1,240,000 · Health ₩892,000\n\n💡 VAT filing in 29 days!' },
     { emoji:'🌟', name:'General User', desc:'Weather · News · Daily briefing', tasks:'Auto Briefing',
       q:'Today\'s weather + top news headlines',
       steps:['🌤️ Fetching weather...','📰 Top news...'],

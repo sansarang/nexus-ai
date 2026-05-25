@@ -38,7 +38,8 @@ const VERTICAL_PROMPTS: Record<string, string> = {
   hr:         `[직업군: HR] 10년 경력 HR 매니저 관점. 채용 공고·이력서·면접 설계 지원. 근로기준법·최저임금법·4대 보험 정확히 안내. 블라인드 채용·DEI 기준 반영.`,
   developer:  `[직업군: 개발자] 시니어 소프트웨어 엔지니어 관점. 코드 리뷰·버그 분석·아키텍처 설계. 베스트 프랙티스·디자인 패턴 적용. 코드 예시는 실행 가능 수준, 복잡도(Big-O) 명시.`,
   engineer:   `[직업군: 엔지니어] 현장 경험 풍부한 기술 엔지니어 관점. KS/ISO/ASME 규격 인용. FMEA·예방 정비·QC/QA 실무 중심. 원가 절감·공정 최적화·납기 관리 포함.`,
-  smallbiz:   `[직업군: 소상공인] 자영업 현장 전문가 관점. 배달앱(배민·쿠팡이츠) 운영·수수료·노출 전략. POS·재고·원가율·손익분기점 실무. 소상공인 지원 정책·카드수수료 환급 안내. 단골 관리·리뷰 대응 포함.`,
+  smallbiz:   `[직업군: 소상공인] 자영업 현장 전문가 관점. 배달앱(배민·쿠팡이츠) 운영·수수료·노출 전략. POS·재고·원가율·손익분기점 실무. 소상공인 지원 정책·카드수수료 환급 안내. 단골 관리·리뷰 대응 포함. 사업자등록번호 조회 시 국세청 API 결과를 명확하게 안내.`,
+  corporate:  `[직업군: 기업·법인] 중소·중견기업 경영지원 전문가 관점. 법인세·부가세·원천세 신고 기한 및 절세 전략. 전자세금계산서 발행·수취·불일치 관리. 4대보험(국민연금·건강보험·고용보험·산재보험) 공제액 계산. 근로계약서·용역계약서 조항 검토. 법인카드 사용 규정·증빙 관리. 중소기업 정책자금·보조금 안내. 사업자등록번호 진위확인 및 거래처 검증.`,
   investor:   `[직업군: 주식·투자] 10년 경력 개인 투자자·애널리스트 관점. PER·PBR·ROE·배당수익률 핵심 지표 항상 명시. ETF·리츠·채권·코인 포트폴리오 전략 데이터 기반 제시. 차트(MACD·RSI) 해석·스윙·장기 전략. 배당세·양도세·ISA 절세 계좌 포함.`,
 }
 
@@ -1693,6 +1694,8 @@ async function callGPT4oWithTools(
           const parts = toolResult.split(':')
           return { text: `주인님, ${parts[1]}`, emotion: 'neutral', steps: [], needs_clarify: true, clarify_question: parts[1], clarify_intent: parts[2] }
         }
+      } else if (tc.function.name === 'validate_business_number') {
+        toolResult = await executeValidateBusinessNumber(args.number as string)
       }
     } catch (e) {
       toolResult = `도구 실행 실패: ${String(e)}`
@@ -2381,5 +2384,96 @@ export async function callGroqVision(
     return `화면 분석 실패 (${res.status})`
   } catch (e) {
     return `화면 분석 오류: ${e instanceof Error ? e.message : String(e)}`
+  }
+}
+
+// ── 사업자등록번호 체크섬 검증 (로컬, 오프라인) ──────────────────────────
+function validateBusinessNumberChecksum(raw: string): boolean {
+  const digits = raw.replace(/[^0-9]/g, '')
+  if (digits.length !== 10) return false
+  const w = [1, 3, 7, 1, 3, 7, 1, 3, 5]
+  let sum = 0
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * w[i]
+  sum += Math.floor((parseInt(digits[8]) * 5) / 10)
+  const check = (10 - (sum % 10)) % 10
+  return check === parseInt(digits[9])
+}
+
+// ── 국세청 사업자등록번호 진위확인 API (공공데이터포털) ────────────────────
+async function executeValidateBusinessNumber(raw: string): Promise<string> {
+  const digits = raw.replace(/[^0-9]/g, '')
+  const formatted = digits.length === 10
+    ? `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`
+    : raw.trim()
+
+  // 1단계: 체크섬 검증 (로컬, 즉시)
+  if (digits.length !== 10 || !validateBusinessNumberChecksum(digits)) {
+    return JSON.stringify({
+      valid: false,
+      number: formatted,
+      message: '유효하지 않은 사업자등록번호 형식입니다. 10자리 숫자를 확인해주세요.',
+    })
+  }
+
+  // 2단계: 국세청 Open API 실시간 조회
+  const apiKey = import.meta.env.VITE_NTS_API_KEY as string | undefined
+  if (!apiKey) {
+    return JSON.stringify({
+      valid: true,
+      number: formatted,
+      status: 'checksum_only',
+      message: '체크섬 형식은 유효합니다. 실시간 사업자 상태 조회를 위해 국세청 API 키가 필요합니다.',
+      guide: '공공데이터포털(data.go.kr)에서 "국세청_사업자등록정보 진위확인" API를 신청하고 VITE_NTS_API_KEY 환경변수에 설정하세요.',
+    })
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ b_no: [digits] }),
+        signal: AbortSignal.timeout(10000),
+      }
+    )
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const json = await res.json() as {
+      status_code: string
+      data: Array<{
+        b_no: string
+        b_stt: string      // 계속사업자 / 휴업자 / 폐업자
+        b_stt_cd: string   // 01=계속, 02=휴업, 03=폐업
+        tax_type: string   // 부가가치세 일반과세자 등
+        end_dt: string     // 폐업일 (YYYYMMDD)
+        utcc_yn: string    // 법인여부 Y/N
+      }>
+    }
+
+    if (json.status_code !== 'OK' || !json.data?.length) {
+      return JSON.stringify({ valid: false, number: formatted, message: '국세청 조회 결과 없음' })
+    }
+
+    const d = json.data[0]
+    const statusEmoji = d.b_stt_cd === '01' ? '✅' : d.b_stt_cd === '02' ? '⚠️' : '❌'
+    const isActive = d.b_stt_cd === '01'
+
+    return JSON.stringify({
+      valid: isActive,
+      number: formatted,
+      status: d.b_stt,
+      tax_type: d.tax_type,
+      is_corporation: d.utcc_yn === 'Y',
+      end_date: d.end_dt || null,
+      summary: `${statusEmoji} ${d.b_stt} | ${d.tax_type}${d.utcc_yn === 'Y' ? ' | 법인' : ' | 개인'}${d.end_dt ? ` | 폐업일: ${d.end_dt}` : ''}`,
+    })
+  } catch (e) {
+    return JSON.stringify({
+      valid: true,
+      number: formatted,
+      status: 'api_error',
+      message: `체크섬 형식은 유효합니다. 실시간 조회 실패: ${e instanceof Error ? e.message : String(e)}`,
+    })
   }
 }

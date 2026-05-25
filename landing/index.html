@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>if (navigator.language.startsWith('en') && !sessionStorage.getItem('lang')) { window.location.replace('/en/index.html'); }</script>
-  <title>NEXUS AI — 엑셀·이메일·PC 자동화를 말 한마디로 끝내는 Windows AI 비서</title>
+  <title>NEXUS AI — 이메일·엑셀·파일을 직접 실행하는 Windows AI 비서</title>
   <meta name="description" content="엑셀 분석·최저가 검색·메일 자동발송·PC 최적화까지 말 한마디로. PowerShell 직접 조작. 하루 2.4시간 절약. 3일 무료 체험. Windows 전용 로컬 AI." />
   <meta name="keywords" content="AI 비서, Windows AI, PC 자동화, 딥서치, AI 보안점검, 넥서스AI, AI 어시스턴트, PC 최적화, 업무자동화, 엑셀 자동화, 이메일 자동발송, 최저가 검색, 법무 AI, 의료 AI, 회계 AI, 부동산 AI, 개발자 AI, 교사 AI, HR AI, 크리에이터 AI, 엔지니어 AI, 소상공인 AI, Windows 10, Windows 11" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
@@ -38,7 +38,7 @@
   <meta property="og:locale" content="ko_KR" />
   <meta property="og:locale:alternate" content="en_US" />
   <meta property="og:site_name" content="NEXUS AI" />
-  <meta property="og:title" content="NEXUS AI — 엑셀·이메일·PC 최적화를 말 한마디로 끝내는 Windows AI" />
+  <meta property="og:title" content="NEXUS AI — 직접 실행하는 Windows AI · 이메일·엑셀·파일 자동화" />
   <meta property="og:description" content="엑셀 분석·최저가 검색·메일 자동발송·PC 최적화. PowerShell·chromedp 직접 조작. 하루 2.4시간 절약. 로컬 실행, 데이터 외부 유출 없음." />
   <meta property="og:image" content="https://nexusai.ai.kr/og-image.png" />
   <meta property="og:image:width" content="1200" />
@@ -48,7 +48,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@nexusai_app" />
-  <meta name="twitter:title" content="NEXUS AI — 다른 AI는 못 합니다" />
+  <meta name="twitter:title" content="NEXUS AI — 직접 실행하는 AI · ChatGPT가 못 하는 것" />
   <meta name="twitter:description" content="엑셀·이메일·PC 최적화를 말 한마디로. PowerShell·chromedp 직접 조작. 하루 2.4시간 절약. 3일 무료 체험." />
   <meta name="twitter:image" content="https://nexusai.ai.kr/og-image.png" />
 
@@ -876,12 +876,12 @@
   <div class="hero-pain" style="margin-bottom:20px;">
     😩 &nbsp;엑셀 정리·최저가 검색·메일 답장·보고서 작성 — 이 반복 업무들이 하루 <strong>2.4시간</strong>을 잡아먹습니다
   </div>
-  <h1>엑셀·이메일·PC 최적화<br /><span class="grad">말 한마디로 끝냅니다</span></h1>
+  <h1><span class="grad">직접 실행하는</span> AI</h1>
   <div style="display:inline-flex; align-items:center; gap:10px; background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.3); border-radius:40px; padding:8px 20px; margin-bottom:16px; font-size:13px; color:rgba(255,255,255,0.75);">
     <span>💡</span> <strong style="color:#a78bfa;">Nexus AI</strong>는 Windows PC에 설치하는 AI 비서입니다 — ChatGPT처럼 말하면 PC가 알아서 일합니다
   </div>
   <p class="hero-sub">
-    NEXUS AI가 PowerShell·chromedp·Outlook을 직접 조작합니다.<br />
+    이메일·엑셀·파일 — 말 한마디로 PC가 알아서 합니다.<br />
     <strong style="color:var(--text)">설치 3분 · 하루 2.4시간 절약</strong> · Windows 전용 네이티브 앱
   </p>
   <div id="hero-rotating-tagline" style="font-size:15px; color:var(--primary); font-weight:700; margin-bottom:16px; min-height:24px; transition:opacity 0.4s ease;"></div>
@@ -2166,6 +2166,18 @@
       a: '⚙️ 오늘의 엔지니어링 브리핑\n\n📰 산업 뉴스\n• 반도체 후공정 로봇화 2025년 40% 확대\n• 탄소중립 보조금 신청 시작 (최대 5억)\n\n📦 원자재 시세\n철강(열연) ₩750,000/톤 ▲+1.2%\n구리(LME) $9,850/톤 ▲+0.8%\n\n💡 핵심: 탄소중립 보조금 신청 기한 확인하세요!'
     },
     {
+      emoji: '🏪', name: '소상공인 / 자영업자', desc: '배달앱·카드수수료·지원정책·사업자 조회', tasks: '자동 브리핑',
+      q: '사업자번호 123-45-67890 조회해줘',
+      steps: ['🏪 국세청 사업자 조회 중...', '💳 카드수수료 현황 확인 중...', '🏛️ 지원정책 검색 중...'],
+      a: '🏪 사업자 조회 결과\n\n✅ 사업자 상태: 계속사업자 (정상)\n📌 사업자번호: 123-45-67890\n🏢 업태: 음식점업 / 업종: 한식\n\n💳 카드수수료 현황\n• 영세: 0.5% / 중소: 1.1%\n• 배민 수수료 6.8% · 쿠팡이츠 9.8%\n\n🏛️ 이번 달 지원정책\n• 소상공인 경영개선 자금 (최대 2천만원)\n• 배달앱 수수료 환급 신청 6/30 마감\n\n💡 환급 신청 놓치지 마세요!'
+    },
+    {
+      emoji: '🏢', name: '기업 / 법인', desc: '법인세·4대보험·세금계산서·계약 관리', tasks: '자동 브리핑',
+      q: '이번 달 법인 세무 일정이랑 세금계산서 현황 알려줘',
+      steps: ['🏢 법인세 일정 조회 중...', '🧾 세금계산서 현황 분석 중...', '👥 4대보험 공제 계산 중...'],
+      a: '🏢 법인 세무 브리핑\n\n📅 이번 달 법인 일정\n• 법인세 중간예납 (8/31 마감)\n• 부가세 1기 확정신고 (7/25 마감)\n• 전자세금계산서: 익월 10일까지 발행\n\n🧾 세금계산서 현황\n발행 47건 / 수취 23건\n⚠️ 불일치 의심 2건 → 확인 필요\n\n👥 4대보험 공제 (직원 10인)\n국민연금 ₩1,240,000 · 건강 ₩892,000\n\n💡 부가세 신고까지 D-29일!'
+    },
+    {
       emoji: '🌟', name: '일반 사용자', desc: '날씨·뉴스·해커뉴스 토픽', tasks: '자동 브리핑',
       q: '오늘 날씨랑 주요 뉴스 알려줘',
       steps: ['🌤️ 날씨 수집 중...', '📰 주요 뉴스 수집 중...'],
@@ -2442,6 +2454,8 @@
       '📚 교사 → 수능 일정 + 교육부 공지',
       '👥 HR → 채용 공고 + 최저임금 현황',
       '⚙️ 엔지니어 → 원자재시세 + KS규격',
+      '🏪 소상공인 → 배달앱수수료 + 지원정책',
+      '🏢 기업/법인 → 법인세 일정 + 세금계산서',
     ]
     let idx = 0
     const el = document.getElementById('hero-rotating-tagline')

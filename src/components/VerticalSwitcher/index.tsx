@@ -41,6 +41,7 @@ const VERTICAL_EMOJI: Record<string, string> = {
   developer:  '💻',
   engineer:   '⚙️',
   smallbiz:   '🏪',
+  corporate:  '🏢',
   investor:   '📈',
 }
 
@@ -55,7 +56,8 @@ const VERTICAL_DESC: Record<string, string> = {
   hr:         '채용·이력서·노동법',
   developer:  'GitHub·코드 리뷰',
   engineer:   '규격·공정 최적화',
-  smallbiz:   '배달앱·재고·지원정책',
+  smallbiz:   '배달앱·재고·지원정책·사업자 조회',
+  corporate:  '법인세·4대보험·세금계산서',
   investor:   '종목분석·포트폴리오',
 }
 

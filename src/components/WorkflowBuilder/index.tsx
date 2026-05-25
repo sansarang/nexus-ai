@@ -196,6 +196,37 @@ const PERSONA_TEMPLATES: Record<string, TemplateEntry[]> = {
       ],
       edges: [{ id: 'e1', from: 'n1', to: 'n2' }, { id: 'e2', from: 'n2', to: 'n3' }],
     },
+    {
+      name: '💳 배달앱 수수료 주간 리포트',
+      nodes: [
+        { id: 'n1', type: 'trigger' as NodeType, label: '매주 월요일 09:00', x: 80, y: 120, config: { schedule: '09:00', type: 'schedule' } },
+        { id: 'n2', type: 'llm' as NodeType,     label: '배달앱 수수료 비교', x: 280, y: 80, config: { prompt: '배달의민족·쿠팡이츠·요기요 최신 수수료율 비교 및 절감 전략', model: 'sonar' } },
+        { id: 'n3', type: 'llm' as NodeType,     label: '지원정책 검색', x: 280, y: 200, config: { prompt: '이번 주 소상공인 지원정책 신규 공고 요약', model: 'sonar' } },
+        { id: 'n4', type: 'notify' as NodeType,  label: '리포트 전송', x: 480, y: 120, config: { message: '주간 소상공인 리포트 완료!', channel: 'bubble' } },
+      ],
+      edges: [{ id: 'e1', from: 'n1', to: 'n2' }, { id: 'e2', from: 'n1', to: 'n3' }, { id: 'e3', from: 'n2', to: 'n4' }, { id: 'e4', from: 'n3', to: 'n4' }],
+    },
+  ],
+  corporate: [
+    {
+      name: '🏢 법인 세무 일정 알림',
+      nodes: [
+        { id: 'n1', type: 'trigger' as NodeType, label: '매월 1일 09:00', x: 80, y: 120, config: { schedule: '09:00', type: 'schedule' } },
+        { id: 'n2', type: 'llm' as NodeType,     label: '법인 세무 일정 조회', x: 280, y: 120, config: { prompt: '이번 달 법인세·부가세·원천세 신고 기한, 납부 마감일 정리', model: 'sonar' } },
+        { id: 'n3', type: 'notify' as NodeType,  label: '세무 일정 알림', x: 480, y: 120, config: { message: '이번 달 법인 세무 일정입니다!', channel: 'bubble' } },
+      ],
+      edges: [{ id: 'e1', from: 'n1', to: 'n2' }, { id: 'e2', from: 'n2', to: 'n3' }],
+    },
+    {
+      name: '🧾 전자세금계산서 불일치 감지',
+      nodes: [
+        { id: 'n1', type: 'trigger' as NodeType, label: '매일 18:00', x: 80, y: 120, config: { schedule: '18:00', type: 'schedule' } },
+        { id: 'n2', type: 'llm' as NodeType,     label: '세금계산서 현황 분석', x: 280, y: 80, config: { prompt: '오늘 발행·수취 전자세금계산서 수량 확인, 불일치 항목 식별', model: 'sonar' } },
+        { id: 'n3', type: 'llm' as NodeType,     label: '4대보험 공제 계산', x: 280, y: 200, config: { prompt: '이번 달 직원 4대보험(국민연금·건강보험·고용보험·산재) 공제액 계산', model: 'sonar' } },
+        { id: 'n4', type: 'notify' as NodeType,  label: '법인 리포트 전송', x: 480, y: 120, config: { message: '법인 세무 일일 리포트 완료!', channel: 'bubble' } },
+      ],
+      edges: [{ id: 'e1', from: 'n1', to: 'n2' }, { id: 'e2', from: 'n1', to: 'n3' }, { id: 'e3', from: 'n2', to: 'n4' }, { id: 'e4', from: 'n3', to: 'n4' }],
+    },
   ],
   investor: [
     {
