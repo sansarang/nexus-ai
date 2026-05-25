@@ -1,5 +1,6 @@
 import { useAppStore } from './stores/appStore'
 import { FloatingCharacter } from './components/FloatingCharacter'
+import { Analytics } from '@vercel/analytics/react'
 import './styles/design-system.css'
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
       }}
     >
       <FloatingCharacter />
+      <Analytics />
     </div>
   )
 }
