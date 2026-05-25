@@ -345,6 +345,7 @@ export function NexusChat() {
       steps: response.steps,
       pendingSteps: pendingSteps.length > 0 ? pendingSteps : undefined,
       actionDone: autoSteps.length > 0,
+      animate: true,
     }
 
     setTyping(false)
@@ -370,6 +371,7 @@ export function NexusChat() {
         role: 'user',
         text: `${icon} ${displayNames}${text ? '\n' + text : ''}`,
         timestamp: new Date(),
+        imageDataUrl: file.fileType === 'image' ? file.dataUrl : undefined,
       },
     ])
     setAttachedFiles([])
@@ -480,7 +482,15 @@ export function NexusChat() {
 
     setMessages(prev => [
       ...prev,
-      { id: (Date.now() + 1).toString(), role: 'nexus', text: result, emotion: 'happy', timestamp: new Date() },
+      {
+        id: (Date.now() + 1).toString(),
+        role: 'nexus',
+        text: result,
+        emotion: 'happy',
+        timestamp: new Date(),
+        animate: true,
+        fileInfo: { name: file.name, type: file.fileType },
+      },
     ])
     setTyping(false)
     speakText(result)

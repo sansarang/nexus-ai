@@ -16,6 +16,9 @@ export interface Message {
   steps?: NexusStep[]
   pendingSteps?: NexusStep[]
   actionDone?: boolean
+  animate?: boolean
+  imageDataUrl?: string
+  fileInfo?: { name: string; type: 'image' | 'video' | 'document' | 'spreadsheet' | 'other' }
 }
 
 export interface InlineView {
