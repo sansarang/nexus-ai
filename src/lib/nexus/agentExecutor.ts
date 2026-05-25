@@ -54,6 +54,29 @@ export interface AgentPlan {
 
 // ── LLM 호출 ────────────────────────────────────────────────────
 
+async function callClaude(system: string, user: string): Promise<string> {
+  const key = localStorage.getItem('nexus-claude-key') ?? ''
+  if (!key) throw new Error('no claude key')
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4000,
+      system,
+      messages: [{ role: 'user', content: user }],
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+  if (!res.ok) throw new Error(`claude ${res.status}`)
+  const data = await res.json()
+  return (data.content?.[0]?.text ?? '').trim()
+}
+
 async function callGroq(system: string, user: string): Promise<string> {
   const key = localStorage.getItem('nexus-groq-key') ?? ''
   if (!key) throw new Error('no groq key')
@@ -373,6 +396,11 @@ function isStepFailed(result: string): boolean {
   )
 }
 
+export function isBackendOffline(result: string): boolean {
+  return result.includes('fetch') || result.includes('ECONNREFUSED') ||
+    result.includes('network') || result.includes('ERR_CONNECTION_REFUSED')
+}
+
 const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 // ── 계획 수립 ─────────────────────────────────────────────────
@@ -417,22 +445,35 @@ async function planSteps(userMessage: string): Promise<AgentPlan> {
 
 규칙: 최대 15단계, JSON만, 마크다운 코드블록 금지`
 
+  const tryParse = (raw: string): AgentPlan | null => {
+    try {
+      const cleaned = raw.replace(/```json\n?|```\n?/g, '').trim()
+      const parsed = JSON.parse(cleaned) as AgentPlan
+      if (!Array.isArray(parsed.steps)) return null
+      return parsed
+    } catch { return null }
+  }
+
+  // 1순위: Claude (한국어 의도 분류 정확도 최고)
+  try {
+    const raw = await callClaude(system, userMessage)
+    const plan = tryParse(raw)
+    if (plan) return plan
+  } catch { /* Claude 키 없거나 실패 → Groq 폴백 */ }
+
+  // 2순위: Groq
   try {
     const raw = await callGroq(system, userMessage)
-    const cleaned = raw.replace(/```json\n?|```\n?/g, '').trim()
-    const parsed = JSON.parse(cleaned) as AgentPlan
-    // steps 배열 검증
-    if (!Array.isArray(parsed.steps)) throw new Error('invalid plan')
-    return parsed
-  } catch {
-    // 폴백 플랜
-    return {
-      finalGoal: userMessage,
-      steps: [
-        { id: 1, type: 'web_search', description: '정보 검색', query: userMessage },
-        { id: 2, type: 'llm_task', description: '결과 정리', query: `"${userMessage}" 요청을 완수하라` },
-      ],
-    }
+    const plan = tryParse(raw)
+    if (plan) return plan
+  } catch { /* 폴백 플랜 */ }
+
+  return {
+    finalGoal: userMessage,
+    steps: [
+      { id: 1, type: 'web_search', description: '정보 검색', query: userMessage },
+      { id: 2, type: 'llm_task', description: '결과 정리', query: `"${userMessage}" 요청을 완수하라` },
+    ],
   }
 }
 
@@ -577,24 +618,42 @@ export async function runAgentWithPlan(
   userMessage: string,
   plan: AgentPlan,
   onProgress: (msg: string) => void,
-  onStepDone?: (step: AgentStep, success: boolean) => void,
+  onStepDone?: (step: AgentStep, success: boolean, result: string) => void,
 ): Promise<string> {
   const context: string[] = []
   let excelRows: string[][] = []
 
+  let backendFailCount = 0
+
   for (const step of plan.steps) {
     onProgress(`⚙️ [${step.id}/${plan.steps.length}] ${step.description}...`)
 
-    let result = await doStep(step, context, excelRows, onProgress)
+    let result = ''
+    try {
+      result = await doStep(step, context, excelRows, onProgress)
+    } catch (e) {
+      result = `(네트워크 오류: ${String(e).slice(0, 80)})`
+    }
 
     if (isStepFailed(result) && step.type !== 'llm_task') {
+      // 백엔드 오프라인 감지
+      if (isBackendOffline(result)) {
+        backendFailCount++
+        if (backendFailCount >= 2) {
+          return '⚠️ **Nexus 백엔드가 실행 중이지 않아요.**\n\n앱을 재시작하거나 잠시 후 다시 시도해주세요.\n\n완료된 작업이 있다면 위 결과를 확인해주세요.'
+        }
+      }
       onProgress(`🔄 [${step.id}/${plan.steps.length}] 재시도 중...`)
       await delay(1500)
-      result = await doStep(step, context, excelRows, onProgress)
+      try {
+        result = await doStep(step, context, excelRows, onProgress)
+      } catch (e) {
+        result = `(재시도 실패: ${String(e).slice(0, 80)})`
+      }
     }
 
     const success = !isStepFailed(result)
-    onStepDone?.(step, success)
+    onStepDone?.(step, success, result)
 
     if (step.type === 'file_metadata' && success) {
       try {
@@ -631,7 +690,7 @@ ${context.join('\n\n---\n\n')}
 export async function runAgent(
   userMessage: string,
   onProgress: (msg: string) => void,
-  onStepDone?: (step: AgentStep, success: boolean) => void,
+  onStepDone?: (step: AgentStep, success: boolean, result: string) => void,
 ): Promise<string> {
   onProgress('🧠 작업 계획 수립 중...')
   const plan = await planSteps(userMessage)

@@ -101,7 +101,7 @@ export function NexusChat() {
   const [typing, setTyping] = useState(false)
   const [agentProgress, setAgentProgress] = useState('')
   const [pendingAgentPlan, setPendingAgentPlan] = useState<{ plan: AgentPlan; userMessage: string } | null>(null)
-  const [stepResults, setStepResults] = useState<Array<{ id: number; description: string; success: boolean }>>([])
+  const [stepResults, setStepResults] = useState<Array<{ id: number; description: string; success: boolean; result: string }>>([])
   const pendingMsgRef = useRef('')
   const [emotion, setEmotion] = useState<NexusEmotion>('neutral')
   const [speaking, setSpeaking] = useState(false)
@@ -256,17 +256,20 @@ export function NexusChat() {
     try {
       const agentResult = await runAgentWithPlan(userMessage, plan,
         (msg) => setAgentProgress(msg),
-        (step: AgentStep, success: boolean) => setStepResults(prev => [...prev, { id: step.id, description: step.description, success }]),
+        (step: AgentStep, success: boolean, result: string) => setStepResults(prev => [...prev, { id: step.id, description: step.description, success, result }]),
       )
+      const card = buildResultCard(stepResults)
+      const fullResult = agentResult + card
       setAgentProgress('')
+      setStepResults([])
       setTyping(false)
       typingRef.current = false
-      historyRef.current.push({ role: 'model', parts: [{ text: agentResult }] })
+      historyRef.current.push({ role: 'model', parts: [{ text: fullResult }] })
       learnFromTurn(userMessage, agentResult)
       learnPattern(userMessage, agentResult.slice(0, 60))
       saveHistory(toStoredTurns(historyRef.current))
       setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(), role: 'nexus', text: agentResult,
+        id: (Date.now() + 1).toString(), role: 'nexus', text: fullResult,
         emotion: 'happy', timestamp: new Date(), animate: true,
       }])
       speakText(agentResult.slice(0, 200))
@@ -365,6 +368,20 @@ export function NexusChat() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listening, userLang, assistantName])
 
+  /* ── 에이전트 결과 카드 생성 ── */
+  const buildResultCard = useCallback((
+    steps: Array<{ description: string; success: boolean; result: string }>
+  ): string => {
+    if (steps.length === 0) return ''
+    const lines = steps.map(s => {
+      const icon = s.success ? '✅' : '❌'
+      // 결과에서 핵심 정보 추출 (첫 줄 또는 80자)
+      const detail = s.result.split('\n')[0].slice(0, 80)
+      return `${icon} **${s.description}**${detail ? `\n   └ ${detail}` : ''}`
+    })
+    return `\n\n---\n📋 **실행 결과 요약**\n${lines.join('\n')}`
+  }, [])
+
   /* ── 메시지 전송 ── */
   const sendText = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -426,17 +443,20 @@ export function NexusChat() {
         setStepResults([])
         const agentResult = await runAgentWithPlan(trimmed, plan,
           (msg) => setAgentProgress(msg),
-          (step, success) => setStepResults(prev => [...prev, { id: step.id, description: step.description, success }]),
+          (step: AgentStep, success: boolean, result: string) => setStepResults(prev => [...prev, { id: step.id, description: step.description, success, result }]),
         )
+        const card = buildResultCard(stepResults)
+        const fullResult = agentResult + card
         setAgentProgress('')
+        setStepResults([])
         setTyping(false)
         typingRef.current = false
-        historyRef.current.push({ role: 'model', parts: [{ text: agentResult }] })
+        historyRef.current.push({ role: 'model', parts: [{ text: fullResult }] })
         learnFromTurn(trimmed, agentResult)
         learnPattern(trimmed, agentResult.slice(0, 60))
         saveHistory(toStoredTurns(historyRef.current))
         setMessages(prev => [...prev, {
-          id: (Date.now() + 1).toString(), role: 'nexus', text: agentResult,
+          id: (Date.now() + 1).toString(), role: 'nexus', text: fullResult,
           emotion: 'happy', timestamp: new Date(), animate: true,
         }])
         speakText(agentResult.slice(0, 200))

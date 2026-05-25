@@ -266,6 +266,24 @@ export async function routeWithLLMMulti(
     { role: 'user', content: userMessage },
   ]
 
+  // 1순위: Claude Haiku (한국어 복합 의도 분류 정확도 최고)
+  const claudeKey = localStorage.getItem('nexus-claude-key') || ''
+  if (claudeKey) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { content?: Array<{ text?: string }> }
+        const parsed = parseToolCallArray(data.content?.[0]?.text?.trim() ?? '')
+        if (parsed.length > 0) return parsed
+      }
+    } catch { /* fallback */ }
+  }
+
   const openaiKey = OPENAI_API_KEY || localStorage.getItem('nexus-openai-key') || ''
   if (openaiKey) {
     try {
