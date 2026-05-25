@@ -8,13 +8,16 @@ const FEATURE_LABELS_KO: Record<string, string> = {
   contract_review:   '계약서 검토',
   legal_search:      '법률 검색',
   content_script:    '콘텐츠 스크립트',
-  workflow_run:      '워크플로우 실행',
-  ai_request:        'AI 요청',
+  workflow_run:      '워크플로우 빌더',
+  ai_request:        'AI 채팅',
   vision_analyze:    '화면 분석',
   screen_translate:  '화면 번역',
   email_summary:     '이메일 요약',
   content_recommend: '콘텐츠 추천',
   weekly_report:     '주간 리포트',
+  voice_memo:        '음성 메모',
+  daily_briefing:    '데일리 브리핑',
+  ai_prediction:     'AI 예측',
 }
 
 const FEATURE_LABELS_EN: Record<string, string> = {
@@ -23,13 +26,16 @@ const FEATURE_LABELS_EN: Record<string, string> = {
   contract_review:   'Contract Review',
   legal_search:      'Legal Search',
   content_script:    'Content Script',
-  workflow_run:      'Workflow Run',
-  ai_request:        'AI Request',
+  workflow_run:      'Workflow Builder',
+  ai_request:        'AI Chat',
   vision_analyze:    'Screen Analysis',
   screen_translate:  'Screen Translate',
   email_summary:     'Email Summary',
   content_recommend: 'Content Recommend',
   weekly_report:     'Weekly Report',
+  voice_memo:        'Voice Memo',
+  daily_briefing:    'Daily Briefing',
+  ai_prediction:     'AI Prediction',
 }
 
 interface Props {

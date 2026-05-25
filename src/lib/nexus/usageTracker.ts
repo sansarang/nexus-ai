@@ -1,4 +1,4 @@
-export const DAILY_FREE_LIMIT = 30
+export const DAILY_FREE_LIMIT = 15
 export const MONTHLY_PREMIUM_LIMIT = 2000
 
 interface DailyRecord { count: number; date: string }

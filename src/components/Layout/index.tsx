@@ -1,5 +1,15 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore, type ViewId } from '../../stores/appStore'
+import { PaywallModal } from '../PaywallModal'
+
+const PREMIUM_VIEWS = new Set<ViewId>(['voicememo', 'daily', 'predictive'])
+
+const PREMIUM_FEATURE_KEY: Partial<Record<ViewId, string>> = {
+  voicememo:  'voice_memo',
+  daily:      'daily_briefing',
+  predictive: 'ai_prediction',
+}
 
 const NAV_ITEMS: { id: ViewId; icon: string; label: string; shortcut: string }[] = [
   { id: 'home',      icon: '🏠', label: '홈',           shortcut: '1' },
@@ -22,10 +32,12 @@ const NAV_ITEMS: { id: ViewId; icon: string; label: string; shortcut: string }[]
 function NavItem({
   item,
   active,
+  isPremiumLocked,
   onClick,
 }: {
   item: (typeof NAV_ITEMS)[0]
   active: boolean
+  isPremiumLocked?: boolean
   onClick: () => void
 }) {
   return (
@@ -75,22 +87,31 @@ function NavItem({
 
       <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
       <span style={{ flex: 1 }}>{item.label}</span>
-      <span
-        style={{
-          fontSize: 10,
-          color: 'var(--text-muted)',
-          fontFamily: 'monospace',
-          opacity: 0.6,
-        }}
-      >
-        ⌘{item.shortcut}
-      </span>
+      {isPremiumLocked ? (
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', borderRadius: 4, padding: '1px 4px' }}>
+          PRO
+        </span>
+      ) : (
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', opacity: 0.6 }}>
+          ⌘{item.shortcut}
+        </span>
+      )}
     </motion.button>
   )
 }
 
 export function Sidebar() {
-  const { currentView, setView } = useAppStore()
+  const { currentView, setView, subscriptionStatus } = useAppStore()
+  const [paywallFeature, setPaywallFeature] = useState<string | null>(null)
+  const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+
+  const handleNavClick = (id: ViewId) => {
+    if (PREMIUM_VIEWS.has(id) && !isPremium) {
+      setPaywallFeature(PREMIUM_FEATURE_KEY[id] ?? id)
+      return
+    }
+    setView(id)
+  }
 
   return (
     <div
@@ -111,7 +132,8 @@ export function Sidebar() {
           key={item.id}
           item={item}
           active={currentView === item.id}
-          onClick={() => setView(item.id)}
+          isPremiumLocked={PREMIUM_VIEWS.has(item.id) && !isPremium}
+          onClick={() => handleNavClick(item.id)}
         />
       ))}
 
@@ -142,6 +164,15 @@ export function Sidebar() {
       >
         v1.0.0
       </div>
+
+      {paywallFeature && (
+        <PaywallModal
+          feature={paywallFeature}
+          used={0}
+          limit={0}
+          onClose={() => setPaywallFeature(null)}
+        />
+      )}
     </div>
   )
 }

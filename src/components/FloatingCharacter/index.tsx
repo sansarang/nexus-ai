@@ -1441,7 +1441,11 @@ export function FloatingCharacter() {
     { icon: '⚙️', active: false,       color: primaryColor,  onClick: () => setSettingsOpen(true),
       tip: userLang === 'en' ? 'Settings' : '설정' },
     { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4', onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
-    { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b', onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
+    { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b', onClick: () => {
+      const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+      if (!isPremium) { setPaywallFeature('workflow_run'); setPaywallUsed(0); setPaywallLimit(0) }
+      else setShowWorkflowBuilder(p => !p)
+    }, tip: 'Workflow Builder' },
     { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
       tip: userLang === 'en' ? 'Minimize' : '최소화' },
     { icon: '✕',  active: false,       color: '#ef4444',     onClick: async () => {

@@ -19,6 +19,7 @@ import { TypingIndicator } from './TypingIndicator'
 import { PCStatusBar } from './PCStatusBar'
 import { Marketplace } from '../Marketplace'
 import { PersonaSwitcher } from '../PersonaSwitcher'
+import { PaywallModal } from '../PaywallModal'
 import type { Message, NexusStep, NexusEmotion } from '../../types/nexus'
 
 /* ── 페르소나 아이콘 맵 ── */
@@ -67,6 +68,7 @@ export function NexusChat() {
   const { assistantName, userName, userLang, subscriptionStatus, activePersonaId } = useAppStore()
 
   const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false)
+  const [showPaywall, setShowPaywall] = useState(false)
   const [dailyCount, setDailyCount]     = useState(() => getDailyUsage().count)
   const [monthlyCount, setMonthlyCount] = useState(() => getMonthlyUsage().count)
 
@@ -210,6 +212,13 @@ export function NexusChat() {
   const sendText = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || typingRef.current) return
+
+    const isFree = subscriptionStatus === 'none' || subscriptionStatus === 'expired'
+    if (isFree && dailyCount >= DAILY_FREE_LIMIT) {
+      setShowPaywall(true)
+      return
+    }
+
     typingRef.current = true
 
     const userMsg: Message = {
@@ -503,6 +512,15 @@ export function NexusChat() {
           <PersonaSwitcher onClose={() => setShowPersonaSwitcher(false)} />
         )}
       </AnimatePresence>
+
+      {showPaywall && (
+        <PaywallModal
+          feature="ai_request"
+          used={dailyCount}
+          limit={DAILY_FREE_LIMIT}
+          onClose={() => setShowPaywall(false)}
+        />
+      )}
     </div>
   )
 }
