@@ -4,6 +4,7 @@ import { useAppStore } from '../../stores/appStore'
 import { callGemini, callOllama, fallbackResponse, trackUsage, callGroqVision } from '../../lib/nexus/gemini_engine'
 import { getAuthHeader } from '../../lib/nexus/backendAPI'
 import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
+import { isMultiStepTask, runAgent } from '../../lib/nexus/agentExecutor'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
 import { speak, stopSpeaking } from '../../lib/nexus/tts'
@@ -95,6 +96,7 @@ export function NexusChat() {
   ])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
+  const [agentProgress, setAgentProgress] = useState('')
   const [emotion, setEmotion] = useState<NexusEmotion>('neutral')
   const [speaking, setSpeaking] = useState(false)
   const [listening, setListening] = useState(false)
@@ -313,6 +315,31 @@ export function NexusChat() {
     setMonthlyCount(incrementMonthlyUsage())
 
     historyRef.current.push({ role: 'user', parts: [{ text: trimmed }] })
+
+    /* ── -1순위: 멀티스텝 에이전트 — "검색해서 작성해줘" 류 복합 요청 ── */
+    if (isMultiStepTask(trimmed)) {
+      setAgentProgress('🧠 작업 계획 수립 중...')
+      try {
+        const agentResult = await runAgent(trimmed, (msg) => setAgentProgress(msg))
+        setAgentProgress('')
+        setTyping(false)
+        typingRef.current = false
+        historyRef.current.push({ role: 'model', parts: [{ text: agentResult }] })
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: 'nexus',
+          text: agentResult,
+          emotion: 'happy',
+          timestamp: new Date(),
+          animate: true,
+        }])
+        speakText(agentResult.slice(0, 200))
+        return
+      } catch {
+        setAgentProgress('')
+        // 에이전트 실패 시 일반 LLM으로 폴백
+      }
+    }
 
     /* ── 0순위: LLM Tool Router — 인텐트 감지 ── */
     const routerHistory = historyRef.current.slice(-6).map(h => ({
@@ -682,7 +709,7 @@ export function NexusChat() {
           <MessageBubble key={msg.id} message={msg} onStepConfirm={handleStepConfirm} />
         ))}
 
-        {typing && <TypingIndicator />}
+        {typing && <TypingIndicator message={agentProgress || undefined} />}
         <div ref={messagesEndRef} />
       </div>
 
