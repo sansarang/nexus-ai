@@ -328,49 +328,6 @@ func parseScheduleLocally(command string) (*ParsedSchedule, error) {
 	return result, nil
 }
 
-// calcNextRun: cron 표현식으로 다음 실행 시간 계산
-func calcNextRun(cronExpr string, from time.Time) time.Time {
-	parts := strings.Fields(cronExpr)
-	if len(parts) != 5 {
-		return from.Add(24 * time.Hour)
-	}
-
-	minute, _ := strconv.Atoi(parts[0])
-	hour, _ := strconv.Atoi(parts[1])
-	day, _ := strconv.Atoi(parts[2])
-	month, _ := strconv.Atoi(parts[3])
-	weekday, _ := strconv.Atoi(parts[4])
-
-	now := from.Truncate(time.Minute)
-	candidate := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
-
-	isWildcard := func(s string) bool { return s == "*" }
-
-	for i := 0; i < 366; i++ {
-		check := candidate.AddDate(0, 0, i)
-		// 월 체크
-		if !isWildcard(parts[3]) && int(check.Month()) != month {
-			continue
-		}
-		// 일 체크
-		if !isWildcard(parts[2]) && check.Day() != day {
-			continue
-		}
-		// 요일 체크
-		if !isWildcard(parts[4]) && int(check.Weekday()) != weekday {
-			continue
-		}
-		// 시/분 체크
-		if isWildcard(parts[1]) {
-			check = time.Date(check.Year(), check.Month(), check.Day(), now.Hour(), minute, 0, 0, now.Location())
-		}
-		if check.After(now) {
-			return check
-		}
-	}
-	return from.Add(24 * time.Hour)
-}
-
 func koreanWeekday(d time.Weekday) string {
 	days := []string{"일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"}
 	return days[d]
