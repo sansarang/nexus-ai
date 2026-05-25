@@ -5,6 +5,8 @@ import { callGemini, callOllama, fallbackResponse, trackUsage, callGroqVision } 
 import { getAuthHeader } from '../../lib/nexus/backendAPI'
 import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
 import { isMultiStepTask, runAgent } from '../../lib/nexus/agentExecutor'
+import { buildMemoryContext, learnFromTurn, saveHistory, toStoredTurns } from '../../lib/nexus/memory'
+import { evaluateTriggersFiltered, getUptimeMs, STATS_POLL_MS } from '../../lib/nexus/proactiveAI'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
 import { speak, stopSpeaking } from '../../lib/nexus/tts'
@@ -176,6 +178,34 @@ export function NexusChat() {
   /* 언마운트 시 음성 중지 */
   useEffect(() => () => { stopSpeaking() }, [])
 
+  /* ── 능동형 모니터링 — PC 상태 폴링 후 자동 알림 ── */
+  useEffect(() => {
+    const poll = async () => {
+      if (typingRef.current) return
+      try {
+        const res = await fetch('http://127.0.0.1:17891/api/stats/all', { signal: AbortSignal.timeout(4000) })
+        if (!res.ok) return
+        const stats = await res.json()
+        const snapshot = { stats, uptimeMs: getUptimeMs() }
+        const alert = evaluateTriggersFiltered(snapshot, 'ko', assistantName)
+        if (alert) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'nexus',
+            text: alert.message,
+            emotion: alert.emotion as NexusEmotion,
+            timestamp: new Date(),
+            animate: true,
+          }])
+          speakText(alert.message)
+        }
+      } catch { /* 백엔드 미실행 시 무시 */ }
+    }
+    const timer = setInterval(poll, STATS_POLL_MS)
+    return () => clearInterval(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assistantName])
+
   /* 스크롤 하단 유지 */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -333,6 +363,8 @@ export function NexusChat() {
           timestamp: new Date(),
           animate: true,
         }])
+        learnFromTurn(trimmed, agentResult)
+        saveHistory(toStoredTurns(historyRef.current))
         speakText(agentResult.slice(0, 200))
         return
       } catch {
@@ -378,15 +410,19 @@ export function NexusChat() {
     const apiKey = localStorage.getItem('nexus-gemini-key') ?? ''
     let response
 
+    /* 장기 기억 컨텍스트 주입 */
+    const memCtx = buildMemoryContext()
+    const promptWithMemory = memCtx ? `${memCtx}\n\n---\n${trimmed}` : trimmed
+
     /* 1순위: Ollama */
     try {
-      const r = await callOllama(trimmed, historyRef.current.slice(-10))
+      const r = await callOllama(promptWithMemory, historyRef.current.slice(-10))
       if (r) response = r
     } catch { /* Ollama 미실행 */ }
 
     /* 2순위: Gemini */
     if (!response && apiKey && trackUsage()) {
-      try { response = await callGemini(apiKey, trimmed, historyRef.current.slice(-10)) }
+      try { response = await callGemini(apiKey, promptWithMemory, historyRef.current.slice(-10)) }
       catch { /* Gemini 실패 */ }
     }
 
@@ -394,6 +430,8 @@ export function NexusChat() {
     if (!response) response = fallbackResponse(trimmed, assistantName)
 
     historyRef.current.push({ role: 'model', parts: [{ text: response.text }] })
+    learnFromTurn(trimmed, response.text)
+    saveHistory(toStoredTurns(historyRef.current))
 
     const pendingSteps = response.steps.filter(s => s.confirmRequired)
     const autoSteps = response.steps.filter(s => !s.confirmRequired)

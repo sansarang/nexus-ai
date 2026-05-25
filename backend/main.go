@@ -84,6 +84,8 @@ func main() {
 	mux.HandleFunc("POST /api/files/search", handleFilesSearch)
 	mux.HandleFunc("POST /api/files/organize", handleFilesOrganize)
 	mux.HandleFunc("POST /api/files/duplicates", handleFilesDuplicates)
+	mux.HandleFunc("POST /api/files/move", handleFileMove)
+	mux.HandleFunc("POST /api/files/metadata", handleFilesMetadata)
 
 	// ── 생산성 ─────────────────────────────────
 	mux.HandleFunc("POST /api/productivity/focus", handleFocusMode)

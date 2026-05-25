@@ -211,3 +211,11 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 		"message":      fmt.Sprintf(msgT("중복 파일 %d그룹 발견, 낭비 공간 %s", "Found %d duplicate groups, wasted space %s", lang), len(groups), waste),
 	})
 }
+
+func handleFileMove(w http.ResponseWriter, _ *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "Windows 전용 기능입니다"})
+}
+
+func handleFilesMetadata(w http.ResponseWriter, _ *http.Request) {
+	json200(w, map[string]any{"files": []any{}, "count": 0, "message": "Windows 전용 기능입니다"})
+}

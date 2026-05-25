@@ -208,3 +208,121 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 		"message":      fmt.Sprintf(msgT("중복 파일 %d그룹 발견, 낭비 공간 %s", "Found %d duplicate groups, wasted space %s", lang), len(groups), waste),
 	})
 }
+
+// ──────────────────────────────────────────
+// POST /api/files/move — 파일/폴더 이동 또는 이름 변경
+// ──────────────────────────────────────────
+
+func handleFileMove(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
+	var req struct {
+		Src  string `json:"src"`  // 원본 경로 (파일 또는 폴더)
+		Dst  string `json:"dst"`  // 대상 경로 또는 폴더
+		Name string `json:"name"` // (선택) 이동 후 파일명
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.Src == "" || req.Dst == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("src, dst 필요", "src and dst required", lang)})
+		return
+	}
+
+	// 홈 디렉토리 확장
+	home, _ := os.UserHomeDir()
+	expand := func(p string) string {
+		if strings.HasPrefix(p, "~/") { return filepath.Join(home, p[2:]) }
+		if strings.EqualFold(p, "desktop") || strings.EqualFold(p, "바탕화면") { return filepath.Join(home, "Desktop") }
+		if strings.EqualFold(p, "downloads") || strings.EqualFold(p, "다운로드") { return filepath.Join(home, "Downloads") }
+		if strings.EqualFold(p, "documents") || strings.EqualFold(p, "문서") { return filepath.Join(home, "Documents") }
+		return p
+	}
+	src := expand(req.Src)
+	dst := expand(req.Dst)
+
+	// src 존재 확인
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("원본 경로를 찾을 수 없어요: "+src, "Source not found: "+src, lang)})
+		return
+	}
+
+	// dst가 폴더이면 src 파일명으로 결합
+	dstInfo, _ := os.Stat(dst)
+	if dstInfo != nil && dstInfo.IsDir() {
+		name := req.Name
+		if name == "" { name = srcInfo.Name() }
+		dst = filepath.Join(dst, name)
+	}
+
+	if err := os.Rename(src, dst); err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("이동 실패: "+err.Error(), "Move failed: "+err.Error(), lang)})
+		return
+	}
+
+	json200(w, map[string]any{
+		"success": true,
+		"src":     src,
+		"dst":     dst,
+		"message": fmt.Sprintf(msgT("✅ '%s' → '%s' 이동 완료", "✅ Moved '%s' → '%s'", lang), filepath.Base(src), dst),
+	})
+}
+
+// ──────────────────────────────────────────
+// POST /api/files/metadata — 폴더 내 파일 메타데이터 수집 (엑셀 생성용)
+// ──────────────────────────────────────────
+
+func handleFilesMetadata(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
+	var req struct {
+		Path      string `json:"path"`
+		Recursive bool   `json:"recursive"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	home, _ := os.UserHomeDir()
+	if req.Path == "" { req.Path = filepath.Join(home, "Desktop") }
+
+	type FileMeta struct {
+		Name     string  `json:"name"`
+		Path     string  `json:"path"`
+		SizeMB   float64 `json:"size_mb"`
+		Modified string  `json:"modified"`
+		Created  string  `json:"created"`
+		Ext      string  `json:"ext"`
+	}
+
+	var files []FileMeta
+	deadline := time.Now().Add(10 * time.Second)
+
+	walk := func(p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || len(files) >= 500 || time.Now().After(deadline) { return nil }
+		files = append(files, FileMeta{
+			Name:     info.Name(),
+			Path:     p,
+			SizeMB:   float64(info.Size()) / (1 << 20),
+			Modified: info.ModTime().Format("2006-01-02 15:04:05"),
+			Created:  info.ModTime().Format("2006-01-02"), // Windows: ModTime으로 대체
+			Ext:      strings.ToLower(filepath.Ext(info.Name())),
+		})
+		if !req.Recursive { return filepath.SkipDir }
+		return nil
+	}
+
+	if req.Recursive {
+		filepath.Walk(req.Path, walk)
+	} else {
+		entries, _ := os.ReadDir(req.Path)
+		for _, e := range entries {
+			if e.IsDir() { continue }
+			info, err := e.Info()
+			if err != nil { continue }
+			walk(filepath.Join(req.Path, e.Name()), info, nil)
+		}
+	}
+
+	json200(w, map[string]any{
+		"files":   files,
+		"count":   len(files),
+		"message": fmt.Sprintf(msgT("파일 %d개 메타데이터 수집 완료", "Collected metadata for %d files", lang), len(files)),
+	})
+}
