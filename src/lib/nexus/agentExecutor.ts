@@ -195,6 +195,16 @@ export function isMultiStepTask(text: string): boolean {
   return triggers.some(k => lower.includes(k)) || verbCount >= 2
 }
 
+// ── 유틸 ─────────────────────────────────────────────────────
+
+function isStepFailed(result: string): boolean {
+  return ['오류', '실패', 'error', '키 없음', '찾을 수 없', 'failed', '불가'].some(p =>
+    result.toLowerCase().includes(p.toLowerCase())
+  )
+}
+
+const delay = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+
 // ── 계획 수립 ─────────────────────────────────────────────────
 
 async function planSteps(userMessage: string): Promise<AgentPlan> {
@@ -221,7 +231,7 @@ async function planSteps(userMessage: string): Promise<AgentPlan> {
   ]
 }
 
-규칙: 최대 6단계, JSON만, 마크다운 코드블록 금지`
+규칙: 최대 15단계, JSON만, 마크다운 코드블록 금지`
 
   try {
     const raw = await callGroq(system, userMessage)
@@ -242,6 +252,69 @@ async function planSteps(userMessage: string): Promise<AgentPlan> {
   }
 }
 
+// ── 단일 스텝 실행 ────────────────────────────────────────────
+
+async function doStep(
+  step: AgentStep,
+  context: string[],
+  excelRows: string[][],
+  onProgress: (msg: string) => void,
+): Promise<string> {
+  switch (step.type) {
+    case 'web_search':
+      onProgress(`🔍 "${step.query}" 검색 중...`)
+      return tavilySearch(step.query)
+
+    case 'screen_capture':
+      onProgress('📸 화면 캡처 및 Vision AI 분석 중...')
+      return captureScreen()
+
+    case 'file_move': {
+      onProgress(`📁 파일 이동: ${step.query}`)
+      const [src, dst] = step.query.split(/→|->/).map(s => s.trim())
+      return moveFile(src || '', dst || '')
+    }
+
+    case 'file_metadata':
+      onProgress(`📋 "${step.query}" 파일 목록 수집 중...`)
+      return getFilesMetadata(step.query, true)
+
+    case 'excel_create': {
+      onProgress('📊 엑셀 파일 생성 중...')
+      const [filename, title] = step.query.split('|').map(s => s.trim())
+      const rows = excelRows.length > 0 ? excelRows : await (async () => {
+        const rawData = await callGroq(
+          '아래 정보에서 표 형식 데이터를 추출하라. 첫 줄 헤더, 각 행은 "|"로 구분.',
+          context.slice(-3).join('\n'),
+        )
+        return rawData.split('\n').filter(Boolean).map(row => row.split('|').map(c => c.trim()))
+      })()
+      return createExcel(rows, title || '데이터', filename || 'nexus_export')
+    }
+
+    case 'ui_control':
+      onProgress(`🖱️ UI 자동화: ${step.query}`)
+      return runDesktopAgent(step.query)
+
+    case 'backend_call': {
+      const [path, bodyStr] = step.query.split('|')
+      let body: Record<string, unknown> = {}
+      try { body = JSON.parse(bodyStr ?? '{}') } catch { body = {} }
+      return backendCall(path.trim(), body)
+    }
+
+    case 'llm_task':
+    default: {
+      onProgress(`✍️ ${step.description} 중...`)
+      const ctx = context.length > 0 ? `\n\n[이전 단계 결과]\n${context.slice(-3).join('\n---\n')}` : ''
+      return callGroq(
+        'Nexus AI입니다. 전문적이고 체계적으로 작업을 수행하세요.',
+        step.query + ctx,
+      )
+    }
+  }
+}
+
 // ── 에이전트 실행 ─────────────────────────────────────────────
 
 export async function runAgent(
@@ -256,87 +329,32 @@ export async function runAgent(
 
   for (const step of plan.steps) {
     onProgress(`⚙️ [${step.id}/${plan.steps.length}] ${step.description}...`)
-    let result = ''
 
-    switch (step.type) {
-      case 'web_search':
-        onProgress(`🔍 "${step.query}" 검색 중...`)
-        result = await tavilySearch(step.query)
-        break
+    let result = await doStep(step, context, excelRows, onProgress)
 
-      case 'screen_capture':
-        onProgress('📸 화면 캡처 및 Vision AI 분석 중...')
-        result = await captureScreen()
-        break
+    // 실패 감지 → 1.5초 대기 후 1회 재시도 (LLM 호출 없음)
+    if (isStepFailed(result) && step.type !== 'llm_task') {
+      onProgress(`🔄 [${step.id}/${plan.steps.length}] 재시도 중...`)
+      await delay(1500)
+      result = await doStep(step, context, excelRows, onProgress)
+    }
 
-      case 'file_move': {
-        onProgress(`📁 파일 이동 중: ${step.query}`)
-        const [src, dst] = step.query.split(/→|->/).map(s => s.trim())
-        // 이전 context에서 실제 경로 추출 시도
-        const ctxText = context.join('\n')
-        const srcResolved = src || ''
-        const dstResolved = dst || ''
-        result = await moveFile(srcResolved, dstResolved)
-        break
-      }
-
-      case 'file_metadata':
-        onProgress(`📋 "${step.query}" 파일 목록 수집 중...`)
-        result = await getFilesMetadata(step.query, true)
-        // 엑셀 행 준비
-        try {
-          const files = JSON.parse(result) as Array<{name:string;path:string;size_mb:number;modified:string;ext:string}>
-          excelRows = [
-            ['파일명', '경로', '크기(MB)', '수정날짜', '확장자'],
-            ...files.map(f => [f.name, f.path, f.size_mb.toFixed(2), f.modified, f.ext]),
-          ]
-        } catch { /* 파싱 실패 시 그냥 텍스트로 */ }
-        break
-
-      case 'excel_create': {
-        onProgress('📊 엑셀 파일 생성 중...')
-        const [filename, title] = step.query.split('|').map(s => s.trim())
-        if (excelRows.length === 0) {
-          // llm으로 데이터 추출 시도
-          const rawData = await callGroq(
-            '아래 정보에서 표 형식 데이터를 CSV처럼 추출하라. 첫 줄은 헤더. 각 행은 "|"로 구분.',
-            context.join('\n'),
-          )
-          excelRows = rawData.split('\n').filter(Boolean).map(row => row.split('|').map(c => c.trim()))
-        }
-        result = await createExcel(excelRows, title || '데이터', filename || 'nexus_export')
-        break
-      }
-
-      case 'ui_control':
-        onProgress(`🖱️ UI 자동화: ${step.query}`)
-        result = await runDesktopAgent(step.query)
-        break
-
-      case 'backend_call': {
-        const [path, bodyStr] = step.query.split('|')
-        let body: Record<string, unknown> = {}
-        try { body = JSON.parse(bodyStr ?? '{}') } catch { body = {} }
-        result = await backendCall(path.trim(), body)
-        break
-      }
-
-      case 'llm_task':
-      default: {
-        onProgress(`✍️ ${step.description} 중...`)
-        const ctx = context.length > 0 ? `\n\n[이전 단계 결과]\n${context.join('\n---\n')}` : ''
-        result = await callGroq(
-          'Nexus AI입니다. 전문적이고 체계적으로 작업을 수행하세요.',
-          step.query + ctx,
-        )
-      }
+    // file_metadata 결과로 엑셀 행 구성
+    if (step.type === 'file_metadata' && !isStepFailed(result)) {
+      try {
+        const files = JSON.parse(result) as Array<{name:string;path:string;size_mb:number;modified:string;ext:string}>
+        excelRows = [
+          ['파일명', '경로', '크기(MB)', '수정날짜', '확장자'],
+          ...files.map(f => [f.name, f.path, f.size_mb.toFixed(2), f.modified, f.ext]),
+        ]
+      } catch { /* 파싱 실패 시 텍스트로 유지 */ }
     }
 
     step.result = result
-    context.push(`[${step.description}]\n${result}`)
+    context.push(`[${step.description}]\n${result.slice(0, 800)}`)
   }
 
-  // 자기검증 + 최종 합성
+  // 최종 합성 (LLM 호출 1회)
   onProgress('🔍 결과 검증 및 최종 답변 정리 중...')
   const synthesis = `사용자 요청: "${userMessage}"
 
