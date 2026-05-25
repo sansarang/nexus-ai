@@ -328,6 +328,13 @@ func findYtDlp() string {
 			return path
 		}
 	}
+	// 인스톨러가 설치하는 경로: %APPDATA%\Nexus\yt-dlp.exe
+	if appdata := os.Getenv("APPDATA"); appdata != "" {
+		p := filepath.Join(appdata, "Nexus", "yt-dlp.exe")
+		if fileExists(p) {
+			return p
+		}
+	}
 	// %LOCALAPPDATA%\Programs\yt-dlp
 	if local := os.Getenv("LOCALAPPDATA"); local != "" {
 		p := filepath.Join(local, "Programs", "yt-dlp", "yt-dlp.exe")
