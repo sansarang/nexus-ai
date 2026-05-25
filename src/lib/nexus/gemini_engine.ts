@@ -1741,12 +1741,43 @@ let _lastPreviewItems: PreviewItem[] = []
 export function getLastPreviewItems(): PreviewItem[] { return _lastPreviewItems }
 export function clearLastPreviewItems(): void { _lastPreviewItems = [] }
 
+// 직업군별 검색 설정 맵
+const VERTICAL_SEARCH_CONFIG: Record<string, {
+  queryBoost: string
+  depth: 'basic' | 'advanced'
+  domains: string[]
+  maxItems: number
+}> = {
+  legal:      { queryBoost: '판례 법령 조항 계약', depth: 'advanced', domains: ['law.go.kr', 'scourt.go.kr', 'moleg.go.kr', 'ccourt.go.kr'], maxItems: 8 },
+  medical:    { queryBoost: '임상 의료 진단 처방 지침', depth: 'advanced', domains: ['pubmed.ncbi.nlm.nih.gov', 'hira.or.kr', 'kdca.go.kr', 'mohw.go.kr'], maxItems: 8 },
+  accountant: { queryBoost: '세무 회계 세법 국세청', depth: 'advanced', domains: ['nts.go.kr', 'law.go.kr', 'fss.or.kr', 'moef.go.kr'], maxItems: 8 },
+  corporate:  { queryBoost: '법인세 세금계산서 4대보험 노동법', depth: 'advanced', domains: ['nts.go.kr', 'moel.go.kr', 'nhis.or.kr', 'nps.or.kr'], maxItems: 8 },
+  smallbiz:   { queryBoost: '소상공인 배달앱 지원정책 카드수수료', depth: 'advanced', domains: ['semas.or.kr', 'sbiz.or.kr', 'nts.go.kr', 'mss.go.kr'], maxItems: 7 },
+  engineer:   { queryBoost: '규격 설계 공정 KS ISO ASME', depth: 'advanced', domains: ['kats.go.kr', 'kstudy.com', 'iso.org', 'asme.org'], maxItems: 7 },
+  investor:   { queryBoost: '주식 종목 ETF PER ROE 시황', depth: 'advanced', domains: ['finance.naver.com', 'krx.co.kr', 'kind.krx.co.kr', 'dart.fss.or.kr'], maxItems: 8 },
+  realtor:    { queryBoost: '부동산 시세 청약 금리 아파트', depth: 'basic',    domains: ['rt.molit.go.kr', 'hogangnono.com', 'r114.com'], maxItems: 6 },
+  developer:  { queryBoost: '개발 코드 GitHub 라이브러리 프레임워크', depth: 'basic', domains: ['github.com', 'stackoverflow.com', 'docs.microsoft.com'], maxItems: 6 },
+  creator:    { queryBoost: '유튜브 트렌딩 콘텐츠 바이럴', depth: 'basic',    domains: [], maxItems: 5 },
+  hr:         { queryBoost: '채용 인사 노동법 최저임금 워크넷', depth: 'basic', domains: ['moel.go.kr', 'work.go.kr'], maxItems: 5 },
+  teacher:    { queryBoost: '교육 수능 교육과정 교육부', depth: 'basic',      domains: ['moe.go.kr', 'suneung.re.kr', 'ebs.co.kr'], maxItems: 5 },
+}
+
 async function executeWebSearch(query: string, site = 'auto', maxItems = 5): Promise<string> {
   _lastPreviewItems = []
 
-  // 전문가 모드: 쿼리 강화 + 결과 수 증가
-  const isExpert = (localStorage.getItem('nexus-persona-id') ?? 'nexus') === 'expert'
-  if (isExpert) {
+  // 직업군 인식
+  const verticalId = localStorage.getItem('nexus_vertical_id') || 'general'
+  const vConfig = VERTICAL_SEARCH_CONFIG[verticalId]
+
+  // 직업군별 쿼리 부스팅
+  if (vConfig) {
+    query = `${query} ${vConfig.queryBoost}`
+    maxItems = Math.max(maxItems, vConfig.maxItems)
+  }
+
+  // 전문가 모드 추가 강화
+  const isExpert = (localStorage.getItem('nexus-persona-id') ?? '') === 'expert'
+  if (isExpert && !vConfig) {
     maxItems = Math.max(maxItems, 10)
     query = `전문 분석 ${query} (학술·기술 자료 포함)`
   }
@@ -1771,21 +1802,27 @@ async function executeWebSearch(query: string, site = 'auto', maxItems = 5): Pro
     }
   } catch { /* 폴백 */ }
 
-  // Tavily API (웹 검색 전용) — 키가 있는 경우
+  // Tavily API — 직업군별 depth + 도메인 필터 적용
   const tavilyKey = TAVILY_API_KEY || localStorage.getItem('nexus-tavily-key') || ''
   if (tavilyKey) {
     try {
+      const searchDepth = vConfig?.depth ?? (isExpert ? 'advanced' : 'basic')
+      const includeDomains = vConfig?.domains?.length ? vConfig.domains : (isExpert ? ['scholar.google.com', 'arxiv.org'] : [])
       const res = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: tavilyKey, query, max_results: maxItems, search_depth: isExpert ? 'advanced' : 'basic', include_domains: isExpert ? ['scholar.google.com', 'arxiv.org', 'pubmed.ncbi.nlm.nih.gov'] : [] }),
+        body: JSON.stringify({
+          api_key: tavilyKey,
+          query,
+          max_results: maxItems,
+          search_depth: searchDepth,
+          include_domains: includeDomains,
+        }),
       })
       if (res.ok) {
         const data = await res.json() as { results?: Array<{ title: string; url: string; content: string }> }
         if (data.results) {
-          _lastPreviewItems = data.results
-            .slice(0, 5)
-            .map(r => ({ title: r.title, url: r.url }))
+          _lastPreviewItems = data.results.slice(0, 5).map(r => ({ title: r.title, url: r.url }))
         }
         return (data.results ?? []).map(r => `• ${r.title}\n  ${r.url}\n  ${r.content.slice(0, 200)}`).join('\n\n')
       }
@@ -1879,6 +1916,21 @@ export async function callGroq(
   const verticalId = localStorage.getItem('nexus_vertical_id') || 'general'
   const verticalPrompt = VERTICAL_PROMPTS[verticalId] ?? ''
 
+  // 전문 직군은 sonar-pro 강제 (더 깊은 웹 검색, 신뢰 출처 우선)
+  const DEEP_VERTICALS = new Set(['legal', 'medical', 'accountant', 'engineer', 'corporate', 'investor'])
+  const effectiveModel = DEEP_VERTICALS.has(verticalId) ? PPLX_MODEL : (model ?? GROQ_MODEL)
+
+  // 직업군별 최신성 필터 (Perplexity search_recency_filter)
+  const RECENCY_MAP: Record<string, string> = {
+    investor:   'day',    // 투자: 당일 데이터 필수
+    medical:    'week',   // 의료: 최신 임상 중요
+    legal:      'month',  // 법률: 최신 개정 법령 중요
+    accountant: 'month',  // 회계: 최신 세법 개정 중요
+    corporate:  'month',  // 기업: 최신 세무/노동법 중요
+    smallbiz:   'month',  // 소상공인: 최신 지원정책 중요
+  }
+  const recencyFilter = RECENCY_MAP[verticalId]
+
   // Custom Instructions 주입 (사용자가 설정에서 저장한 스타일)
   const customInstructions = localStorage.getItem('nexus-custom-instructions') || ''
   const systemPrompt = [
@@ -1891,13 +1943,14 @@ export async function callGroq(
   messages.push({ role: 'user', content: statsContext + userInput })
 
   const url = `${GROQ_API_BASE}/chat/completions`
-  const body = {
-    model,
+  const body: Record<string, unknown> = {
+    model: effectiveModel,
     messages,
     temperature: 0.6,
     max_tokens: 1000,
     // Perplexity sonar 모델은 response_format 미지원 → 시스템 프롬프트로 JSON 강제
   }
+  if (recencyFilter) body.search_recency_filter = recencyFilter
 
   let res: Response
   try {
@@ -1919,7 +1972,7 @@ export async function callGroq(
     console.error(`[Perplexity] API 오류 ${res.status}:`, errText)
 
     // 429 Rate limit → 빠른 모델로 재시도
-    if (res.status === 429 && model === PPLX_MODEL) {
+    if (res.status === 429 && effectiveModel === PPLX_MODEL) {
       console.warn('[Perplexity] Rate limit → sonar 으로 재시도')
       return callGroq(apiKey, userInput, history, PPLX_MODEL_FAST)
     }

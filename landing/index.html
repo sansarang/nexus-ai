@@ -779,20 +779,48 @@
       .section { padding: 64px 16px; }
       .section-sub { font-size: 15px; }
       .cta-final { padding: 80px 16px; }
+      /* 인라인 그리드 모바일 오버라이드 */
+      .before-after-grid { grid-template-columns: 1fr !important; }
+      .trust-stats-grid { grid-template-columns: repeat(3, 1fr) !important; }
+      /* 히어로 */
+      .hero h1 { font-size: clamp(32px, 8vw, 56px); }
+      .hero-pain { font-size: 13px; padding: 8px 14px; }
+      /* 섹션 타이틀 */
+      .section-title { font-size: clamp(24px, 5vw, 40px); }
+      /* 페르소나 카드 미리보기 텍스트 넘침 방지 */
+      .persona-chat { min-height: 120px; }
+      /* 스텝/카운트다운 */
+      .step-card { padding: 20px 16px; }
+      /* 가격 카드 */
+      .price-card { padding: 28px 20px; }
+      /* 내비 모바일 메뉴 */
+      .nav-mobile-menu { font-size: 16px; }
+      /* 스크롤 터치 최적화 */
+      * { -webkit-tap-highlight-color: transparent; }
     }
     @media (max-width: 480px) {
       .strengths-grid { grid-template-columns: 1fr; }
       .persona-grid { grid-template-columns: 1fr; }
-      .hero { padding: 80px 16px 60px; min-height: auto; }
-      .hero-btns { flex-direction: column; align-items: stretch; }
-      .hero h1 { letter-spacing: -1.5px; }
+      .hero { padding: 72px 16px 52px; min-height: auto; }
+      .hero h1 { font-size: clamp(28px, 9vw, 44px); letter-spacing: -1.5px; }
+      .hero-btns { flex-direction: column; align-items: stretch; gap: 10px; }
       .trust-inner { gap: 16px; }
       .trust-num { font-size: 22px; }
       .trust-label { font-size: 11px; }
       footer { padding: 28px 16px; }
       .footer-links { gap: 12px; }
-      .section { padding: 56px 12px; }
-      .cta-final { padding: 60px 12px; }
+      .section { padding: 52px 14px; }
+      .section-title { font-size: clamp(22px, 7vw, 34px); }
+      .cta-final { padding: 56px 14px; }
+      /* 인라인 그리드 — 소폰 */
+      .before-after-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+      .trust-stats-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+      /* 데모 */
+      .demo-messages { min-height: 180px; max-height: 220px; }
+      /* 섹션 서브 */
+      .section-sub { font-size: 14px; }
+      /* 배지 */
+      .hero-badge { font-size: 12px; padding: 6px 14px; }
     }
 
     /* ── FLOATING ORBS ── */
@@ -1567,7 +1595,7 @@
 <section class="section" style="background:var(--bg);">
   <div class="section-label" style="text-align:center;">BEFORE / AFTER</div>
   <h2 class="section-title" style="text-align:center;">업무 방식이 바뀝니다</h2>
-  <div style="max-width:860px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+  <div class="before-after-grid" style="max-width:860px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
     <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:16px; padding:28px;">
       <p style="font-size:12px; font-weight:700; color:#ef4444; letter-spacing:0.1em; margin-bottom:16px;">BEFORE — 기존 방식</p>
       <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
@@ -1607,7 +1635,7 @@
       <button style="flex:1; padding:10px; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer;">❌ 취소</button>
     </div>
   </div>
-  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:700px; margin:40px auto 0;">
+  <div class="trust-stats-grid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:700px; margin:40px auto 0;">
     <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
       <p style="font-size:28px; font-weight:900; color:#a78bfa; margin-bottom:6px;">15단계</p>
       <p style="font-size:12px; color:rgba(255,255,255,0.4);">복합 업무 자동 실행</p>
