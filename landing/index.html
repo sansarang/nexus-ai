@@ -333,6 +333,21 @@
     }
     .demo-btn:hover { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.4); color: #fff; }
     .demo-btn.active { background: rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.6); color: #fff; }
+    .demo-btn.pulse-hint { animation: pulseBtn 1.4s ease-in-out 3; }
+    @keyframes pulseBtn {
+      0%,100% { box-shadow: 0 0 0 0 rgba(168,85,247,0); border-color: rgba(168,85,247,0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(168,85,247,0.25); border-color: rgba(168,85,247,0.8); color:#fff; background: rgba(168,85,247,0.15); }
+    }
+    .demo-click-hint {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #a78bfa; font-weight: 700;
+      padding: 6px 10px; margin: 0 10px 4px;
+      background: rgba(124,58,237,0.12); border-radius: 8px;
+      border: 1px solid rgba(124,58,237,0.25);
+      animation: hintFade 0.5s ease 1s both;
+    }
+    @keyframes hintFade { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .demo-click-hint.hidden { display: none; }
     .demo-btn-emoji { font-size: 14px; }
     /* 오른쪽 채팅 */
     .demo-chat-area { flex: 1; display: flex; flex-direction: column; }
@@ -818,6 +833,9 @@
     😩 &nbsp;엑셀 정리·최저가 검색·메일 답장·보고서 작성 — 이 반복 업무들이 하루 <strong>2.4시간</strong>을 잡아먹습니다
   </div>
   <h1>엑셀·이메일·PC 최적화<br /><span class="grad">말 한마디로 끝냅니다</span></h1>
+  <div style="display:inline-flex; align-items:center; gap:10px; background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.3); border-radius:40px; padding:8px 20px; margin-bottom:16px; font-size:13px; color:rgba(255,255,255,0.75);">
+    <span>💡</span> <strong style="color:#a78bfa;">Nexus AI</strong>는 Windows PC에 설치하는 AI 비서입니다 — ChatGPT처럼 말하면 PC가 알아서 일합니다
+  </div>
   <p class="hero-sub">
     NEXUS AI가 PowerShell·chromedp·Outlook을 직접 조작합니다.<br />
     <strong style="color:var(--text)">설치 3분 · 하루 2.4시간 절약</strong> · Windows 전용 네이티브 앱
@@ -932,9 +950,9 @@
 <!-- DEMO -->
 <div id="demo" style="background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:80px 20px;">
   <div style="max-width:900px; margin:0 auto; text-align:center;">
-    <div class="section-label">LIVE DEMO</div>
+    <div class="section-label">LIVE DEMO — 직접 클릭해보세요</div>
     <h2 class="section-title">실제로 이렇게 작동합니다</h2>
-    <p class="section-sub" style="margin:0 auto 0;">명령 한 줄이면 됩니다</p>
+    <p class="section-sub" style="margin:0 auto 12px;">설치 없이 지금 바로 체험 · 왼쪽 버튼을 클릭하면 Nexus가 실시간으로 실행합니다</p>
     <div class="demo-wrap" id="main-demo">
       <!-- 타이틀바 -->
       <div class="demo-titlebar">
@@ -955,16 +973,17 @@
           </div>
           <div class="demo-avatar-name">넥서스</div>
           <div class="demo-avatar-status">● 온라인</div>
+          <div class="demo-click-hint" id="demo-click-hint">👆 아무 버튼이나 눌러보세요!</div>
           <div class="demo-btns">
-            <button class="demo-btn" id="dbtn-0" onclick="runDemo(0)"><span class="demo-btn-emoji">🔐</span>PC 해킹 점검</button>
-            <button class="demo-btn" id="dbtn-1" onclick="runDemo(1)"><span class="demo-btn-emoji">🔬</span>딥서치</button>
-            <button class="demo-btn" id="dbtn-2" onclick="runDemo(2)"><span class="demo-btn-emoji">🗺️</span>복합 질문</button>
-            <button class="demo-btn" id="dbtn-3" onclick="runDemo(3)"><span class="demo-btn-emoji">⚖️</span>비교 분석</button>
-            <button class="demo-btn" id="dbtn-4" onclick="runDemo(4)"><span class="demo-btn-emoji">▶️</span>영상 검색</button>
-            <button class="demo-btn" id="dbtn-5" onclick="runDemo(5)"><span class="demo-btn-emoji">📈</span>주식 분석 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
-            <button class="demo-btn" id="dbtn-6" onclick="runDemo(6)"><span class="demo-btn-emoji">⚖️</span>계약서 검토 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
-            <button class="demo-btn" id="dbtn-7" onclick="runDemo(7)"><span class="demo-btn-emoji">🏥</span>의학 정보 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
-            <button class="demo-btn" id="dbtn-8" onclick="runDemo(8)"><span class="demo-btn-emoji">🎬</span>콘텐츠 스크립트 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-0" onclick="runDemo(0);hideHint()"><span class="demo-btn-emoji">🔐</span>내 PC 바이러스 검사</button>
+            <button class="demo-btn" id="dbtn-1" onclick="runDemo(1);hideHint()"><span class="demo-btn-emoji">🔬</span>웹 실시간 검색</button>
+            <button class="demo-btn" id="dbtn-2" onclick="runDemo(2);hideHint()"><span class="demo-btn-emoji">🗺️</span>여러 질문 한번에</button>
+            <button class="demo-btn" id="dbtn-3" onclick="runDemo(3);hideHint()"><span class="demo-btn-emoji">⚖️</span>상품 가격 비교</button>
+            <button class="demo-btn" id="dbtn-4" onclick="runDemo(4);hideHint()"><span class="demo-btn-emoji">▶️</span>유튜브 검색</button>
+            <button class="demo-btn" id="dbtn-5" onclick="runDemo(5);hideHint()"><span class="demo-btn-emoji">📈</span>주식 분석 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-6" onclick="runDemo(6);hideHint()"><span class="demo-btn-emoji">📄</span>계약서 위험 분석 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-7" onclick="runDemo(7);hideHint()"><span class="demo-btn-emoji">🏥</span>의학 정보 검색 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-8" onclick="runDemo(8);hideHint()"><span class="demo-btn-emoji">🎬</span>유튜브 스크립트 작성 <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
           </div>
         </div>
 
@@ -972,9 +991,12 @@
         <div class="demo-chat-area">
           <div class="demo-messages" id="demo-messages">
             <div class="demo-empty" id="demo-empty">
-              <div style="font-size:28px">←</div>
-              <div>버튼을 눌러보세요<br /><span style="font-size:11px;opacity:0.6">Nexus가 실시간으로 실행합니다</span></div>
+              <div style="font-size:32px; animation: arrowBounce 1s ease-in-out infinite;">👈</div>
+              <div style="font-size:15px; font-weight:700; color:#fff; margin-top:8px;">버튼을 눌러보세요</div>
+              <div style="font-size:12px; opacity:0.5; margin-top:4px;">Nexus가 실시간으로 실행합니다</div>
+              <div style="font-size:11px; opacity:0.35; margin-top:12px;">설치 불필요 · 클릭 한번으로 체험</div>
             </div>
+            <style>@keyframes arrowBounce{0%,100%{transform:translateX(0)}50%{transform:translateX(-6px)}}</style>
           </div>
           <div class="demo-input-bar">
             <div class="demo-input-box" id="demo-input-box">버튼을 눌러 체험해보세요...</div>
@@ -1896,6 +1918,32 @@
   }
 
   function delay(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+  function hideHint() {
+    const h = document.getElementById('demo-click-hint')
+    if (h) h.classList.add('hidden')
+  }
+
+  // 데모 섹션 스크롤 진입 시 자동 실행 + 첫 버튼 펄스
+  (function() {
+    const demoSection = document.getElementById('demo')
+    if (!demoSection) return
+    let autoPlayed = false
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && !autoPlayed) {
+        autoPlayed = true
+        // 첫 버튼 펄스 힌트
+        const btn0 = document.getElementById('dbtn-0')
+        if (btn0) {
+          setTimeout(() => btn0.classList.add('pulse-hint'), 600)
+          setTimeout(() => btn0.classList.remove('pulse-hint'), 4800)
+        }
+        // 1.8초 후 자동 첫 데모 실행
+        setTimeout(() => { if (!demoRunning) runDemo(0) }, 1800)
+      }
+    }, { threshold: 0.3 })
+    obs.observe(demoSection)
+  })()
 
   // FAQ 토글
   function toggleFaq(btn) {
