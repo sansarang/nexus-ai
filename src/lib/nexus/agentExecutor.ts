@@ -18,15 +18,27 @@ type StepType =
   | 'excel_create'    // 엑셀 파일 생성
   | 'ui_control'      // 데스크톱 UI 자동화 (클릭·타이핑)
   | 'backend_call'    // 직접 백엔드 API 호출
-  | 'email_inbox'     // 받은 메일 조회
-  | 'email_summarize' // 메일 AI 요약
-  | 'email_classify'  // 메일 분류·우선순위
-  | 'email_draft'     // 답장 초안 작성
-  | 'email_send'      // 메일 전송
-  | 'calendar_today'  // 오늘 일정 조회
-  | 'calendar_add'    // 일정 추가
+  | 'email_inbox'        // 받은 메일 조회
+  | 'email_summarize'   // 메일 AI 요약
+  | 'email_classify'    // 메일 분류·우선순위
+  | 'email_draft'       // 답장 초안 작성
+  | 'email_send'        // 메일 전송
+  | 'calendar_today'    // 오늘 일정 조회
+  | 'calendar_add'      // 일정 추가
+  | 'meeting_transcribe'// 회의 녹음 전사·요약
+  | 'report_generate'   // 보고서 자동 생성
+  | 'schedule_remind'   // 리마인더·반복 스케줄
+  | 'search_news'       // 뉴스 전문 검색
+  | 'search_shopping'   // 쇼핑·가격 비교
+  | 'search_stock'      // 주식·환율 조회
+  | 'search_location'   // 장소·맛집 검색
 
-interface AgentStep {
+// 승인 필요한 위험 스텝 (실행 전 사용자 확인)
+export const DANGEROUS_STEPS = new Set<StepType>([
+  'email_send', 'file_move', 'ui_control', 'calendar_add', 'schedule_remind',
+])
+
+export interface AgentStep {
   id: number
   type: StepType
   description: string
@@ -35,7 +47,7 @@ interface AgentStep {
   result?: string
 }
 
-interface AgentPlan {
+export interface AgentPlan {
   finalGoal: string
   steps: AgentStep[]
 }
@@ -282,6 +294,65 @@ async function callCalendarToday(): Promise<string> {
   } catch { return '(일정 조회 오류)' }
 }
 
+async function callMeetingTranscribe(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/meeting/summary`)
+    if (!res.ok) return '(회의록 없음)'
+    const data = await res.json()
+    return data.summary || data.transcript || data.message || '(회의 내용 없음)'
+  } catch { return '(회의록 조회 오류)' }
+}
+
+async function callReportGenerate(context: string[]): Promise<string> {
+  return callGroq(
+    '당신은 전문 보고서 작성 AI입니다. 체계적이고 명확하게 작성하세요.',
+    `다음 데이터를 바탕으로 전문적인 보고서를 작성하라:\n${context.slice(-5).join('\n---\n')}`,
+  )
+}
+
+async function callScheduleRemind(title: string, time: string): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/scheduler/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, schedule: time, type: 'remind' }),
+    })
+    if (!res.ok) return '(리마인더 설정 실패)'
+    const data = await res.json()
+    return data.message ?? '리마인더 설정 완료'
+  } catch { return '(리마인더 설정 오류)' }
+}
+
+async function searchNews(query: string): Promise<string> {
+  return tavilySearch(`최신 뉴스 ${query}`)
+}
+
+async function searchShopping(query: string): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/search/shopping`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }),
+    })
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    return data.message ?? JSON.stringify(data).slice(0, 500)
+  } catch { return tavilySearch(`${query} 가격 최저가 비교`) }
+}
+
+async function searchStock(query: string): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/stock/price`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol: query }),
+    })
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    return data.message ?? JSON.stringify(data).slice(0, 300)
+  } catch { return tavilySearch(`${query} 주가 현재가`) }
+}
+
+async function searchLocation(query: string): Promise<string> {
+  return tavilySearch(`${query} 위치 주소 영업시간 후기`)
+}
+
 async function callCalendarAdd(title: string, date: string): Promise<string> {
   try {
     const res = await fetch(`${BASE}/api/calendar/add`, {
@@ -325,6 +396,13 @@ async function planSteps(userMessage: string): Promise<AgentPlan> {
 - email_send: 메일 전송 (query: "수신자|제목|본문")
 - calendar_today: 오늘 일정 조회 (query: 조회 목적)
 - calendar_add: 일정 추가 (query: "제목|날짜시간")
+- meeting_transcribe: 회의 녹음 전사·요약 (query: 요약 목적)
+- report_generate: 이전 단계 데이터로 보고서 생성 (query: 보고서 제목)
+- schedule_remind: 리마인더 설정 (query: "제목|시간")
+- search_news: 뉴스 검색 (query: 뉴스 키워드)
+- search_shopping: 쇼핑·최저가 검색 (query: 상품명)
+- search_stock: 주식·환율 조회 (query: 종목명 또는 통화)
+- search_location: 장소·맛집 검색 (query: 장소 키워드)
 
 반환 형식 (JSON만, 코드블록 금지):
 {
@@ -443,6 +521,36 @@ async function doStep(
       return callCalendarAdd(title || step.query, date || '')
     }
 
+    case 'meeting_transcribe':
+      onProgress('🎙️ 회의록 가져오는 중...')
+      return callMeetingTranscribe()
+
+    case 'report_generate':
+      onProgress('📋 보고서 생성 중...')
+      return callReportGenerate(context)
+
+    case 'schedule_remind': {
+      onProgress('🔔 리마인더 설정 중...')
+      const [title, time] = step.query.split('|').map(s => s.trim())
+      return callScheduleRemind(title || step.query, time || '')
+    }
+
+    case 'search_news':
+      onProgress(`📰 "${step.query}" 뉴스 검색 중...`)
+      return searchNews(step.query)
+
+    case 'search_shopping':
+      onProgress(`🛒 "${step.query}" 가격 비교 중...`)
+      return searchShopping(step.query)
+
+    case 'search_stock':
+      onProgress(`📈 "${step.query}" 시세 조회 중...`)
+      return searchStock(step.query)
+
+    case 'search_location':
+      onProgress(`🗺️ "${step.query}" 장소 검색 중...`)
+      return searchLocation(step.query)
+
     case 'llm_task':
     default: {
       onProgress(`✍️ ${step.description} 중...`)
@@ -455,15 +563,22 @@ async function doStep(
   }
 }
 
-// ── 에이전트 실행 ─────────────────────────────────────────────
+// ── 에이전트 공개 API ──────────────────────────────────────────
 
-export async function runAgent(
+export async function planAgent(userMessage: string): Promise<AgentPlan> {
+  return planSteps(userMessage)
+}
+
+export function hasDangerousSteps(plan: AgentPlan): boolean {
+  return plan.steps.some(s => DANGEROUS_STEPS.has(s.type))
+}
+
+export async function runAgentWithPlan(
   userMessage: string,
+  plan: AgentPlan,
   onProgress: (msg: string) => void,
+  onStepDone?: (step: AgentStep, success: boolean) => void,
 ): Promise<string> {
-  onProgress('🧠 작업 계획 수립 중...')
-  const plan = await planSteps(userMessage)
-
   const context: string[] = []
   let excelRows: string[][] = []
 
@@ -472,15 +587,16 @@ export async function runAgent(
 
     let result = await doStep(step, context, excelRows, onProgress)
 
-    // 실패 감지 → 1.5초 대기 후 1회 재시도 (LLM 호출 없음)
     if (isStepFailed(result) && step.type !== 'llm_task') {
       onProgress(`🔄 [${step.id}/${plan.steps.length}] 재시도 중...`)
       await delay(1500)
       result = await doStep(step, context, excelRows, onProgress)
     }
 
-    // file_metadata 결과로 엑셀 행 구성
-    if (step.type === 'file_metadata' && !isStepFailed(result)) {
+    const success = !isStepFailed(result)
+    onStepDone?.(step, success)
+
+    if (step.type === 'file_metadata' && success) {
       try {
         const files = JSON.parse(result) as Array<{name:string;path:string;size_mb:number;modified:string;ext:string}>
         excelRows = [
@@ -494,7 +610,6 @@ export async function runAgent(
     context.push(`[${step.description}]\n${result.slice(0, 800)}`)
   }
 
-  // 최종 합성 (LLM 호출 1회)
   onProgress('🔍 결과 검증 및 최종 답변 정리 중...')
   const synthesis = `사용자 요청: "${userMessage}"
 
@@ -511,4 +626,14 @@ ${context.join('\n\n---\n\n')}
     '당신은 Nexus AI입니다. 실행 결과를 사용자에게 명확하게 보고하세요.',
     synthesis,
   )
+}
+
+export async function runAgent(
+  userMessage: string,
+  onProgress: (msg: string) => void,
+  onStepDone?: (step: AgentStep, success: boolean) => void,
+): Promise<string> {
+  onProgress('🧠 작업 계획 수립 중...')
+  const plan = await planSteps(userMessage)
+  return runAgentWithPlan(userMessage, plan, onProgress, onStepDone)
 }

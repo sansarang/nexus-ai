@@ -4,8 +4,9 @@ import { useAppStore } from '../../stores/appStore'
 import { callGemini, callOllama, fallbackResponse, trackUsage, callGroqVision } from '../../lib/nexus/gemini_engine'
 import { getAuthHeader } from '../../lib/nexus/backendAPI'
 import { routeWithLLM, routeWithLLMMulti } from '../../lib/nexus/llmToolRouter'
-import { isMultiStepTask, runAgent } from '../../lib/nexus/agentExecutor'
-import { buildMemoryContext, learnFromTurn, saveHistory, toStoredTurns } from '../../lib/nexus/memory'
+import { isMultiStepTask, runAgent, planAgent, hasDangerousSteps, runAgentWithPlan, DANGEROUS_STEPS } from '../../lib/nexus/agentExecutor'
+import type { AgentPlan, AgentStep } from '../../lib/nexus/agentExecutor'
+import { buildMemoryContext, learnFromTurn, learnPattern, saveHistory, toStoredTurns } from '../../lib/nexus/memory'
 import { evaluateTriggersFiltered, getUptimeMs, STATS_POLL_MS } from '../../lib/nexus/proactiveAI'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
@@ -99,6 +100,9 @@ export function NexusChat() {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const [agentProgress, setAgentProgress] = useState('')
+  const [pendingAgentPlan, setPendingAgentPlan] = useState<{ plan: AgentPlan; userMessage: string } | null>(null)
+  const [stepResults, setStepResults] = useState<Array<{ id: number; description: string; success: boolean }>>([])
+  const pendingMsgRef = useRef('')
   const [emotion, setEmotion] = useState<NexusEmotion>('neutral')
   const [speaking, setSpeaking] = useState(false)
   const [listening, setListening] = useState(false)
@@ -240,6 +244,51 @@ export function NexusChat() {
     )
   }, [userLang])
 
+  /* ── 에이전트 승인·취소 ── */
+  const handleApproveAgent = useCallback(async () => {
+    if (!pendingAgentPlan) return
+    const { plan, userMessage } = pendingAgentPlan
+    setPendingAgentPlan(null)
+    setTyping(true)
+    typingRef.current = true
+    setStepResults([])
+    setAgentProgress('⚙️ 실행 중...')
+    try {
+      const agentResult = await runAgentWithPlan(userMessage, plan,
+        (msg) => setAgentProgress(msg),
+        (step: AgentStep, success: boolean) => setStepResults(prev => [...prev, { id: step.id, description: step.description, success }]),
+      )
+      setAgentProgress('')
+      setTyping(false)
+      typingRef.current = false
+      historyRef.current.push({ role: 'model', parts: [{ text: agentResult }] })
+      learnFromTurn(userMessage, agentResult)
+      learnPattern(userMessage, agentResult.slice(0, 60))
+      saveHistory(toStoredTurns(historyRef.current))
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(), role: 'nexus', text: agentResult,
+        emotion: 'happy', timestamp: new Date(), animate: true,
+      }])
+      speakText(agentResult.slice(0, 200))
+    } catch {
+      setAgentProgress('')
+      setTyping(false)
+      typingRef.current = false
+    }
+  }, [pendingAgentPlan, speakText])
+
+  const handleRejectAgent = useCallback(() => {
+    setPendingAgentPlan(null)
+    setStepResults([])
+    setTyping(false)
+    typingRef.current = false
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(), role: 'nexus',
+      text: '작업을 취소했어요. 다른 방식으로 도와드릴까요?',
+      emotion: 'neutral', timestamp: new Date(), animate: true,
+    }])
+  }, [])
+
   /* ── STT: 마이크 버튼 토글 ── */
   const handleVoiceToggle = useCallback(() => {
     /* 이미 듣는 중이면 중지 */
@@ -346,25 +395,50 @@ export function NexusChat() {
 
     historyRef.current.push({ role: 'user', parts: [{ text: trimmed }] })
 
-    /* ── -1순위: 멀티스텝 에이전트 — "검색해서 작성해줘" 류 복합 요청 ── */
+    /* ── -1순위: 멀티스텝 에이전트 ── */
     if (isMultiStepTask(trimmed)) {
       setAgentProgress('🧠 작업 계획 수립 중...')
       try {
-        const agentResult = await runAgent(trimmed, (msg) => setAgentProgress(msg))
+        const plan = await planAgent(trimmed)
+        setAgentProgress('')
+
+        if (hasDangerousSteps(plan)) {
+          // 위험 스텝 포함 → 승인 먼저
+          const stepList = plan.steps.map(s =>
+            `${DANGEROUS_STEPS.has(s.type) ? '⚠️' : '✅'} ${s.description}`
+          ).join('\n')
+          const previewMsg = `다음 작업들을 실행할 예정이에요:\n\n${stepList}\n\n계속할까요?`
+          historyRef.current.push({ role: 'model', parts: [{ text: previewMsg }] })
+          setTyping(false)
+          typingRef.current = false
+          setPendingAgentPlan({ plan, userMessage: trimmed })
+          setStepResults([])
+          pendingMsgRef.current = trimmed
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(), role: 'nexus',
+            text: previewMsg, emotion: 'neutral', timestamp: new Date(), animate: true,
+          }])
+          return
+        }
+
+        // 안전한 스텝만 → 바로 실행
+        setAgentProgress('⚙️ 실행 중...')
+        setStepResults([])
+        const agentResult = await runAgentWithPlan(trimmed, plan,
+          (msg) => setAgentProgress(msg),
+          (step, success) => setStepResults(prev => [...prev, { id: step.id, description: step.description, success }]),
+        )
         setAgentProgress('')
         setTyping(false)
         typingRef.current = false
         historyRef.current.push({ role: 'model', parts: [{ text: agentResult }] })
-        setMessages(prev => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: 'nexus',
-          text: agentResult,
-          emotion: 'happy',
-          timestamp: new Date(),
-          animate: true,
-        }])
         learnFromTurn(trimmed, agentResult)
+        learnPattern(trimmed, agentResult.slice(0, 60))
         saveHistory(toStoredTurns(historyRef.current))
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(), role: 'nexus', text: agentResult,
+          emotion: 'happy', timestamp: new Date(), animate: true,
+        }])
         speakText(agentResult.slice(0, 200))
         return
       } catch {
@@ -765,9 +839,31 @@ export function NexusChat() {
           <MessageBubble key={msg.id} message={msg} onStepConfirm={handleStepConfirm} />
         ))}
 
-        {typing && <TypingIndicator message={agentProgress || undefined} />}
+        {typing && <TypingIndicator message={
+          stepResults.length > 0
+            ? stepResults.map(s => `${s.success ? '✅' : '❌'} ${s.description}`).join('\n') + (agentProgress ? `\n⏳ ${agentProgress}` : '')
+            : agentProgress || undefined
+        } />}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* 에이전트 승인 UI */}
+      {pendingAgentPlan && (
+        <div style={{ padding: '8px 16px', display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleApproveAgent}
+            style={{ flex: 1, padding: '10px 0', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+          >
+            ✅ 실행할게요
+          </button>
+          <button
+            onClick={handleRejectAgent}
+            style={{ flex: 1, padding: '10px 0', background: '#374151', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+          >
+            ❌ 취소
+          </button>
+        </div>
+      )}
 
       {/* 퀵 액션 */}
       <AnimatePresence>

@@ -6,14 +6,22 @@ export interface StoredTurn {
   timestamp: number
 }
 
+export interface RecurringPattern {
+  trigger: string    // 트리거 키워드 ("주간보고", "매주 월요일")
+  action: string     // 실행된 작업 요약
+  count: number      // 사용 횟수
+  lastUsed: number   // 마지막 사용 timestamp
+}
+
 export interface UserProfile {
-  preferredCity?: string          // 자주 묻는 날씨 도시
-  preferredNewsCategory?: string  // 관심 뉴스 분야
-  preferredStocks?: string[]      // 관심 주식 종목
-  name?: string                   // 사용자가 밝힌 이름
-  recentTopics?: string[]         // 최근 관심 주제 (최대 10개)
-  locale?: string                 // 자주 쓰는 지역/도시
-  facts?: string[]                // 기억해야 할 사실 (최대 20개)
+  preferredCity?: string
+  preferredNewsCategory?: string
+  preferredStocks?: string[]
+  name?: string
+  recentTopics?: string[]
+  locale?: string
+  facts?: string[]
+  patterns?: RecurringPattern[]   // 반복 행동 패턴 (최대 20개)
 }
 
 const HISTORY_KEY = 'nexus-conversation-history'
@@ -146,6 +154,8 @@ export function buildMemoryContext(): string {
   if (profile.preferredStocks?.length) lines.push(`관심 주식: ${profile.preferredStocks.join(', ')}`)
   if (profile.recentTopics?.length) lines.push(`최근 관심 주제: ${profile.recentTopics.join(', ')}`)
   if (profile.facts?.length) lines.push(`기억 사항: ${profile.facts.join(' / ')}`)
+  const topPatterns = (profile.patterns ?? []).filter(p => p.count >= 2).slice(0, 5)
+  if (topPatterns.length) lines.push(`반복 패턴: ${topPatterns.map(p => `"${p.trigger}"→${p.action}`).join(', ')}`)
 
   const profileSection = lines.length > 0
     ? `[사용자 기억]\n${lines.join('\n')}`
@@ -175,6 +185,34 @@ function buildHistorySummary(oldTurns: StoredTurn[]): string {
     .map(([date, texts]) => `${date}: ${texts.slice(0, 3).join(', ')}`)
     .join('\n')
   return summary ? `[과거 대화 요약]\n${summary}` : ''
+}
+
+// ── 반복 패턴 학습 ───────────────────────────────────────────
+
+const TIME_TRIGGERS = ['매일', '매주', '매월', '월요일', '화요일', '수요일', '목요일', '금요일', '아침', '저녁', '출근', '퇴근']
+const TASK_TRIGGERS = ['주간보고', '일일보고', '브리핑', '회의록', '정리', '요약', '보고서', '메일확인', '일정확인']
+
+export function learnPattern(userText: string, action: string): void {
+  const profile = loadProfile()
+  const patterns = profile.patterns ?? []
+  const matched = [...TIME_TRIGGERS, ...TASK_TRIGGERS].find(t => userText.includes(t))
+  if (!matched) return
+  const existing = patterns.find(p => p.trigger === matched)
+  if (existing) {
+    existing.count++
+    existing.lastUsed = Date.now()
+    existing.action = action
+  } else {
+    patterns.push({ trigger: matched, action, count: 1, lastUsed: Date.now() })
+  }
+  updateProfile({ patterns: patterns.sort((a, b) => b.count - a.count).slice(0, 20) })
+}
+
+export function getSuggestedPatterns(text: string): RecurringPattern[] {
+  const profile = loadProfile()
+  return (profile.patterns ?? []).filter(p =>
+    p.count >= 2 && [...TIME_TRIGGERS, ...TASK_TRIGGERS].some(t => text.includes(t) && p.trigger === t)
+  )
 }
 
 // ── ConversationTurn ↔ StoredTurn 변환 ─────────────────────
