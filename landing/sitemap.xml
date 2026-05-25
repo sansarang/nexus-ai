@@ -1,20 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- 메인 랜딩 (KO) -->
   <url>
     <loc>https://nexusai.ai.kr/</loc>
     <xhtml:link rel="alternate" hreflang="ko" href="https://nexusai.ai.kr/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://nexusai.ai.kr/en/" />
-    <lastmod>2026-05-21</lastmod>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nexusai.ai.kr/" />
+    <lastmod>2026-05-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+
+  <!-- 메인 랜딩 (EN) -->
   <url>
     <loc>https://nexusai.ai.kr/en/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://nexusai.ai.kr/en/" />
     <xhtml:link rel="alternate" hreflang="ko" href="https://nexusai.ai.kr/" />
-    <lastmod>2026-05-21</lastmod>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nexusai.ai.kr/" />
+    <lastmod>2026-05-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+
+  <!-- 법적 페이지 (KO) -->
+  <url>
+    <loc>https://nexusai.ai.kr/terms</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/privacy</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/refund</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
+  <!-- 버티컬 페이지 -->
+  <url>
+    <loc>https://nexusai.ai.kr/legal</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/medical</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/finance</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/content</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- 법적 페이지 (EN) -->
+  <url>
+    <loc>https://nexusai.ai.kr/en/terms</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/en/privacy</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://nexusai.ai.kr/en/refund</loc>
+    <lastmod>2026-05-25</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
 </urlset>
