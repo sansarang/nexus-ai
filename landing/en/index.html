@@ -268,6 +268,10 @@
     .demo-btn:hover { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.4); color: #fff; }
     .demo-btn.active { background: rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.6); color: #fff; }
     .demo-btn-emoji { font-size: 14px; }
+    .demo-click-hint { display:flex; align-items:center; gap:6px; font-size:11px; color:#a78bfa; font-weight:700; padding:6px 10px; margin:0 10px 4px; background:rgba(124,58,237,0.12); border-radius:8px; border:1px solid rgba(124,58,237,0.25); animation:hintFade 0.5s ease 1s both; }
+    @keyframes hintFade { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .demo-click-hint.hidden { display:none; }
+    @keyframes arrowBounce { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-6px)} }
     .demo-chat-area { flex: 1; display: flex; flex-direction: column; }
     .demo-messages {
       flex: 1; overflow-y: auto; padding: 20px 18px 10px;
@@ -731,16 +735,17 @@
           </div>
           <div class="demo-avatar-name">Nexus</div>
           <div class="demo-avatar-status">● Online</div>
+          <div class="demo-click-hint" id="demo-click-hint">👆 Click any button to try!</div>
           <div class="demo-btns">
-            <button class="demo-btn" id="dbtn-0" onclick="runDemo(0)"><span class="demo-btn-emoji">🔐</span>PC Security Scan</button>
-            <button class="demo-btn" id="dbtn-1" onclick="runDemo(1)"><span class="demo-btn-emoji">🔬</span>Deep Research</button>
-            <button class="demo-btn" id="dbtn-2" onclick="runDemo(2)"><span class="demo-btn-emoji">🗺️</span>Multi-task Query</button>
-            <button class="demo-btn" id="dbtn-3" onclick="runDemo(3)"><span class="demo-btn-emoji">⚖️</span>Compare Analysis</button>
-            <button class="demo-btn" id="dbtn-4" onclick="runDemo(4)"><span class="demo-btn-emoji">▶️</span>Video Search</button>
-            <button class="demo-btn" id="dbtn-5" onclick="runDemo(5)"><span class="demo-btn-emoji">📈</span>Stock Analysis <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
-            <button class="demo-btn" id="dbtn-6" onclick="runDemo(6)"><span class="demo-btn-emoji">⚖️</span>Contract Review <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
-            <button class="demo-btn" id="dbtn-7" onclick="runDemo(7)"><span class="demo-btn-emoji">🏥</span>Medical Research <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
-            <button class="demo-btn" id="dbtn-8" onclick="runDemo(8)"><span class="demo-btn-emoji">🎬</span>Content Script <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-0" onclick="runDemo(0);hideHint()"><span class="demo-btn-emoji">🔐</span>PC Security Scan</button>
+            <button class="demo-btn" id="dbtn-1" onclick="runDemo(1);hideHint()"><span class="demo-btn-emoji">🔬</span>Deep Research</button>
+            <button class="demo-btn" id="dbtn-2" onclick="runDemo(2);hideHint()"><span class="demo-btn-emoji">🗺️</span>Multi-task Query</button>
+            <button class="demo-btn" id="dbtn-3" onclick="runDemo(3);hideHint()"><span class="demo-btn-emoji">⚖️</span>Compare Analysis</button>
+            <button class="demo-btn" id="dbtn-4" onclick="runDemo(4);hideHint()"><span class="demo-btn-emoji">▶️</span>Video Search</button>
+            <button class="demo-btn" id="dbtn-5" onclick="runDemo(5);hideHint()"><span class="demo-btn-emoji">📈</span>Stock Analysis <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-6" onclick="runDemo(6);hideHint()"><span class="demo-btn-emoji">⚖️</span>Contract Review <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-7" onclick="runDemo(7);hideHint()"><span class="demo-btn-emoji">🏥</span>Medical Research <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-8" onclick="runDemo(8);hideHint()"><span class="demo-btn-emoji">🎬</span>Content Script <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
           </div>
         </div>
 
@@ -748,8 +753,10 @@
         <div class="demo-chat-area">
           <div class="demo-messages" id="demo-messages">
             <div class="demo-empty" id="demo-empty">
-              <div style="font-size:28px">←</div>
-              <div>Click a button to try it<br /><span style="font-size:11px;opacity:0.6">Nexus executes it in real-time</span></div>
+              <div style="font-size:32px; animation:arrowBounce 1s ease-in-out infinite;">👈</div>
+              <div style="font-size:15px; font-weight:700; color:#fff; margin-top:8px;">Click a button to try</div>
+              <div style="font-size:12px; opacity:0.5; margin-top:4px;">Nexus executes it in real-time</div>
+              <div style="font-size:11px; opacity:0.35; margin-top:12px;">No install needed · One click demo</div>
             </div>
           </div>
           <div class="demo-input-bar">
@@ -1569,6 +1576,11 @@
 
   let demoRunning = false
   const DEMO_TOTAL = DEMO_DATA.length
+
+  function hideHint() {
+    const h = document.getElementById('demo-click-hint')
+    if (h) h.classList.add('hidden')
+  }
 
   async function runDemo(idx) {
     if (demoRunning) return
