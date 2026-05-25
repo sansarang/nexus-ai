@@ -241,6 +241,7 @@ export function FloatingCharacter() {
     micEnabled, ttsVoice, setTtsVoice,
     isLoggedIn, setLoggedIn, subscriptionStatus, userEmail,
     setUserLang,
+    showWorkflowBuilder: storeShowWorkflowBuilder, workflowBuilderInitialName, setShowWorkflowBuilder: storeSetShowWorkflowBuilder,
   } = useAppStore()
 
   const primaryColor = storePrimary || '#a78bfa'
@@ -266,7 +267,8 @@ export function FloatingCharacter() {
   const [minimized, setMinimized]         = useState(false)
   const [settingsOpen, setSettingsOpen]     = useState(false)
   const [showDesktopAgent, setShowDesktopAgent] = useState(false)
-  const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false)
+  const showWorkflowBuilder = storeShowWorkflowBuilder
+  const setShowWorkflowBuilder = (val: boolean) => storeSetShowWorkflowBuilder(val)
   const [showEmailSetup, setShowEmailSetup] = useState(false)
   const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
   const alertESRef = useRef<EventSource | null>(null)
@@ -1444,7 +1446,7 @@ export function FloatingCharacter() {
     { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b', onClick: () => {
       const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
       if (!isPremium) { setPaywallFeature('workflow_run'); setPaywallUsed(0); setPaywallLimit(0) }
-      else setShowWorkflowBuilder(p => !p)
+      else storeSetShowWorkflowBuilder(!showWorkflowBuilder)
     }, tip: 'Workflow Builder' },
     { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
       tip: userLang === 'en' ? 'Minimize' : '최소화' },
@@ -2125,8 +2127,9 @@ export function FloatingCharacter() {
       {showWorkflowBuilder && (
         <WorkflowBuilder
           key="workflow-builder"
-          onClose={() => setShowWorkflowBuilder(false)}
+          onClose={() => storeSetShowWorkflowBuilder(false)}
           primaryColor={primaryColor}
+          initialName={workflowBuilderInitialName}
         />
       )}
     </AnimatePresence>

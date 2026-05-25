@@ -103,6 +103,9 @@ interface AppState {
   /* UI */
   currentView: ViewId
   commandOpen: boolean
+  showWorkflowBuilder: boolean
+  workflowBuilderInitialName: string | undefined
+  setShowWorkflowBuilder: (val: boolean, name?: string) => void
 
   /* 클립보드 */
   clipboardHistory: ClipboardEntry[]
@@ -261,6 +264,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   currentView: 'home',
   commandOpen: false,
+  showWorkflowBuilder: false,
+  workflowBuilderInitialName: undefined,
+  setShowWorkflowBuilder: (val, name) => set({ showWorkflowBuilder: val, workflowBuilderInitialName: name }),
   clipboardHistory: [
     {
       id: '1',

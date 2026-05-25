@@ -26,6 +26,7 @@ interface WFEdge {
 interface WorkflowBuilderProps {
   onClose: () => void
   primaryColor?: string
+  initialName?: string
 }
 
 // ── Node 설정 ────────────────────────────────────────────────────
@@ -310,7 +311,7 @@ const TEMPLATES: TemplateEntry[] = [
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────
 
-export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed' }: WorkflowBuilderProps) {
+export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed', initialName }: WorkflowBuilderProps) {
   const { activePersonaId } = useAppStore()
   const personaTemplates: TemplateEntry[] = PERSONA_TEMPLATES[activePersonaId] ?? []
   const [nodes, setNodes] = useState<WFNode[]>([])
@@ -319,10 +320,10 @@ export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed' }: WorkflowB
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [connectFrom, setConnectFrom] = useState<string | null>(null)
-  const [workflowName, setWorkflowName] = useState('새 워크플로우')
+  const [workflowName, setWorkflowName] = useState(initialName || '새 워크플로우')
   const [savedId, setSavedId] = useState<string | null>(null)
   const [toast, setToast] = useState('')
-  const [tab, setTab] = useState<'builder' | 'list'>('builder')
+  const [tab, setTab] = useState<'builder' | 'list' | 'templates'>(initialName ? 'builder' : 'builder')
   const [savedWorkflows, setSavedWorkflows] = useState<any[]>([])
   const canvasRef = useRef<HTMLDivElement>(null)
 
@@ -494,13 +495,13 @@ export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed' }: WorkflowB
           }}
         />
         <div style={{ display: 'flex', gap: 6 }}>
-          {(['builder', 'list'] as const).map(t => (
+          {([['builder', '🛠 빌더'], ['templates', '✨ 템플릿'], ['list', '📋 목록']] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '5px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 11,
               background: tab === t ? `${primaryColor}44` : 'rgba(255,255,255,0.06)',
               color: tab === t ? primaryColor : 'rgba(255,255,255,0.5)', fontWeight: 600,
             }}>
-              {t === 'builder' ? '🛠 빌더' : '📋 목록'}
+              {label}
             </button>
           ))}
         </div>
@@ -525,7 +526,43 @@ export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed' }: WorkflowB
         }}>✕</button>
       </div>
 
-      {tab === 'builder' ? (
+      {tab === 'templates' ? (
+        /* Templates gallery */
+        <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
+          {personaTemplates.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, color: `${primaryColor}cc`, fontWeight: 700, letterSpacing: '0.08em', marginBottom: 10 }}>
+                내 직업군 템플릿
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 18 }}>
+                {personaTemplates.map((tpl, i) => (
+                  <button key={`p-${i}`} onClick={() => { applyTemplate(tpl); setTab('builder') }} style={{
+                    padding: '12px 14px', borderRadius: 12, border: `1px solid ${primaryColor}44`,
+                    background: `${primaryColor}11`, color: '#fff', textAlign: 'left', cursor: 'pointer',
+                  }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{tpl.name}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{tpl.nodes.length}개 노드</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 10 }}>
+            공통 템플릿
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {TEMPLATES.map((tpl, i) => (
+              <button key={i} onClick={() => { applyTemplate(tpl); setTab('builder') }} style={{
+                padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.04)', color: '#fff', textAlign: 'left', cursor: 'pointer',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{tpl.name}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{tpl.nodes.length}개 노드</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : tab === 'builder' ? (
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Left panel: node types + templates */}
           <div style={{
@@ -757,6 +794,17 @@ export function WorkflowBuilder({ onClose, primaryColor = '#7c3aed' }: WorkflowB
                   padding: '5px 12px', borderRadius: 8, border: 'none',
                   background: '#22c55e22', color: '#22c55e', fontSize: 11, cursor: 'pointer',
                 }}>▶</button>
+                <button onClick={async () => {
+                  const teamId = localStorage.getItem('nexus-team-id')
+                  const userId = localStorage.getItem('nexus-user-id')
+                  if (!teamId || !userId) { showToast('팀에 가입하면 공유할 수 있어요'); return }
+                  const { shareWorkflowToTeam } = await import('../../lib/supabase')
+                  const ok = await shareWorkflowToTeam(teamId, userId, wf.name, wf.description || '', JSON.stringify(wf))
+                  showToast(ok ? '✅ 팀에 공유됨!' : '❌ 공유 실패')
+                }} style={{
+                  padding: '5px 10px', borderRadius: 8, border: 'none',
+                  background: `${primaryColor}22`, color: primaryColor, fontSize: 11, cursor: 'pointer',
+                }}>👥</button>
                 <button onClick={async () => {
                   await fetch(`${API}/api/workflow/delete?id=${wf.id}`, { method: 'DELETE' })
                   loadWorkflows()

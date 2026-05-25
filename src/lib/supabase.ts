@@ -120,6 +120,124 @@ export async function fetchUserSettings(userId: string): Promise<UserSettings | 
   return data as UserSettings | null
 }
 
+// ── 팀 워크스페이스 ───────────────────────────────────────────────
+
+export interface TeamRow {
+  id: string
+  name: string
+  owner_id: string
+  invite_code: string
+  created_at: string
+}
+
+export interface TeamMemberRow {
+  team_id: string
+  user_id: string
+  role: 'admin' | 'member'
+  joined_at: string
+}
+
+export interface TeamWorkflowRow {
+  id: string
+  team_id: string
+  shared_by: string
+  name: string
+  description: string
+  workflow_json: string
+  created_at: string
+}
+
+export interface TeamPersonaRow {
+  team_id: string
+  persona_id: string
+  persona_name: string
+  primary_color: string
+  system_prompt: string
+  updated_by: string
+  updated_at: string
+}
+
+export async function createTeam(userId: string, name: string): Promise<TeamRow | null> {
+  const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+  const { data, error } = await supabase
+    .from('teams')
+    .insert({ name, owner_id: userId, invite_code: inviteCode })
+    .select()
+    .single()
+  if (error) { console.error('createTeam:', error); return null }
+  await supabase.from('team_members').insert({ team_id: data.id, user_id: userId, role: 'admin' })
+  localStorage.setItem('nexus-team-id', data.id)
+  localStorage.setItem('nexus-user-id', userId)
+  return data as TeamRow
+}
+
+export async function joinTeam(userId: string, inviteCode: string): Promise<TeamRow | null> {
+  const { data: team, error } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('invite_code', inviteCode.toUpperCase())
+    .maybeSingle()
+  if (error || !team) return null
+  await supabase.from('team_members').upsert(
+    { team_id: team.id, user_id: userId, role: 'member' },
+    { onConflict: 'team_id,user_id' }
+  )
+  localStorage.setItem('nexus-team-id', team.id)
+  localStorage.setItem('nexus-user-id', userId)
+  return team as TeamRow
+}
+
+export async function fetchMyTeam(userId: string): Promise<TeamRow | null> {
+  const { data } = await supabase
+    .from('team_members')
+    .select('team_id, teams(*)')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!data) return null
+  return (data as any).teams as TeamRow
+}
+
+export async function fetchTeamMembers(teamId: string): Promise<TeamMemberRow[]> {
+  const { data } = await supabase
+    .from('team_members')
+    .select('*')
+    .eq('team_id', teamId)
+  return (data as TeamMemberRow[]) || []
+}
+
+export async function shareWorkflowToTeam(teamId: string, userId: string, name: string, description: string, workflowJson: string): Promise<boolean> {
+  const { error } = await supabase.from('team_workflows').insert({
+    team_id: teamId, shared_by: userId, name, description, workflow_json: workflowJson,
+  })
+  return !error
+}
+
+export async function fetchTeamWorkflows(teamId: string): Promise<TeamWorkflowRow[]> {
+  const { data } = await supabase
+    .from('team_workflows')
+    .select('*')
+    .eq('team_id', teamId)
+    .order('created_at', { ascending: false })
+  return (data as TeamWorkflowRow[]) || []
+}
+
+export async function setTeamPersona(teamId: string, userId: string, persona: Omit<TeamPersonaRow, 'team_id' | 'updated_by' | 'updated_at'>): Promise<boolean> {
+  const { error } = await supabase.from('team_settings').upsert(
+    { team_id: teamId, ...persona, updated_by: userId, updated_at: new Date().toISOString() },
+    { onConflict: 'team_id' }
+  )
+  return !error
+}
+
+export async function fetchTeamPersona(teamId: string): Promise<TeamPersonaRow | null> {
+  const { data } = await supabase
+    .from('team_settings')
+    .select('*')
+    .eq('team_id', teamId)
+    .maybeSingle()
+  return data as TeamPersonaRow | null
+}
+
 /** 구독 상태 계산 (만료 여부 포함) */
 export function resolveStatus(row: SubscriptionRow | null): SubscriptionStatus {
   if (!row) return 'trial'  // 조회 실패 시 trial로 간주 (false positive 방지)

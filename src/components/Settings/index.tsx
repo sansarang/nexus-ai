@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Keyboard, Bell, Shield, Globe, Info, Mail, Save, RefreshCw, Key, Palette } from 'lucide-react'
+import { Keyboard, Bell, Globe, Info, Mail, Save, RefreshCw, Key, Palette, Users, CreditCard, Shield } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { APIKeyManager } from '../Enterprise/APIKeyManager'
 import { VerticalSwitcher } from '../VerticalSwitcher'
+import {
+  createTeam, joinTeam, fetchMyTeam, fetchTeamMembers, fetchTeamWorkflows,
+  fetchTeamPersona, setTeamPersona,
+  type TeamRow, type TeamMemberRow, type TeamWorkflowRow,
+} from '../../lib/supabase'
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -88,7 +93,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-type SettingsTab = 'general' | 'api' | 'theme'
+type SettingsTab = 'general' | 'api' | 'theme' | 'team' | 'billing'
 
 export function SettingsView() {
   const { isLoggedIn, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut, userLang, setUserLang } = useAppStore()
@@ -170,10 +175,75 @@ export function SettingsView() {
     padding: '5px 8px', width: '100%', outline: 'none',
   } as React.CSSProperties
 
+  // ── 팀 상태 ────────────────────────────────────────────────────
+  const [myTeam, setMyTeam] = useState<TeamRow | null>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamMemberRow[]>([])
+  const [teamWorkflows, setTeamWorkflows] = useState<TeamWorkflowRow[]>([])
+  const [teamInput, setTeamInput] = useState('')
+  const [inviteInput, setInviteInput] = useState('')
+  const [teamLoading, setTeamLoading] = useState(false)
+  const [teamMsg, setTeamMsg] = useState('')
+  const [teamPersonaColor, setTeamPersonaColor] = useState('#7c3aed')
+  const [teamPersonaPrompt, setTeamPersonaPrompt] = useState('')
+
+  useEffect(() => {
+    if (!isLoggedIn || !userEmail) return
+    const uid = localStorage.getItem('nexus-user-id') || ''
+    if (!uid) return
+    fetchMyTeam(uid).then(t => {
+      if (!t) return
+      setMyTeam(t)
+      fetchTeamMembers(t.id).then(setTeamMembers)
+      fetchTeamWorkflows(t.id).then(setTeamWorkflows)
+      fetchTeamPersona(t.id).then(p => {
+        if (p) { setTeamPersonaColor(p.primary_color); setTeamPersonaPrompt(p.system_prompt) }
+      })
+    })
+  }, [isLoggedIn, userEmail, activeTab])
+
+  const handleCreateTeam = async () => {
+    const uid = localStorage.getItem('nexus-user-id') || ''
+    if (!uid || !teamInput.trim()) { setTeamMsg('팀 이름을 입력하세요'); return }
+    setTeamLoading(true)
+    const t = await createTeam(uid, teamInput.trim())
+    setTeamLoading(false)
+    if (t) { setMyTeam(t); setTeamMsg(`✅ 팀 생성 완료! 초대 코드: ${t.invite_code}`) }
+    else setTeamMsg('❌ 생성 실패')
+  }
+
+  const handleJoinTeam = async () => {
+    const uid = localStorage.getItem('nexus-user-id') || ''
+    if (!uid || !inviteInput.trim()) { setTeamMsg('초대 코드를 입력하세요'); return }
+    setTeamLoading(true)
+    const t = await joinTeam(uid, inviteInput.trim())
+    setTeamLoading(false)
+    if (t) { setMyTeam(t); setTeamMsg(`✅ "${t.name}" 팀에 합류했어요!`) }
+    else setTeamMsg('❌ 코드가 올바르지 않아요')
+  }
+
+  const handleSaveTeamPersona = async () => {
+    if (!myTeam) return
+    const uid = localStorage.getItem('nexus-user-id') || ''
+    const ok = await setTeamPersona(myTeam.id, uid, {
+      persona_id: 'team', persona_name: '팀 페르소나',
+      primary_color: teamPersonaColor, system_prompt: teamPersonaPrompt,
+    })
+    setTeamMsg(ok ? '✅ 팀 페르소나 저장됨' : '❌ 저장 실패')
+  }
+
+  // ── 청구 내역 (로컬 시뮬레이션) ──────────────────────────────
+  const billingHistory = [
+    { date: '2026-05-01', plan: 'Pro', amount: '₩14,900', status: '완료' },
+    { date: '2026-04-01', plan: 'Pro', amount: '₩14,900', status: '완료' },
+    { date: '2026-03-01', plan: 'Pro', amount: '₩14,900', status: '완료' },
+  ]
+
   const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: '일반', icon: <Bell size={13} /> },
     { id: 'api', label: 'API 관리', icon: <Key size={13} /> },
     { id: 'theme', label: '앱 테마', icon: <Palette size={13} /> },
+    { id: 'team', label: '팀', icon: <Users size={13} /> },
+    { id: 'billing', label: '청구서', icon: <CreditCard size={13} /> },
   ]
 
   return (
@@ -210,6 +280,120 @@ export function SettingsView() {
 
       {/* 앱 테마 tab */}
       {activeTab === 'theme' && <VerticalSwitcher />}
+
+      {/* 팀 tab */}
+      {activeTab === 'team' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {myTeam ? (
+            <>
+              <Section title="내 팀">
+                <div style={{ padding: '8px 0' }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{myTeam.name}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    초대 코드: <kbd style={{ background: 'var(--bg-elevated)', padding: '2px 8px', borderRadius: 6, fontFamily: 'monospace', letterSpacing: '0.1em', fontSize: 13, fontWeight: 700 }}>{myTeam.invite_code}</kbd>
+                  </p>
+                </div>
+              </Section>
+              <Section title={`멤버 (${teamMembers.length}명)`}>
+                {teamMembers.map(m => (
+                  <Row key={m.user_id} icon={<Users size={15} />} label={m.user_id.slice(0, 8) + '...'} desc={m.role === 'admin' ? '관리자' : '멤버'}>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: m.role === 'admin' ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.06)', color: m.role === 'admin' ? '#a78bfa' : 'var(--text-muted)' }}>{m.role}</span>
+                  </Row>
+                ))}
+              </Section>
+              <Section title="팀 워크플로우">
+                {teamWorkflows.length === 0
+                  ? <p style={{ fontSize: 12, color: 'var(--text-muted)', padding: '8px 0' }}>공유된 워크플로우가 없어요</p>
+                  : teamWorkflows.map(wf => (
+                    <Row key={wf.id} icon={<span style={{ fontSize: 14 }}>⚡</span>} label={wf.name} desc={wf.description || ''}>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{new Date(wf.created_at).toLocaleDateString('ko-KR')}</span>
+                    </Row>
+                  ))
+                }
+              </Section>
+              <Section title="팀 페르소나 (관리자 전용)">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
+                  <div>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>브랜드 컬러</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="color" value={teamPersonaColor} onChange={e => setTeamPersonaColor(e.target.value)} style={{ width: 36, height: 28, borderRadius: 6, border: 'none', cursor: 'pointer' }} />
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{teamPersonaColor}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>시스템 프롬프트</p>
+                    <textarea value={teamPersonaPrompt} onChange={e => setTeamPersonaPrompt(e.target.value)} rows={3} placeholder="팀 전용 AI 지침을 입력하세요..." style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } as React.CSSProperties} />
+                  </div>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={handleSaveTeamPersona} style={{ padding: '7px 0', borderRadius: 8, border: 'none', background: 'rgba(124,58,237,0.2)', color: '#a78bfa', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    팀 페르소나 저장
+                  </motion.button>
+                  {teamMsg && <p style={{ fontSize: 11, color: teamMsg.startsWith('✅') ? 'var(--success)' : 'var(--error)' }}>{teamMsg}</p>}
+                </div>
+              </Section>
+            </>
+          ) : (
+            <Section title="팀 워크스페이스">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0' }}>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>팀을 만들거나 초대 코드로 참여하세요</p>
+                <div>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>새 팀 만들기</p>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input style={{ ...inputStyle, flex: 1 } as React.CSSProperties} placeholder="팀 이름" value={teamInput} onChange={e => setTeamInput(e.target.value)} />
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleCreateTeam} disabled={teamLoading} style={{ padding: '5px 14px', borderRadius: 8, border: 'none', background: 'rgba(124,58,237,0.2)', color: '#a78bfa', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>만들기</motion.button>
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>초대 코드로 참여</p>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', letterSpacing: '0.08em', textTransform: 'uppercase' } as React.CSSProperties} placeholder="ABC123" value={inviteInput} onChange={e => setInviteInput(e.target.value.toUpperCase())} />
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleJoinTeam} disabled={teamLoading} style={{ padding: '5px 14px', borderRadius: 8, border: 'none', background: 'rgba(34,197,94,0.15)', color: '#22c55e', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>참여</motion.button>
+                  </div>
+                </div>
+                {teamMsg && <p style={{ fontSize: 11, color: teamMsg.startsWith('✅') ? 'var(--success)' : 'var(--error)' }}>{teamMsg}</p>}
+              </div>
+            </Section>
+          )}
+        </div>
+      )}
+
+      {/* 청구서 tab */}
+      {activeTab === 'billing' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Section title="구독 현황">
+            <Row icon={<CreditCard size={15} />} label={subscriptionStatus === 'active' ? 'Pro 구독 중' : subscriptionStatus === 'trial' ? '3일 무료 체험' : '만료됨'} desc={subscriptionExpiry ? `갱신일: ${new Date(subscriptionExpiry).toLocaleDateString('ko-KR')}` : ''}>
+              <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, background: subscriptionStatus === 'active' ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.06)', color: subscriptionStatus === 'active' ? '#a78bfa' : 'var(--text-muted)' }}>
+                {subscriptionStatus === 'active' ? '₩14,900/월' : subscriptionStatus === 'trial' ? '무료' : '없음'}
+              </span>
+            </Row>
+          </Section>
+          <Section title="청구 내역">
+            {billingHistory.map((b, i) => (
+              <Row key={i} icon={<CreditCard size={15} />} label={`${b.plan} — ${b.amount}`} desc={b.date}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, color: 'var(--success)' }}>{b.status}</span>
+                  <motion.button whileTap={{ scale: 0.95 }} onClick={() => {
+                    const content = `Nexus AI 청구서\n날짜: ${b.date}\n플랜: ${b.plan}\n금액: ${b.amount}\n상태: ${b.status}\n\n감사합니다.`
+                    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url; a.download = `nexus_invoice_${b.date}.txt`; a.click()
+                    URL.revokeObjectURL(url)
+                  }} style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 10, cursor: 'pointer' }}>
+                    다운로드
+                  </motion.button>
+                </div>
+              </Row>
+            ))}
+          </Section>
+          <Section title="플랜 변경">
+            <Row icon={<Globe size={15} />} label="플랜 관리" desc="Paddle 구독 관리 페이지">
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => window.open('https://nexusai.ai.kr/#pricing', '_blank')} style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer' }}>
+                플랜 보기
+              </motion.button>
+            </Row>
+          </Section>
+        </div>
+      )}
 
       {/* General settings — only shown on 'general' tab */}
       {activeTab === 'general' && <>

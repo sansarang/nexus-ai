@@ -1350,6 +1350,112 @@
   </div>
 </div>
 
+<!-- AI AGENT DEMO -->
+<section class="section" id="agent-demo" style="background:linear-gradient(180deg,var(--bg2) 0%,var(--bg) 100%);">
+  <div class="section-label" style="text-align:center;">AI 에이전트 실행</div>
+  <h2 class="section-title" style="text-align:center;">한 마디면 충분합니다</h2>
+  <p class="section-sub" style="text-align:center; margin:0 auto 40px;">Nexus가 15단계 복합 업무를 자동으로 분해하고 순서대로 실행합니다</p>
+  <div style="max-width:600px; margin:0 auto; background:rgba(10,10,28,0.9); border:1px solid rgba(124,58,237,0.3); border-radius:20px; padding:28px; box-shadow:0 24px 64px rgba(124,58,237,0.15);">
+    <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; margin-bottom:20px; border:1px solid rgba(255,255,255,0.08);">
+      <span style="color:rgba(255,255,255,0.5); font-size:12px;">사용자</span>
+      <p style="color:#fff; font-size:14px; margin:4px 0 0; font-weight:600;">"이번 주 주간보고 만들어줘 — 이메일 요약, 일정 정리, 뉴스 브리핑 포함해서"</p>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px;" id="demo-steps">
+      <div class="demo-step" style="display:flex; align-items:center; gap:10px; opacity:0; animation:fadeStep 0.4s ease 0.3s forwards;">
+        <span style="color:#22c55e; font-size:16px;">✅</span>
+        <span style="font-size:13px; color:rgba(255,255,255,0.8);">이메일 받은편지함 조회 중...</span>
+        <span style="margin-left:auto; font-size:11px; color:rgba(255,255,255,0.3);">0.8s</span>
+      </div>
+      <div class="demo-step" style="display:flex; align-items:center; gap:10px; opacity:0; animation:fadeStep 0.4s ease 0.8s forwards;">
+        <span style="color:#22c55e; font-size:16px;">✅</span>
+        <span style="font-size:13px; color:rgba(255,255,255,0.8);">이메일 12건 자동 요약...</span>
+        <span style="margin-left:auto; font-size:11px; color:rgba(255,255,255,0.3);">1.2s</span>
+      </div>
+      <div class="demo-step" style="display:flex; align-items:center; gap:10px; opacity:0; animation:fadeStep 0.4s ease 1.3s forwards;">
+        <span style="color:#22c55e; font-size:16px;">✅</span>
+        <span style="font-size:13px; color:rgba(255,255,255,0.8);">이번 주 캘린더 일정 조회...</span>
+        <span style="margin-left:auto; font-size:11px; color:rgba(255,255,255,0.3);">0.5s</span>
+      </div>
+      <div class="demo-step" style="display:flex; align-items:center; gap:10px; opacity:0; animation:fadeStep 0.4s ease 1.8s forwards;">
+        <span style="color:#22c55e; font-size:16px;">✅</span>
+        <span style="font-size:13px; color:rgba(255,255,255,0.8);">산업 뉴스 수집 및 요약...</span>
+        <span style="margin-left:auto; font-size:11px; color:rgba(255,255,255,0.3);">1.1s</span>
+      </div>
+      <div class="demo-step" style="display:flex; align-items:center; gap:10px; opacity:0; animation:fadeStep 0.4s ease 2.3s forwards;">
+        <span style="color:#7c3aed; font-size:16px;">⚡</span>
+        <span style="font-size:13px; color:#a78bfa; font-weight:700;">주간보고 완성 — 워드 파일로 저장</span>
+        <span style="margin-left:auto; font-size:11px; color:#a78bfa;">완료!</span>
+      </div>
+    </div>
+    <div style="margin-top:16px; padding:10px 14px; background:rgba(124,58,237,0.12); border-radius:10px; border:1px solid rgba(124,58,237,0.3); font-size:12px; color:rgba(255,255,255,0.5);">
+      ⏱ 총 소요 시간: <strong style="color:#a78bfa;">3.8초</strong> &nbsp;·&nbsp; 기존 방식: <strong style="color:rgba(255,255,255,0.4);">25분</strong>
+    </div>
+  </div>
+  <style>
+    @keyframes fadeStep { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+  </style>
+</section>
+
+<!-- BEFORE / AFTER -->
+<section class="section" style="background:var(--bg);">
+  <div class="section-label" style="text-align:center;">BEFORE / AFTER</div>
+  <h2 class="section-title" style="text-align:center;">업무 방식이 바뀝니다</h2>
+  <div style="max-width:860px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+    <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:16px; padding:28px;">
+      <p style="font-size:12px; font-weight:700; color:#ef4444; letter-spacing:0.1em; margin-bottom:16px;">BEFORE — 기존 방식</p>
+      <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
+        <li style="font-size:13px; color:rgba(255,255,255,0.6); display:flex; gap:8px;"><span>😓</span>이메일 → 복사 → 요약 → 보고서 작성 (25분)</li>
+        <li style="font-size:13px; color:rgba(255,255,255,0.6); display:flex; gap:8px;"><span>😓</span>매주 수동으로 날씨·뉴스 확인</li>
+        <li style="font-size:13px; color:rgba(255,255,255,0.6); display:flex; gap:8px;"><span>😓</span>팀원마다 다른 AI 설정 — 일관성 없음</li>
+        <li style="font-size:13px; color:rgba(255,255,255,0.6); display:flex; gap:8px;"><span>😓</span>실수로 중요 파일 삭제 위험</li>
+      </ul>
+    </div>
+    <div style="background:rgba(124,58,237,0.08); border:1px solid rgba(124,58,237,0.3); border-radius:16px; padding:28px;">
+      <p style="font-size:12px; font-weight:700; color:#a78bfa; letter-spacing:0.1em; margin-bottom:16px;">AFTER — Nexus AI</p>
+      <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px;">
+        <li style="font-size:13px; color:rgba(255,255,255,0.85); display:flex; gap:8px;"><span style="color:#22c55e;">✅</span>"주간보고 만들어줘" 한 마디 (3.8초)</li>
+        <li style="font-size:13px; color:rgba(255,255,255,0.85); display:flex; gap:8px;"><span style="color:#22c55e;">✅</span>매일 08:00 자동 브리핑 — 아무것도 안 해도</li>
+        <li style="font-size:13px; color:rgba(255,255,255,0.85); display:flex; gap:8px;"><span style="color:#22c55e;">✅</span>팀 페르소나 1번 설정 → 전원 동기화</li>
+        <li style="font-size:13px; color:rgba(255,255,255,0.85); display:flex; gap:8px;"><span style="color:#22c55e;">✅</span>위험 작업 전 반드시 내가 승인 — 안전 보장</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 승인 UI 안전성 -->
+<section class="section" style="background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);">
+  <div class="section-label" style="text-align:center;">TRUST & SAFETY</div>
+  <h2 class="section-title" style="text-align:center;">AI가 함부로 실행하지 않습니다</h2>
+  <p class="section-sub" style="text-align:center; margin:0 auto 40px;">이메일 발송·파일 삭제 등 되돌릴 수 없는 작업은 반드시 사용자 승인 후 실행</p>
+  <div style="max-width:560px; margin:0 auto; background:rgba(10,10,28,0.9); border:1px solid rgba(245,158,11,0.3); border-radius:20px; padding:24px; box-shadow:0 20px 48px rgba(0,0,0,0.4);">
+    <p style="font-size:12px; color:rgba(245,158,11,0.8); font-weight:700; margin-bottom:14px;">⚠️ 실행 전 확인 요청</p>
+    <p style="font-size:13px; color:rgba(255,255,255,0.7); margin-bottom:16px;">다음 작업을 실행하려 합니다:</p>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+      <div style="display:flex; gap:8px; align-items:center; font-size:12px; color:rgba(255,255,255,0.6);"><span style="color:#22c55e;">✅</span> 이메일 요약 (안전)</div>
+      <div style="display:flex; gap:8px; align-items:center; font-size:12px; color:rgba(255,255,255,0.6);"><span style="color:#22c55e;">✅</span> 캘린더 조회 (안전)</div>
+      <div style="display:flex; gap:8px; align-items:center; font-size:12px; color:rgba(245,158,11,0.9); font-weight:600;"><span>⚠️</span> 이메일 발송 (승인 필요)</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button style="flex:1; padding:10px; background:#7c3aed; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">✅ 실행할게요</button>
+      <button style="flex:1; padding:10px; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer;">❌ 취소</button>
+    </div>
+  </div>
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:700px; margin:40px auto 0;">
+    <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
+      <p style="font-size:28px; font-weight:900; color:#a78bfa; margin-bottom:6px;">15단계</p>
+      <p style="font-size:12px; color:rgba(255,255,255,0.4);">복합 업무 자동 실행</p>
+    </div>
+    <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
+      <p style="font-size:28px; font-weight:900; color:#22c55e; margin-bottom:6px;">쓸수록</p>
+      <p style="font-size:12px; color:rgba(255,255,255,0.4);">반복 패턴 자동 학습</p>
+    </div>
+    <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
+      <p style="font-size:28px; font-weight:900; color:#f59e0b; margin-bottom:6px;">100%</p>
+      <p style="font-size:12px; color:rgba(255,255,255,0.4);">위험 작업 사전 승인</p>
+    </div>
+  </div>
+</section>
+
 <!-- PRICING -->
 <section class="section" id="pricing">
   <div class="section-label" style="text-align:center;">PRICING</div>
@@ -1428,10 +1534,10 @@
     <div class="price-card" style="padding:36px 32px;">
       <div class="price-name">Team & Enterprise</div>
       <div style="display:flex; align-items:baseline; justify-content:center; gap:4px; margin:12px 0 4px;">
-        <div class="price-amount" style="font-size:42px;">$49</div>
+        <div class="price-amount" style="font-size:42px;">₩49,000</div>
         <div class="price-period">/월~</div>
       </div>
-      <p style="color:var(--muted); font-size:13px; margin-bottom:24px;">5인 팀 · 10인 $89 · Enterprise 별도 문의</p>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:24px;">5인 팀 · 10인 ₩89,000 · Enterprise 별도 문의</p>
       <ul class="price-features" style="text-align:left; margin-bottom:32px;">
         <li><span class="check">✓</span> Pro의 모든 기능</li>
         <li><span class="check">✓</span> 팀 공유 워크플로우</li>
@@ -1500,7 +1606,7 @@
 <div id="changelog" style="background:var(--bg2); border-top:1px solid var(--border); padding:40px 20px;">
   <div style="max-width:700px; margin:0 auto; display:flex; align-items:center; gap:20px; flex-wrap:wrap; justify-content:center;">
     <div style="display:flex; align-items:center; gap:10px;">
-      <span style="background:var(--primary); color:#000; border-radius:6px; padding:3px 12px; font-size:12px; font-weight:700;">v2.5.49 Latest</span>
+      <span style="background:var(--primary); color:#000; border-radius:6px; padding:3px 12px; font-size:12px; font-weight:700;">v2.5.84 Latest</span>
       <span style="color:var(--muted); font-size:13px;">2026.05 · 자동 업데이트 포함</span>
     </div>
     <div style="font-size:13px; color:var(--muted);">✦ 12개 직업군 AI 페르소나 &nbsp;✦ 자동 브리핑 내장 &nbsp;✦ 마켓플레이스 오픈 &nbsp;✦ 기업용 API 키</div>

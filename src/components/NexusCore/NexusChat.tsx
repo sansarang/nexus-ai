@@ -6,7 +6,7 @@ import { getAuthHeader } from '../../lib/nexus/backendAPI'
 import { routeWithLLM, routeWithLLMMulti } from '../../lib/nexus/llmToolRouter'
 import { isMultiStepTask, runAgent, planAgent, hasDangerousSteps, runAgentWithPlan, DANGEROUS_STEPS } from '../../lib/nexus/agentExecutor'
 import type { AgentPlan, AgentStep } from '../../lib/nexus/agentExecutor'
-import { buildMemoryContext, learnFromTurn, learnPattern, saveHistory, toStoredTurns } from '../../lib/nexus/memory'
+import { buildMemoryContext, learnFromTurn, learnPattern, getSuggestedPatterns, saveHistory, toStoredTurns } from '../../lib/nexus/memory'
 import { evaluateTriggersFiltered, getUptimeMs, STATS_POLL_MS } from '../../lib/nexus/proactiveAI'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
@@ -81,7 +81,7 @@ interface ConversationTurn {
 
 
 export function NexusChat() {
-  const { assistantName, userName, userLang, subscriptionStatus, activePersonaId } = useAppStore()
+  const { assistantName, userName, userLang, subscriptionStatus, activePersonaId, setShowWorkflowBuilder } = useAppStore()
 
   const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false)
   const [showPaywall, setShowPaywall] = useState(false)
@@ -102,6 +102,8 @@ export function NexusChat() {
   const [agentProgress, setAgentProgress] = useState('')
   const [pendingAgentPlan, setPendingAgentPlan] = useState<{ plan: AgentPlan; userMessage: string } | null>(null)
   const [stepResults, setStepResults] = useState<Array<{ id: number; description: string; success: boolean; result: string }>>([])
+  const [workflowSuggestion, setWorkflowSuggestion] = useState<string | null>(null)
+  const [workflowInitialName, setWorkflowInitialName] = useState<string | undefined>(undefined)
   const pendingMsgRef = useRef('')
   const [emotion, setEmotion] = useState<NexusEmotion>('neutral')
   const [speaking, setSpeaking] = useState(false)
@@ -267,6 +269,11 @@ export function NexusChat() {
       historyRef.current.push({ role: 'model', parts: [{ text: fullResult }] })
       learnFromTurn(userMessage, agentResult)
       learnPattern(userMessage, agentResult.slice(0, 60))
+      const suggested = getSuggestedPatterns(userMessage)
+      if (suggested.length > 0) {
+        setWorkflowSuggestion(suggested[0].trigger)
+        setWorkflowInitialName(`${suggested[0].trigger} 자동화`)
+      }
       saveHistory(toStoredTurns(historyRef.current))
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(), role: 'nexus', text: fullResult,
@@ -454,6 +461,11 @@ export function NexusChat() {
         historyRef.current.push({ role: 'model', parts: [{ text: fullResult }] })
         learnFromTurn(trimmed, agentResult)
         learnPattern(trimmed, agentResult.slice(0, 60))
+        const suggestedB = getSuggestedPatterns(trimmed)
+        if (suggestedB.length > 0) {
+          setWorkflowSuggestion(suggestedB[0].trigger)
+          setWorkflowInitialName(`${suggestedB[0].trigger} 자동화`)
+        }
         saveHistory(toStoredTurns(historyRef.current))
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(), role: 'nexus', text: fullResult,
@@ -883,6 +895,25 @@ export function NexusChat() {
             ❌ 취소
           </button>
         </div>
+      )}
+
+      {/* 워크플로우 자동화 제안 */}
+      {workflowSuggestion && !pendingAgentPlan && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          style={{ padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(245,158,11,0.08)', borderTop: '1px solid rgba(245,158,11,0.2)' }}
+        >
+          <span style={{ fontSize: 13 }}>⚡</span>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', flex: 1 }}>
+            "{workflowSuggestion}" 작업, 자동화할까요?
+          </span>
+          <button onClick={() => { setShowWorkflowBuilder(true, workflowInitialName); setWorkflowSuggestion(null) }} style={{ padding: '4px 12px', borderRadius: 8, border: 'none', background: 'rgba(245,158,11,0.25)', color: '#f59e0b', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            워크플로우로 만들기
+          </button>
+          <button onClick={() => setWorkflowSuggestion(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>✕</button>
+        </motion.div>
       )}
 
       {/* 퀵 액션 */}
