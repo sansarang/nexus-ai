@@ -766,9 +766,13 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       return
     }
 
-    // ── 3순위: LLM Tool Router — 검색/액션 자동 분류 ──────────
+    // ── 3순위: LLM Tool Router — 대화 컨텍스트 포함, 전체 인텐트 커버 ──
     try {
-      const toolCall = await routeWithLLM(trimmed)
+      const routerHistory = historyRef.current.slice(-6).map((h: { role: string; parts: Array<{ text: string }> }) => ({
+        role: (h.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: h.parts[0]?.text ?? '',
+      })).filter((h: { content: string }) => h.content.length > 0)
+      const toolCall = await routeWithLLM(trimmed, routerHistory)
       if (toolCall.tool !== 'general_answer') {
         // LLM이 선택한 tool을 Intent로 변환해 handleBackendIntent 실행
         const mappedIntent = toolCall.tool as Intent

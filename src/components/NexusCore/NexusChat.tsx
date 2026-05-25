@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { callGemini, callOllama, fallbackResponse, trackUsage, callGroqVision } from '../../lib/nexus/gemini_engine'
 import { getAuthHeader } from '../../lib/nexus/backendAPI'
+import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
 import { speak, stopSpeaking } from '../../lib/nexus/tts'
@@ -312,6 +313,40 @@ export function NexusChat() {
     setMonthlyCount(incrementMonthlyUsage())
 
     historyRef.current.push({ role: 'user', parts: [{ text: trimmed }] })
+
+    /* ── 0순위: LLM Tool Router — 인텐트 감지 ── */
+    const routerHistory = historyRef.current.slice(-6).map(h => ({
+      role: (h.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: h.parts[0]?.text ?? '',
+    })).filter(h => h.content.length > 0)
+
+    try {
+      const toolCall = await routeWithLLM(trimmed, routerHistory)
+      if (toolCall.tool !== 'general_answer') {
+        /* 인텐트가 감지됐지만 NexusChat은 백엔드 없이 동작 —
+           사용자에게 캐릭터 창에서 실행하도록 안내하되,
+           질문 맥락은 LLM으로 보충 답변 */
+        const toolLabels: Record<string, string> = {
+          pc_status: 'PC 상태 조회', security_scan: '보안 스캔', clean: 'PC 정리',
+          full_scan: '전체 진단', launch_app: '앱 실행', volume_control: '볼륨 조절',
+          brightness: '밝기 조절', wifi_toggle: 'Wi-Fi 제어', power_action: '전원 제어',
+          file_search: '파일 검색', weather: '날씨 조회', calendar_today: '일정 조회',
+          email_inbox: '메일 확인', vision_screen: '화면 분석', meeting_start: '회의 녹음',
+          workflow_run: '워크플로 실행', briefing_now: '브리핑', translator: '번역',
+        }
+        const label = toolLabels[toolCall.tool] ?? toolCall.tool
+        const hint = `⚡ **${label}** 기능이에요.\n\n이 기능은 Nexus 캐릭터 창(우측 위젯)에서 실행할 수 있어요. 위젯에서 같은 말을 해보세요!`
+        historyRef.current.push({ role: 'model', parts: [{ text: hint }] })
+        setTyping(false)
+        typingRef.current = false
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(), role: 'nexus', text: hint,
+          emotion: 'happy', timestamp: new Date(), animate: true,
+        }])
+        speakText(hint)
+        return
+      }
+    } catch { /* LLM 라우터 실패 시 일반 LLM으로 진행 */ }
 
     const apiKey = localStorage.getItem('nexus-gemini-key') ?? ''
     let response
