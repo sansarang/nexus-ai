@@ -5,11 +5,11 @@ import { PADDLE_CLIENT_TOKEN, PADDLE_PRICE_ID, PADDLE_ENVIRONMENT } from '../con
 // pro_monthly: 실제 운영 중
 // team_5, team_10, enterprise: Paddle 대시보드에서 플랜 생성 후 아래 값 교체 필요
 export const PADDLE_PRICES = {
-  pro_monthly:  PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9',
-  pro_yearly:   PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: yearly price 생성 후 교체
-  team_5:       PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: team_5 price 생성 후 교체
-  team_10:      PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: team_10 price 생성 후 교체
-  enterprise:   PADDLE_PRICE_ID || 'pri_01krz4dx03340vgtj3c0ntznr9', // TODO: enterprise price 생성 후 교체
+  pro_monthly: PADDLE_PRICE_ID,
+  pro_yearly:  PADDLE_PRICE_ID, // TODO: Paddle 대시보드에서 yearly price 생성 후 VITE_PADDLE_PRICE_YEARLY 추가
+  team_5:      PADDLE_PRICE_ID, // TODO: team_5 price → VITE_PADDLE_PRICE_TEAM5
+  team_10:     PADDLE_PRICE_ID, // TODO: team_10 price → VITE_PADDLE_PRICE_TEAM10
+  enterprise:  PADDLE_PRICE_ID, // TODO: enterprise price → VITE_PADDLE_PRICE_ENT
 }
 
 let paddleInstance: Paddle | undefined
