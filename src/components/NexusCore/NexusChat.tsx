@@ -612,26 +612,66 @@ export function NexusChat() {
         result = await callGroqVision(base64, question)
 
       } else if (file.fileType === 'video') {
-        /* 동영상 → 백엔드 Whisper 전사 */
-        setMessages(prev => prev.map((m, i) =>
-          i === prev.length - 1 ? { ...m, text: `🎬 ${file.name}\n⏳ 영상 분석 중... (${(file.size / 1024 / 1024).toFixed(1)}MB)\n음성을 텍스트로 전사하고 있어요.` } : m
-        ))
-        const depsCheck = await fetch('http://127.0.0.1:17891/api/video/check-deps')
-          .then(r => r.json()).catch(() => null)
-        if (depsCheck && !depsCheck.ready) {
-          result = `⚠️ **영상 분석 불가**\n\n${depsCheck.message ?? '영상 분석 도구가 설치되지 않았습니다.'}`
-        } else {
-          const res = await fetch('http://127.0.0.1:17891/api/video/analyze-file', {
+        /* 동영상 → 편집 또는 분석 */
+        const wantTrim     = /잘라|자르기|trim|구간|초부터|분부터|까지|처음.*분|처음.*초/i.test(text)
+        const wantCompress = /압축|용량.*줄|줄여|compress|가볍게|작게/i.test(text)
+        const wantSpeed    = /배속|빠르게|느리게|speed|빨리|천천히/i.test(text)
+        const wantSubtitle = /자막|subtitle|srt|vtt/i.test(text)
+        const needsEdit    = wantTrim || wantCompress || wantSpeed || wantSubtitle
+
+        if (needsEdit) {
+          const opLabel = wantTrim ? '구간 자르기' : wantCompress ? '용량 압축' : wantSpeed ? '속도 변환' : '자막 삽입'
+          const opKey   = wantTrim ? 'video_trim'  : wantCompress ? 'video_compress' : wantSpeed ? 'video_speed' : 'video_subtitle'
+          setMessages(prev => prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, text: `🎬 ${file.name}\n⏳ ${opLabel} 중...` } : m
+          ))
+          const allFiles = [file, ...files.slice(1)]
+          const res = await fetch('http://127.0.0.1:17891/api/file/process', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
             body: JSON.stringify({
-              file_data: file.dataUrl,
-              file_name: file.name,
-              lang: userLang,
-              query: text || '이 영상 내용을 요약해줘',
+              files: allFiles.map(f => ({ name: f.name, mime_type: f.mimeType, data: f.dataUrl })),
+              operation: opKey,
+              query: text,
+              params: {},
             }),
-          }).then(r => r.json()).catch(() => ({ success: false, message: '영상 분석 요청 실패' }))
-          result = res.message ?? (res.success ? '영상 분석 완료' : '영상 분석에 실패했습니다.')
+          }).then(r => r.json()).catch(() => ({ success: false, message: '영상 편집 실패' }))
+          if (res.success && res.data && res.file_name) {
+            const mimeType = res.mime_type ?? 'video/mp4'
+            const bytes = Uint8Array.from(atob(res.data), c => c.charCodeAt(0))
+            const blob = new Blob([bytes], { type: mimeType })
+            const url = URL.createObjectURL(blob)
+            result = res.message ?? `${opLabel} 완료!`
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(), role: 'nexus', text: result, timestamp: new Date(),
+              inlineCard2: { type: 'file_result', data: { fileName: res.file_name, url, mimeType, operation: res.operation } } as any,
+            }])
+            setTyping(false)
+            return
+          }
+          result = `❌ ${res.message ?? opLabel + ' 실패'}`
+        } else {
+          /* 내용 분석 → Whisper 전사 */
+          setMessages(prev => prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, text: `🎬 ${file.name}\n⏳ 영상 분석 중... (${(file.size / 1024 / 1024).toFixed(1)}MB)\n음성을 텍스트로 전사하고 있어요.` } : m
+          ))
+          const depsCheck = await fetch('http://127.0.0.1:17891/api/video/check-deps')
+            .then(r => r.json()).catch(() => null)
+          if (depsCheck && !depsCheck.ready) {
+            result = `⚠️ **영상 분석 불가**\n\n${depsCheck.message ?? '영상 분석 도구가 설치되지 않았습니다.'}`
+          } else {
+            const res = await fetch('http://127.0.0.1:17891/api/video/analyze-file', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
+              body: JSON.stringify({
+                file_data: file.dataUrl,
+                file_name: file.name,
+                lang: userLang,
+                query: text || '이 영상 내용을 요약해줘',
+              }),
+            }).then(r => r.json()).catch(() => ({ success: false, message: '영상 분석 요청 실패' }))
+            result = res.message ?? (res.success ? '영상 분석 완료' : '영상 분석에 실패했습니다.')
+          }
         }
 
       } else {

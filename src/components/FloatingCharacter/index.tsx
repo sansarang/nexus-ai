@@ -1077,6 +1077,11 @@ export function FloatingCharacter() {
     const wantResize = /리사이즈|사이즈|크기|resize|인스타|트위터|유튜브|틱톡|썸네일|맞춰|플랫폼|변경.*크기|크기.*변경/i.test(text)
     const wantConvert = /변환|convert|jpg로|png로|webp로|jpeg로/i.test(text)
     const wantCompare = /비교|compare|차이|다른점|같은점/i.test(text)
+    // 영상 편집 의도
+    const wantTrim = /잘라|자르기|trim|구간|초부터|분부터|까지|처음.*분|처음.*초/i.test(text)
+    const wantCompress = /압축|용량.*줄|줄여|compress|가볍게|작게/i.test(text)
+    const wantSpeed = /배속|빠르게|느리게|speed|빨리|천천히/i.test(text)
+    const wantSubtitle = /자막|subtitle|srt|vtt/i.test(text)
     const allFiles = [file, ...(extraFiles ?? [])]
     const isImageFile = (f: { mimeType: string }) => f.mimeType.startsWith('image/')
     const isVideoFile = (f: { mimeType: string }) => f.mimeType.startsWith('video/')
@@ -1089,6 +1094,7 @@ export function FloatingCharacter() {
 
     // ── 파일 처리 인텐트 (이미지/문서 조작) ──────────────────────
     const needsFileProcess = wantGIF || wantResize || wantConvert || (wantCompare && allFiles.length >= 2)
+    const needsVideoEdit = isVideoFile(file) && (wantTrim || wantCompress || wantSpeed || wantSubtitle)
 
     try {
       if (needsFileProcess) {
@@ -1142,6 +1148,52 @@ export function FloatingCharacter() {
         } else {
           setMessages(prev => prev.filter(m => !m.id.includes('-progress')))
           setMessages(prev => [...prev, { id: `n-${Date.now()}-err`, role: 'nexus', text: `❌ ${res.message}` }])
+        }
+        setTyping(false)
+        return
+
+      } else if (needsVideoEdit) {
+        // ── 동영상 편집 (trim / compress / speed / subtitle) ──────
+        const opLabel = wantTrim ? '구간 자르기' : wantCompress ? '용량 압축' : wantSpeed ? '속도 변환' : '자막 삽입'
+        const opKey   = wantTrim ? 'video_trim'  : wantCompress ? 'video_compress' : wantSpeed ? 'video_speed' : 'video_subtitle'
+        setMessages(prev => [
+          ...prev,
+          { id: `u-${Date.now()}`, role: 'user', text: `🎬 ${file.name}\n${text}` },
+          { id: `n-${Date.now()}-progress`, role: 'nexus', text: `⏳ ${opLabel} 중... (ffmpeg 처리 중이에요)` },
+        ])
+        const payload = {
+          files: allFiles.map(f => ({ name: f.name, mime_type: f.mimeType, data: f.dataUrl })),
+          operation: opKey,
+          query: text,
+          params: {},
+        }
+        const res = await fetch('http://127.0.0.1:17891/api/file/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
+          body: JSON.stringify(payload),
+        }).then(r => r.json()).catch(() => ({ success: false, message: '영상 편집 실패' }))
+
+        if (res.success && res.data && res.file_name) {
+          const mimeType = res.mime_type ?? 'video/mp4'
+          const byteString = atob(res.data)
+          const ab = new ArrayBuffer(byteString.length)
+          const ia = new Uint8Array(ab)
+          for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i)
+          const blob = new Blob([ab], { type: mimeType })
+          const url = URL.createObjectURL(blob)
+          setMessages(prev => prev.filter(m => !m.id.includes('-progress')))
+          setMessages(prev => [...prev, {
+            id: `n-${Date.now()}-result`,
+            role: 'nexus',
+            text: res.message ?? `${opLabel} 완료!`,
+            inlineCard2: {
+              type: 'file_result',
+              data: { fileName: res.file_name, url, mimeType, operation: res.operation },
+            } as any,
+          }])
+        } else {
+          setMessages(prev => prev.filter(m => !m.id.includes('-progress')))
+          setMessages(prev => [...prev, { id: `n-${Date.now()}-err`, role: 'nexus', text: `❌ ${res.message ?? opLabel + ' 실패'}` }])
         }
         setTyping(false)
         return
@@ -1200,7 +1252,7 @@ export function FloatingCharacter() {
 
         } else {
           // 변환/편집 목적 → 기존 안내
-          analysisResult = `🎬 **${file.name}** (${(file.size / 1024 / 1024).toFixed(1)}MB)\n\n다음 작업을 요청할 수 있어요:\n• "내용 요약해줘" — AI 영상 내용 분석\n• "GIF로 만들어줘" — 애니메이션 GIF 변환\n• "유튜브 썸네일 크기로 리사이즈해줘" — 플랫폼 맞춤 크기 조정\n• "MP4로 변환해줘" — 포맷 변환`
+          analysisResult = `🎬 **${file.name}** (${(file.size / 1024 / 1024).toFixed(1)}MB)\n\n다음 작업을 요청할 수 있어요:\n• "내용 요약해줘" — AI 영상 내용 분석\n• "30초부터 2분까지 잘라줘" — 구간 자르기\n• "용량 절반으로 줄여줘" — 파일 압축\n• "2배속으로 만들어줘" — 속도 변환\n• "자막 파일이랑 합쳐줘" — 자막 삽입 (.srt 함께 첨부)`
         }
 
       } else if (file.fileType === 'image') {

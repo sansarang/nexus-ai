@@ -17,6 +17,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	xdraw "golang.org/x/image/draw"
@@ -109,6 +111,14 @@ func handleFileProcess(w http.ResponseWriter, r *http.Request) {
 		handleCompare(w, req.Files, req.Query, lang)
 	case "convert":
 		handleConvert(w, req.Files[0], req.Params, lang)
+	case "video_trim":
+		handleVideoTrim(w, req.Files[0], req.Params, req.Query, lang)
+	case "video_compress":
+		handleVideoCompress(w, req.Files[0], req.Params, req.Query, lang)
+	case "video_speed":
+		handleVideoSpeed(w, req.Files[0], req.Params, req.Query, lang)
+	case "video_subtitle":
+		handleVideoSubtitle(w, req.Files, req.Params, req.Query, lang)
 	default:
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("지원하지 않는 operation: "+req.Operation, "Unsupported operation: "+req.Operation, lang)})
 	}
@@ -125,8 +135,19 @@ func detectFileOp(query string, files []fileInput) string {
 		return false
 	}
 	isImg := len(files) > 0 && strings.HasPrefix(files[0].MimeType, "image/")
+	isVid := len(files) > 0 && strings.HasPrefix(files[0].MimeType, "video/")
 
 	switch {
+	// 영상 편집 ops (이미지보다 먼저 체크)
+	case isVid && has("잘라", "자르기", "구간", "trim", "초부터", "분부터", "부터", "까지"):
+		return "video_trim"
+	case isVid && has("압축", "용량", "줄여", "compress", "작게", "가볍게"):
+		return "video_compress"
+	case isVid && has("배속", "빠르게", "느리게", "speed", "빨리", "천천히"):
+		return "video_speed"
+	case isVid && (has("자막", "subtitle", "srt") || (len(files) >= 2 && strings.HasSuffix(strings.ToLower(files[1].Name), ".srt"))):
+		return "video_subtitle"
+	// 이미지 ops
 	case has("gif", "움직이는", "애니메이션", "움짤"):
 		return "to_gif"
 	case has("리사이즈", "사이즈", "크기", "resize", "인스타", "트위터", "유튜브", "틱톡", "썸네일", "맞춰", "변경") && isImg:
@@ -477,4 +498,381 @@ func extractFileText(f fileInput) string {
 		text = text[:10000]
 	}
 	return text
+}
+
+// ── 영상 편집 공통 헬퍼 ───────────────────────────────────────────
+
+// decodeVideoToTemp: base64 영상을 임시 파일로 저장하고 경로 반환
+func decodeVideoToTemp(data, name string) (string, string, error) {
+	raw := data
+	if idx := strings.Index(raw, ","); idx >= 0 {
+		raw = raw[idx+1:]
+	}
+	b, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return "", "", fmt.Errorf("base64 decode: %w", err)
+	}
+	ext := filepath.Ext(name)
+	if ext == "" {
+		ext = ".mp4"
+	}
+	tmp, err := os.MkdirTemp("", "nexus_vedit_*")
+	if err != nil {
+		return "", "", err
+	}
+	inPath := filepath.Join(tmp, "input"+ext)
+	if err := os.WriteFile(inPath, b, 0644); err != nil {
+		os.RemoveAll(tmp)
+		return "", "", err
+	}
+	return tmp, inPath, nil
+}
+
+// encodeFileToBase64: 파일을 base64로 읽어 반환
+func encodeFileToBase64(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+// parseTimeToSeconds: "1분30초", "90초", "1:30" 등 → 초 단위 float64
+func parseTimeToSeconds(s string) float64 {
+	s = strings.TrimSpace(s)
+	// HH:MM:SS 또는 MM:SS
+	if regexp.MustCompile(`^\d+:\d{2}(:\d{2})?$`).MatchString(s) {
+		parts := strings.Split(s, ":")
+		var total float64
+		for _, p := range parts {
+			v, _ := strconv.ParseFloat(p, 64)
+			total = total*60 + v
+		}
+		return total
+	}
+	// "1분 30초" 형태
+	var total float64
+	if m := regexp.MustCompile(`(\d+)\s*분`).FindStringSubmatch(s); m != nil {
+		v, _ := strconv.ParseFloat(m[1], 64)
+		total += v * 60
+	}
+	if m := regexp.MustCompile(`(\d+)\s*초`).FindStringSubmatch(s); m != nil {
+		v, _ := strconv.ParseFloat(m[1], 64)
+		total += v
+	}
+	if total == 0 {
+		// 순수 숫자 → 초
+		v, _ := strconv.ParseFloat(regexp.MustCompile(`\d+`).FindString(s), 64)
+		total = v
+	}
+	return total
+}
+
+// parseTrimTimes: 쿼리에서 시작/끝 시간 추출
+// "30초부터 2분까지" → (30, 120)
+// "처음 1분" → (0, 60)
+func parseTrimTimes(q string) (start, end float64) {
+	q = strings.ToLower(q)
+
+	// "처음 N분/초" 패턴
+	if m := regexp.MustCompile(`처음\s*([\d분초: ]+)`).FindStringSubmatch(q); m != nil {
+		end = parseTimeToSeconds(m[1])
+		return 0, end
+	}
+	// "부터 ~ 까지" 패턴
+	re := regexp.MustCompile(`([\d분초: ]+?)\s*부터\s*([\d분초: ]+?)\s*까지`)
+	if m := re.FindStringSubmatch(q); m != nil {
+		return parseTimeToSeconds(m[1]), parseTimeToSeconds(m[2])
+	}
+	// "~부터 ~" (까지 없음)
+	re2 := regexp.MustCompile(`([\d분초: ]+?)\s*부터\s*([\d분초: ]+)`)
+	if m := re2.FindStringSubmatch(q); m != nil {
+		return parseTimeToSeconds(m[1]), parseTimeToSeconds(m[2])
+	}
+	return 0, 0
+}
+
+// parseSpeedFactor: "2배속", "0.5배", "1.5x" 등 → float64
+func parseSpeedFactor(q string) float64 {
+	re := regexp.MustCompile(`(\d+\.?\d*)\s*(?:배속|배|x|X)`)
+	if m := re.FindStringSubmatch(q); m != nil {
+		v, _ := strconv.ParseFloat(m[1], 64)
+		if v > 0 {
+			return v
+		}
+	}
+	if strings.Contains(q, "절반") || strings.Contains(q, "0.5") {
+		return 0.5
+	}
+	return 2.0 // 기본값
+}
+
+// ── handleVideoTrim ────────────────────────────────────────────
+// POST /api/file/process  operation=video_trim
+// params: start (초), end (초) — 없으면 쿼리에서 자동 파싱
+func handleVideoTrim(w http.ResponseWriter, f fileInput, params map[string]string, query, lang string) {
+	ffmpeg := findFFmpeg()
+	if ffmpeg == "" {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("ffmpeg 미설치. 설치 후 재시도해주세요.", "ffmpeg not found. Please install and retry.", lang)})
+		return
+	}
+	tmp, inPath, err := decodeVideoToTemp(f.Data, f.Name)
+	if err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	defer os.RemoveAll(tmp)
+
+	start, end := parseTrimTimes(query)
+	if ps, ok := params["start"]; ok {
+		start = parseTimeToSeconds(ps)
+	}
+	if pe, ok := params["end"]; ok {
+		end = parseTimeToSeconds(pe)
+	}
+	if end <= start {
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("시간 범위가 잘못됐어요. '30초부터 2분까지 잘라줘'처럼 말해보세요.", "Invalid time range. Try: 'trim from 0:30 to 2:00'.", lang)})
+		return
+	}
+
+	ext := filepath.Ext(f.Name)
+	if ext == "" {
+		ext = ".mp4"
+	}
+	outPath := filepath.Join(tmp, "trimmed"+ext)
+	cmd := exec.Command(ffmpeg,
+		"-y",
+		"-ss", fmt.Sprintf("%.3f", start),
+		"-to", fmt.Sprintf("%.3f", end),
+		"-i", inPath,
+		"-c", "copy",
+		outPath,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("영상 자르기 실패: ", "Trim failed: ", lang) + string(out)})
+		return
+	}
+
+	b64, err := encodeFileToBase64(outPath)
+	if err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": "output read failed"})
+		return
+	}
+	baseName := strings.TrimSuffix(f.Name, ext)
+	startMin, startSec := int(start)/60, int(start)%60
+	endMin, endSec := int(end)/60, int(end)%60
+	writeJSON(w, 200, map[string]any{
+		"success":   true,
+		"operation": "video_trim",
+		"message":   msgT(fmt.Sprintf("✂️ %d분%02d초 ~ %d분%02d초 구간을 잘랐어요!", startMin, startSec, endMin, endSec), fmt.Sprintf("✂️ Trimmed %d:%02d ~ %d:%02d!", startMin, startSec, endMin, endSec), lang),
+		"data":      b64,
+		"file_name": fmt.Sprintf("%s_trimmed%s", baseName, ext),
+		"mime_type": f.MimeType,
+	})
+}
+
+// ── handleVideoCompress ────────────────────────────────────────
+// operation=video_compress  params: crf (기본 28)
+func handleVideoCompress(w http.ResponseWriter, f fileInput, params map[string]string, query, lang string) {
+	ffmpeg := findFFmpeg()
+	if ffmpeg == "" {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("ffmpeg 미설치.", "ffmpeg not found.", lang)})
+		return
+	}
+	tmp, inPath, err := decodeVideoToTemp(f.Data, f.Name)
+	if err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	defer os.RemoveAll(tmp)
+
+	crf := "28"
+	if v, ok := params["crf"]; ok {
+		crf = v
+	} else {
+		q := strings.ToLower(query)
+		if strings.Contains(q, "많이") || strings.Contains(q, "최대") || strings.Contains(q, "많은") {
+			crf = "34"
+		} else if strings.Contains(q, "조금") || strings.Contains(q, "살짝") {
+			crf = "26"
+		}
+	}
+
+	ext := filepath.Ext(f.Name)
+	if ext == "" {
+		ext = ".mp4"
+	}
+	outPath := filepath.Join(tmp, "compressed.mp4")
+	cmd := exec.Command(ffmpeg,
+		"-y", "-i", inPath,
+		"-vcodec", "libx264",
+		"-crf", crf,
+		"-preset", "fast",
+		"-acodec", "aac",
+		"-b:a", "128k",
+		outPath,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("압축 실패: ", "Compress failed: ", lang) + string(out)})
+		return
+	}
+
+	origSize, _ := os.Stat(inPath)
+	newSize, _ := os.Stat(outPath)
+	ratio := 0.0
+	if origSize != nil && origSize.Size() > 0 {
+		ratio = float64(newSize.Size()) / float64(origSize.Size()) * 100
+	}
+
+	b64, _ := encodeFileToBase64(outPath)
+	baseName := strings.TrimSuffix(f.Name, ext)
+	writeJSON(w, 200, map[string]any{
+		"success":   true,
+		"operation": "video_compress",
+		"message":   msgT(fmt.Sprintf("📦 압축 완료! 원본 대비 %.0f%% 크기로 줄었어요.", ratio), fmt.Sprintf("📦 Compressed to %.0f%% of original size.", ratio), lang),
+		"data":      b64,
+		"file_name": baseName + "_compressed.mp4",
+		"mime_type": "video/mp4",
+	})
+}
+
+// ── handleVideoSpeed ───────────────────────────────────────────
+// operation=video_speed  params: speed (예: "2.0", "0.5")
+func handleVideoSpeed(w http.ResponseWriter, f fileInput, params map[string]string, query, lang string) {
+	ffmpeg := findFFmpeg()
+	if ffmpeg == "" {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("ffmpeg 미설치.", "ffmpeg not found.", lang)})
+		return
+	}
+	tmp, inPath, err := decodeVideoToTemp(f.Data, f.Name)
+	if err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	defer os.RemoveAll(tmp)
+
+	speed := parseSpeedFactor(query)
+	if v, ok := params["speed"]; ok {
+		if sv, err := strconv.ParseFloat(v, 64); err == nil && sv > 0 {
+			speed = sv
+		}
+	}
+	// ffmpeg atempo는 0.5~2.0 범위만 지원 → 체이닝 필요
+	if speed < 0.25 || speed > 4.0 {
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("0.25~4.0배속만 지원해요.", "Only 0.25x to 4.0x speed is supported.", lang)})
+		return
+	}
+
+	// video: pts 배율 = 1/speed, audio: atempo 체이닝
+	pts := fmt.Sprintf("%.4f", 1.0/speed)
+	var audioFilter string
+	if speed > 2.0 {
+		audioFilter = fmt.Sprintf("atempo=2.0,atempo=%.4f", speed/2.0)
+	} else if speed < 0.5 {
+		audioFilter = fmt.Sprintf("atempo=0.5,atempo=%.4f", speed/0.5)
+	} else {
+		audioFilter = fmt.Sprintf("atempo=%.4f", speed)
+	}
+
+	ext := filepath.Ext(f.Name)
+	if ext == "" {
+		ext = ".mp4"
+	}
+	outPath := filepath.Join(tmp, "speed.mp4")
+	cmd := exec.Command(ffmpeg,
+		"-y", "-i", inPath,
+		"-filter_complex", fmt.Sprintf("[0:v]setpts=%s*PTS[v];[0:a]%s[a]", pts, audioFilter),
+		"-map", "[v]", "-map", "[a]",
+		"-vcodec", "libx264", "-preset", "fast",
+		"-acodec", "aac",
+		outPath,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("속도 변환 실패: ", "Speed change failed: ", lang) + string(out)})
+		return
+	}
+
+	b64, _ := encodeFileToBase64(outPath)
+	baseName := strings.TrimSuffix(f.Name, ext)
+	speedLabel := fmt.Sprintf("%.2g", speed)
+	writeJSON(w, 200, map[string]any{
+		"success":   true,
+		"operation": "video_speed",
+		"message":   msgT(fmt.Sprintf("⚡ %s배속 변환 완료!", speedLabel), fmt.Sprintf("⚡ Speed changed to %sx!", speedLabel), lang),
+		"data":      b64,
+		"file_name": fmt.Sprintf("%s_%sx.mp4", baseName, speedLabel),
+		"mime_type": "video/mp4",
+	})
+}
+
+// ── handleVideoSubtitle ────────────────────────────────────────
+// operation=video_subtitle
+// files[0]=영상, files[1]=.srt 자막 (또는 params["srt_text"]에 SRT 내용)
+func handleVideoSubtitle(w http.ResponseWriter, files []fileInput, params map[string]string, query, lang string) {
+	ffmpeg := findFFmpeg()
+	if ffmpeg == "" {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("ffmpeg 미설치.", "ffmpeg not found.", lang)})
+		return
+	}
+	if len(files) == 0 {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "no files"})
+		return
+	}
+	tmp, inPath, err := decodeVideoToTemp(files[0].Data, files[0].Name)
+	if err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	defer os.RemoveAll(tmp)
+
+	// SRT 파일 경로 확보
+	srtPath := filepath.Join(tmp, "sub.srt")
+	if len(files) >= 2 && (strings.HasSuffix(strings.ToLower(files[1].Name), ".srt") || strings.HasSuffix(strings.ToLower(files[1].Name), ".vtt")) {
+		raw := files[1].Data
+		if idx := strings.Index(raw, ","); idx >= 0 {
+			raw = raw[idx+1:]
+		}
+		srtBytes, err2 := base64.StdEncoding.DecodeString(raw)
+		if err2 != nil {
+			writeJSON(w, 400, map[string]any{"success": false, "message": "srt decode failed"})
+			return
+		}
+		os.WriteFile(srtPath, srtBytes, 0644)
+	} else if v, ok := params["srt_text"]; ok && v != "" {
+		os.WriteFile(srtPath, []byte(v), 0644)
+	} else {
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("자막 파일(.srt)을 함께 첨부해주세요.", "Please attach a subtitle file (.srt) along with the video.", lang)})
+		return
+	}
+
+	ext := filepath.Ext(files[0].Name)
+	if ext == "" {
+		ext = ".mp4"
+	}
+	outPath := filepath.Join(tmp, "subtitled.mp4")
+	// Windows 경로의 백슬래시를 escape
+	escapedSrt := strings.ReplaceAll(srtPath, `\`, `\\`)
+	escapedSrt = strings.ReplaceAll(escapedSrt, `:`, `\\:`)
+	cmd := exec.Command(ffmpeg,
+		"-y", "-i", inPath,
+		"-vf", fmt.Sprintf("subtitles='%s'", escapedSrt),
+		"-vcodec", "libx264", "-preset", "fast",
+		"-acodec", "copy",
+		outPath,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		writeJSON(w, 500, map[string]any{"success": false, "message": msgT("자막 삽입 실패: ", "Subtitle burn-in failed: ", lang) + string(out)})
+		return
+	}
+
+	b64, _ := encodeFileToBase64(outPath)
+	baseName := strings.TrimSuffix(files[0].Name, ext)
+	writeJSON(w, 200, map[string]any{
+		"success":   true,
+		"operation": "video_subtitle",
+		"message":   msgT("🎬 자막이 영상에 삽입됐어요!", "🎬 Subtitles burned into video!", lang),
+		"data":      b64,
+		"file_name": baseName + "_subtitled.mp4",
+		"mime_type": "video/mp4",
+	})
 }
