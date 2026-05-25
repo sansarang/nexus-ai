@@ -6,7 +6,7 @@
   <script>if (!navigator.language.startsWith('en') && !sessionStorage.getItem('lang')) { window.location.replace('/index.html'); }</script>
   <title>NEXUS AI — The Windows AI That Actually Executes · Email, Excel & File Automation</title>
   <meta name="description" content="Excel analysis, email automation, PC optimization, live price comparison — all by voice or text. Runs locally, zero data leakage. Save 2.4 hours/day. 3-day free trial." />
-  <meta name="keywords" content="AI assistant, Windows AI, PC automation, deep research, AI security scan, Nexus AI, productivity AI, PC optimization, workflow automation, Excel automation, email automation, price comparison AI, developer AI, legal AI, medical AI, accountant AI, creator AI, real estate AI, teacher AI, HR AI, engineer AI, Windows 10, Windows 11, local AI" />
+  <meta name="keywords" content="AI assistant, Windows AI, PC automation, deep research, AI security scan, Nexus AI, productivity AI, PC optimization, workflow automation, Excel automation, email automation, price comparison AI, developer AI, legal AI, medical AI, accountant AI, creator AI, real estate AI, teacher AI, HR AI, engineer AI, small business AI, corporate AI, business number verification, VAT automation, Windows 10, Windows 11, local AI" />
   <meta name="theme-color" content="#a855f7" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -93,7 +93,9 @@
       {"@type":"Question","name":"Is web crawling legal?","acceptedAnswer":{"@type":"Answer","text":"Personal-use price comparison and information retrieval is generally permitted. Commercial bulk scraping or login bypassing should comply with each site's Terms of Service."}},
       {"@type":"Question","name":"Which Windows version is required?","acceptedAnswer":{"@type":"Answer","text":"Windows 10 or later is recommended. PC control features (PowerShell, WMI, Outlook COM) are Windows-exclusive. Mac supports basic AI chat only."}},
       {"@type":"Question","name":"How does auto-update work?","acceptedAnswer":{"@type":"Answer","text":"Updates are delivered via GitHub Releases using go-selfupdate. On launch, NEXUS checks for a new version and prompts you — one click updates to the latest."}},
-      {"@type":"Question","name":"Can I use email features without Outlook?","acceptedAnswer":{"@type":"Answer","text":"Full automation (send, reply, calendar sync) requires Outlook installed. Naver, Daum, and Kakao Mail support read & summary only via IMAP — auto-send is Outlook-only."}}
+      {"@type":"Question","name":"Can I use email features without Outlook?","acceptedAnswer":{"@type":"Answer","text":"Full automation (send, reply, calendar sync) requires Outlook installed. Naver, Daum, and Kakao Mail support read & summary only via IMAP — auto-send is Outlook-only."}},
+      {"@type":"Question","name":"Can NEXUS verify a Korean business registration number?","acceptedAnswer":{"@type":"Answer","text":"Yes. In the Small Business (소상공인) persona, enter any Korean business number and NEXUS queries the National Tax Service API in real time to confirm active/suspended/closed status, then surfaces relevant support programs. International business numbers are not yet supported — we recommend checking your local tax authority's official portal."}},
+      {"@type":"Question","name":"What can the Corporate / SME persona do?","acceptedAnswer":{"@type":"Answer","text":"The Corporate persona tracks your monthly VAT, corporate tax, and payroll insurance deadlines, analyzes electronic invoice (세금계산서) discrepancies, and helps draft or review contracts. It uses sonar-pro deep search to pull the latest tax authority notices and compliance updates."}}
     ]
   }
   </script>
@@ -763,6 +765,8 @@
             <button class="demo-btn" id="dbtn-6" onclick="runDemo(6);hideHint()"><span class="demo-btn-emoji">⚖️</span>Contract Review <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
             <button class="demo-btn" id="dbtn-7" onclick="runDemo(7);hideHint()"><span class="demo-btn-emoji">🏥</span>Medical Research <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
             <button class="demo-btn" id="dbtn-8" onclick="runDemo(8);hideHint()"><span class="demo-btn-emoji">🎬</span>Content Script <span style="font-size:9px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;padding:1px 5px;border-radius:4px;margin-left:2px;vertical-align:middle;">Pro</span></button>
+            <button class="demo-btn" id="dbtn-9" onclick="runDemo(9);hideHint()"><span class="demo-btn-emoji">🏪</span>Business Lookup</button>
+            <button class="demo-btn" id="dbtn-10" onclick="runDemo(10);hideHint()"><span class="demo-btn-emoji">🏢</span>Corp Tax Brief</button>
           </div>
         </div>
 
@@ -1006,7 +1010,7 @@
   <div style="max-width:1100px; margin:0 auto; text-align:center;">
     <div class="section-label">AI PERSONAS</div>
     <h2 class="section-title">Switch to the AI built for your job</h2>
-    <p class="section-sub" style="margin:0 auto;">One click switches to your role — 12 job personas with auto daily briefings + Marketplace presets</p>
+    <p class="section-sub" style="margin:0 auto;">One click switches to your role — 14 job personas with auto daily briefings + Marketplace presets</p>
     <div class="persona-grid" id="enPersonaGrid">
       <!-- cards injected by JS -->
     </div>
@@ -1303,7 +1307,7 @@
         <li><span class="check">✓</span> <strong>2,000</strong> AI requests/day</li>
         <li><span class="check">✓</span> Web search · Screen analysis</li>
         <li><span class="check">✓</span> Email assist · Content rec.</li>
-        <li><span class="check">✓</span> 12 AI job personas</li>
+        <li><span class="check">✓</span> 14 AI job personas</li>
         <li><span class="check">✓</span> Workflow Marketplace</li>
         <li><span class="check">✓</span> Proactive AI 24/7</li>
         <li><span class="check">✓</span> Email auto-send</li>
@@ -1387,7 +1391,7 @@
       <span style="background:linear-gradient(135deg,var(--primary),#6366f1); color:#fff; border-radius:6px; padding:3px 12px; font-size:12px; font-weight:700;">v2.5.84 Latest</span>
       <span style="color:var(--muted); font-size:13px;">May 2026 · Auto-update included</span>
     </div>
-    <div style="font-size:13px; color:var(--muted);">✦ 12 AI job personas &nbsp;✦ Auto daily briefings &nbsp;✦ Marketplace open &nbsp;✦ Enterprise API keys</div>
+    <div style="font-size:13px; color:var(--muted);">✦ 14 AI job personas &nbsp;✦ Auto daily briefings &nbsp;✦ Marketplace open &nbsp;✦ Enterprise API keys</div>
     <a href="https://github.com/sansarang/nexus-ai-releases/releases" target="_blank" style="font-size:13px; color:var(--primary); text-decoration:none; font-weight:600;">Full release notes →</a>
   </div>
 </div>
@@ -1445,6 +1449,22 @@
           <span class="arrow">▼</span>
         </button>
         <div class="faq-a">Full automation (send, reply, calendar sync) requires Outlook installed. Naver, Daum, and Kakao Mail support <strong>read & summary only</strong> via IMAP — auto-send is Outlook-only.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          Can NEXUS verify a Korean business registration number?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">Yes. In the Small Business persona, enter any Korean business number and NEXUS queries the National Tax Service API in real time — confirming active/suspended/closed status and surfacing relevant support programs. International business numbers are not yet supported; we recommend checking your local tax authority's official portal.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          What does the Corporate / SME persona do?
+          <span class="arrow">▼</span>
+        </button>
+        <div class="faq-a">The Corporate persona tracks monthly VAT, corporate tax, and payroll insurance deadlines, detects electronic invoice discrepancies automatically, and helps draft or review contracts. It uses sonar-pro deep search to pull the latest tax authority notices and compliance updates.</div>
       </div>
 
     </div>
@@ -1624,6 +1644,16 @@
       label: 'Write a YouTube script on "Top 5 AI tools 2026".',
       steps: ['🎬 Analyzing viral content patterns...', '✍️ Generating hook + structure...', '🎯 Optimizing for retention...'],
       result: `🎬 YouTube Script — "Top 5 AI Tools 2026"\n\n[HOOK - 0:00-0:15]\n"These 5 AI tools saved me 20 hours this week — and most people have never heard of them."\n\n[Tool #1 - 0:15]\nNexus AI — PC automation AI\n"Handles stock analysis, email drafts, and file management with one command"\n\n[Tool #2 - 1:30]\nCursor — AI code editor\n[...3 more tools with timestamps...]\n\n[CTA - 8:45]\n"Drop a comment: which one will you try first?"\n\n✅ Estimated runtime: 9-10 min | Retention hook: 94%\n📊 Suggested title variations: 3 A/B test options ready`,
+    },
+    {
+      label: 'Look up business number 123-45-67890 for me.',
+      steps: ['🏪 Querying National Tax Service API...', '📋 Verifying business status...', '💰 Searching support programs...'],
+      result: `🏪 Business Number Lookup Result\n\n✅ Status: Active (계속사업자)\n📌 Business No.: 123-45-67890\n🏢 Category: Food Service / Korean Restaurant\n\n💳 Payment Fee Rates\n• Card terminal (small merchant): 0.5%\n• Delivery app — Baemin: 6.8% · Coupang Eats: 9.8%\n\n🏛️ Available Support Programs\n• Small Business Improvement Fund up to ₩20M\n• Delivery fee rebate program — deadline Jun 30\n• Utility bill subsidy ₩100,000 (July application)\n\n⚠️ Korean business numbers only.\nFor other countries, check your local tax authority's official portal.\n\n💡 Don't miss the rebate deadline — apply now!`,
+    },
+    {
+      label: 'Give me this month\'s corporate tax schedule and invoice status.',
+      steps: ['🏢 Fetching corporate tax calendar...', '🧾 Analyzing invoice discrepancies...', '👥 Calculating payroll deductions...'],
+      result: `🏢 Corporate Tax Briefing\n\n📅 Key Deadlines This Month\n• VAT 1st-half final return (Jul 25) ⚠️ D-29\n• Corporate tax interim payment (Aug 31)\n• Electronic invoice issuance → due by 10th of next month\n\n🧾 Invoice Status\nIssued: 47 / Received: 23\n⚠️ 2 mismatches detected — immediate action required\n  - Partner B: ₩500,000 amount discrepancy\n  - Partner F: Incorrect issuance date\n\n👥 4 Social Insurance Deductions (10 employees)\nNational Pension ₩1,240,000 · Health ₩892,000\nEmployment ₩184,000 · Industrial ₩76,000\n\n💡 VAT return in 29 days!\nResolve the 2 invoice mismatches first.`,
     },
   ]
 
