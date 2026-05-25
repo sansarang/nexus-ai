@@ -2,7 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { inject } from '@vercel/analytics'
 import './index.css'
+
+inject()
 import { supabase, fetchSubscription, createTrialSubscription, resolveStatus, fetchUserSettings } from './lib/supabase'
 import { initPaddle } from './lib/paddle'
 
