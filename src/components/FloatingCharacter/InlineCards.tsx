@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useAppStore } from '../../stores/appStore'
 import type { StatsData, ScanResult, ScanIssue, DailyReport, CleanResult, RepairResult } from '../../lib/nexus/backendAPI'
 
 /* ── 공통 유틸 ── */
@@ -272,6 +273,8 @@ export function ScanResultCard({
 
 /* ── 데일리 리포트 카드 ── */
 export function DailyReportCard({ data, accentColor }: { data: DailyReport; accentColor: string }) {
+  const { userLang } = useAppStore()
+  const isEn = userLang === 'en'
   const scoreColor = data.pc_score >= 90 ? '#22c55e' : data.pc_score >= 70 ? '#f59e0b' : '#ef4444'
   const trendIcon = (t: string) => t === 'up' ? '↑' : t === 'down' ? '↓' : '→'
   const trendColor = (t: string, label: string) => {
@@ -328,7 +331,7 @@ export function DailyReportCard({ data, accentColor }: { data: DailyReport; acce
 
       {/* 예측 트렌드 */}
       <div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 5 }}>내일 예측</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 5 }}>{isEn ? 'Tomorrow Forecast' : '내일 예측'}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {data.predictions.map((pred: { label: string; value: number; trend: 'up' | 'down' | 'stable' }) => (
             <div key={pred.label} style={{

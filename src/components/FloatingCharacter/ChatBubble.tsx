@@ -848,9 +848,11 @@ export function ChatBubble({
           }}>
             <span>💬</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {clarifyQuestion || '추가 정보가 필요합니다'}
+              {clarifyQuestion || (lang === 'en' ? 'Additional info needed' : '추가 정보가 필요합니다')}
             </span>
-            <span style={{ opacity: 0.6, fontSize: 9 }}>텍스트 또는 음성으로 답해주세요</span>
+            <span style={{ opacity: 0.6, fontSize: 9 }}>
+              {lang === 'en' ? 'Type or speak your answer' : '텍스트 또는 음성으로 답해주세요'}
+            </span>
           </div>
         )}
         <input

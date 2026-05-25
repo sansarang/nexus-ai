@@ -608,9 +608,11 @@ export function FloatingCharacter() {
         setMessages(prev => [...prev, {
           id: `approval-${taskId}`,
           role: 'nexus' as const,
-          text: `⚠️ **작업 승인 필요**\n${alert.message}\n\n[승인] 또는 [거부]를 입력해 주세요.`,
+          text: userLang === 'en'
+            ? `⚠️ **Approval Required**\n${alert.message}\n\nType [Approve] or [Deny].`
+            : `⚠️ **작업 승인 필요**\n${alert.message}\n\n[승인] 또는 [거부]를 입력해 주세요.`,
         }])
-        setBubbleText('작업 승인이 필요합니다 ✋')
+        setBubbleText(userLang === 'en' ? 'Action approval required ✋' : '작업 승인이 필요합니다 ✋')
         setChatOpen(true)
         return
       }
@@ -1428,19 +1430,24 @@ export function FloatingCharacter() {
       onClick: () => { stopSpeaking(); setSpeaking(false) }, tip: '음성 중지',
     }] : [
       { icon: soundEnabled ? '🔊' : '🔇', active: soundEnabled, color: soundEnabled ? primaryColor : '#6b7280',
-        onClick: () => setSoundEnabled(p => { const next = !p; localStorage.setItem('nexus-sound', next ? 'on' : 'off'); return next }), tip: soundEnabled ? 'AI 소리 끄기' : 'AI 소리 켜기' },
+        onClick: () => setSoundEnabled(p => { const next = !p; localStorage.setItem('nexus-sound', next ? 'on' : 'off'); return next }),
+        tip: userLang === 'en' ? (soundEnabled ? 'Mute AI' : 'Unmute AI') : (soundEnabled ? 'AI 소리 끄기' : 'AI 소리 켜기') },
     ]),
     { icon: isActive ? '💬' : '😴',    active: isActive,     color: isActive ? primaryColor : '#6b7280',
-      onClick: () => { setIsActive(p => !p); if (isActive) stopSpeaking() }, tip: isActive ? '비활성화' : '활성화' },
-    { icon: '🎤', active: listening,   color: '#ef4444',     onClick: handleVoiceToggle, tip: '음성' },
-    { icon: '⚙️', active: false,            color: primaryColor,  onClick: () => setSettingsOpen(true), tip: '설정' },
-    { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4',     onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
-    { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b',  onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
-    { icon: '—',  active: false,             color: '#6b7280',     onClick: () => setMinimized(true), tip: '최소화' },
-    { icon: '✕',  active: false,             color: '#ef4444',     onClick: async () => {
+      onClick: () => { setIsActive(p => !p); if (isActive) stopSpeaking() },
+      tip: userLang === 'en' ? (isActive ? 'Deactivate' : 'Activate') : (isActive ? '비활성화' : '활성화') },
+    { icon: '🎤', active: listening,   color: '#ef4444',     onClick: handleVoiceToggle,
+      tip: userLang === 'en' ? 'Voice' : '음성' },
+    { icon: '⚙️', active: false,       color: primaryColor,  onClick: () => setSettingsOpen(true),
+      tip: userLang === 'en' ? 'Settings' : '설정' },
+    { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4', onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
+    { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b', onClick: () => setShowWorkflowBuilder(p => !p), tip: 'Workflow Builder' },
+    { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
+      tip: userLang === 'en' ? 'Minimize' : '최소화' },
+    { icon: '✕',  active: false,       color: '#ef4444',     onClick: async () => {
       const { getCurrentWindow } = await import('@tauri-apps/api/window')
       getCurrentWindow().close()
-    }, tip: '닫기' },
+    }, tip: userLang === 'en' ? 'Close' : '닫기' },
   ]
 
   if (!isOnboarded) {

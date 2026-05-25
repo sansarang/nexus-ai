@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { openCheckout, PADDLE_PRICES } from '../../lib/paddle'
 import { useAppStore } from '../../stores/appStore'
 
-const FEATURE_LABELS: Record<string, string> = {
+const FEATURE_LABELS_KO: Record<string, string> = {
   stock_analysis:    '주식 분석',
   medical_search:    '의료 정보 검색',
   contract_review:   '계약서 검토',
@@ -17,6 +17,21 @@ const FEATURE_LABELS: Record<string, string> = {
   weekly_report:     '주간 리포트',
 }
 
+const FEATURE_LABELS_EN: Record<string, string> = {
+  stock_analysis:    'Stock Analysis',
+  medical_search:    'Medical Search',
+  contract_review:   'Contract Review',
+  legal_search:      'Legal Search',
+  content_script:    'Content Script',
+  workflow_run:      'Workflow Run',
+  ai_request:        'AI Request',
+  vision_analyze:    'Screen Analysis',
+  screen_translate:  'Screen Translate',
+  email_summary:     'Email Summary',
+  content_recommend: 'Content Recommend',
+  weekly_report:     'Weekly Report',
+}
+
 interface Props {
   feature: string
   used: number
@@ -26,8 +41,10 @@ interface Props {
 }
 
 export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props) {
-  const { userEmail } = useAppStore()
-  const label = FEATURE_LABELS[feature] ?? feature
+  const { userEmail, userLang } = useAppStore()
+  const isEn = userLang === 'en'
+  const labelMap = isEn ? FEATURE_LABELS_EN : FEATURE_LABELS_KO
+  const label = labelMap[feature] ?? feature
 
   const handlePro = async () => {
     onUpgrade?.()
@@ -83,7 +100,7 @@ export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary, #cdd6f4)' }}>
-              Pro 기능입니다
+              {isEn ? 'Pro Feature' : 'Pro 기능입니다'}
             </h2>
           </div>
 
@@ -100,23 +117,41 @@ export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props
             }}
           >
             {limit > 0 ? (
-            <>
-              <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong>은(는){' '}
-              오늘{' '}
-              <span style={{ color: '#f38ba8', fontWeight: 700 }}>
-                {used}/{limit}회
-              </span>{' '}
-              사용했습니다.
-              <br />
-              Pro로 업그레이드하면 <strong>무제한</strong>으로 사용할 수 있어요.
-            </>
-          ) : (
-            <>
-              오늘 <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong> 한도를 모두 소진했습니다.
-              <br />
-              Pro로 업그레이드하면 하루 <strong>2,000회</strong> 사용할 수 있어요.
-            </>
-          )}
+              isEn ? (
+                <>
+                  You've used{' '}
+                  <span style={{ color: '#f38ba8', fontWeight: 700 }}>{used}/{limit}</span>{' '}
+                  <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong> requests today.
+                  <br />
+                  Upgrade to Pro for <strong>unlimited</strong> access.
+                </>
+              ) : (
+                <>
+                  <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong>은(는){' '}
+                  오늘{' '}
+                  <span style={{ color: '#f38ba8', fontWeight: 700 }}>
+                    {used}/{limit}회
+                  </span>{' '}
+                  사용했습니다.
+                  <br />
+                  Pro로 업그레이드하면 <strong>무제한</strong>으로 사용할 수 있어요.
+                </>
+              )
+            ) : (
+              isEn ? (
+                <>
+                  You've used all your <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong> requests today.
+                  <br />
+                  Upgrade to Pro for <strong>2,000 requests/day</strong>.
+                </>
+              ) : (
+                <>
+                  오늘 <strong style={{ color: 'var(--text-primary, #cdd6f4)' }}>{label}</strong> 한도를 모두 소진했습니다.
+                  <br />
+                  Pro로 업그레이드하면 하루 <strong>2,000회</strong> 사용할 수 있어요.
+                </>
+              )
+            )}
           </div>
 
           {/* CTA buttons */}
@@ -140,7 +175,9 @@ export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props
                 gap: 6,
               }}
             >
-              ✨ Pro로 업그레이드 &nbsp;<span style={{ opacity: 0.75, fontWeight: 400 }}>$19/월</span>
+              {isEn
+                ? <> ✨ Upgrade to Pro &nbsp;<span style={{ opacity: 0.75, fontWeight: 400 }}>$19/mo</span></>
+                : <> ✨ Pro로 업그레이드 &nbsp;<span style={{ opacity: 0.75, fontWeight: 400 }}>₩14,900/월</span></>}
             </motion.button>
 
             <motion.button
@@ -158,7 +195,9 @@ export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props
                 cursor: 'pointer',
               }}
             >
-              Team 플랜 &nbsp;<span style={{ opacity: 0.6, fontWeight: 400 }}>$49/월</span>
+              {isEn
+                ? <> Team Plan &nbsp;<span style={{ opacity: 0.6, fontWeight: 400 }}>$49/mo</span></>
+                : <> Team 플랜 &nbsp;<span style={{ opacity: 0.6, fontWeight: 400 }}>$49/월</span></>}
             </motion.button>
 
             <button
@@ -172,7 +211,7 @@ export function PaywallModal({ feature, used, limit, onClose, onUpgrade }: Props
                 padding: '6px 0',
               }}
             >
-              나중에
+              {isEn ? 'Maybe later' : '나중에'}
             </button>
           </div>
         </motion.div>
