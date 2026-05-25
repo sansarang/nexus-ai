@@ -220,6 +220,90 @@ export async function routeWithLLM(
   return fallbackRoute(userMessage, recentHistory)
 }
 
+// ── 멀티툴 라우팅 ────────────────────────────────────────────────
+
+function buildSystemPromptMulti(recentHistory?: HistoryTurn[]): string {
+  const toolList = NEXUS_TOOLS.map(t =>
+    `- ${t.name}: ${t.description.split('. ')[0]}`
+  ).join('\n')
+  const ctx = recentHistory?.length
+    ? `\n최근 대화:\n${recentHistory.slice(-3).map(h => `${h.role}: ${h.content.slice(0, 100)}`).join('\n')}\n`
+    : ''
+  return `You are a multi-tool selector for NEXUS AI Korean Windows PC assistant.
+Select ALL tools needed to FULLY complete the user's request, in execution order.
+${ctx}
+Available tools:
+${toolList}
+
+Rules:
+- Compound requests ("확인하고 요약해줘", "분류하고 답장 써줘") → return multiple tools in order
+- Simple requests → return exactly 1 tool
+- Use "general_answer" only when no other tool fits
+
+Respond ONLY with valid JSON:
+{"tools": [{"tool": "tool_name", "args": {}}, ...]}`
+}
+
+function parseToolCallArray(content: string): ToolCall[] {
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return []
+    const parsed = JSON.parse(jsonMatch[0]) as { tools?: Array<{ tool?: string; args?: Record<string, string> }> }
+    if (!Array.isArray(parsed.tools)) return []
+    return parsed.tools
+      .filter(t => t.tool && NEXUS_TOOLS.some(n => n.name === t.tool))
+      .map(t => ({ tool: t.tool!, args: t.args ?? {} }))
+  } catch { return [] }
+}
+
+export async function routeWithLLMMulti(
+  userMessage: string,
+  recentHistory?: HistoryTurn[],
+): Promise<ToolCall[]> {
+  const systemPrompt = buildSystemPromptMulti(recentHistory)
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage },
+  ]
+
+  const openaiKey = OPENAI_API_KEY || localStorage.getItem('nexus-openai-key') || ''
+  if (openaiKey) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 400, temperature: 0.1, response_format: { type: 'json_object' } }),
+        signal: AbortSignal.timeout(8000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+        const parsed = parseToolCallArray(data.choices?.[0]?.message?.content?.trim() ?? '')
+        if (parsed.length > 0) return parsed
+      }
+    } catch { /* fallback */ }
+  }
+
+  const groqKey = localStorage.getItem('nexus-groq-key') || ''
+  if (groqKey) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+        body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages, max_tokens: 400, temperature: 0.1, response_format: { type: 'json_object' } }),
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+        const parsed = parseToolCallArray(data.choices?.[0]?.message?.content?.trim() ?? '')
+        if (parsed.length > 0) return parsed
+      }
+    } catch { /* fallback */ }
+  }
+
+  const single = await routeWithLLM(userMessage, recentHistory)
+  return [single]
+}
+
 // ── JSON 파싱 ─────────────────────────────────────────────────────
 function parseToolCall(content: string): ToolCall | null {
   try {

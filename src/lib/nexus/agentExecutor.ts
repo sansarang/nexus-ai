@@ -18,6 +18,13 @@ type StepType =
   | 'excel_create'    // 엑셀 파일 생성
   | 'ui_control'      // 데스크톱 UI 자동화 (클릭·타이핑)
   | 'backend_call'    // 직접 백엔드 API 호출
+  | 'email_inbox'     // 받은 메일 조회
+  | 'email_summarize' // 메일 AI 요약
+  | 'email_classify'  // 메일 분류·우선순위
+  | 'email_draft'     // 답장 초안 작성
+  | 'email_send'      // 메일 전송
+  | 'calendar_today'  // 오늘 일정 조회
+  | 'calendar_add'    // 일정 추가
 
 interface AgentStep {
   id: number
@@ -191,8 +198,100 @@ export function isMultiStepTask(text: string): boolean {
     if (text.includes(v)) verbCount++
   }
 
+  // 이메일 복합 액션 (확인+요약, 분류+답장 등 2개 이상)
+  const hasEmail = /메일|이메일|email|inbox/i.test(text)
+  const emailActions = ['확인', '요약', '분류', '답장', '정리', '분석', '보내', '전송']
+  if (hasEmail && emailActions.filter(a => text.includes(a)).length >= 2) return true
+
+  // 캘린더 복합 액션
+  const hasCalendar = /일정|캘린더|calendar/i.test(text)
+  if (hasCalendar && ['추가', '확인', '조회', '등록'].filter(a => text.includes(a)).length >= 2) return true
+
   const lower = text.toLowerCase()
   return triggers.some(k => lower.includes(k)) || verbCount >= 2
+}
+
+// ── 이메일·캘린더 실행 함수 ──────────────────────────────────────
+
+async function callEmailInbox(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/email/inbox?limit=10`)
+    if (!res.ok) return '(메일 조회 실패)'
+    const data = await res.json()
+    if (!data.success) return data.message ?? '(메일 조회 실패)'
+    const list = (data.emails ?? []).slice(0, 5)
+      .map((e: { subject: string; sender: string; is_read: boolean }) =>
+        `${e.is_read ? '📨' : '📩'} ${e.subject} — ${e.sender}`)
+      .join('\n')
+    return `받은 메일 ${data.total}개 (읽지 않음 ${data.unread}개)\n${list}`
+  } catch { return '(메일 조회 오류)' }
+}
+
+async function callEmailSummarize(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/email/summarize`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    })
+    if (!res.ok) return '(메일 요약 실패)'
+    const data = await res.json()
+    return data.summary || data.message || '(요약 없음)'
+  } catch { return '(메일 요약 오류)' }
+}
+
+async function callEmailClassify(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/email/classify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ limit: 20 }),
+    })
+    if (!res.ok) return '(메일 분류 실패)'
+    const data = await res.json()
+    return data.message ?? '(분류 완료)'
+  } catch { return '(메일 분류 오류)' }
+}
+
+async function callEmailDraft(subject: string, sender: string, bodyCtx: string, tone = 'formal'): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/email/draft`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject, sender, body: bodyCtx, tone }),
+    })
+    if (!res.ok) return '(답장 초안 생성 실패)'
+    const data = await res.json()
+    return data.draft || data.message || '(초안 없음)'
+  } catch { return '(답장 초안 오류)' }
+}
+
+async function callEmailSend(to: string, subject: string, body: string): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/email/send`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, body }),
+    })
+    if (!res.ok) return '(메일 전송 실패)'
+    const data = await res.json()
+    return data.message ?? (data.success ? '메일 전송 완료' : '메일 전송 실패')
+  } catch { return '(메일 전송 오류)' }
+}
+
+async function callCalendarToday(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/calendar/today`)
+    if (!res.ok) return '(일정 조회 실패)'
+    const data = await res.json()
+    return data.message ?? JSON.stringify(data).slice(0, 500)
+  } catch { return '(일정 조회 오류)' }
+}
+
+async function callCalendarAdd(title: string, date: string): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/api/calendar/add`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, date }),
+    })
+    if (!res.ok) return '(일정 추가 실패)'
+    const data = await res.json()
+    return data.message ?? (data.success ? '일정 추가 완료' : '일정 추가 실패')
+  } catch { return '(일정 추가 오류)' }
 }
 
 // ── 유틸 ─────────────────────────────────────────────────────
@@ -219,6 +318,13 @@ async function planSteps(userMessage: string): Promise<AgentPlan> {
 - ui_control: 화면 UI 직접 제어 — 클릭, 타이핑 (query: 수행할 UI 작업 설명)
 - llm_task: LLM으로 글쓰기/요약/분석 (query: 구체적 지시)
 - backend_call: 백엔드 API 직접 호출 (query: "경로|JSON본문")
+- email_inbox: 받은 메일 조회 (query: 조회 목적)
+- email_summarize: 메일 AI 요약 (query: 요약 목적)
+- email_classify: 메일 분류·우선순위 정리 (query: 분류 기준)
+- email_draft: 답장 초안 작성 (query: "subject|sender|tone")
+- email_send: 메일 전송 (query: "수신자|제목|본문")
+- calendar_today: 오늘 일정 조회 (query: 조회 목적)
+- calendar_add: 일정 추가 (query: "제목|날짜시간")
 
 반환 형식 (JSON만, 코드블록 금지):
 {
@@ -301,6 +407,40 @@ async function doStep(
       let body: Record<string, unknown> = {}
       try { body = JSON.parse(bodyStr ?? '{}') } catch { body = {} }
       return backendCall(path.trim(), body)
+    }
+
+    case 'email_inbox':
+      onProgress('📧 받은 메일 조회 중...')
+      return callEmailInbox()
+
+    case 'email_summarize':
+      onProgress('📧 메일 AI 요약 중...')
+      return callEmailSummarize()
+
+    case 'email_classify':
+      onProgress('📧 메일 분류 중...')
+      return callEmailClassify()
+
+    case 'email_draft': {
+      onProgress('✉️ 답장 초안 작성 중...')
+      const [subject, sender, tone] = step.query.split('|').map(s => s.trim())
+      return callEmailDraft(subject || '', sender || '', context.slice(-2).join('\n'), tone || 'formal')
+    }
+
+    case 'email_send': {
+      onProgress('📤 메일 전송 중...')
+      const [to, subject, ...bodyParts] = step.query.split('|').map(s => s.trim())
+      return callEmailSend(to || '', subject || '', bodyParts.join('\n'))
+    }
+
+    case 'calendar_today':
+      onProgress('📅 오늘 일정 조회 중...')
+      return callCalendarToday()
+
+    case 'calendar_add': {
+      onProgress('📅 일정 추가 중...')
+      const [title, date] = step.query.split('|').map(s => s.trim())
+      return callCalendarAdd(title || step.query, date || '')
     }
 
     case 'llm_task':

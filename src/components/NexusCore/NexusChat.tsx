@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { callGemini, callOllama, fallbackResponse, trackUsage, callGroqVision } from '../../lib/nexus/gemini_engine'
 import { getAuthHeader } from '../../lib/nexus/backendAPI'
-import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
+import { routeWithLLM, routeWithLLMMulti } from '../../lib/nexus/llmToolRouter'
 import { isMultiStepTask, runAgent } from '../../lib/nexus/agentExecutor'
 import { buildMemoryContext, learnFromTurn, saveHistory, toStoredTurns } from '../../lib/nexus/memory'
 import { evaluateTriggersFiltered, getUptimeMs, STATS_POLL_MS } from '../../lib/nexus/proactiveAI'
@@ -373,18 +373,36 @@ export function NexusChat() {
       }
     }
 
-    /* ── 0순위: LLM Tool Router — 인텐트 감지 ── */
+    /* ── 0순위: LLM Tool Router — 멀티툴 인텐트 감지 ── */
     const routerHistory = historyRef.current.slice(-6).map(h => ({
       role: (h.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
       content: h.parts[0]?.text ?? '',
     })).filter(h => h.content.length > 0)
 
     try {
-      const toolCall = await routeWithLLM(trimmed, routerHistory)
-      if (toolCall.tool !== 'general_answer') {
-        /* 인텐트가 감지됐지만 NexusChat은 백엔드 없이 동작 —
-           사용자에게 캐릭터 창에서 실행하도록 안내하되,
-           질문 맥락은 LLM으로 보충 답변 */
+      const toolCalls = await routeWithLLMMulti(trimmed, routerHistory)
+      const actionable = toolCalls.filter(t => t.tool !== 'general_answer')
+
+      if (actionable.length >= 2) {
+        /* 복합 툴 2개 이상 → agentExecutor가 순서대로 전부 실행 */
+        setAgentProgress('🧠 복합 작업 계획 중...')
+        try {
+          const agentResult = await runAgent(trimmed, (msg) => setAgentProgress(msg))
+          setAgentProgress('')
+          setTyping(false)
+          typingRef.current = false
+          historyRef.current.push({ role: 'model', parts: [{ text: agentResult }] })
+          learnFromTurn(trimmed, agentResult)
+          saveHistory(toStoredTurns(historyRef.current))
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(), role: 'nexus', text: agentResult,
+            emotion: 'happy', timestamp: new Date(), animate: true,
+          }])
+          speakText(agentResult.slice(0, 200))
+          return
+        } catch { setAgentProgress('') }
+      } else if (actionable.length === 1) {
+        /* 단일 툴 → 위젯 안내 힌트 */
         const toolLabels: Record<string, string> = {
           pc_status: 'PC 상태 조회', security_scan: '보안 스캔', clean: 'PC 정리',
           full_scan: '전체 진단', launch_app: '앱 실행', volume_control: '볼륨 조절',
@@ -393,7 +411,7 @@ export function NexusChat() {
           email_inbox: '메일 확인', vision_screen: '화면 분석', meeting_start: '회의 녹음',
           workflow_run: '워크플로 실행', briefing_now: '브리핑', translator: '번역',
         }
-        const label = toolLabels[toolCall.tool] ?? toolCall.tool
+        const label = toolLabels[actionable[0].tool] ?? actionable[0].tool
         const hint = `⚡ **${label}** 기능이에요.\n\n이 기능은 Nexus 캐릭터 창(우측 위젯)에서 실행할 수 있어요. 위젯에서 같은 말을 해보세요!`
         historyRef.current.push({ role: 'model', parts: [{ text: hint }] })
         setTyping(false)
