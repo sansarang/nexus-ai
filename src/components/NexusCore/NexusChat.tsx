@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
-import { callGemini, callOllama, fallbackResponse, trackUsage } from '../../lib/nexus/gemini_engine'
+import { callGemini, callOllama, fallbackResponse, trackUsage, callGroqVision } from '../../lib/nexus/gemini_engine'
+import { getAuthHeader } from '../../lib/nexus/backendAPI'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
 import { speak, stopSpeaking } from '../../lib/nexus/tts'
@@ -21,6 +22,16 @@ import { Marketplace } from '../Marketplace'
 import { PersonaSwitcher } from '../PersonaSwitcher'
 import { PaywallModal } from '../PaywallModal'
 import type { Message, NexusStep, NexusEmotion } from '../../types/nexus'
+
+/* ── 첨부 파일 타입 ── */
+interface AttachedFile {
+  name: string
+  mimeType: string
+  dataUrl: string
+  text?: string
+  size: number
+  fileType: 'image' | 'video' | 'document' | 'spreadsheet' | 'other'
+}
 
 /* ── 페르소나 아이콘 맵 ── */
 const PERSONA_META: Record<string, { emoji: string; name: string; color: string }> = {
@@ -89,11 +100,75 @@ export function NexusChat() {
   const [voiceInterim, setVoiceInterim] = useState('') // 실시간 음성 인식 중간 결과
   const [showMarketplace, setShowMarketplace] = useState(false)
 
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
+  const [fileLoading, setFileLoading] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const historyRef = useRef<ConversationTurn[]>([])
   const voiceRecRef = useRef<SRInstance | null>(null)
   const typingRef = useRef(false) // send 중복 방지용 ref
+
+  /* ── 파일 유형 감지 ── */
+  const detectFileType = (mime: string, name: string): AttachedFile['fileType'] => {
+    if (mime.startsWith('image/')) return 'image'
+    if (mime.startsWith('video/')) return 'video'
+    if (mime.includes('spreadsheet') || mime.includes('excel') || name.endsWith('.xlsx') || name.endsWith('.csv')) return 'spreadsheet'
+    if (mime.includes('pdf') || mime.includes('word') || mime.includes('document') ||
+        name.endsWith('.pdf') || name.endsWith('.docx') || name.endsWith('.doc') ||
+        name.endsWith('.txt') || name.endsWith('.md')) return 'document'
+    return 'other'
+  }
+
+  /* ── 파일 단건 읽기 ── */
+  const readOneFile = useCallback(async (file: File): Promise<AttachedFile> => {
+    const name = file.name
+    const fileType = detectFileType(file.type, name)
+    let dataUrl = ''
+    let text: string | undefined
+    try {
+      if (fileType === 'image' || fileType === 'video') {
+        dataUrl = await new Promise<string>(resolve => {
+          const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsDataURL(file)
+        })
+      } else if (fileType === 'spreadsheet') {
+        const arrayBuffer = await file.arrayBuffer()
+        const XLSX = await import('xlsx')
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+        const lines: string[] = []
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName]
+          const csv = XLSX.utils.sheet_to_csv(sheet)
+          if (csv.trim()) lines.push(`[시트: ${sheetName}]\n${csv}`)
+        })
+        text = lines.join('\n\n').slice(0, 12000)
+        dataUrl = ''
+      } else if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv') || name.endsWith('.json') || file.type.includes('text')) {
+        text = await new Promise<string>(resolve => {
+          const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsText(file, 'utf-8')
+        })
+      } else {
+        dataUrl = await new Promise<string>(resolve => {
+          const r = new FileReader(); r.onload = e => resolve(e.target?.result as string); r.readAsDataURL(file)
+        })
+      }
+    } catch (err) {
+      console.error('파일 읽기 오류:', err)
+    }
+    return { name, mimeType: file.type, dataUrl, text, size: file.size, fileType }
+  }, [])
+
+  /* ── 파일 선택/드롭 처리 ── */
+  const handleFileSelect = useCallback(async (files: FileList | File[]) => {
+    setFileLoading(true)
+    const arr = Array.from(files).slice(0, 3)
+    const settled = await Promise.allSettled(arr.map(readOneFile))
+    const results = settled.filter(r => r.status === 'fulfilled').map(r => (r as PromiseFulfilledResult<AttachedFile>).value)
+    setAttachedFiles(prev => [...prev, ...results].slice(0, 3))
+    setFileLoading(false)
+  }, [readOneFile])
 
   /* 언마운트 시 음성 중지 */
   useEffect(() => () => { stopSpeaking() }, [])
@@ -281,9 +356,143 @@ export function NexusChat() {
     speakText(response.text)
   }, [assistantName, speakText])
 
+  /* ── 파일 첨부 전송 ── */
+  const handleSendWithFile = useCallback(async (text: string, files: AttachedFile[]) => {
+    if (files.length === 0) return
+    const file = files[0]
+    const icon = file.fileType === 'image' ? '🖼️' : file.fileType === 'video' ? '🎬' : file.fileType === 'spreadsheet' ? '📊' : '📄'
+    const displayNames = files.map(f => f.name).join(', ')
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role: 'user',
+        text: `${icon} ${displayNames}${text ? '\n' + text : ''}`,
+        timestamp: new Date(),
+      },
+    ])
+    setAttachedFiles([])
+    setInput('')
+    setTyping(true)
+
+    let result = ''
+    try {
+      if (file.fileType === 'image') {
+        /* 이미지 → Groq Vision */
+        const base64 = file.dataUrl.split(',')[1] ?? file.dataUrl
+        const question = text || '이 이미지를 분석해줘. 내용, 특징, 시사점을 상세하게 설명해줘.'
+        result = await callGroqVision(base64, question)
+
+      } else if (file.fileType === 'video') {
+        /* 동영상 → 백엔드 Whisper 전사 */
+        setMessages(prev => prev.map((m, i) =>
+          i === prev.length - 1 ? { ...m, text: `🎬 ${file.name}\n⏳ 영상 분석 중... (${(file.size / 1024 / 1024).toFixed(1)}MB)\n음성을 텍스트로 전사하고 있어요.` } : m
+        ))
+        const depsCheck = await fetch('http://127.0.0.1:17891/api/video/check-deps')
+          .then(r => r.json()).catch(() => null)
+        if (depsCheck && !depsCheck.ready) {
+          result = `⚠️ **영상 분석 불가**\n\n${depsCheck.message ?? '영상 분석 도구가 설치되지 않았습니다.'}`
+        } else {
+          const res = await fetch('http://127.0.0.1:17891/api/video/analyze-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
+            body: JSON.stringify({
+              file_data: file.dataUrl,
+              file_name: file.name,
+              lang: userLang,
+              query: text || '이 영상 내용을 요약해줘',
+            }),
+          }).then(r => r.json()).catch(() => ({ success: false, message: '영상 분석 요청 실패' }))
+          result = res.message ?? (res.success ? '영상 분석 완료' : '영상 분석에 실패했습니다.')
+        }
+
+      } else {
+        /* 문서/스프레드시트 → 텍스트 추출 후 LLM */
+        let docContent = file.text ?? ''
+
+        /* 백엔드 업로드로 더 정확한 텍스트 추출 시도 */
+        if (file.fileType !== 'other' && file.dataUrl) {
+          try {
+            const { uploadDocFile } = await import('../../lib/nexus/docEditor')
+            const resp = await fetch(file.dataUrl)
+            const blob = await resp.blob()
+            const fileObj = new File([blob], file.name, { type: file.mimeType })
+            const uploaded = await uploadDocFile(fileObj)
+            if (uploaded.success && uploaded.preview?.text) {
+              docContent = uploaded.preview.text
+            } else if (uploaded.success && uploaded.preview?.rows) {
+              docContent = (uploaded.preview.rows as string[][]).map(r => r.join('\t')).join('\n')
+            }
+          } catch { /* 백엔드 없으면 기존 file.text 사용 */ }
+        }
+
+        const truncated = docContent.slice(0, 8000)
+        const question = text || '이 문서의 핵심 내용, 중요 데이터, 인사이트를 정리해줘.'
+        const prompt = truncated
+          ? `[첨부 파일: ${file.name}]\n\n${truncated}\n\n---\n사용자 질문: ${question}`
+          : `[첨부 파일: ${file.name} — 텍스트 추출 불가]\n\n사용자 질문: ${question}`
+
+        const pplxKey = localStorage.getItem('nexus-pplx-key') ?? ''
+        const openaiKey = localStorage.getItem('nexus-openai-key') ?? ''
+        const geminiKey = localStorage.getItem('nexus-gemini-key') ?? ''
+
+        if (pplxKey) {
+          const res = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pplxKey}` },
+            body: JSON.stringify({ model: 'sonar-pro', messages: [{ role: 'user', content: prompt }], max_tokens: 2000 }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (res.ok) {
+            const d = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+            result = d.choices?.[0]?.message?.content?.trim() ?? ''
+          }
+        } else if (openaiKey) {
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+            body: JSON.stringify({ model: 'gpt-4o', messages: [{ role: 'user', content: prompt }], max_tokens: 2000 }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (res.ok) {
+            const d = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+            result = d.choices?.[0]?.message?.content?.trim() ?? ''
+          }
+        } else if (geminiKey && trackUsage()) {
+          result = (await callGemini(geminiKey, prompt, [])).text
+        } else {
+          try {
+            const res = await fetch('http://127.0.0.1:17891/api/llm/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...await getAuthHeader() },
+              body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], max_tokens: 2000 }),
+            }).then(r => r.json()).catch(() => null)
+            result = res?.content ?? '⚠️ API 키가 없습니다. 설정에서 API 키를 입력해주세요.'
+          } catch {
+            result = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 Gemini API 키를 입력해주세요.'
+          }
+        }
+      }
+    } catch (e) {
+      result = `파일 처리 중 오류: ${e instanceof Error ? e.message : String(e)}`
+    }
+
+    setMessages(prev => [
+      ...prev,
+      { id: (Date.now() + 1).toString(), role: 'nexus', text: result, emotion: 'happy', timestamp: new Date() },
+    ])
+    setTyping(false)
+    speakText(result)
+  }, [userLang, speakText])
+
   const send = useCallback((text: string) => {
-    void sendText(text)
-  }, [sendText])
+    if (attachedFiles.length > 0) {
+      void handleSendWithFile(text, attachedFiles)
+    } else {
+      void sendText(text)
+    }
+  }, [sendText, handleSendWithFile, attachedFiles])
 
   const handleStepConfirm = useCallback((step: NexusStep, msgId: string) => {
     setMessages(prev =>
@@ -302,12 +511,21 @@ export function NexusChat() {
 
   return (
     <div
+      onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={e => {
+        e.preventDefault()
+        setIsDragOver(false)
+        if (e.dataTransfer.files.length > 0) void handleFileSelect(e.dataTransfer.files)
+      }}
       style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         background: 'var(--bg-base)',
+        outline: isDragOver ? '2px dashed var(--accent-primary)' : 'none',
+        outlineOffset: -2,
       }}
     >
       {/* 상단 PC 상태 바 */}
@@ -437,11 +655,43 @@ export function NexusChat() {
         )}
       </AnimatePresence>
 
+      {/* 첨부 파일 미리보기 */}
+      {attachedFiles.length > 0 && (
+        <div style={{
+          padding: '6px 12px',
+          borderTop: '1px solid var(--border-subtle)',
+          display: 'flex', gap: 6, flexWrap: 'wrap',
+          background: 'var(--bg-surface)',
+        }}>
+          {attachedFiles.map((f, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '3px 8px', borderRadius: 20,
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--border-default)',
+              fontSize: 12, color: 'var(--text-secondary)',
+              maxWidth: 200,
+            }}>
+              <span>{f.fileType === 'image' ? '🖼️' : f.fileType === 'video' ? '🎬' : f.fileType === 'spreadsheet' ? '📊' : '📄'}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
+                {(f.size / 1024).toFixed(0)}KB
+              </span>
+              <button
+                onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, fontSize: 12, lineHeight: 1, flexShrink: 0 }}
+              >✕</button>
+            </div>
+          ))}
+          {fileLoading && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>읽는 중...</span>}
+        </div>
+      )}
+
       {/* 입력 바 */}
       <div
         style={{
           padding: '10px 12px',
-          borderTop: '1px solid var(--border-subtle)',
+          borderTop: attachedFiles.length === 0 ? '1px solid var(--border-subtle)' : 'none',
           display: 'flex',
           alignItems: 'center',
           gap: 8,
@@ -449,7 +699,43 @@ export function NexusChat() {
           background: 'var(--bg-surface)',
         }}
       >
+        {/* 숨김 파일 입력 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,video/*,.pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv,.json"
+          style={{ display: 'none' }}
+          onChange={e => { if (e.target.files) { void handleFileSelect(e.target.files); e.target.value = '' } }}
+        />
+
         <VoiceButton listening={listening} onToggle={handleVoiceToggle} />
+
+        {/* 파일 첨부 버튼 */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          title="파일 첨부 (이미지/동영상/문서)"
+          style={{
+            flexShrink: 0,
+            width: 36, height: 36,
+            borderRadius: '50%',
+            border: `1px solid ${attachedFiles.length > 0 ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+            background: attachedFiles.length > 0 ? 'rgba(99,102,241,0.15)' : 'var(--glass-bg)',
+            color: attachedFiles.length > 0 ? 'var(--accent-primary)' : 'var(--text-secondary)',
+            fontSize: 16,
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-primary)'; e.currentTarget.style.color = 'var(--accent-primary)' }}
+          onMouseLeave={e => {
+            if (attachedFiles.length === 0) {
+              e.currentTarget.style.borderColor = 'var(--border-default)'
+              e.currentTarget.style.color = 'var(--text-secondary)'
+            }
+          }}
+        >📎</button>
+
         <button
           onClick={() => setShowMarketplace(true)}
           title="워크플로우 마켓플레이스"
@@ -479,7 +765,9 @@ export function NexusChat() {
             }
           }}
           placeholder={
-            listening
+            attachedFiles.length > 0
+              ? (userLang === 'ko' ? '파일에 대해 질문하세요...' : 'Ask about the file...')
+              : listening
               ? (userLang === 'ko' ? '말씀하세요...' : 'Speak now...')
               : userLang === 'ko'
               ? `${assistantName}에게 말해보세요...`
@@ -502,7 +790,7 @@ export function NexusChat() {
           onFocus={e => { if (!listening) e.currentTarget.style.borderColor = 'var(--accent-primary)' }}
           onBlur={e => { if (!listening) e.currentTarget.style.borderColor = 'var(--border-default)' }}
         />
-        <SendButton onClick={() => send(input)} disabled={!input.trim() || typing} />
+        <SendButton onClick={() => send(input)} disabled={(!input.trim() && attachedFiles.length === 0) || typing} />
       </div>
 
       {showMarketplace && <Marketplace onClose={() => setShowMarketplace(false)} />}
