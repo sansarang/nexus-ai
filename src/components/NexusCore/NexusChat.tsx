@@ -5,6 +5,11 @@ import { callGemini, callOllama, fallbackResponse, trackUsage } from '../../lib/
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
 import { speak, stopSpeaking } from '../../lib/nexus/tts'
+import {
+  getDailyUsage, incrementDailyUsage,
+  getMonthlyUsage, incrementMonthlyUsage,
+  DAILY_FREE_LIMIT, MONTHLY_PREMIUM_LIMIT,
+} from '../../lib/nexus/usageTracker'
 import { NexusAvatar } from './NexusAvatar'
 import { MessageBubble } from './MessageBubble'
 import { VoiceButton } from './VoiceButton'
@@ -13,7 +18,30 @@ import { QuickActions } from './QuickActions'
 import { TypingIndicator } from './TypingIndicator'
 import { PCStatusBar } from './PCStatusBar'
 import { Marketplace } from '../Marketplace'
+import { PersonaSwitcher } from '../PersonaSwitcher'
 import type { Message, NexusStep, NexusEmotion } from '../../types/nexus'
+
+/* ── 페르소나 아이콘 맵 ── */
+const PERSONA_META: Record<string, { emoji: string; name: string; color: string }> = {
+  developer:  { emoji: '💻', name: '개발자',     color: '#6366f1' },
+  marketer:   { emoji: '📣', name: '마케터',     color: '#f59e0b' },
+  sales:      { emoji: '🤝', name: '영업',       color: '#10b981' },
+  pm:         { emoji: '📋', name: 'PM',         color: '#0ea5e9' },
+  designer:   { emoji: '🎨', name: '디자이너',   color: '#ec4899' },
+  freelancer: { emoji: '🚀', name: '프리랜서',   color: '#8b5cf6' },
+  legal:      { emoji: '⚖️', name: '법무',       color: '#f97316' },
+  medical:    { emoji: '🏥', name: '의료',       color: '#06b6d4' },
+  accountant: { emoji: '📊', name: '회계',       color: '#f59e0b' },
+  creator:    { emoji: '🎬', name: '크리에이터', color: '#ef4444' },
+  realtor:    { emoji: '🏠', name: '부동산',     color: '#22c55e' },
+  teacher:    { emoji: '📚', name: '교사',       color: '#0ea5e9' },
+  hr:         { emoji: '👥', name: 'HR',         color: '#8b5cf6' },
+  engineer:   { emoji: '⚙️', name: '엔지니어',  color: '#10b981' },
+  smallbiz:   { emoji: '🏪', name: '소상공인',   color: '#f97316' },
+  investor:   { emoji: '📈', name: '투자',       color: '#22c55e' },
+  general:    { emoji: '🌟', name: '일반',       color: '#ec4899' },
+  nexus:      { emoji: '🤖', name: 'Nexus',      color: '#7c3aed' },
+}
 
 /* ── Web Speech API 타입 (로컬 정의) ── */
 interface SRResult { [i: number]: { transcript: string; confidence: number }; isFinal: boolean; length: number }
@@ -36,7 +64,11 @@ interface ConversationTurn {
 
 
 export function NexusChat() {
-  const { assistantName, userName, userLang } = useAppStore()
+  const { assistantName, userName, userLang, subscriptionStatus, activePersonaId } = useAppStore()
+
+  const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false)
+  const [dailyCount, setDailyCount]     = useState(() => getDailyUsage().count)
+  const [monthlyCount, setMonthlyCount] = useState(() => getMonthlyUsage().count)
 
   const [messages, setMessages] = useState<Message[]>(() => [
     {
@@ -191,6 +223,10 @@ export function NexusChat() {
     setTyping(true)
     setEmotion('neutral')
 
+    /* 사용량 카운터 증가 */
+    setDailyCount(incrementDailyUsage())
+    setMonthlyCount(incrementMonthlyUsage())
+
     historyRef.current.push({ role: 'user', parts: [{ text: trimmed }] })
 
     const apiKey = localStorage.getItem('nexus-gemini-key') ?? ''
@@ -278,9 +314,55 @@ export function NexusChat() {
         }}
       >
         <PCStatusBar />
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>
-          {userLang === 'ko' ? `${assistantName} · AI 비서` : `${assistantName} · AI Assistant`}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* 사용량 배지 */}
+          {(() => {
+            const isFree = subscriptionStatus === 'none' || subscriptionStatus === 'expired'
+            if (isFree) {
+              const remaining = Math.max(0, DAILY_FREE_LIMIT - dailyCount)
+              const color = remaining <= 5 ? '#ef4444' : remaining <= 10 ? '#f59e0b' : '#22c55e'
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>오늘</span>
+                  <span style={{ color, fontWeight: 700 }}>{remaining}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>/{DAILY_FREE_LIMIT}회</span>
+                </div>
+              )
+            }
+            const pct = Math.min(100, Math.round((monthlyCount / MONTHLY_PREMIUM_LIMIT) * 100))
+            const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : 'var(--accent-primary)'
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+                <span style={{ color: 'var(--text-muted)' }}>이번달</span>
+                <span style={{ color, fontWeight: 700 }}>{monthlyCount.toLocaleString()}</span>
+                <span style={{ color: 'var(--text-muted)' }}>/{MONTHLY_PREMIUM_LIMIT.toLocaleString()}</span>
+              </div>
+            )
+          })()}
+          {/* 페르소나 칩 */}
+          {(() => {
+            const meta = PERSONA_META[activePersonaId] ?? PERSONA_META['nexus']
+            return (
+              <button
+                onClick={() => setShowPersonaSwitcher(v => !v)}
+                title="AI 모드 변경"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '3px 8px', borderRadius: 20,
+                  border: `1px solid ${meta.color}55`,
+                  background: `${meta.color}18`,
+                  color: meta.color, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${meta.color}30` }}
+                onMouseLeave={e => { e.currentTarget.style.background = `${meta.color}18` }}
+              >
+                <span style={{ fontSize: 13 }}>{meta.emoji}</span>
+                <span>{meta.name}</span>
+              </button>
+            )
+          })()}
+        </div>
       </div>
 
       {/* 메시지 영역 */}
@@ -415,6 +497,12 @@ export function NexusChat() {
       </div>
 
       {showMarketplace && <Marketplace onClose={() => setShowMarketplace(false)} />}
+
+      <AnimatePresence>
+        {showPersonaSwitcher && (
+          <PersonaSwitcher onClose={() => setShowPersonaSwitcher(false)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
