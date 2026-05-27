@@ -2072,6 +2072,47 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		notePath := saveQuickNote(content)
 		return map[string]any{"path": notePath, "content": content}, msgT("메모 저장 완료! 📝", "Note saved! 📝", lang)
 
+	// ── 일반 지식/대화 답변 (LLM 직접 응답) ─────────────────────
+	case "general_answer":
+		verticalCfg := loadVerticalConfig()
+		verticalSys := VerticalSystemPrompts[verticalCfg.ID]
+		if verticalSys == "" {
+			verticalSys = VerticalSystemPrompts["general"]
+		}
+		var gaSys string
+		if lang == "en" {
+			gaSys = VerticalSystemPromptsEN[verticalCfg.ID]
+			if gaSys == "" {
+				gaSys = VerticalSystemPromptsEN["general"]
+			}
+		} else {
+			gaSys = verticalSys
+		}
+		if lang == "en" {
+			gaSys += fmt.Sprintf("\nCurrent time: %s (local)", time.Now().Format("2006-01-02 15:04"))
+		} else {
+			gaSys += fmt.Sprintf("\n현재 시각: %s (로컬)", time.Now().Format("2006-01-02 15:04"))
+		}
+		gaMsgs := []groqMsg{{Role: "system", Content: gaSys}}
+		for _, h := range history {
+			role := "user"
+			if h.Role == "assistant" {
+				role = "assistant"
+			}
+			content := h.Content
+			if len([]rune(content)) > 300 {
+				content = string([]rune(content)[:300]) + "..."
+			}
+			gaMsgs = append(gaMsgs, groqMsg{Role: role, Content: content})
+		}
+		gaMsgs = append(gaMsgs, groqMsg{Role: "user", Content: original})
+		gaAns, gaCites, _ := callGroqWithCitations(gKey, groqChatModel, gaMsgs, 600)
+		gaItems := make([]map[string]string, 0, len(gaCites))
+		for _, u := range gaCites {
+			gaItems = append(gaItems, map[string]string{"title": extractDomain(u), "url": u})
+		}
+		return map[string]any{"reply": gaAns, "items": gaItems}, gaAns
+
 	default:
 		// 분류 안 된 질문 → 이력 보완 후 web_search
 		resolved := resolveWithHistory(original, history)

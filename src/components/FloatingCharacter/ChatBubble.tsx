@@ -86,6 +86,8 @@ import { InlineCardRenderer3 } from './InlineCards3'
 import type { InlineCard3Data } from './InlineCards3'
 import { InlineCardRenderer4 } from './InlineCards4'
 import type { InlineCard4Data } from './InlineCards4'
+import { InlineCard5Renderer } from './InlineCards5'
+import type { InlineCard5Data } from './InlineCards5'
 
 interface ChatMessage {
   id: string
@@ -95,6 +97,7 @@ interface ChatMessage {
   inlineCard2?: InlineCardData2
   inlineCard3?: InlineCard3Data
   inlineCard4?: InlineCard4Data
+  inlineCard5?: InlineCard5Data
   onMacroRun?: (id: string, name: string) => void
   clarifyOptions?: string[]       // 명확화 질문 선택 버튼
   onClarifySelect?: (option: string) => void  // 버튼 클릭 핸들러
@@ -805,6 +808,7 @@ export function ChatBubble({
               {msg.inlineCard2 && <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} />}
               {msg.inlineCard3 && <InlineCardRenderer3 card={msg.inlineCard3} />}
               {msg.inlineCard4 && <InlineCardRenderer4 card={msg.inlineCard4} onMacroRun={msg.onMacroRun} />}
+              {msg.inlineCard5 && <InlineCard5Renderer card={msg.inlineCard5} accentColor={primaryColor} />}
             </motion.div>
           ))}
         </AnimatePresence>

@@ -103,8 +103,8 @@ export interface ChatSenderDeps {
   resetClarify: () => void
   pushModelHistory: (userText: string, modelText: string) => void
   handleVoiceToggle: () => void
-  handleBackendIntent: (intent: Intent, msgId: string, originalText?: string) => Promise<{ text: string; card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; emotion: CharacterEmotion }>
-  renderCommandResult: (action: string, result: unknown, trimmed: string) => Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; emotion: CharacterEmotion }>
+  handleBackendIntent: (intent: Intent, msgId: string, originalText?: string) => Promise<{ text: string; card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
+  renderCommandResult: (action: string, result: unknown, trimmed: string) => Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
   showPaywall?: (feature: string, used: number, limit: number) => void
 }
 
@@ -659,7 +659,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
 
           // ── 정상 실행: clarify 상태 초기화 ──────────────────
           resetClarify()
-          const { card, card2, card3, card4, emotion: cmdEmotion } = await renderCommandResult(cmd.action, cmd.result, trimmed)
+          const { card, card2, card3, card4, card5, emotion: cmdEmotion } = await renderCommandResult(cmd.action, cmd.result, trimmed)
           const displayText = cmd.message || ''
           setTyping(false)
           typingRef.current = false
@@ -771,7 +771,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
 
           setMessages(prev => [...prev, {
             id: `${msgId}-res`, role: 'nexus', text: displayText,
-            inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4,
+            inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5,
           }])
           pushModelHistory(trimmed, displayText)
           if (displayText) {

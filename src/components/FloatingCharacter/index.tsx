@@ -12,6 +12,8 @@ import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
 import type { InlineCard3Data } from './InlineCards3'
 import type { InlineCard4Data } from './InlineCards4'
+import type { InlineCard5Data } from './InlineCards5'
+import { ResultDrawer } from './ResultDrawer'
 import { SpeakingWaves } from './Avatar3D'
 import { AvatarRuntime } from './Avatar3D/AvatarRuntime'
 import { OnboardingFlow, LoginScreen } from './OnboardingFlow'
@@ -285,6 +287,8 @@ export function FloatingCharacter() {
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd())
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
+  const [previewFilter, setPreviewFilter] = useState<string>('all')
+  const [resultDrawerOpen, setResultDrawerOpen] = useState(false)
   // savedPreviews: 앱 재시작 후에도 유지 (localStorage 영구 저장)
   const [savedPreviews, setSavedPreviews] = useState<Array<{ label: string; items: Array<{ title: string; url: string }> }>>(() => {
     try { return JSON.parse(localStorage.getItem('nexus_saved_previews') || '[]') } catch { return [] }
@@ -914,9 +918,33 @@ export function FloatingCharacter() {
   /* ── action → 리치 카드 렌더링 ── */
   const renderCommandResult = useCallback(async (
     action: string, result: unknown, trimmed: string,
-  ): Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; emotion: CharacterEmotion }> => {
+  ): Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: InlineCard5Data; emotion: CharacterEmotion }> => {
     try {
       switch (action) {
+        case 'web_search': {
+          const r = result as { query?: string; summary?: string; items?: Array<{title?: string; url?: string; snippet?: string; source?: string; published?: string}> } | undefined
+          const items = (r?.items ?? []).map(it => ({ title: it.title ?? it.url ?? '', url: it.url ?? '', snippet: it.snippet, source: it.source, published: it.published }))
+          return {
+            card5: { type: 'web_search', query: r?.query ?? trimmed, summary: r?.summary ?? '', items },
+            emotion: 'happy',
+          }
+        }
+        case 'news_search': {
+          const r = result as { query?: string; summary?: string; items?: Array<{title?: string; url?: string; snippet?: string; source?: string; published?: string}> } | undefined
+          const items = (r?.items ?? []).map(it => ({ title: it.title ?? it.url ?? '', url: it.url ?? '', snippet: it.snippet, source: it.source, published: it.published }))
+          return {
+            card5: { type: 'news_search', query: r?.query ?? trimmed, summary: r?.summary ?? '', items },
+            emotion: 'happy',
+          }
+        }
+        case 'youtube_search': {
+          const r = result as { query?: string; items?: Array<{title?: string; url?: string; source?: string}> } | undefined
+          const items = (r?.items ?? []).map(it => ({ title: it.title ?? '', url: it.url ?? '', source: it.source }))
+          return {
+            card5: { type: 'youtube', query: r?.query ?? trimmed, items },
+            emotion: 'happy',
+          }
+        }
         case 'price_compare': {
           const r = result as { results?: {site:string;name:string;price:string;link:string}[]; query?: string; site?: string; summary?: string } | undefined
           const items = r?.results ?? []
@@ -1535,6 +1563,14 @@ export function FloatingCharacter() {
 
   return (
     <>
+    {/* ── ResultDrawer: 전체 검색 결과 드로어 ── */}
+    <ResultDrawer
+      open={resultDrawerOpen}
+      onClose={() => setResultDrawerOpen(false)}
+      items={floatingPreview ?? []}
+      primaryColor={primaryColor}
+      userLang={userLang}
+    />
     {/* ── 미리보기 플로팅 패널 (화면 고정, 항상 보임) ── */}
     <AnimatePresence>
       {floatingPreview && floatingPreview.length > 0 && (
@@ -1549,7 +1585,7 @@ export function FloatingCharacter() {
             position: 'fixed',
             bottom: 180,
             right: 24,
-            width: 280,
+            width: 320,
             background: 'rgba(8,8,22,0.98)',
             border: `2px solid ${primaryColor}`,
             borderRadius: 16,
@@ -1622,10 +1658,43 @@ export function FloatingCharacter() {
                   })
                 }
                 setFloatingPreview(null)
+                setPreviewFilter('all')
               }}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
             >✕</button>
           </div>
+          {/* ── 필터 탭 (영상/뉴스/쇼핑/블로그/전체) ── */}
+          {!floatingPreview.some(x => x.isMap) && floatingPreview.length > 3 && (() => {
+            const hasVideo = floatingPreview.some(x => x.isVideo || x.url.includes('youtube.com') || x.url.includes('youtu.be') || x.url.includes('tiktok.com'))
+            const hasNews = floatingPreview.some(x => /news\.|chosun\.|yna\.|yonhap\.|hankyung\.|khan\.|donga\.|joongang\.|kbs\.|mbc\.|sbs\./i.test(x.url))
+            const hasShopping = floatingPreview.some(x => /coupang\.|shopping\.naver\.|11st\.|gmarket\.|temu\.|aliexpress\.|amazon\./i.test(x.url))
+            const hasBlog = floatingPreview.some(x => /blog\.naver\.|tistory\.|velog\.|brunch\.|medium\./i.test(x.url))
+            const tabs = [
+              { key: 'all', label: userLang === 'en' ? 'All' : '전체' },
+              ...(hasVideo    ? [{ key: 'video',    label: userLang === 'en' ? '🎬 Video' : '🎬 영상'  }] : []),
+              ...(hasNews     ? [{ key: 'news',     label: userLang === 'en' ? '📰 News'  : '📰 뉴스'  }] : []),
+              ...(hasShopping ? [{ key: 'shopping', label: userLang === 'en' ? '🛒 Shop'  : '🛒 쇼핑'  }] : []),
+              ...(hasBlog     ? [{ key: 'blog',     label: userLang === 'en' ? '📝 Blog'  : '📝 블로그'}] : []),
+            ]
+            if (tabs.length <= 1) return null
+            return (
+              <div style={{ display: 'flex', gap: 4, marginBottom: 9, flexWrap: 'wrap' }}>
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setPreviewFilter(tab.key)}
+                    style={{
+                      padding: '3px 9px', borderRadius: 8, fontSize: 9.5, fontWeight: 700, cursor: 'pointer',
+                      background: previewFilter === tab.key ? primaryColor : 'rgba(255,255,255,0.07)',
+                      color: previewFilter === tab.key ? '#fff' : 'rgba(255,255,255,0.55)',
+                      border: previewFilter === tab.key ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                      transition: 'all 0.15s',
+                    }}
+                  >{tab.label}</button>
+                ))}
+              </div>
+            )
+          })()}
           {/* ── 길찾기 전용 교통수단 버튼 UI ── */}
           {floatingPreview.some(x => x.isMap && (x as any).mapType === 'directions') ? (() => {
             const dirItems = floatingPreview.filter(x => x.isMap && (x as any).mapType === 'directions')
@@ -1727,7 +1796,14 @@ export function FloatingCharacter() {
                 </div>
               </div>
             )
-          })() : floatingPreview.slice(0, 14).map((item, i) => {
+          })() : floatingPreview.filter(item => {
+            if (previewFilter === 'all') return true
+            if (previewFilter === 'video') return !!(item.isVideo || item.url.includes('youtube.com') || item.url.includes('youtu.be') || item.url.includes('tiktok.com'))
+            if (previewFilter === 'news') return /news\.|chosun\.|yna\.|yonhap\.|hankyung\.|khan\.|donga\.|joongang\.|kbs\.|mbc\.|sbs\./i.test(item.url)
+            if (previewFilter === 'shopping') return /coupang\.|shopping\.naver\.|11st\.|gmarket\.|temu\.|aliexpress\.|amazon\./i.test(item.url)
+            if (previewFilter === 'blog') return /blog\.naver\.|tistory\.|velog\.|brunch\.|medium\./i.test(item.url)
+            return true
+          }).slice(0, 14).map((item, i) => {
             const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
             const isNaverTV = item.url.includes('tv.naver.com')
             const isStream = item.url.includes('tving.com') || item.url.includes('wavve.com')
@@ -1766,9 +1842,17 @@ export function FloatingCharacter() {
               : null
 
             return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 14) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-              <div style={{ width: 18, height: 18, borderRadius: 4, background: item.isMap ? `${mapBtnColor}33` : `${primaryColor}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ fontSize: 9, color: item.isMap ? mapBtnColor : primaryColor, fontWeight: 700 }}>{i + 1}</span>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 14) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              {/* favicon or 번호 */}
+              <div style={{ width: 20, height: 20, borderRadius: 4, background: item.isMap ? `${mapBtnColor}33` : `${primaryColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                <img
+                  src={`https://www.google.com/s2/favicons?domain=${(() => { try { return new URL(item.url).hostname } catch { return '' } })()}&sz=16`}
+                  width={14} height={14} style={{ borderRadius: 2 }}
+                  onError={e => {
+                    const parent = (e.target as HTMLImageElement).parentElement!
+                    parent.innerHTML = `<span style="font-size:9px;color:${item.isMap ? mapBtnColor : primaryColor};font-weight:700">${i + 1}</span>`
+                  }}
+                />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1782,9 +1866,31 @@ export function FloatingCharacter() {
                   </div>
                 </div>
                 <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
-                  {item.url.replace(/^https?:\/\//, '').slice(0, 38)}
+                  {item.url.replace(/^https?:\/\//, '').slice(0, 40)}
                 </div>
               </div>
+              {/* URL 복사 아이콘 (일반 링크에만) */}
+              {!item.isVideo && !item.isMap && !(item as any).isImage && !(item as any).isSocial && (
+                <button
+                  title="URL 복사"
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    try {
+                      await navigator.clipboard.writeText(item.url)
+                      const btn = e.currentTarget
+                      btn.textContent = '✓'
+                      setTimeout(() => { btn.textContent = '⎘' }, 1200)
+                    } catch { /* 복사 실패 */ }
+                  }}
+                  style={{
+                    background: 'none', border: 'none', color: 'rgba(255,255,255,0.28)',
+                    fontSize: 11, cursor: 'pointer', padding: '0 2px', flexShrink: 0,
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.75)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.28)' }}
+                >⎘</button>
+              )}
               {(item as any).isImage ? (
                 <button
                   onClick={() => openPreview(item.url, item.title)}
@@ -1864,6 +1970,24 @@ export function FloatingCharacter() {
             </div>
             )
           })}
+          {/* ── 전체보기 버튼 ── */}
+          {floatingPreview.length > 3 && (
+            <button
+              onClick={() => setResultDrawerOpen(true)}
+              style={{
+                width: '100%', marginTop: 8,
+                background: `${primaryColor}18`,
+                border: `1px solid ${primaryColor}44`,
+                borderRadius: 10, padding: '7px 0',
+                color: primaryColor, fontSize: 11, fontWeight: 700,
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${primaryColor}30` }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = `${primaryColor}18` }}
+            >
+              {userLang === 'en' ? `View all ${floatingPreview.length} results →` : `전체 ${floatingPreview.length}개 결과 보기 →`}
+            </button>
+          )}
         </motion.div>
       )}
     </AnimatePresence>
