@@ -1,28 +1,27 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NEXUS AI for 유튜버·크리에이터 — 스크립트 10분, 한 달 콘텐츠 기획 1시간</title>
-  <meta name="description" content="트렌드 분석부터 SEO 제목·해시태그까지 AI가 한번에. 유튜브·인스타·틱톡 플랫폼별 스크립트 자동 생성." />
-  <link rel="canonical" href="https://nexusai.ai.kr/content" />
+  <title>NEXUS AI for YouTubers & Creators — Script, SEO Titles & Hashtags in Seconds</title>
+  <meta name="description" content="AI writes scripts, optimizes titles, generates hashtags, and analyzes trending topics. Cut content production time by 70%." />
+  <link rel="canonical" href="https://nexusai.ai.kr/en/content" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --primary: #dc2626;
       --primary-light: #f87171;
-      --primary-glow: rgba(220,38,38,0.2);
       --bg: #0d0d14;
-      --bg2: #140d0d;
-      --bg3: #1a0f0f;
+      --bg2: #150a0a;
+      --bg3: #1c0e0e;
       --text: #f0f0ff;
-      --muted: #9a8a8a;
+      --muted: #aa8888;
       --border: rgba(220,38,38,0.2);
     }
     html { scroll-behavior: smooth; }
-    body { background: var(--bg); color: var(--text); font-family: 'Pretendard', 'Inter', sans-serif; line-height: 1.6; overflow-x: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; line-height: 1.6; overflow-x: hidden; }
 
     nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 14px 40px; display: flex; align-items: center; justify-content: space-between; background: rgba(13,13,20,0.92); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
     .nav-logo { font-size: 18px; font-weight: 900; color: var(--primary-light); }
@@ -36,7 +35,7 @@
     .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 20px 80px; position: relative; overflow: hidden; }
     .hero-glow { position: absolute; top: 10%; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, rgba(220,38,38,0.1) 0%, transparent 70%); pointer-events: none; }
     .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.3); border-radius: 100px; padding: 7px 18px; font-size: 13px; font-weight: 600; color: var(--primary-light); margin-bottom: 28px; animation: fadeInDown 0.6s ease; }
-    .hero-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; animation: pulse 2s infinite; }
+    .hero-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; display: inline-block; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
     @keyframes fadeInDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
     @keyframes fadeInUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
@@ -62,11 +61,11 @@
     .pain-card h3 { font-size: 16px; font-weight: 700; color: #fca5a5; margin-bottom: 8px; }
     .pain-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
 
-    .demo-wrap { margin-top: 56px; background: rgba(20,13,13,0.95); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; box-shadow: 0 0 60px rgba(220,38,38,0.12), 0 32px 80px rgba(0,0,0,0.5); max-width: 860px; margin-left: auto; margin-right: auto; }
+    .demo-wrap { margin-top: 56px; background: rgba(20,10,10,0.95); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; box-shadow: 0 0 60px rgba(220,38,38,0.12), 0 32px 80px rgba(0,0,0,0.5); max-width: 860px; margin-left: auto; margin-right: auto; }
     .demo-bar { background: var(--bg3); padding: 12px 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
     .demo-dot { width: 12px; height: 12px; border-radius: 50%; }
-    .demo-title-bar { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
-    .demo-body { padding: 28px 32px; min-height: 340px; }
+    .demo-title { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
+    .demo-body { padding: 28px 32px; min-height: 300px; }
     .demo-input { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; font-size: 14px; color: var(--muted); margin-bottom: 20px; }
     .cursor { display: inline-block; width: 2px; height: 14px; background: var(--primary-light); animation: blink 1s infinite; vertical-align: middle; margin-left: 2px; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -77,13 +76,13 @@
     .demo-result { opacity: 0; transition: opacity 0.5s; }
     .demo-result.show { opacity: 1; }
 
-    .script-section { margin-bottom: 14px; }
-    .script-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary-light); margin-bottom: 6px; }
-    .script-content { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--text); line-height: 1.6; }
-    .title-item { padding: 8px 12px; border-radius: 6px; margin-bottom: 4px; font-size: 13px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2); color: var(--text); }
-    .title-item .t-num { color: var(--primary-light); font-weight: 700; margin-right: 6px; }
-    .hashtag-wrap { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
-    .hashtag { background: rgba(220,38,38,0.1); border: 1px solid rgba(220,38,38,0.2); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--primary-light); }
+    .result-block { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 12px; font-size: 13px; }
+    .result-label { font-size: 11px; font-weight: 700; color: var(--primary-light); letter-spacing: 0.1em; margin-bottom: 8px; }
+    .title-option { display: flex; align-items: center; gap: 8px; padding: 6px 0; color: rgba(255,255,255,0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .title-option:last-child { border-bottom: none; }
+    .title-rank { font-weight: 700; color: var(--primary-light); min-width: 28px; }
+    .hashtag-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .hashtag { background: rgba(220,38,38,0.12); border: 1px solid rgba(220,38,38,0.25); border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--primary-light); }
 
     .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 48px; }
     .feat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 32px; transition: transform 0.2s, border-color 0.2s; }
@@ -112,7 +111,7 @@
     .pricing-features li { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
     .pricing-features li:last-child { border-bottom: none; }
     .pricing-features .ck { color: #4ade80; }
-    .pricing-cta { display: block; width: 100%; padding: 16px; border-radius: 14px; background: var(--primary); color: white; font-size: 16px; font-weight: 700; text-decoration: none; text-align: center; box-shadow: 0 0 40px rgba(220,38,38,0.3); transition: transform 0.2s; }
+    .pricing-cta { display: block; width: 100%; padding: 16px; border-radius: 14px; background: var(--primary); color: white; font-size: 16px; font-weight: 700; text-decoration: none; text-align: center; transition: transform 0.2s; }
     .pricing-cta:hover { transform: translateY(-2px); }
     .pricing-note { font-size: 12px; color: var(--muted); margin-top: 14px; }
 
@@ -160,53 +159,53 @@
 <body>
 
 <nav>
-  <div class="nav-logo">⬡ NEXUS AI <span>for 유튜버·크리에이터</span></div>
+  <div class="nav-logo">⬡ NEXUS AI <span>for YouTubers & Creators</span></div>
   <div class="nav-right">
-    <a href="https://nexusai.ai.kr" class="nav-home">← 메인으로</a>
-    <a href="#pricing" class="nav-cta">무료 체험 시작</a>
+    <a href="https://nexusai.ai.kr/en" class="nav-home">← Back to Main</a>
+    <a href="#pricing" class="nav-cta">Start Free Trial</a>
   </div>
-  <button class="hamburger" id="hamburger" aria-label="메뉴" onclick="toggleMenu()">
+  <button class="hamburger" id="hamburger" aria-label="Menu" onclick="toggleMenu()">
     <span></span><span></span><span></span>
   </button>
 </nav>
 <div class="mobile-menu" id="mobile-menu">
-  <a href="https://nexusai.ai.kr" onclick="closeMenu()">← 메인으로</a>
-  <a href="#pricing" class="m-cta" onclick="closeMenu()">무료 체험 시작</a>
+  <a href="https://nexusai.ai.kr/en" onclick="closeMenu()">← Back to Main</a>
+  <a href="#pricing" class="m-cta" onclick="closeMenu()">Start Free Trial</a>
 </div>
 
 <section class="hero">
   <div class="hero-glow"></div>
-  <div class="hero-badge"><span class="dot"></span> 크리에이터 전용 AI · 지금 무료 체험 중</div>
-  <h1>스크립트 작성 10분,<br>한 달 콘텐츠 기획<br><span class="grad">1시간</span></h1>
-  <p class="hero-sub">트렌드 분석부터 SEO 제목까지 AI가 한번에.<br>콘텐츠 제작 시간을 90% 줄이고 조회수를 높이세요.</p>
+  <div class="hero-badge"><span class="dot"></span> Creator AI · Free Trial Available Now</div>
+  <h1>Script · SEO Titles · Hashtags —<br><span class="grad">Done in Seconds</span></h1>
+  <p class="hero-sub">AI writes your script, optimizes your title, and generates hashtags.<br>Cut content production time by 70%.</p>
   <div class="hero-btns">
-    <a href="#pricing" class="btn-primary">크리에이터 플랜 무료 체험 →</a>
-    <a href="#demo" class="btn-secondary">데모 보기</a>
+    <a href="#pricing" class="btn-primary">Start Creator Plan Free →</a>
+    <a href="#demo" class="btn-secondary">See Demo</a>
   </div>
-  <p class="hero-meta"><span class="g">✓</span> 신용카드 불필요 &nbsp;·&nbsp; <span class="g">✓</span> 3일 무료 &nbsp;·&nbsp; <span class="g">✓</span> 언제든 취소</p>
+  <p class="hero-meta"><span class="g">✓</span> No credit card &nbsp;·&nbsp; <span class="g">✓</span> 3-day free trial &nbsp;·&nbsp; <span class="g">✓</span> Cancel anytime</p>
 </section>
 
 <hr class="section-divider">
 
 <div class="section">
   <div class="section-label">Pain Points</div>
-  <div class="section-title">크리에이터가 매일 겪는<br>3가지 창작 장벽</div>
-  <p class="section-sub">Nexus AI가 아이디어 고갈과 제작 시간 낭비를 해결합니다.</p>
+  <div class="section-title">3 Things That Kill<br>Every Creator's Momentum</div>
+  <p class="section-sub">Nexus AI handles all of them so you can focus on creating.</p>
   <div class="pain-grid">
     <div class="pain-card">
       <div class="pain-icon">✍️</div>
-      <h3>스크립트 쓰는 데 하루</h3>
-      <p>영상 하나 만들려면 기획·조사·스크립트 작성까지 하루가 날아갑니다. 업로드 주기가 느려지면 알고리즘에 밀립니다.</p>
+      <h3>Scripting Takes 3+ Hours</h3>
+      <p>Researching a topic, structuring the flow, writing the intro hook, refining the outro — before you even hit record, the day is gone.</p>
     </div>
     <div class="pain-card">
-      <div class="pain-icon">📡</div>
-      <h3>트렌드 파악이 느림</h3>
-      <p>유튜브·틱톡 트렌드는 48시간이면 식습니다. 트렌드를 늦게 잡으면 조회수 폭발 기회를 놓칩니다.</p>
+      <div class="pain-icon">🔍</div>
+      <h3>SEO Titles Are a Guessing Game</h3>
+      <p>You never know which title will rank or get clicked. A/B testing is time-consuming and most creators just go with their gut.</p>
     </div>
     <div class="pain-card">
-      <div class="pain-icon">💡</div>
-      <h3>제목·썸네일 아이디어 고갈</h3>
-      <p>클릭률을 높이는 제목과 후킹 썸네일 문구를 매번 새롭게 생각해내기가 너무 힘듭니다.</p>
+      <div class="pain-icon">📊</div>
+      <h3>No System for Trend Research</h3>
+      <p>Manually checking YouTube trends, Twitter, Reddit, and Google takes hours. By the time you find the topic, it's already peaked.</p>
     </div>
   </div>
 </div>
@@ -215,54 +214,42 @@
 
 <div class="section" id="demo">
   <div class="section-label">Live Demo</div>
-  <div class="section-title">AI 스크립트 생성 데모</div>
-  <p class="section-sub">주제를 입력하면 훅·본문·아웃트로·제목·해시태그를 자동 생성합니다.</p>
+  <div class="section-title">One Prompt → Full Content Package</div>
+  <p class="section-sub">Enter your topic and get script + titles + hashtags instantly.</p>
   <div class="demo-wrap">
     <div class="demo-bar">
       <div class="demo-dot" style="background:#ef4444"></div>
       <div class="demo-dot" style="background:#f59e0b"></div>
       <div class="demo-dot" style="background:#22c55e"></div>
-      <span class="demo-title-bar">Nexus AI — 콘텐츠 생성기</span>
+      <span class="demo-title">Nexus AI — Content Generator</span>
     </div>
     <div class="demo-body">
       <div class="demo-input"><span id="demoText"></span><span class="cursor" id="demoCursor"></span></div>
       <div id="demoThinking">
-        <div class="demo-step" id="step1"><div class="spin"></div> 실시간 트렌드 분석 중 (YouTube/TikTok)...</div>
-        <div class="demo-step" id="step2"><span>✍️</span> 플랫폼 최적 스크립트 생성 중...</div>
-        <div class="demo-step" id="step3"><span>🔍</span> SEO 제목 & 해시태그 최적화 중...</div>
+        <div class="demo-step" id="step1"><div class="spin"></div> Analyzing trending topics & search volume...</div>
+        <div class="demo-step" id="step2"><span>✍️</span> Generating script outline & hook...</div>
+        <div class="demo-step" id="step3"><span>🎯</span> Optimizing SEO titles & hashtags...</div>
       </div>
       <div class="demo-result" id="demoResult">
-        <div class="script-section">
-          <div class="script-label">🎣 훅 (0~15초)</div>
-          <div class="script-content">"여러분, AI로 한 달에 300만 원 버는 사람들이 쓰는 방법이 있는데요. 근데 이거 아직 90%가 모릅니다. 지금부터 딱 5분만 보시면 오늘 당장 시작할 수 있어요."</div>
+        <div class="result-block">
+          <div class="result-label">📝 SCRIPT HOOK (First 30 seconds)</div>
+          <div style="color:rgba(255,255,255,0.85); line-height:1.7; font-size:13px;">"Did you know that 73% of people who say they want to make money with AI have never actually tried a single tool? Today I'm going to show you the exact 3-step system I used to generate my first $1,000 — no coding, no upfront cost, starting from zero."</div>
         </div>
-        <div class="script-section">
-          <div class="script-label">📖 본문 포인트</div>
-          <div class="script-content">① AI 툴 조합법 (Nexus + ChatGPT + Canva) → ② 실제 수익화 3가지 루트 (콘텐츠/자동화/외주) → ③ 초보자 실수 TOP3와 해결법</div>
+        <div class="result-block">
+          <div class="result-label">🎯 SEO TITLE OPTIONS</div>
+          <div class="title-option"><span class="title-rank">#1</span> I Made $1,000 with AI in 30 Days (Step-by-Step)</div>
+          <div class="title-option"><span class="title-rank">#2</span> How to Make Money with AI in 2026 (No Experience)</div>
+          <div class="title-option"><span class="title-rank">#3</span> The Honest Truth About Making Money with AI</div>
         </div>
-        <div class="script-section">
-          <div class="script-label">🎬 아웃트로</div>
-          <div class="script-content">"오늘 배운 방법 중 하나만 당장 써보세요. 구독과 좋아요는 더 좋은 정보를 만드는 힘이 됩니다. 댓글로 어떤 AI 활용법이 궁금한지 알려주세요!"</div>
-        </div>
-        <div class="script-section">
-          <div class="script-label">📌 SEO 최적화 제목 3개</div>
-          <div class="title-item"><span class="t-num">①</span> AI로 돈 버는 법 현실 버전 (월 300만원 가능한 방법 공개)</div>
-          <div class="title-item"><span class="t-num">②</span> 2026년 AI 부업 TOP5 — 나 이거 한 달 만에 월급 넘었음</div>
-          <div class="title-item"><span class="t-num">③</span> ChatGPT보다 돈 되는 AI가 있다? 유튜버들이 숨기는 툴</div>
-        </div>
-        <div class="script-section">
-          <div class="script-label">🏷️ 해시태그 10개</div>
+        <div class="result-block">
+          <div class="result-label">🏷️ HASHTAGS</div>
           <div class="hashtag-wrap">
-            <span class="hashtag">#AI부업</span>
-            <span class="hashtag">#유튜브수익화</span>
-            <span class="hashtag">#AI돈버는법</span>
-            <span class="hashtag">#ChatGPT활용</span>
-            <span class="hashtag">#부업추천</span>
-            <span class="hashtag">#크리에이터</span>
-            <span class="hashtag">#AI툴</span>
-            <span class="hashtag">#온라인수익</span>
-            <span class="hashtag">#디지털노마드</span>
-            <span class="hashtag">#넥서스AI</span>
+            <span class="hashtag">#MakeMoneyWithAI</span>
+            <span class="hashtag">#AIIncome</span>
+            <span class="hashtag">#PassiveIncome2026</span>
+            <span class="hashtag">#AITools</span>
+            <span class="hashtag">#SideHustle</span>
+            <span class="hashtag">#YouTubeGrowth</span>
           </div>
         </div>
       </div>
@@ -274,22 +261,22 @@
 
 <div class="section">
   <div class="section-label">Features</div>
-  <div class="section-title">크리에이터를 위한<br>3가지 핵심 기능</div>
+  <div class="section-title">3 Core Features<br>Built for Creators</div>
   <div class="feat-grid">
     <div class="feat-card">
-      <div class="feat-icon">🎬</div>
-      <h3>플랫폼별 스크립트 자동 생성</h3>
-      <p>유튜브·인스타·틱톡·팟캐스트 각 플랫폼에 최적화된 길이와 톤으로 스크립트를 자동 생성합니다. 훅·본문·아웃트로 구조 완성.</p>
+      <div class="feat-icon">✍️</div>
+      <h3>AI Script Generator</h3>
+      <p>Enter your topic and get a full script with hook, body, and CTA — structured for viewer retention. Edit it your way in seconds.</p>
     </div>
     <div class="feat-card">
-      <div class="feat-icon">📡</div>
-      <h3>실시간 트렌드 크롤링</h3>
-      <p>유튜브 급상승, 틱톡 트렌드, 구글 트렌드를 실시간으로 분석합니다. "지금 뜨는 주제"를 매일 아침 받아보세요.</p>
+      <div class="feat-icon">🎯</div>
+      <h3>SEO Title Optimizer</h3>
+      <p>3 title variations ranked by search volume and click-through potential. Know which one will rank before you even upload.</p>
     </div>
     <div class="feat-card">
-      <div class="feat-icon">🔍</div>
-      <h3>SEO 제목+해시태그 최적화</h3>
-      <p>클릭률을 높이는 제목 3개와 상위 노출 해시태그 10개를 자동으로 생성합니다. A/B 테스트 제목도 함께 제공.</p>
+      <div class="feat-icon">📊</div>
+      <h3>Trend Research Automation</h3>
+      <p>AI monitors YouTube, Google Trends, and social platforms to surface rising topics in your niche — before they peak.</p>
     </div>
   </div>
 </div>
@@ -298,27 +285,27 @@
 
 <div class="section">
   <div class="section-label">Testimonials</div>
-  <div class="section-title">크리에이터들의 실제 후기</div>
+  <div class="section-title">What Creators Are Saying</div>
   <div class="testi-grid">
     <div class="testi-card">
       <div class="testi-stars">★★★★★</div>
-      <p class="testi-text">"스크립트 작성이 하루에서 30분으로 줄었어요. 덕분에 업로드 주기를 주 1회에서 주 3회로 늘렸고 구독자가 2개월 만에 2배가 됐습니다. 진짜 게임 체인저예요."</p>
+      <p class="testi-text">"I used to spend an entire afternoon writing a script. Now I give Nexus the topic and have a solid draft in under 10 minutes. I've doubled my upload frequency."</p>
       <div class="testi-author">
-        <div class="testi-avatar">🎥</div>
+        <div class="testi-avatar">🎬</div>
         <div>
-          <div class="testi-name">김 O O 님</div>
-          <div class="testi-role">유튜버 · 구독자 12만 · IT/테크 채널</div>
+          <div class="testi-name">Alex M.</div>
+          <div class="testi-role">YouTube Creator · 85K subscribers</div>
         </div>
       </div>
     </div>
     <div class="testi-card">
       <div class="testi-stars">★★★★★</div>
-      <p class="testi-text">"트렌드 분석 기능이 최고예요. AI 관련 영상을 트렌드 뜨기 3일 전에 미리 올려서 조회수 50만이 터진 적도 있어요. 타이밍이 전부인 유튜브에서 정말 큰 무기입니다."</p>
+      <p class="testi-text">"The SEO title feature alone was worth it. My last 3 videos hit the front page of search results. I never understood why certain titles work — now I don't have to."</p>
       <div class="testi-author">
         <div class="testi-avatar">📱</div>
         <div>
-          <div class="testi-name">박 O O 님</div>
-          <div class="testi-role">인플루언서 · 인스타 팔로워 8만</div>
+          <div class="testi-name">Jamie K.</div>
+          <div class="testi-role">Content Creator · Tech & Finance niche</div>
         </div>
       </div>
     </div>
@@ -330,39 +317,39 @@
 <div class="section" id="pricing">
   <div style="text-align:center;">
     <div class="section-label">Pricing</div>
-    <div class="section-title">유튜버·크리에이터 전용 플랜</div>
-    <p class="section-sub" style="margin:0 auto;">콘텐츠 외주 맡기는 비용의 1/10로 10배 빠르게 만드세요.</p>
+    <div class="section-title">YouTuber & Creator Plan</div>
+    <p class="section-sub" style="margin:0 auto;">Spend less time producing, more time creating.</p>
   </div>
   <div class="pricing-wrap">
     <div class="pricing-card">
-      <div class="pricing-badge">크리에이터 PRO</div>
-      <div class="pricing-price"><sup>$</sup>19<sub>/월</sub></div>
-      <p class="pricing-desc">스크립트 외주 1건보다 저렴하게<br>한 달 콘텐츠를 전부 만드세요.</p>
+      <div class="pricing-badge">CREATOR PRO</div>
+      <div class="pricing-price"><sup>$</sup>19<sub>/mo</sub></div>
+      <p class="pricing-desc">Full content package from one prompt.<br>Script, titles, hashtags — unlimited.</p>
       <ul class="pricing-features">
-        <li><span class="ck">✓</span> 플랫폼별 스크립트 자동 생성 (무제한)</li>
-        <li><span class="ck">✓</span> 실시간 트렌드 크롤링 (매일 업데이트)</li>
-        <li><span class="ck">✓</span> SEO 제목 + 해시태그 최적화</li>
-        <li><span class="ck">✓</span> 한 달 콘텐츠 캘린더 자동 기획</li>
-        <li><span class="ck">✓</span> 썸네일 문구 + 후킹 카피 생성</li>
-        <li><span class="ck">✓</span> 3일 무료 체험 · 언제든 취소</li>
+        <li><span class="ck">✓</span> AI script generation (unlimited)</li>
+        <li><span class="ck">✓</span> SEO title optimizer (3 variants per query)</li>
+        <li><span class="ck">✓</span> Hashtag & keyword generator</li>
+        <li><span class="ck">✓</span> Trend research automation</li>
+        <li><span class="ck">✓</span> Thumbnail concept suggestions</li>
+        <li><span class="ck">✓</span> 3-day free trial · Cancel anytime</li>
       </ul>
-      <a href="https://nexusai.ai.kr/#download" class="pricing-cta">크리에이터 플랜 무료 체험 →</a>
-      <p class="pricing-note">신용카드 불필요 · 3일 무료 · 즉시 사용 가능</p>
+      <a href="https://nexusai.ai.kr/en/#download" class="pricing-cta">Start Creator Plan Free →</a>
+      <p class="pricing-note">No credit card · 3 days free · Instant access</p>
     </div>
   </div>
 </div>
 
 <div class="final-cta">
-  <h2>지금 바로 콘텐츠를 만들어보세요</h2>
-  <p>스크립트 10분, 제목 1분, 해시태그 30초. 오늘부터 가능합니다.</p>
-  <a href="https://nexusai.ai.kr/#download" class="btn-primary" style="display:inline-flex;">크리에이터 플랜 무료 체험 →</a>
+  <h2>Create More. Stress Less.</h2>
+  <p>Script + titles + hashtags in seconds. Starting today.</p>
+  <a href="https://nexusai.ai.kr/en/#download" class="btn-primary" style="display:inline-flex;">Start Creator Plan Free →</a>
 </div>
 
 <footer>
   <div class="footer-logo">⬡ NEXUS AI</div>
-  <a href="https://nexusai.ai.kr">메인</a>
-  <a href="https://nexusai.ai.kr/privacy">개인정보처리방침</a>
-  <a href="https://nexusai.ai.kr/terms">이용약관</a>
+  <a href="https://nexusai.ai.kr/en">Home</a>
+  <a href="https://nexusai.ai.kr/en/privacy">Privacy Policy</a>
+  <a href="https://nexusai.ai.kr/en/terms">Terms of Service</a>
   <p style="margin-top:16px;">© 2026 Nexus AI. All rights reserved.</p>
 </footer>
 
@@ -376,7 +363,7 @@ function closeMenu() {
   document.getElementById('hamburger').classList.remove('open');
 }
 (function() {
-  const query = "\"AI로 돈 버는 법\" — 유튜브 스크립트 + SEO 제목 3개 + 해시태그 생성해줘";
+  const query = "\"How to Make Money with AI\" — YouTube script + 3 SEO titles + hashtags";
   function typeText(el, text, cb) {
     let i = 0; el.textContent = '';
     const t = setInterval(() => {
@@ -395,7 +382,7 @@ function closeMenu() {
       demoCursor.style.display = 'none';
       steps.forEach((s, i) => setTimeout(() => s.classList.add('show'), 600 + i * 1000));
       setTimeout(() => result.classList.add('show'), 600 + steps.length * 1000 + 400);
-      setTimeout(runDemo, 12000);
+      setTimeout(runDemo, 10000);
     });
   }
   const observer = new IntersectionObserver((entries) => {

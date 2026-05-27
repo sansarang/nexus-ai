@@ -242,6 +242,36 @@
 
     /* DIVIDER */
     .section-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: all 0.3s; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .mobile-menu { display: none; position: fixed; top: 57px; left: 0; right: 0; background: rgba(5,5,16,0.98); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); z-index: 99; padding: 20px 24px; flex-direction: column; gap: 14px; }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a { color: var(--text); text-decoration: none; font-size: 16px; font-weight: 600; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .mobile-menu .m-cta { background: var(--primary); text-align: center; padding: 13px; border-radius: 10px; margin-top: 4px; -webkit-text-fill-color: white; border: none; }
+
+    @media (max-width: 768px) {
+      nav { padding: 12px 20px; }
+      .nav-right { display: none; }
+      .hamburger { display: flex; }
+      .hero { padding: 96px 16px 60px; min-height: auto; }
+      .hero h1 { font-size: clamp(28px, 8vw, 44px); letter-spacing: -1.5px; }
+      .hero-btns { flex-direction: column; align-items: stretch; gap: 10px; }
+      .btn-primary, .btn-secondary { justify-content: center; font-size: 15px; padding: 14px 24px; min-height: 48px; }
+      .section { padding: 60px 16px; }
+      .demo-body { padding: 20px 16px; }
+      .final-cta { padding: 72px 16px; }
+      * { -webkit-tap-highlight-color: transparent; }
+    }
+    @media (max-width: 480px) {
+      .hero h1 { font-size: clamp(24px, 9vw, 36px); }
+      .section { padding: 48px 14px; }
+      .pricing-card { padding: 28px 20px; }
+      footer { padding: 28px 16px; }
+    }
   </style>
 </head>
 <body>
@@ -252,7 +282,14 @@
     <a href="https://nexusai.ai.kr" class="nav-home">← 메인으로</a>
     <a href="#pricing" class="nav-cta">무료 체험 시작</a>
   </div>
+  <button class="hamburger" id="hamburger" aria-label="메뉴" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+<div class="mobile-menu" id="mobile-menu">
+  <a href="https://nexusai.ai.kr" onclick="closeMenu()">← 메인으로</a>
+  <a href="#pricing" class="m-cta" onclick="closeMenu()">무료 체험 시작</a>
+</div>
 
 <!-- HERO -->
 <section class="hero">
@@ -465,6 +502,14 @@
 </footer>
 
 <script>
+function toggleMenu() {
+  document.getElementById('mobile-menu').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
+}
+function closeMenu() {
+  document.getElementById('mobile-menu').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+}
 (function() {
   const query = "부동산 매매 계약서 검토 요청드립니다. [전문 15개 조항 첨부]";
   let phase = 0;
