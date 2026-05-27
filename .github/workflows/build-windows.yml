@@ -92,9 +92,12 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
+          GROQ_KEY: ${{ secrets.GROQ_KEY }}
+          TAVILY_KEY: ${{ secrets.TAVILY_KEY }}
         run: |
           New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
-          garble build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
+          $ldflags = "-s -w -H windowsgui -X main.bundledGroqKey=$env:GROQ_KEY -X main.bundledTavilyKey=$env:TAVILY_KEY"
+          garble build -ldflags=$ldflags -o "..\src-tauri\backend-bin\nexus-backend.exe" .
           Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
 
       - name: Build Tauri app (npm)

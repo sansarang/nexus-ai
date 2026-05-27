@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction, MutableRefObject } from 'react'
 import { stopSpeaking, speak } from '../../lib/nexus/tts'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
+import { incrementServerUsage, DAILY_FREE_LIMIT } from '../../lib/nexus/usageTracker'
 import { appendHistory } from './ChatBubble'
 import type { ChatMessage } from './ChatBubble'
 import { detectIntent, extractFolderName, extractVolume, extractBrightness, extractWifiAction, extractPowerAction, extractAppName, extractNoteContent, extractTwoFilePaths, extractVisionQuestion, extractDeepSearchQuery } from '../../lib/nexus/intentDetector'
@@ -73,6 +74,7 @@ export interface ChatSenderDeps {
   assistantName: string
   isActive: boolean
   backendStatus: BackendStatus
+  subscriptionStatus: string
   clarifyPendingIntent: string | null
   clarifyPendingParams: Record<string, unknown> | null
   clarifyPendingQuestion: string | null
@@ -107,7 +109,7 @@ export interface ChatSenderDeps {
 }
 
 export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<void> {
-  const { userLang, assistantName, isActive, backendStatus,
+  const { userLang, assistantName, isActive, backendStatus, subscriptionStatus,
     clarifyPendingIntent, clarifyPendingParams, clarifyPendingQuestion,
     floatingPreview, ttsVoice,
     typingRef, historyRef, isMountedRef,
@@ -776,7 +778,19 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       if (r) response = r
     } catch { /* Ollama 미실행 */ }
 
-    if (!response && trackUsage()) {
+    // ── 사용량 체크: 무료 유저는 서버(Supabase) 연동, 프리미엄은 패스 ──
+    const isFreeUser = !subscriptionStatus || subscriptionStatus === 'none' || subscriptionStatus === 'expired'
+    if (isFreeUser) {
+      const { allowed, used } = await incrementServerUsage()
+      if (!allowed) {
+        setTyping(false)
+        typingRef.current = false
+        showPaywall?.('ai_chat', used, DAILY_FREE_LIMIT)
+        return
+      }
+    }
+
+    if (!response) {
       if (apiKey) {
         // API 키 있음 → 직접 호출
         try { response = await callGemini(apiKey, trimmed, historyRef.current) }

@@ -25,9 +25,9 @@ var (
 	llmUserLang      string // "ko" | "en" — persisted user language preference
 )
 
-// ── 번들 기본 API 키 — Supabase 프록시 우선, 미로그인 시 fallback ──────────
-// 키는 Supabase Secrets에 저장됨. 번들 키는 비워두면 미인증 사용자는 프록시 없이 작동 안 함.
-const (
+// ── 번들 기본 API 키 — 빌드 시 -ldflags로 주입됨 ──────────────────────────
+// var 로 선언해야 go build -ldflags "-X main.bundledGroqKey=..." 주입 가능
+var (
 	bundledGroqKey   = ""
 	bundledTavilyKey = ""
 	bundledOpenAIKey = ""

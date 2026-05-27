@@ -19,6 +19,7 @@ import type { AvatarConfig } from './OnboardingFlow'
 import { PaywallModal } from '../PaywallModal'
 import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
+import { getDailyUsage, getMonthlyUsage } from '../../lib/nexus/usageTracker'
 import { loadHistory, saveHistory, learnFromTurn, fromStoredTurns, toStoredTurns, buildMemoryContext } from '../../lib/nexus/memory'
 import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
@@ -297,6 +298,7 @@ export function FloatingCharacter() {
   const [clarifyPendingParams,   setClarifyPendingParams]   = useState<Record<string, unknown> | null>(null)
   const [clarifyPendingQuestion, setClarifyPendingQuestion] = useState<string | null>(null)
   const [activePersona, setActivePersona] = useState<PersonaDef | null>(null)
+  const [dailyUsedCount, setDailyUsedCount] = useState(() => getDailyUsage().count)
   // 영상 파일 첨부 시 의도 확인 팝업
   const [videoIntentPending, setVideoIntentPending] = useState<{ file: AttachedFile; extra: AttachedFile[] } | null>(null)
   const [captionRunning, setCaptionRunning] = useState(false)
@@ -754,6 +756,11 @@ export function FloatingCharacter() {
     return () => { if (focusTimerRef.current) clearInterval(focusTimerRef.current) }
   }, [focusEndMs, userLang, assistantName])
 
+  /* 사용량 배지 — 메시지 변경 시 갱신 */
+  useEffect(() => {
+    setDailyUsedCount(getDailyUsage().count)
+  }, [messages.length])
+
   /* 말풍선에 표시할 최근 AI 발화 */
   const [bubbleText, setBubbleText] = useState('')
   const [bubbleExpanded, setBubbleExpanded] = useState(false)
@@ -1049,7 +1056,7 @@ export function FloatingCharacter() {
   /* ── 메시지 전송 ── */
   const sendText = useCallback(async (text: string) => {
     return sendTextImpl(text, {
-      userLang, assistantName, isActive, backendStatus,
+      userLang, assistantName, isActive, backendStatus, subscriptionStatus,
       clarifyPendingIntent, clarifyPendingParams, clarifyPendingQuestion,
       floatingPreview, ttsVoice,
       typingRef, historyRef, isMountedRef,
@@ -1508,12 +1515,6 @@ export function FloatingCharacter() {
       tip: userLang === 'en' ? 'Voice' : '음성' },
     { icon: '⚙️', active: false,       color: primaryColor,  onClick: () => setSettingsOpen(true),
       tip: userLang === 'en' ? 'Settings' : '설정' },
-    { icon: '🖥️', active: showDesktopAgent,  color: '#06b6d4', onClick: () => setShowDesktopAgent(p => !p), tip: 'Desktop Agent' },
-    { icon: '⚡',  active: showWorkflowBuilder, color: '#f59e0b', onClick: () => {
-      const isPremium = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
-      if (!isPremium) { setPaywallFeature('workflow_run'); setPaywallUsed(0); setPaywallLimit(0) }
-      else storeSetShowWorkflowBuilder(!showWorkflowBuilder)
-    }, tip: 'Workflow Builder' },
     { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
       tip: userLang === 'en' ? 'Minimize' : '최소화' },
     { icon: '✕',  active: false,       color: '#ef4444',     onClick: async () => {
@@ -1928,6 +1929,9 @@ export function FloatingCharacter() {
               clarifyQuestion={clarifyPendingQuestion ?? ''}
               typingSteps={typingSteps}
               savedPreviews={savedPreviews}
+              activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
+              subscriptionStatus={subscriptionStatus}
+              dailyUsed={dailyUsedCount}
             />
           </motion.div>
         )}

@@ -293,8 +293,12 @@ interface ChatBubbleProps {
   historyVersion?: number
   clarifyPending?: boolean
   clarifyQuestion?: string
-  // 문제 #4: 플로팅 패널 닫을 때 저장된 결과 목록
   savedPreviews?: Array<{ label: string; items: Array<{ title: string; url: string }> }>
+  // 페르소나 칩 + 사용량 배지
+  activePersona?: { name: string; emoji: string; color: string } | null
+  subscriptionStatus?: string
+  dailyUsed?: number
+  onPersonaClick?: () => void
 }
 
 export function ChatBubble({
@@ -315,6 +319,10 @@ export function ChatBubble({
   historyVersion = 0,
   typingSteps,
   savedPreviews = [],
+  activePersona,
+  subscriptionStatus,
+  dailyUsed = 0,
+  onPersonaClick,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -584,6 +592,65 @@ export function ChatBubble({
           </button>
         )}
       </div>
+
+      {/* ── 페르소나 칩 + 사용량 배지 ── */}
+      {(activePersona || subscriptionStatus) && (
+        <div style={{
+          padding: '6px 14px',
+          borderBottom: `1px solid ${primaryColor}22`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
+          background: 'rgba(0,0,0,0.2)',
+        }}>
+          {/* 페르소나 칩 */}
+          {activePersona ? (
+            <button
+              onClick={onPersonaClick}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '3px 8px', borderRadius: 20,
+                border: `1px solid ${activePersona.color}55`,
+                background: `${activePersona.color}18`,
+                color: activePersona.color,
+                fontSize: 11, fontWeight: 600,
+                cursor: onPersonaClick ? 'pointer' : 'default',
+                transition: 'all 0.15s',
+              }}
+              title={isEn ? 'Change AI mode' : 'AI 모드 변경'}
+            >
+              <span style={{ fontSize: 13 }}>{activePersona.emoji}</span>
+              <span>{activePersona.name}</span>
+            </button>
+          ) : <div />}
+
+          {/* 사용량 배지 */}
+          {(() => {
+            const DAILY_LIMIT = 15
+            const MONTHLY_LIMIT = 2000
+            const isFree = !subscriptionStatus || subscriptionStatus === 'none' || subscriptionStatus === 'expired'
+            if (isFree) {
+              const remaining = Math.max(0, DAILY_LIMIT - dailyUsed)
+              const color = remaining <= 3 ? '#ef4444' : remaining <= 7 ? '#f59e0b' : '#22c55e'
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>{isEn ? 'Today' : '오늘'}</span>
+                  <span style={{ color, fontWeight: 700 }}>{remaining}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>/{DAILY_LIMIT}{isEn ? ' left' : '회'}</span>
+                </div>
+              )
+            }
+            const pct = Math.min(100, Math.round((dailyUsed / MONTHLY_LIMIT) * 100))
+            const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : primaryColor
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+                <span style={{ color: 'rgba(255,255,255,0.4)' }}>{isEn ? 'This month' : '이번달'}</span>
+                <span style={{ color, fontWeight: 700 }}>{dailyUsed.toLocaleString()}</span>
+                <span style={{ color: 'rgba(255,255,255,0.4)' }}>/{MONTHLY_LIMIT.toLocaleString()}</span>
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {/* 이력 + 실시간 카드 영역 */}
       <div ref={scrollRef} style={{
