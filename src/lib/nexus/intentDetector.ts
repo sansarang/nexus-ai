@@ -135,6 +135,8 @@ export type Intent =
   // ── 📨 IMAP 이메일 ───────────────────────────────────────────
   | 'imap_inbox'       // IMAP 받은 메일 확인
   | 'imap_send'        // IMAP 메일 전송
+  // ── ⚡ 병렬 동시 질문 ──────────────────────────────────────────
+  | 'parallel_queries' // 여러 질문 동시에 병렬 처리
   // ── 🤖 멀티 에이전트 ─────────────────────────────────────────
   | 'multi_agent'      // 멀티 에이전트 실행
   // ── 📢 브리핑 ───────────────────────────────────────────────
@@ -155,7 +157,7 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
   {
     intent: 'pc_status',
     patterns: [
-      /cpu|ram|메모리|디스크|disk|실시간|지금\s*(pc|컴)|pc\s*상태|컴퓨터\s*상태|얼마나/i,
+      /cpu|ram|메모리|디스크|disk|지금\s*(pc|컴)|pc\s*상태|컴퓨터\s*상태/i,
       /how.*pc|pc.*how|system.*status|status.*system|gpu|그래픽/i,
       // "온도" 단독은 날씨와 구분: "CPU 온도" / "PC 온도" 형태만 매칭
       /(?:cpu|pc|컴퓨터)\s*온도|온도.*(?:cpu|pc|컴)|temperature.*(?:cpu|pc)/i,
@@ -189,7 +191,7 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
   {
     intent: 'daily_report',
     patterns: [
-      /리포트|report|오늘.*요약|요약.*오늘|데일리|daily|주간|weekly/i,
+      /리포트|report|오늘.*요약|요약.*오늘|데일리|daily|주간.*리포트|주간.*보고|weekly.*report/i,
       /어떻게.*됐어|전반적.*상태/i,
     ],
   },
@@ -522,8 +524,8 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
   {
     intent: 'doc_summary',
     patterns: [
-      /요약.*해줘|요약해|summarize|문서.*요약|계약서.*요약|보고서.*요약/i,
-      /핵심.*내용|중요.*내용.*뽑아|간단히.*정리|요점.*정리/i,
+      /문서.*요약|계약서.*요약|보고서.*요약|내용.*요약|summarize.*doc|pdf.*요약|파일.*요약/i,
+      /핵심.*내용.*뽑아|중요.*내용.*뽑아|요점.*정리.*해줘/i,
     ],
   },
 
@@ -591,7 +593,7 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
   {
     intent: 'news_search',
     patterns: [
-      /뉴스.*검색|최신.*뉴스|오늘.*뉴스|news.*search|latest.*news/i,
+      /뉴스.*검색|최신.*뉴스|오늘.*뉴스|실시간.*뉴스|뉴스.*알려줘|news.*search|latest.*news/i,
       /뭐.*화제|핫.*이슈|트렌딩|요즘.*뭐가.*화제|요즘.*뉴스/i,
     ],
   },
@@ -784,6 +786,8 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /얼마나.*걸려|교통.*시간|몇.*분.*걸려|가는.*시간|도착.*시간|출발.*몇.*시/i,
       /에서.*까지.*시간|travel.*time|driving.*time|길.*얼마/i,
+      /에서.*(?:가는|까지|가는\s*방법|교통편|이동하는|이동.*방법|버스|기차|KTX)/i,
+      /(?:어떻게|방법|교통편).*(?:가|가나|가는지|가요)/i,
     ],
   },
 
@@ -935,6 +939,14 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     intent: 'imap_send',
     patterns: [
       /imap.*보내|메일.*서버.*전송|gmail.*직접.*보내/i,
+    ],
+  },
+  // ── ⚡ 병렬 동시 질문 ──
+  {
+    intent: 'parallel_queries',
+    patterns: [
+      /(.+)(랑|와|이랑|하고|,)(.+)(동시에|한꺼번에|한번에|같이|함께)/i,
+      /두\s*가지.*동시에|여러\s*개.*한꺼번에|동시에.*두|한번에.*두/i,
     ],
   },
   // ── 🤖 멀티 에이전트 ──

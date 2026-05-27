@@ -12,6 +12,7 @@ interface SettingsModalProps {
 export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProps) {
   const { micEnabled, setMicEnabled, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut, userLang, setUserLang } = useAppStore()
   const [clarifyAutoMic, setClarifyAutoMic] = useState(localStorage.getItem('nexus-clarify-auto-mic') !== 'false')
+  const [claudeKey,   setClaudeKey]   = useState(localStorage.getItem('nexus-claude-key') ?? '')
   const [openaiKey,   setOpenaiKey]   = useState(localStorage.getItem('nexus-openai-key') ?? '')
   const [ollamaUrl,   setOllamaUrl]   = useState(localStorage.getItem('nexus-ollama-url') ?? 'http://localhost:11434')
   const [emailTo,             setEmailTo]             = useState(localStorage.getItem('nexus-report-email') ?? '')
@@ -33,6 +34,9 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     : ''
 
   const save = () => {
+    if (claudeKey.trim()) localStorage.setItem('nexus-claude-key', claudeKey.trim())
+    else                  localStorage.removeItem('nexus-claude-key')
+
     if (openaiKey.trim()) localStorage.setItem('nexus-openai-key', openaiKey.trim())
     else                  localStorage.removeItem('nexus-openai-key')
 
@@ -43,10 +47,14 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     if (customInstructions.trim()) localStorage.setItem('nexus-custom-instructions', customInstructions.trim())
     else localStorage.removeItem('nexus-custom-instructions')
 
+    // Claude 키를 백엔드에 전송 (sk-ant- 키는 즉시 1순위 LLM으로 활성화)
     fetch('http://127.0.0.1:17891/api/llm/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ollama_url: ollamaUrl.trim() || undefined }),
+      body: JSON.stringify({
+        claude_key: claudeKey.trim() || undefined,
+        ollama_url: ollamaUrl.trim() || undefined,
+      }),
     }).catch(() => {})
 
     setSaved(true)
@@ -336,6 +344,35 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   </span>
                 </div>
 
+                {/* Claude API Key — 1순위 LLM */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ ...labelStyle, color: '#f6ad55' }}>
+                      {isEn ? '✦ CLAUDE API KEY (highest quality · priority #1)' : '✦ CLAUDE API KEY (최고 품질 · 1순위)'}
+                    </label>
+                    {claudeKey.trim().startsWith('sk-ant-') && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
+                        background: 'rgba(246,173,85,0.18)', color: '#f6ad55', border: '1px solid rgba(246,173,85,0.4)',
+                      }}>
+                        {isEn ? 'ACTIVE' : '활성'}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={claudeKey}
+                    onChange={e => setClaudeKey(e.target.value)}
+                    placeholder="sk-ant-api03-..."
+                    style={inputStyle(claudeKey.trim().startsWith('sk-ant-'))}
+                  />
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                    {isEn
+                      ? 'claude-sonnet-4-6 is used when set — Claude-level accuracy'
+                      : '설정 시 claude-sonnet-4-6 사용 — Claude 수준의 정확도'}
+                  </span>
+                </div>
+
                 {/* Ollama URL */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ ...labelStyle, color: '#68d391' }}>
@@ -376,18 +413,23 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                     {isEn ? '⚡ AI Response Priority' : '⚡ AI 응답 우선순위'}
                   </div>
                   {(isEn ? [
-                    ['#1', 'Ollama Local',   'Fully free · offline',         '#68d391'],
-                    ['#2', 'Nexus Server',   'Subscription incl. · no key',  '#f6ad55'],
-                    ['#3', 'Built-in Logic', 'Always works · no LLM needed', '#90cdf4'],
+                    ['#1', 'Ollama Local',   'Fully free · offline',                    '#68d391'],
+                    ['#2', 'Claude API',     'sk-ant- key · highest accuracy',          '#f6ad55'],
+                    ['#3', 'Nexus Server',   'Subscription incl. · no key',             '#63b3ed'],
+                    ['#4', 'Built-in Logic', 'Always works · no LLM needed',            '#90cdf4'],
                   ] : [
-                    ['1위', 'Ollama 로컬',  '완전 무료 · 오프라인',      '#68d391'],
-                    ['2위', 'Nexus 서버',   '구독 포함 · 키 불필요',     '#f6ad55'],
-                    ['3위', '내장 키워드',  '항상 동작 · LLM 불필요',   '#90cdf4'],
+                    ['1위', 'Ollama 로컬',  '완전 무료 · 오프라인',                    '#68d391'],
+                    ['2위', 'Claude API',   'sk-ant- 키 · 최고 정확도',               '#f6ad55'],
+                    ['3위', 'Nexus 서버',   '구독 포함 · 키 불필요',                  '#63b3ed'],
+                    ['4위', '내장 키워드',  '항상 동작 · LLM 불필요',                '#90cdf4'],
                   ]).map(([rank, name, desc, color]) => (
                     <div key={rank} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0' }}>
                       <span style={{ color, fontWeight: 700, minWidth: 28 }}>{rank}</span>
-                      <span style={{ color: '#e2e8f0' }}>{name}</span>
+                      <span style={{ color: claudeKey.trim().startsWith('sk-ant-') && name.includes('Claude') ? '#f6ad55' : '#e2e8f0', fontWeight: claudeKey.trim().startsWith('sk-ant-') && name.includes('Claude') ? 700 : 400 }}>{name}</span>
                       <span style={{ color: '#718096', fontSize: 10 }}>{desc}</span>
+                      {claudeKey.trim().startsWith('sk-ant-') && name.includes('Claude') && (
+                        <span style={{ fontSize: 9, color: '#f6ad55', fontWeight: 700 }}>●</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -457,17 +499,19 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#e2e8f0', marginTop: 4 }}>
                     {isEn ? 'Nexus AI Assistant' : 'Nexus AI 비서'}
                   </div>
-                  <div style={{ fontSize: 12, color: '#718096' }}>v2.5.0 — Perplexity {isEn ? 'engine' : '엔진'}</div>
+                  <div style={{ fontSize: 12, color: claudeKey.trim().startsWith('sk-ant-') ? '#f6ad55' : '#718096' }}>
+                    v2.5.0 — {claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6' : 'Perplexity'} {isEn ? 'engine' : '엔진'}
+                  </div>
                 </div>
                 {(isEn ? [
-                  ['AI Engine',  'Perplexity (sonar-pro · web search built-in)'],
+                  ['AI Engine',  claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6 (Anthropic · highest accuracy)' : 'Perplexity (sonar-pro · web search built-in)'],
                   ['Vision',     'Not supported'],
                   ['Local AI',   'Ollama (optional)'],
                   ['Backend',    'Go + Windows API'],
                   ['Frontend',   'React + Framer Motion'],
                   ['Packaging',  'Tauri (.exe)'],
                 ] : [
-                  ['AI 엔진',    'Perplexity (sonar-pro · 웹 검색 내장)'],
+                  ['AI 엔진',    claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6 (Anthropic · 최고 정확도)' : 'Perplexity (sonar-pro · 웹 검색 내장)'],
                   ['Vision',     '미지원'],
                   ['로컬 AI',    'Ollama (선택)'],
                   ['백엔드',     'Go + Windows API'],

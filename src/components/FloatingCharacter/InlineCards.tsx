@@ -68,33 +68,47 @@ export function PCStatusCard({ data, accentColor }: { data: StatsData; accentCol
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25 }}
       style={{
-        background: 'rgba(10,12,28,0.96)',
-        border: `1px solid ${accentColor}44`,
+        background: '#0a0c1c',
+        border: `1px solid ${accentColor}55`,
+        borderLeft: `3px solid ${accentColor}`,
         borderRadius: 14,
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        boxShadow: `0 4px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)`,
+        boxShadow: `0 6px 28px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05)`,
       }}
     >
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.9)' }}>
-          💻 실시간 PC 상태
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ fontSize: 16 }}>💻</span>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.95)', lineHeight: 1.3 }}>실시간 PC 상태</div>
+            <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
+              {new Date(data.timestamp * 1000).toLocaleTimeString('ko-KR')} 기준
+            </div>
+          </div>
+        </div>
         <div style={{
-          padding: '2px 8px',
-          borderRadius: 8,
-          background: overallScore >= 80 ? '#22c55e22' : overallScore >= 60 ? '#f59e0b22' : '#ef444422',
-          border: `1px solid ${overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444'}44`,
-          fontSize: 11,
-          fontWeight: 800,
-          color: overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          padding: '4px 10px',
+          borderRadius: 10,
+          background: overallScore >= 80 ? 'rgba(34,197,94,0.15)' : overallScore >= 60 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+          border: `1px solid ${overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444'}66`,
         }}>
-          {overallScore}점
+          <span style={{
+            fontSize: 16, fontWeight: 900, lineHeight: 1,
+            color: overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444',
+          }}>{overallScore}</span>
+          <span style={{
+            fontSize: 9, fontWeight: 700,
+            color: overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444',
+            opacity: 0.8,
+          }}>점</span>
         </div>
       </div>
+      <div style={{ height: 1, background: `${accentColor}22`, margin: '0 -2px' }} />
 
       {/* 게이지 바 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -122,9 +136,6 @@ export function PCStatusCard({ data, accentColor }: { data: StatsData; accentCol
         </span>
       </div>
 
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', textAlign: 'right' }}>
-        {new Date(data.timestamp * 1000).toLocaleTimeString('ko-KR')} 기준
-      </div>
     </motion.div>
   )
 }

@@ -6,7 +6,7 @@ import { DesktopAgent } from '../DesktopAgent'
 import { WorkflowBuilder } from '../WorkflowBuilder'
 import { EmailSetup } from '../EmailSetup'
 import { ChatBubble } from './ChatBubble'
-import type { ChatMessage } from './ChatBubble'
+import type { ChatMessage, AttachedFile } from './ChatBubble'
 import { SettingsModal } from './SettingsModal'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
@@ -297,6 +297,8 @@ export function FloatingCharacter() {
   const [clarifyPendingParams,   setClarifyPendingParams]   = useState<Record<string, unknown> | null>(null)
   const [clarifyPendingQuestion, setClarifyPendingQuestion] = useState<string | null>(null)
   const [activePersona, setActivePersona] = useState<PersonaDef | null>(null)
+  // 영상 파일 첨부 시 의도 확인 팝업
+  const [videoIntentPending, setVideoIntentPending] = useState<{ file: AttachedFile; extra: AttachedFile[] } | null>(null)
   const [captionRunning, setCaptionRunning] = useState(false)
 
   // ── Paywall Modal 상태 ────────────────────────────────────
@@ -420,7 +422,8 @@ export function FloatingCharacter() {
       const tid = setTimeout(() => {
         const preview = greeting.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
         setBubbleText(preview + (greeting.length > 60 ? '...' : ''))
-        speak(greeting, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) })
+        const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+        speak(greeting, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) }, 'neutral', undefined, isPro)
       }, 800)
       return () => clearTimeout(tid)
     }
@@ -669,8 +672,9 @@ export function FloatingCharacter() {
 
     const preview = alert.message.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
     setBubbleText(preview + (alert.message.length > 60 ? '...' : ''))
-    speak(alert.message, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) })
-  }, [userLang])
+    const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+    speak(alert.message, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) }, 'neutral', undefined, isPro)
+  }, [userLang, subscriptionStatus])
 
   /* ── Proactive AI — stats 폴링 (30초) ── */
   useEffect(() => {
@@ -742,7 +746,8 @@ export function FloatingCharacter() {
         setMinimized(false)
         setChatOpen(true)
         setMessages(prev => [...prev, { id: `focus-done-${Date.now()}`, role: 'nexus', text: msg }])
-        speak(msg, userLang, () => setSpeaking(true), () => setSpeaking(false))
+        const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+        speak(msg, userLang, () => setSpeaking(true), () => setSpeaking(false), 'neutral', undefined, isPro)
         clearInterval(focusTimerRef.current!)
       }
     }, 1_000)
@@ -753,20 +758,22 @@ export function FloatingCharacter() {
   const [bubbleText, setBubbleText] = useState('')
   const [bubbleExpanded, setBubbleExpanded] = useState(false)
 
-  /* TTS — 감정 기반 톤 자동 조정 */
+  /* TTS — 감정 기반 톤 자동 조정 (Pro만 OpenAI TTS, 무료는 Web Speech) */
   const speakText = useCallback((text: string, em?: CharacterEmotion) => {
     const clean = text.replace(/\*\*/g, '').replace(/\n+/g, ' ').trim()
-    setBubbleText(clean)   // 전체 텍스트, 자동소멸 없음 (X버튼으로만 닫기)
+    setBubbleText(clean)
     if (!soundEnabled) return
     const ttsEmotion = em ?? emotion
+    const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
     speak(
       text, userLang,
       () => setSpeaking(true),
       () => setSpeaking(false),
       ttsEmotion as import('../../lib/nexus/tts').SpeakEmotion,
       ttsVoice,
+      isPro,
     )
-  }, [userLang, emotion, ttsVoice, soundEnabled])
+  }, [userLang, emotion, ttsVoice, soundEnabled, subscriptionStatus])
 
   /* STT */
   const handleVoiceToggle = useCallback(() => {
@@ -1081,7 +1088,7 @@ export function FloatingCharacter() {
     const wantTrim = /잘라|자르기|trim|구간|초부터|분부터|까지|처음.*분|처음.*초/i.test(text)
     const wantCompress = /압축|용량.*줄|줄여|compress|가볍게|작게/i.test(text)
     const wantSpeed = /배속|빠르게|느리게|speed|빨리|천천히/i.test(text)
-    const wantSubtitle = /자막|subtitle|srt|vtt/i.test(text)
+    const wantSubtitle = /자막.*합쳐|합쳐.*자막|자막.*삽입|삽입.*자막|자막.*넣어|자막.*태워|srt.*합쳐|합쳐.*srt|subtitle.*merge|merge.*subtitle|burn.*subtitle|subtitle.*burn/i.test(text)
     const allFiles = [file, ...(extraFiles ?? [])]
     const isImageFile = (f: { mimeType: string }) => f.mimeType.startsWith('image/')
     const isVideoFile = (f: { mimeType: string }) => f.mimeType.startsWith('video/')
@@ -1200,7 +1207,14 @@ export function FloatingCharacter() {
 
       } else if (isVideoFile(file)) {
         // ── 동영상 → 내용 분석 요청이면 백엔드 Whisper 전사, 아니면 변환 안내 ──
-        const wantAnalyze = /요약|내용|설명|분석|뭐|무슨|어떤|정리|요점|핵심|자막|전사|summarize|summary|content|what|explain|transcript|analyze|analyse/i.test(text)
+        const wantAnalyze = /요약|내용|설명|분석|뭐|무슨|어떤|정리|요점|핵심|전사|summarize|summary|content|what|explain|transcript|analyze|analyse/i.test(text)
+
+        // 텍스트 없이 영상만 첨부된 경우 → 의도 확인 팝업
+        if (!text && !wantAnalyze) {
+          setVideoIntentPending({ file, extra: (extraFiles ?? []) as AttachedFile[] })
+          setTyping(false)
+          return
+        }
 
         if (wantAnalyze || !text) {
           // 의존성 사전 체크
@@ -1919,6 +1933,60 @@ export function FloatingCharacter() {
         )}
       </AnimatePresence>
 
+      {/* ─── 영상 의도 확인 팝업 ─── */}
+      {videoIntentPending && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: 'rgba(12,12,28,0.97)', border: `1.5px solid ${primaryColor}55`,
+            borderRadius: 18, padding: '22px 24px', width: 300,
+            boxShadow: `0 12px 40px ${primaryColor}44`,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+              🎬 영상을 어떻게 할까요?
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>
+              {videoIntentPending.file.name}
+            </div>
+            {[
+              { label: '🔍 내용 분석 / 요약', text: '이 영상 내용을 분석하고 요약해줘' },
+              { label: '✂️ 구간 자르기', text: '이 영상에서 구간을 잘라줘' },
+              { label: '📦 용량 압축', text: '이 영상 용량을 압축해줘' },
+              { label: '⚡ 배속 변환', text: '이 영상 속도를 바꿔줘' },
+            ].map(({ label, text }) => (
+              <button key={label}
+                onClick={() => {
+                  const { file, extra } = videoIntentPending
+                  setVideoIntentPending(null)
+                  handleSendWithFileImpl(text, file, extra)
+                }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  background: `${primaryColor}18`, border: `1px solid ${primaryColor}33`,
+                  color: '#fff', fontSize: 12, fontWeight: 600,
+                  padding: '8px 12px', borderRadius: 10, marginBottom: 8, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${primaryColor}35`)}
+                onMouseLeave={e => (e.currentTarget.style.background = `${primaryColor}18`)}
+              >
+                {label}
+              </button>
+            ))}
+            <button onClick={() => setVideoIntentPending(null)}
+              style={{
+                width: '100%', background: 'transparent', border: 'none',
+                color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', marginTop: 2,
+              }}>
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ─── 캐릭터 + 버튼 래퍼 ─── */}
       <div style={{ display: 'flex', alignItems: 'flex-end', pointerEvents: 'auto' }}>
 
@@ -1945,16 +2013,15 @@ export function FloatingCharacter() {
                   width: 260,
                   maxHeight: bubbleExpanded ? 420 : 160,
                   overflowY: bubbleExpanded ? 'auto' : 'hidden',
-                  background: 'rgba(8,8,22,0.97)',
-                  border: `1.5px solid ${primaryColor}88`,
+                  background: '#08081a',
+                  border: `1.5px solid ${primaryColor}99`,
                   borderRadius: 16,
                   padding: '10px 14px 36px 14px',
                   fontSize: 12.5,
-                  color: 'rgba(255,255,255,0.93)',
+                  color: 'rgba(255,255,255,0.95)',
                   fontWeight: 500,
                   lineHeight: 1.6,
-                  boxShadow: `0 8px 32px ${primaryColor}55`,
-                  backdropFilter: 'blur(18px)',
+                  boxShadow: `0 12px 40px rgba(0,0,0,0.85), 0 0 0 1px ${primaryColor}33`,
                   pointerEvents: 'auto',
                   wordBreak: 'keep-all',
                   marginBottom: 6,

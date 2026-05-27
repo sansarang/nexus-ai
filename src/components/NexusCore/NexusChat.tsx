@@ -15,6 +15,7 @@ import {
   getDailyUsage, incrementDailyUsage,
   getMonthlyUsage, incrementMonthlyUsage,
   DAILY_FREE_LIMIT, MONTHLY_PREMIUM_LIMIT,
+  syncUsageFromServer, incrementServerUsage,
 } from '../../lib/nexus/usageTracker'
 import { NexusAvatar } from './NexusAvatar'
 import { MessageBubble } from './MessageBubble'
@@ -185,6 +186,13 @@ export function NexusChat() {
   /* 언마운트 시 음성 중지 */
   useEffect(() => () => { stopSpeaking() }, [])
 
+  /* 마운트 시 서버 사용량과 동기화 */
+  useEffect(() => {
+    syncUsageFromServer().then(data => {
+      if (data) setDailyCount(data.used)
+    })
+  }, [])
+
   /* ── 능동형 모니터링 — PC 상태 폴링 후 자동 알림 ── */
   useEffect(() => {
     const poll = async () => {
@@ -237,15 +245,19 @@ export function NexusChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantName])
 
-  /* ── TTS: 텍스트를 음성으로 읽기 ── */
+  /* ── TTS: 텍스트를 음성으로 읽기 (Pro만 OpenAI TTS, 무료는 Web Speech) ── */
   const speakText = useCallback((text: string) => {
+    const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
     speak(
       text,
       userLang,
       () => setSpeaking(true),
       () => setSpeaking(false),
+      'neutral',
+      undefined,
+      isPro,
     )
-  }, [userLang])
+  }, [userLang, subscriptionStatus])
 
   /* ── 에이전트 승인·취소 ── */
   const handleApproveAgent = useCallback(async () => {
@@ -414,8 +426,19 @@ export function NexusChat() {
     setTyping(true)
     setEmotion('neutral')
 
-    /* 사용량 카운터 증가 */
-    setDailyCount(incrementDailyUsage())
+    /* 서버 사용량 카운터 증가 (로컬스토리지 우회 방지) */
+    if (isFree) {
+      const { allowed, used } = await incrementServerUsage()
+      setDailyCount(used)
+      if (!allowed) {
+        typingRef.current = false
+        setTyping(false)
+        setShowPaywall(true)
+        return
+      }
+    } else {
+      setDailyCount(incrementDailyUsage())
+    }
     setMonthlyCount(incrementMonthlyUsage())
 
     historyRef.current.push({ role: 'user', parts: [{ text: trimmed }] })
@@ -545,9 +568,10 @@ export function NexusChat() {
       if (r) response = r
     } catch { /* Ollama 미실행 */ }
 
-    /* 2순위: Gemini */
+    /* 2순위: Gemini (Pro만 GPT-4o, 무료는 Perplexity) */
     if (!response && apiKey && trackUsage()) {
-      try { response = await callGemini(apiKey, promptWithMemory, historyRef.current.slice(-10)) }
+      const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+      try { response = await callGemini(apiKey, promptWithMemory, historyRef.current.slice(-10), isPro) }
       catch { /* Gemini 실패 */ }
     }
 
@@ -616,7 +640,7 @@ export function NexusChat() {
         const wantTrim     = /잘라|자르기|trim|구간|초부터|분부터|까지|처음.*분|처음.*초/i.test(text)
         const wantCompress = /압축|용량.*줄|줄여|compress|가볍게|작게/i.test(text)
         const wantSpeed    = /배속|빠르게|느리게|speed|빨리|천천히/i.test(text)
-        const wantSubtitle = /자막|subtitle|srt|vtt/i.test(text)
+        const wantSubtitle = /자막.*합쳐|합쳐.*자막|자막.*삽입|삽입.*자막|자막.*넣어|자막.*태워|srt.*합쳐|합쳐.*srt|subtitle.*merge|merge.*subtitle|burn.*subtitle|subtitle.*burn/i.test(text)
         const needsEdit    = wantTrim || wantCompress || wantSpeed || wantSubtitle
 
         if (needsEdit) {

@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Iron, Luna, Doc, Pixie, Kira, Nova, Sora, Hana, Jin, Mira, Lumi, Joy } from './characters'
+import { Iron, Lumi, Nexus } from './characters'
 import type { CharacterEmotion, CharacterId } from './characters'
 
 interface AvatarEngineProps {
@@ -26,18 +26,9 @@ interface AvatarEngineProps {
 }
 
 const CHARACTER_MAP = {
-  iron:   Iron,
-  luna:   Luna,
-  doc:    Doc,
-  pixie:  Pixie,
-  kira:   Kira,
-  nova:   Nova,
-  sora:   Sora,
-  hana:   Hana,
-  jin:    Jin,
-  mira:   Mira,
-  lumi:   Lumi,
-  joy:    Joy,
+  iron:  Iron,
+  lumi:  Lumi,
+  nexus: Nexus,
 } as const
 
 /** 감정별 글로우 색상 */
@@ -308,7 +299,7 @@ export function AvatarEngine({
         ) : CharacterComp ? (
           <CharacterComp emotion={emotion} speaking={speaking} listening={listening} />
         ) : (
-          <Luna emotion={emotion} speaking={speaking} listening={listening} />
+          <Nexus emotion={emotion} speaking={speaking} listening={listening} />
         )}
       </motion.div>
 

@@ -211,6 +211,114 @@ func callGroqVision(_, _, _, _ string) (string, error) {
 	return "", fmt.Errorf("Vision 기능은 현재 지원되지 않습니다")
 }
 
+// ToolDef: OpenAI 호환 함수 호출 도구 정의
+type ToolDef struct {
+	Type     string         `json:"type"`
+	Function ToolFunctionDef `json:"function"`
+}
+
+type ToolFunctionDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+// ToolCallResult: LLM이 선택한 함수 호출 결과
+type ToolCallResult struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments"`
+}
+
+// callGroqWithTools: Groq function calling — 도구 목록을 포함해 호출하고 tool_calls 파싱
+// Groq(gsk_) 키만 function calling 지원. Perplexity(pplx-) 키면 일반 프롬프트로 폴백.
+func callGroqWithTools(msgs []groqMsg, tools []ToolDef, maxTokens int) (*ToolCallResult, string, error) {
+	llmMu.RLock()
+	key := llmGroqKey
+	if key == "" {
+		key = llmPerplexityKey
+	}
+	llmMu.RUnlock()
+
+	if key == "" {
+		return nil, "", fmt.Errorf("API 키 없음")
+	}
+
+	// Perplexity는 function calling 미지원 — 일반 callGroqWithFallback으로 위임
+	if !strings.HasPrefix(key, "gsk_") {
+		return nil, "", fmt.Errorf("function calling은 Groq 키(gsk_)만 지원")
+	}
+
+	endpoint := groqAPIBase
+	model := "llama-3.3-70b-versatile"
+
+	type reqBody struct {
+		Model     string    `json:"model"`
+		Messages  []groqMsg `json:"messages"`
+		Tools     []ToolDef `json:"tools"`
+		MaxTokens int       `json:"max_tokens"`
+	}
+
+	rb := reqBody{Model: model, Messages: msgs, Tools: tools, MaxTokens: maxTokens}
+	body, _ := json.Marshal(rb)
+
+	httpReq, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, "", err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+key)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+
+	var gr struct {
+		Choices []struct {
+			Message struct {
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &gr); err != nil {
+		return nil, "", fmt.Errorf("응답 파싱 실패: %w", err)
+	}
+	if gr.Error != nil {
+		return nil, "", fmt.Errorf("Groq 오류: %s", gr.Error.Message)
+	}
+	if len(gr.Choices) == 0 {
+		return nil, "", fmt.Errorf("응답 비어 있음")
+	}
+
+	msg := gr.Choices[0].Message
+
+	// tool_calls가 있으면 첫 번째 호출 반환
+	if len(msg.ToolCalls) > 0 {
+		tc := msg.ToolCalls[0]
+		var args map[string]any
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+			args = map[string]any{}
+		}
+		return &ToolCallResult{Name: tc.Function.Name, Arguments: args}, "", nil
+	}
+
+	// tool_calls 없으면 텍스트 content 반환 (일반 응답 폴백)
+	return nil, strings.TrimSpace(msg.Content), nil
+}
+
 // callGroqWithFallback: Supabase 프록시 → Groq/Perplexity → OpenAI → Claude 순서로 폴백
 func isProxyLimitError(err error) bool {
 	if err == nil {
@@ -228,7 +336,6 @@ func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string,
 		return "", "", err // 한도 초과 — 직접 키 폴백 없이 즉시 반환
 	}
 
-	// 2순위: 번들 키 직접 호출 (개발 환경 / 오프라인 fallback)
 	llmMu.RLock()
 	pKey := llmPerplexityKey
 	if pKey == "" {
@@ -237,6 +344,16 @@ func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string,
 	cKey := llmClaudeKey
 	llmMu.RUnlock()
 
+	// 2순위: Claude API — sk-ant- 키가 있으면 최우선 직접 호출
+	if strings.HasPrefix(cKey, "sk-ant-") {
+		ans, err := callClaude(cKey, msgs, maxTokens)
+		if err == nil {
+			return ans, "claude", nil
+		}
+		// Claude 실패 시 Groq/Perplexity로 폴백
+	}
+
+	// 3순위: Groq / Perplexity
 	if pKey != "" {
 		endpoint, model := resolveEndpointAndModel(pKey, "", false)
 		provider := "groq"
@@ -247,22 +364,19 @@ func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string,
 		if err == nil {
 			return answer, provider, nil
 		}
-		if cKey != "" {
-			ans, cErr := callClaude(cKey, msgs, maxTokens)
-			if cErr == nil {
-				return ans, "openai-fallback", nil
-			}
-		}
 		return "", "", fmt.Errorf("AI API 오류: %v", err)
 	}
+
+	// 4순위: Claude (비 sk-ant- 키 — OpenAI 슬롯에 넣은 경우)
 	if cKey != "" {
 		ans, err := callClaude(cKey, msgs, maxTokens)
 		if err == nil {
-			return ans, "openai", nil
+			return ans, "claude-fallback", nil
 		}
 		return "", "", err
 	}
-	return "", "", fmt.Errorf("API 키 미설정 (Groq/Perplexity)")
+
+	return "", "", fmt.Errorf("API 키 미설정 (Groq/Perplexity/Claude)")
 }
 
 // callClaude: Anthropic 직접 호출 (fallback)

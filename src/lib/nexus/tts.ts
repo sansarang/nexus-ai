@@ -223,20 +223,16 @@ export async function speak(
   onEnd?: () => void,
   emotion: SpeakEmotion = 'neutral',
   voiceOverride?: string,
+  isPro = false, // Pro 구독자만 OpenAI TTS 사용
 ): Promise<void> {
-  const hasOpenAIKey = !!localStorage.getItem('nexus-openai-key')
-  console.log('[TTS] speak() called, text length:', text.length, 'OpenAI key:', hasOpenAIKey ? 'SET' : 'NOT SET', 'lang:', lang)
-
-  // OpenAI TTS 먼저 시도 (감정별 speed 적용)
-  const used = await speakWithOpenAI(text, lang, onStart, onEnd, EMOTION_PARAMS[emotion].openaiSpeed, voiceOverride)
-  console.log('[TTS] OpenAI result:', used)
-
-  // 실패하면 Web Speech API 사용 (감정별 rate·pitch 적용)
-  if (!used) {
-    const hasSpeechSynth = typeof window !== 'undefined' && !!window.speechSynthesis
-    console.log('[TTS] Falling back to WebSpeech, available:', hasSpeechSynth)
-    speakWithWebSpeech(text, lang, onStart, onEnd, EMOTION_PARAMS[emotion].rate, EMOTION_PARAMS[emotion].pitch)
+  // OpenAI TTS: Pro 구독자만 사용 (비용 절감)
+  if (isPro) {
+    const used = await speakWithOpenAI(text, lang, onStart, onEnd, EMOTION_PARAMS[emotion].openaiSpeed, voiceOverride)
+    if (used) return
   }
+
+  // 무료 사용자 또는 OpenAI 실패 → Web Speech API (비용 $0)
+  speakWithWebSpeech(text, lang, onStart, onEnd, EMOTION_PARAMS[emotion].rate, EMOTION_PARAMS[emotion].pitch)
 }
 
 /* 현재 재생 중인 OpenAI Audio 전역 추적 */

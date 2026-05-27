@@ -102,6 +102,22 @@ func handleFileProcess(w http.ResponseWriter, r *http.Request) {
 		req.Operation = detectFileOp(req.Query, req.Files)
 	}
 
+	// 영상 편집 작업은 base64 크기 200 MB 제한 (~267 MB base64)
+	const maxVideoBase64 = 360 * 1024 * 1024
+	isVideoOp := req.Operation == "video_trim" || req.Operation == "video_compress" ||
+		req.Operation == "video_speed" || req.Operation == "video_subtitle"
+	if isVideoOp && len(req.Files[0].Data) > maxVideoBase64 {
+		writeJSON(w, 413, map[string]any{
+			"success": false,
+			"message": msgT(
+				"파일이 너무 큽니다 (최대 200 MB). 먼저 압축 후 다시 시도해주세요.",
+				"File too large (max 200 MB). Please compress it first.",
+				lang,
+			),
+		})
+		return
+	}
+
 	switch req.Operation {
 	case "resize":
 		handleResize(w, req.Files[0], req.Params, req.Query, lang)

@@ -1128,3 +1128,100 @@ export async function listVerticalPresets(): Promise<VerticalConfig[]> {
     return []
   }
 }
+
+/* ── ⚡ 병렬 쿼리 디스패처 ── */
+export interface ParallelResult {
+  index: number
+  query: string
+  answer: string
+  success: boolean
+  error?: string
+  elapsed_ms: number
+}
+
+export interface ParallelEvent {
+  type: 'start' | 'result' | 'done' | 'error'
+  task_id: string
+  total?: number
+  received?: number
+  index?: number
+  query?: string
+  answer?: string
+  success?: boolean
+  error?: string
+  elapsed_ms?: number
+}
+
+/**
+ * dispatchParallel: 여러 쿼리를 병렬로 처리하는 SSE 스트림
+ * onEvent: 각 결과가 도착할 때마다 호출
+ * Returns AbortController to cancel
+ */
+export function dispatchParallel(
+  queries: string[],
+  onEvent: (e: ParallelEvent) => void,
+): AbortController {
+  const ctrl = new AbortController()
+  const taskId = `par-${Date.now()}`
+  ;(async () => {
+    try {
+      const authHeader = await getAuthHeader()
+      const res = await fetch(`${BASE}/api/dispatch/parallel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({ queries, task_id: taskId }),
+        signal: ctrl.signal,
+      })
+      if (!res.ok || !res.body) {
+        onEvent({ type: 'error', task_id: taskId, error: `HTTP ${res.status}` })
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const evt = JSON.parse(line.slice(6)) as ParallelEvent
+              onEvent(evt)
+            } catch { /* ignore malformed */ }
+          }
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        onEvent({ type: 'error', task_id: taskId, error: String(err) })
+      }
+    }
+  })()
+  return ctrl
+}
+
+/* ── 🎬 영상 전사 (video_transcript) ── */
+export interface VideoTranscriptResult {
+  success: boolean
+  transcript: string
+  language?: string
+  duration?: number
+  source?: string
+  message?: string
+}
+export const videoTranscript = (url: string, lang = 'ko') =>
+  request<VideoTranscriptResult>('POST', '/api/video/transcript', { url, lang }, 120000)
+
+/* ── 📧 IMAP 이메일 (imap_inbox / imap_send) ── */
+export interface ImapEmail {
+  id: string; from: string; subject: string; date: string; body: string; read: boolean
+}
+export const imapInbox = (limit = 10, folder = 'INBOX') =>
+  request<{ success: boolean; emails: ImapEmail[]; total: number; unread?: number; message?: string }>(
+    'GET', `/api/imap/inbox?limit=${limit}&folder=${encodeURIComponent(folder)}`, undefined, 15000
+  )
+export const imapSend = (to: string, subject: string, body: string) =>
+  request<{ success: boolean; message: string }>('POST', '/api/imap/send', { to, subject, body }, 15000)

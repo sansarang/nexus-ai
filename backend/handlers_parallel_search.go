@@ -109,7 +109,7 @@ func detectCategory(q string) queryCategory {
 		return catFood
 	case has(
 		// 한국어
-		"최저가", "가격비교", "쿠팡", "네이버쇼핑", "11번가", "지마켓", "옥션", "테무", "알리", "사고싶", "얼마", "싸게", "할인", "쇼핑",
+		"최저가", "가격비교", "쿠팡", "네이버쇼핑", "11번가", "지마켓", "옥션", "테무", "알리", "사고싶", "싸게", "할인", "쇼핑",
 		// 영어
 		"buy", "purchase", "shop", "cheapest", "price", "amazon", "ebay", "etsy", "walmart",
 		"discount", "sale", "deal", "coupon", "cheap", "where to buy", "how much",

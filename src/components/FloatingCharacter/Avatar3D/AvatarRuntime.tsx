@@ -1,6 +1,6 @@
 import React from 'react'
 import { Avatar3D } from './index'
-import type { AvatarEmotion, CharacterPreset } from './ProceduralHumanoid'
+import type { AvatarEmotion, CharacterPreset } from './index'
 
 export type AvatarRuntimeState = 'idle' | 'listening' | 'speaking'
 export type AvatarQuality = 'high' | 'balanced'

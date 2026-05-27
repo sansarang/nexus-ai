@@ -190,9 +190,9 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     // ── 0.4순위: 길찾기 / 장소 로드뷰 ─────────────────────────
     // 길찾기 감지: "에서 [목적지]" 패턴 (방법/경로 없어도 인식)
     const isDirections = (
-      // 한국어: "A에서 B" + 이동 키워드 or 단순 "A에서 B" (2글자 이상 출발지/도착지)
-      /\S{2,}에서\s*\S{2,}(?:으로|로|까지|가려면|가는\s*방법|가는\s*법|가는\s*길|경로|어떻게\s*가|대중교통|버스|지하철|길찾기|이동|갈\s*때|가고\s*싶|가는\s*길)/i.test(trimmed) ||
-      /\S{2,}에서\s+\S{2,}/.test(trimmed) && /버스|지하철|기차|ktx|택시|교통|이동|경로|길찾기|가는|가려면|가는법|갈때/.test(trimmed.toLowerCase()) ||
+      // 한국어: "A에서 B" + 반드시 교통/이동 키워드 포함 (기기·앱 비교 등 false-match 방지)
+      /\S{2,}에서\s*\S{2,}(?:까지|가려면|가는\s*방법|가는\s*법|가는\s*길|경로|어떻게\s*가|대중교통|버스|지하철|길찾기)/i.test(trimmed) ||
+      /\S{2,}에서\s+\S{2,}/.test(trimmed) && /버스|지하철|기차|ktx|택시|교통|이동|경로|길찾기|가려면|가는법|갈때/.test(trimmed.toLowerCase()) ||
       // 화살표/물결 구분자
       /\S+\s*(?:→|->|~)\s*\S+/.test(trimmed) ||
       // 영어
@@ -766,33 +766,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       return
     }
 
-    // ── 3순위: LLM Tool Router — 대화 컨텍스트 포함, 전체 인텐트 커버 ──
-    try {
-      const routerHistory = historyRef.current.slice(-6).map((h: { role: string; parts: Array<{ text: string }> }) => ({
-        role: (h.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: h.parts[0]?.text ?? '',
-      })).filter((h: { content: string }) => h.content.length > 0)
-      const toolCall = await routeWithLLM(trimmed, routerHistory)
-      if (toolCall.tool !== 'general_answer') {
-        // LLM이 선택한 tool을 Intent로 변환해 handleBackendIntent 실행
-        const mappedIntent = toolCall.tool as Intent
-        const query = toolCall.args.query || toolCall.args.city || trimmed
-        const { text: resText, card, card2, card3, card4, emotion: resEmotion } = await handleBackendIntent(mappedIntent, msgId, query)
-        setTyping(false)
-        typingRef.current = false
-        setEmotion(resEmotion)
-        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4 }])
-        pushModelHistory(trimmed, resText)
-        if (resText) {
-          speakText(resText)
-          appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(resText) })
-          setHistoryVersion(v => v + 1)
-        }
-        return
-      }
-    } catch { /* LLM 라우터 실패 시 일반 대화로 폴백 */ }
-
-    // ── 4순위: LLM 일반 대화 ─────────────────────────────────
+    // ── 3순위: LLM 일반 대화 ─────────────────────────────────
     // apiKey는 env 또는 localStorage 어디서든 가져옴
     const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
     let response

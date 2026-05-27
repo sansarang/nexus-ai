@@ -188,6 +188,7 @@ func usageLimitResponse(tier ModelTier, freeLeft, premiumLeft int) CommandRespon
 // featureLimits defines free-tier daily limits per feature.
 // -1 means unlimited (pro/team users always get -1).
 var featureLimits = map[string]int{
+	"ai_request":      15, // free 티어 하루 15회
 	"stock_analysis":  3,
 	"medical_search":  3,
 	"contract_review": 1,
@@ -353,4 +354,68 @@ func upgradeRequiredResponse(feature string, used, limit int) CommandResponse {
 		LimitCount:      limit,
 		FeatureName:     feature,
 	}
+}
+
+// ── HTTP 핸들러: AI 요청 사용량 조회 + 증가 ─────────────────────
+// GET  /api/usage/ai        → { used, limit, allowed, reset_at }
+// POST /api/usage/ai        → 카운트 증가 후 동일 형식 반환
+func handleUsageAI(w http.ResponseWriter, r *http.Request) {
+	jwt := getJWT()
+	userID := extractSubFromJWT(jwt)
+	if userID == "" {
+		userID = getMachineID()
+	}
+
+	plan := getPlanFromJWT(jwt)
+	if r.Method == http.MethodPost {
+		if plan != "pro" && plan != "team" {
+			incrementUsage(userID, "ai_request")
+		}
+	}
+
+	allowed, used, limit := checkUsageLimit(userID, "ai_request")
+	if plan == "pro" || plan == "team" {
+		allowed = true
+		used = 0
+		limit = -1
+	}
+
+	reset := time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour)
+	json200(w, map[string]any{
+		"used":     used,
+		"limit":    limit,
+		"allowed":  allowed,
+		"plan":     plan,
+		"reset_at": reset.Format(time.RFC3339),
+	})
+}
+
+// extractSubFromJWT parses JWT payload and returns the "sub" claim.
+func extractSubFromJWT(token string) string {
+	if token == "" {
+		return ""
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	payload := parts[1]
+	switch len(payload) % 4 {
+	case 2:
+		payload += "=="
+	case 3:
+		payload += "="
+	}
+	raw, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return ""
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		return ""
+	}
+	if sub, ok := claims["sub"].(string); ok {
+		return sub
+	}
+	return ""
 }

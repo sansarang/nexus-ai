@@ -20,3 +20,7 @@ func callGroqViaProxy(msgs []groqMsg, maxTokens int, jsonMode bool) (string, err
 func callTavilyViaProxy(query string, maxResults int) (tavilyResult, bool) {
 	return tavilyResult{}, false
 }
+
+func callTavilyDomainViaProxy(query string, maxResults int, domain string) (tavilyResult, bool) {
+	return tavilyResult{}, false
+}

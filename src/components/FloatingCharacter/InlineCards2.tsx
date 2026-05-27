@@ -41,9 +41,11 @@ function CardWrap({ children, accent }: { children: React.ReactNode; accent: str
       initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       style={{
-        background: 'rgba(10,12,28,0.97)', border: `1px solid ${accent}33`,
+        background: '#0a0c1c', border: `1px solid ${accent}44`,
+        borderLeft: `3px solid ${accent}`,
         borderRadius: 14, padding: '12px 14px', display: 'flex',
         flexDirection: 'column', gap: 8, width: '100%',
+        boxShadow: '0 6px 28px rgba(0,0,0,0.75)',
       }}
     >
       {children}
@@ -657,7 +659,11 @@ export function InlineCardRenderer2({
 
 function FileResultCard({ data, accentColor }: { data: { fileName: string; url: string; mimeType: string; width?: number; height?: number; frames?: number; operation?: string }; accentColor: string }) {
   const isImage = data.mimeType.startsWith('image/')
-  const opLabel: Record<string, string> = { resize: '리사이즈', to_gif: 'GIF 변환', convert: '포맷 변환', compare: '비교 분석' }
+  const isVideo = data.mimeType.startsWith('video/')
+  const opLabel: Record<string, string> = {
+    resize: '리사이즈', to_gif: 'GIF 변환', convert: '포맷 변환', compare: '비교 분석',
+    video_trim: '구간 자르기', video_compress: '용량 압축', video_speed: '속도 변환', video_subtitle: '자막 삽입',
+  }
   const label = opLabel[data.operation ?? ''] ?? '파일 처리'
 
   return (
@@ -668,6 +674,10 @@ function FileResultCard({ data, accentColor }: { data: { fileName: string; url: 
       {isImage && (
         <img src={data.url} alt={data.fileName}
           style={{ width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 8, marginBottom: 6, background: 'rgba(0,0,0,0.3)' }} />
+      )}
+      {isVideo && (
+        <video src={data.url} controls
+          style={{ width: '100%', maxHeight: 200, borderRadius: 8, marginBottom: 6, background: '#000' }} />
       )}
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
         {data.fileName}

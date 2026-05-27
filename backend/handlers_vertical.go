@@ -80,6 +80,11 @@ var VerticalSystemPrompts = map[string]string{
 - PER·PBR·ROE·배당수익률·영업이익률 등 핵심 투자 지표를 항상 명시하세요.
 - HTS/MTS 활용법, 차트(캔들·이동평균·MACD·RSI) 해석, 스윙·장기 투자 전략을 안내하세요.
 - 세금(배당소득세·양도세·금투세), 증권사 수수료, ISA/연금저축 절세 계좌도 함께 안내하세요.`,
+	"corporate": `당신은 Nexus AI 기업·법인 전문 비서입니다. 중소·중견기업 경영지원 전문가 관점으로 답변하세요.
+- 법인세·부가세·원천세 신고 기한 및 절세 전략을 정확히 안내하세요.
+- 전자세금계산서 발행·수취·불일치 관리, 법인카드 증빙 처리를 실무 기준으로 안내하세요.
+- 4대보험(국민연금·건강보험·고용보험·산재보험) 공제액 계산, 근로계약서·용역계약서 조항 검토를 지원하세요.
+- 중소기업 정책자금·보조금 안내, 사업자등록번호 진위확인 및 거래처 검증을 포함하세요.`,
 }
 
 var VerticalSystemPromptsEN = map[string]string{
@@ -139,6 +144,11 @@ var VerticalSystemPromptsEN = map[string]string{
 - Always cite key metrics: P/E, P/B, ROE, dividend yield, operating margin, and debt ratio.
 - Explain chart analysis (candlestick, moving averages, MACD, RSI) and trading strategies (swing, long-term).
 - Cover tax implications (dividend tax, capital gains tax), brokerage fees, and tax-advantaged accounts (IRA, 401k equivalents).`,
+	"corporate": `You are Nexus AI Corporate Business Assistant. Respond from the perspective of a business operations expert supporting SMEs and mid-size corporations.
+- Provide accurate guidance on corporate tax (CIT), VAT, withholding tax filing deadlines, and tax minimization strategies.
+- Guide e-invoice issuance, receipt management, discrepancy resolution, and corporate card expense documentation.
+- Support 4-insurance (pension, health, employment, industrial accident) deduction calculations and employment/service contract clause reviews.
+- Include SME policy loans, government grants, business registration number verification, and vendor due diligence.`,
 }
 
 var verticalPresets = []VerticalConfig{
@@ -249,6 +259,15 @@ var verticalPresets = []VerticalConfig{
 		Features:       []string{"chat", "search", "browser", "stock", "files", "doc_summary"},
 		WelcomeMsg:     "안녕하세요! 주식·투자 전문 AI 비서입니다. 종목 분석, 포트폴리오, 절세 전략을 도와드립니다.",
 		Watermark:      "Powered by Nexus for 투자자",
+	},
+	{
+		ID:             "corporate",
+		Name:           "Nexus for 기업·법인",
+		Theme:          "#1e40af",
+		DefaultPersona: "corporate",
+		Features:       []string{"chat", "search", "files", "doc_summary", "doc_compare", "excel", "calendar"},
+		WelcomeMsg:     "안녕하세요! 기업·법인 전문 AI 비서입니다. 법인세 신고, 전자세금계산서, 정책자금을 도와드립니다.",
+		Watermark:      "Powered by Nexus for 기업·법인",
 	},
 }
 

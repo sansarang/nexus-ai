@@ -299,6 +299,7 @@ func main() {
 	mux.HandleFunc("GET /api/agent/multi/agents", handleAgentList)
 	mux.HandleFunc("GET /api/multi-agent/stream/", handleMultiAgentStream)
 	mux.HandleFunc("POST /api/multi-agent/run", handleMultiAgentRunV2)
+	mux.HandleFunc("POST /api/dispatch/parallel", handleDispatchParallel)
 
 	// ── 📧 Email Deep Agency ──────────────────────────────────────
 	mux.HandleFunc("POST /api/email/classify", handleEmailClassify)
@@ -353,6 +354,8 @@ func main() {
 
 	// ── 📊 사용량 추적 ────────────────────────────────────────────
 	mux.HandleFunc("GET /api/usage", handleUsageStatus)
+	mux.HandleFunc("GET /api/usage/ai", handleUsageAI)
+	mux.HandleFunc("POST /api/usage/ai", handleUsageAI)
 
 	// ── 🔍 신규 기능: 메타데이터 / Wayback / 보안 / 영상 / 익명검색 ──
 	mux.HandleFunc("POST /api/file/metadata", handleFileMetadata)

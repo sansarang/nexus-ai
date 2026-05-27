@@ -23,13 +23,13 @@ import { openCheckout, PADDLE_PRICES } from '../../lib/paddle'
 export type AvatarConfig = {
   assistantName: string
   userName: string
-  glbUrl: string
+  glbUrl: string | null
   previewUrl: string | null
   primaryColor: string
   accentColor: string
   preset: CharacterPreset
   styleId: RealisticStyleId
-  ttsVoice: string
+  ttsVoice?: string
 }
 
 interface OnboardingFlowProps {
@@ -252,7 +252,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const JOB_PERSONAS                  = isEn ? JOB_PERSONAS_EN : JOB_PERSONAS_KO
   const USER_NAMES                    = isEn ? USER_NAMES_EN : USER_NAMES_KO
   const [step, setStep]               = useState(0)
-  const [styleId, setStyleId]         = useState<RealisticStyleId>('kpop_star')
+  const [styleId, setStyleId]         = useState<RealisticStyleId>('nexus')
   const [assistantName, setName]      = useState(isEn ? 'Nexus' : '넥서스')
   const [nameInput, setNameInput]     = useState(isEn ? 'Nexus' : '넥서스')
   const [userInput, setUserInput]     = useState('')
@@ -474,13 +474,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     onComplete({
       assistantName: assistantName || (isEn ? 'Nexus' : '넥서스'),
       userName: userName || userInput || (isEn ? 'Boss' : '주인님'),
-      glbUrl: selectedStyle.glbUrl,
+      glbUrl: selectedStyle.glbUrl ?? null,
       previewUrl: null,
       primaryColor: selectedStyle.primaryColor,
       accentColor:  selectedStyle.accentColor,
       preset:       styleId as CharacterPreset,
       styleId,
-      ttsVoice: selectedStyle.ttsVoice,
+      ttsVoice: undefined,
     })
   }
 
@@ -1040,15 +1040,15 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 const planPrice = isPro ? '$19/mo' : isTeam ? '$49/mo' : (isEn ? 'Free' : '무료')
                 const planFeats = isPro
                   ? (isEn
-                    ? ['2,000 AI requests/day', 'Web search · Screen analysis', 'Email assist · Content rec.', 'All Free features included']
-                    : ['하루 2,000건 AI 요청', '웹검색 · 화면분석 · 번역', '이메일 보조 · 콘텐츠 추천', '무료 기능 전체 포함'])
+                    ? ['2,000 AI requests/day', 'GPT-4o · Web search · Screen analysis', 'OpenAI TTS natural voice', 'Email assist · All Free features']
+                    : ['하루 2,000건 AI 요청', 'GPT-4o · 웹검색 · 화면분석', 'OpenAI 자연스러운 AI 음성', '이메일 보조 · 무료 기능 전체'])
                   : isTeam
                   ? (isEn
                     ? ['All Pro features', 'Team sharing + API access', 'Brand customization', 'Priority support']
                     : ['Pro 전체 기능 포함', '팀 공유 + API 접근', '기업 브랜딩 설정', '우선 지원'])
                   : (isEn
-                    ? ['30 AI requests/day', 'Basic chat & weather', 'News & calendar sync', '7-day free trial']
-                    : ['하루 30건 AI 요청', '기본 채팅 · 날씨', '뉴스 · 캘린더 연동', '7일 무료 체험'])
+                    ? ['15 AI requests/day', 'Basic chat & weather & news', 'Browser TTS voice (basic)', 'Perplexity sonar AI model']
+                    : ['하루 15건 AI 요청', '기본 채팅 · 날씨 · 뉴스', '브라우저 기본 AI 음성', 'Perplexity sonar AI 모델'])
 
                 return (
                   <button
@@ -1097,11 +1097,43 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               })}
             </div>
 
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 16 }}>
-              {selectedPlan !== 'free'
-                ? (isEn ? `Payment will start after Google login` : `Google 로그인 후 결제가 시작됩니다`)
-                : (isEn ? `Start for free — upgrade anytime` : `무료로 시작 — 언제든 업그레이드 가능`)}
-            </p>
+            {/* 무료 플랜 선택 시 제한 안내 */}
+            {selectedPlan === 'free' ? (
+              <div style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: 12, padding: '12px 14px',
+                marginBottom: 16,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>
+                  {isEn ? '📋 Free plan includes:' : '📋 무료 플랜에서 제공되는 기능:'}
+                </div>
+                {(isEn ? [
+                  ['🗣️', 'AI Voice', 'Browser built-in TTS (free). Upgrade to Pro for natural OpenAI voice.'],
+                  ['🤖', 'AI Model', 'Perplexity sonar (fast & capable). Pro unlocks GPT-4o for complex tasks.'],
+                  ['💬', 'Daily limit', '15 AI requests per day. Resets at midnight.'],
+                ] : [
+                  ['🗣️', 'AI 음성', '브라우저 기본 TTS 음성 사용. Pro에서 자연스러운 OpenAI 음성으로 업그레이드.'],
+                  ['🤖', 'AI 모델', 'Perplexity sonar 모델 사용. Pro에서 GPT-4o로 더 정확한 답변.'],
+                  ['💬', '하루 한도', '하루 15건 AI 요청. 자정에 자동 초기화.'],
+                ]).map(([icon, title, desc]) => (
+                  <div key={title as string} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
+                    <span style={{ fontSize: 13 }}>{icon}</span>
+                    <div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{title} </span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{desc}</span>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>
+                  {isEn ? '→ Upgrade anytime from Settings.' : '→ 설정에서 언제든 Pro로 업그레이드할 수 있어요.'}
+                </div>
+              </div>
+            ) : (
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 16 }}>
+                {isEn ? 'Payment will start after Google login' : 'Google 로그인 후 결제가 시작됩니다'}
+              </p>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {nextBtn(() => setStep(4), isEn ? 'Continue →' : '다음 →')}
@@ -1432,7 +1464,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 export function LoginScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { isLoggedIn } = useAppStore()
+  const [showAdmin, setShowAdmin] = useState(false)
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPw, setAdminPw] = useState('')
+  const { isLoggedIn, setLoggedIn } = useAppStore()
 
   useEffect(() => {
     if (isLoggedIn) setLoading(false)
@@ -1446,6 +1481,14 @@ export function LoginScreen() {
     } catch (e: any) {
       setError(e?.message || '로그인 실패. 다시 시도해주세요.')
       setLoading(false)
+    }
+  }
+
+  const handleAdminBypass = () => {
+    if (adminEmail.trim() === ADMIN_EMAIL && adminPw === ADMIN_PASSWORD) {
+      setLoggedIn(ADMIN_EMAIL, 'active', '2099-12-31T00:00:00.000Z')
+    } else {
+      setError('이메일 또는 비밀번호가 올바르지 않습니다.')
     }
   }
 
@@ -1502,6 +1545,29 @@ export function LoginScreen() {
             브라우저에서 로그인 후 자동으로 돌아옵니다
           </p>
         )}
+
+        {/* 관리자 전용 이메일/비밀번호 로그인 */}
+        {!showAdmin ? (
+          <button onClick={() => setShowAdmin(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.2)', padding: 0 }}>
+            관리자
+          </button>
+        ) : (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input type="email" placeholder="관리자 이메일" value={adminEmail}
+              onChange={e => setAdminEmail(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'white', fontSize: 13, boxSizing: 'border-box' }} />
+            <input type="password" placeholder="비밀번호" value={adminPw}
+              onChange={e => setAdminPw(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdminBypass()}
+              style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'white', fontSize: 13, boxSizing: 'border-box' }} />
+            <button onClick={handleAdminBypass}
+              style={{ width: '100%', padding: '10px', background: 'rgba(99,102,241,0.8)', border: 'none', borderRadius: 10, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              로그인
+            </button>
+          </div>
+        )}
+
         {error && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
       </motion.div>
   )

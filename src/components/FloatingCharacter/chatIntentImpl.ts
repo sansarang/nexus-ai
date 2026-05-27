@@ -21,7 +21,12 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   searchAndPDF,
   siteSearch,
   getAuthHeader,
+  videoTranscript,
+  imapInbox,
+  imapSend,
+  dispatchParallel,
 } from '../../lib/nexus/backendAPI'
+import type { ParallelEvent } from '../../lib/nexus/backendAPI'
 import type { PersonaDef } from '../../lib/nexus/backendAPI'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
@@ -76,6 +81,7 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
       case 'calendar_today': return ['Connecting to Outlook...', 'Loading today\'s events']
       case 'email_inbox': return ['Connecting to Outlook...', 'Fetching inbox']
       case 'workflow_run': return ['Generating workflow plan...', 'Executing steps...', 'Compiling results']
+      case 'parallel_queries': return ['Splitting queries...', 'Dispatching in parallel', 'Gathering results']
       case 'multi_agent': return ['Preparing agents...', 'Deploying team', 'Running in parallel']
       case 'briefing_now': return ['Checking weather...', 'Fetching calendar...', 'Checking email...', 'Generating briefing']
       case 'open_folder': return ['Identifying folder...', 'Checking path', 'Opening Explorer']
@@ -263,6 +269,7 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
     case 'workflow_templates': return ['워크플로 템플릿 불러오는 중...']
     case 'imap_inbox':        return ['IMAP 서버 연결 중...', '받은 메일 불러오는 중']
     case 'imap_send':         return ['IMAP 서버 연결 중...', '메일 전송 중']
+    case 'parallel_queries':  return ['쿼리 분리 중...', '병렬 실행 중...', '결과 취합 중']
     case 'multi_agent':       return ['멀티 에이전트 준비 중...', '에이전트 팀 배치 중', '병렬 실행 중']
     case 'briefing_now':      return ['날씨 확인 중...', '일정 수집 중...', '이메일 확인 중...', '브리핑 생성 중']
     case 'task_cancel':       return ['실행 중 작업 확인...', '취소 신호 전송 중']
@@ -1259,14 +1266,10 @@ export async function handleBackendIntentImpl(
             }
           }
           const lang = userLang ?? 'ko'
-          const data = await fetch('http://127.0.0.1:17891/api/video/transcript', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, lang, summarize: true }),
-          }).then(r => r.json()).catch(() => ({ success: false, message: t('영상 분석 실패', 'Video analysis failed', userLang) }))
+          const data = await videoTranscript(url, lang).catch(() => ({ success: false, transcript: '', message: t('영상 분석 실패', 'Video analysis failed', userLang) }))
           return {
             text: data.message ?? (data.success ? t('영상 요약 완료', 'Video summary done', userLang) : t('영상 분석 실패', 'Video analysis failed', userLang)),
-            card2: data.success ? { type: 'system_action', icon: '🎬', title: t('영상 요약', 'Video Summary', userLang), detail: (data.summary ?? data.message ?? '').slice(0, 200), success: true } : undefined,
+            card2: data.success ? { type: 'system_action', icon: '🎬', title: t('영상 요약', 'Video Summary', userLang), detail: (data.transcript ?? data.message ?? '').slice(0, 200), success: true } : undefined,
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1369,10 +1372,13 @@ export async function handleBackendIntentImpl(
 
         /* ── 🚗 교통 시간 ── */
         case 'travel_time': {
-          const parts = originalText.match(/(.+?)(?:에서|에서부터)\s*(.+?)(?:까지|로|으로)/)
+          // "경주에서 부산가는 방법" → origin=경주, destination=부산
+          const parts = originalText.match(/(.+?)(?:에서|에서부터)\s*(.+?)(?:까지|로|으로|가는|이동|교통|방법|버스|기차|KTX|\s*$)/)
             ?? originalText.match(/(?:from|between)\s+(.+?)\s+(?:to|and)\s+(.+?)(?:\s|$)/i)
           const origin = parts?.[1]?.trim() ?? ''
-          const destination = parts?.[2]?.trim() ?? ''
+          // 목적지에서 "가는 방법/교통편" 등 불필요한 접미어 제거
+          const rawDest = parts?.[2]?.trim() ?? ''
+          const destination = rawDest.replace(/\s*(가는|까지|이동|교통|방법|버스|기차|KTX|알려줘|어떻게).*$/i, '').trim()
           if (!origin || !destination) return { text: t('"어디에서 어디까지 얼마나 걸려?" 형식으로 말해주세요.', 'Please say "how long from [origin] to [destination]?"', userLang), emotion: 'neutral' }
           const data = await travelTime(origin, destination).catch(() => ({ success: false, origin, destination, distance_km: 0, duration_min: 0, departure_time: '', arrival_time: '', message: '경로를 찾지 못했어요.' }))
           return {
@@ -1754,13 +1760,11 @@ export async function handleBackendIntentImpl(
 
         /* ── 📨 IMAP 받은 메일 ── */
         case 'imap_inbox': {
-          const data = await fetch('http://127.0.0.1:17891/api/imap/inbox', { signal: AbortSignal.timeout(10000) })
-            .then(r => r.json() as Promise<{ success: boolean; emails: Array<{subject: string; sender: string; received_at: string; is_read: boolean}>; total: number; unread: number; message: string }>)
-            .catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'IMAP 계정이 설정되어 있지 않아요. 설정에서 IMAP 계정을 추가해주세요.' }))
+          const data = await imapInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'IMAP 계정이 설정되어 있지 않아요. 설정에서 IMAP 계정을 추가해주세요.' }))
           return {
-            text: data.message || `받은 메일 ${data.total}개 (읽지 않음 ${data.unread}개)`,
-            card2: { type: 'system_action', icon: '📨', title: `IMAP 메일 ${data.total}개`, detail: data.emails.slice(0, 3).map(e => `${e.is_read ? '📨' : '📩'} ${e.subject} — ${e.sender}`).join('\n'), success: data.success },
-            emotion: data.unread > 0 ? 'concerned' : 'neutral',
+            text: data.message || `받은 메일 ${data.total}개 (읽지 않음 ${data.unread ?? 0}개)`,
+            card2: { type: 'system_action', icon: '📨', title: `IMAP 메일 ${data.total}개`, detail: (data.emails as Array<{subject: string; from: string; read: boolean}>).slice(0, 3).map(e => `${e.read ? '📨' : '📩'} ${e.subject} — ${e.from}`).join('\n'), success: data.success },
+            emotion: (data.unread ?? 0) > 0 ? 'concerned' : 'neutral',
           }
         }
 
@@ -1771,12 +1775,7 @@ export async function handleBackendIntentImpl(
           if (!to) return { text: t('받는 사람 이메일을 알려주세요.', 'Please provide the recipient email address.', userLang), emotion: 'neutral' }
           const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? originalText.match(/subject[:\s]+(.+)/i)?.[1] ?? t('NEXUS에서 보낸 메일', 'Mail from NEXUS', userLang)
           const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? ''
-          const res = await fetch('http://127.0.0.1:17891/api/imap/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to, subject, body }),
-            signal: AbortSignal.timeout(15000),
-          }).then(r => r.json() as Promise<{ success: boolean; message: string }>).catch(() => ({ success: false, message: '전송 실패' }))
+          const res = await imapSend(to, subject, body).catch(() => ({ success: false, message: '전송 실패' }))
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '📤', title: res.message, success: res.success },
@@ -1793,6 +1792,53 @@ export async function handleBackendIntentImpl(
             card2: { type: 'system_action', icon: '🤖', title: t('멀티 에이전트 실행', 'Multi-agent running', userLang), detail: t(`목표: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, `Goal: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, userLang), success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
+        }
+
+        /* ── ⚡ 병렬 동시 질문 ── */
+        case 'parallel_queries': {
+          // "A랑 B랑 C 동시에 알려줘" 형태에서 쿼리 분리
+          const cleaned = originalText
+            .replace(/동시에|한꺼번에|한번에|같이|함께|parallel|simultaneously/gi, '')
+            .replace(/알려줘|알아봐줘|찾아줘|검색해줘|tell me|find|search/gi, '')
+          const queries = cleaned
+            .split(/[,，、\n]|랑 |와 |and |,\s*/)
+            .map(q => q.trim())
+            .filter(q => q.length > 2)
+          if (queries.length < 2) {
+            return { text: t('동시에 처리할 질문을 여러 개 알려주세요. 예: "날씨랑 환율이랑 코스피 동시에 알려줘"', 'Please provide multiple questions. e.g. "Tell me weather, exchange rate, and KOSPI at the same time"', userLang), emotion: 'neutral' }
+          }
+          const progressMsgId = `par-prog-${Date.now()}`
+          setMessages(prev => [...prev, {
+            id: progressMsgId,
+            role: 'nexus',
+            text: t(`⚡ ${queries.length}개 질문을 동시에 처리 중...\n${queries.map((q, i) => `${i + 1}. ${q}`).join('\n')}`, `⚡ Processing ${queries.length} questions in parallel...\n${queries.map((q, i) => `${i + 1}. ${q}`).join('\n')}`, userLang),
+            emotion: 'neutral',
+          }])
+          const results: Array<{ index: number; query: string; answer: string; success: boolean }> = []
+          await new Promise<void>(resolve => {
+            const ctrl = dispatchParallel(queries, (evt: ParallelEvent) => {
+              if (evt.type === 'result') {
+                results.push({ index: evt.index ?? 0, query: evt.query ?? '', answer: evt.answer ?? '', success: evt.success ?? false })
+                // 중간 결과를 실시간으로 업데이트
+                const sorted = [...results].sort((a, b) => a.index - b.index)
+                const progressText = sorted.map(r => `**${r.index + 1}. ${r.query}**\n${r.answer}`).join('\n\n---\n\n')
+                setMessages(prev => prev.map(m => m.id === progressMsgId
+                  ? { ...m, text: progressText }
+                  : m
+                ))
+              } else if (evt.type === 'done') {
+                void ctrl
+                resolve()
+              } else if (evt.type === 'error') {
+                resolve()
+              }
+            })
+            setTimeout(resolve, 60000) // 60초 타임아웃
+          })
+          const sorted = [...results].sort((a, b) => a.index - b.index)
+          const finalText = sorted.map(r => `**${r.index + 1}. ${r.query}**\n${r.success ? r.answer : `❌ ${r.answer}`}`).join('\n\n---\n\n')
+          setMessages(prev => prev.map(m => m.id === progressMsgId ? { ...m, text: finalText } : m))
+          return { text: '', emotion: 'happy' } // setMessages로 이미 처리됨 (빈 텍스트 반환)
         }
 
         /* ── 📢 브리핑 ── */

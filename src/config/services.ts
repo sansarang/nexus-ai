@@ -9,7 +9,7 @@ export const TAVILY_API_KEY = ''
 
 // 관리자 계정 (패스워드 프론트 노출 금지 — Supabase Auth 사용)
 export const ADMIN_EMAIL    = import.meta.env.VITE_ADMIN_EMAIL    as string ?? 'admin@nexus.kr'
-export const ADMIN_PASSWORD = '' // 프론트에서 admin bypass 비활성화
+export const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD as string ?? ''
 
 // Supabase (배포 전 설정)
 export const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL      as string ?? ''

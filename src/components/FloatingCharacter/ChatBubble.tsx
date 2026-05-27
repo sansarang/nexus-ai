@@ -500,11 +500,10 @@ export function ChatBubble({
       style={{
         width: chatSize.w,
         height: chatSize.h,
-        background: 'rgba(10,10,20,0.93)',
-        border: `1px solid ${primaryColor}44`,
+        background: '#0a0a14',
+        border: `1px solid ${primaryColor}55`,
         borderRadius: 18,
-        backdropFilter: 'blur(16px)',
-        boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${primaryColor}22`,
+        boxShadow: `0 16px 48px rgba(0,0,0,0.85), 0 0 0 1px ${primaryColor}22`,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -530,31 +529,55 @@ export function ChatBubble({
       </div>
       {/* 타이틀 */}
       <div style={{
-        padding: '10px 14px 8px',
-        borderBottom: `1px solid ${primaryColor}22`,
+        padding: '11px 14px 9px',
+        borderBottom: `1px solid ${primaryColor}33`,
+        background: `${primaryColor}0d`,
         display: 'flex',
         alignItems: 'center',
         gap: 8,
+        flexShrink: 0,
       }}>
         <div style={{
-          width: 8, height: 8, borderRadius: '50%',
+          width: 9, height: 9, borderRadius: '50%',
           background: primaryColor,
-          boxShadow: `0 0 6px ${primaryColor}`,
+          boxShadow: `0 0 8px ${primaryColor}, 0 0 16px ${primaryColor}55`,
           animation: 'chatDot 2s ease-in-out infinite',
+          flexShrink: 0,
         }} />
-        <span style={{ fontSize: 11, color: primaryColor, fontWeight: 700, letterSpacing: '0.06em', flex: 1 }}>
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)', fontWeight: 700, letterSpacing: '0.04em', flex: 1 }}>
           {isEn ? 'Chat History' : '대화 이력'}
+        </span>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
+          {history.length > 0 ? `${history.length}개` : ''}
         </span>
         {history.length > 0 && (
           <button
             onClick={() => {
-              localStorage.removeItem(HISTORY_KEY)
-              dispatchHistory({ type: 'set', payload: [] })
+              if (window.confirm(isEn ? 'Delete all chat history?' : '대화 이력을 전부 삭제할까요?')) {
+                localStorage.removeItem(HISTORY_KEY)
+                dispatchHistory({ type: 'set', payload: [] })
+              }
             }}
             title={isEn ? 'Clear all history' : '이력 전체 삭제'}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.25)', fontSize: 10, padding: '2px 4px',
+              background: 'rgba(239,68,68,0.12)',
+              border: '1px solid rgba(239,68,68,0.35)',
+              borderRadius: 6,
+              cursor: 'pointer',
+              color: '#f87171',
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '3px 8px',
+              transition: 'all 0.15s',
+              marginLeft: 2,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(239,68,68,0.25)'
+              e.currentTarget.style.borderColor = 'rgba(239,68,68,0.6)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(239,68,68,0.12)'
+              e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)'
             }}
           >
             {isEn ? 'Clear all' : '전체삭제'}
@@ -645,15 +668,16 @@ export function ChatBubble({
                   >
                     <div style={{
                       maxWidth: '86%',
-                      padding: '7px 11px',
+                      padding: '8px 12px',
                       borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-                      background: isUser ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
-                      border: `1px solid ${isUser ? primaryColor + '66' : 'rgba(255,255,255,0.1)'}`,
-                      fontSize: 11.5,
-                      color: 'rgba(255,255,255,0.9)',
-                      lineHeight: 1.6,
+                      background: isUser ? `${primaryColor}66` : 'rgba(255,255,255,0.11)',
+                      border: `1px solid ${isUser ? primaryColor + '99' : 'rgba(255,255,255,0.15)'}`,
+                      fontSize: 12,
+                      color: 'rgba(255,255,255,0.97)',
+                      lineHeight: 1.65,
                       whiteSpace: isUser ? 'pre-wrap' : 'normal',
                       wordBreak: 'break-word',
+                      boxShadow: isUser ? `0 2px 10px ${primaryColor}33` : '0 2px 8px rgba(0,0,0,0.3)',
                     }}>
                       {isUser ? displayText : renderMarkdown(displayText)}
                       {isLong && (
@@ -827,15 +851,31 @@ export function ChatBubble({
         </div>
       )}
 
+      {/* clarify 대기 중 안내 (투명 박스 없이 인라인으로) */}
+      {clarifyPending && (
+        <div style={{
+          padding: '5px 12px',
+          borderTop: `1px solid ${primaryColor}44`,
+          background: `${primaryColor}11`,
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontSize: 10.5, color: primaryColor, fontWeight: 600,
+        }}>
+          <span>💬</span>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {clarifyQuestion || (lang === 'en' ? 'Additional info needed' : '추가 정보가 필요합니다')}
+          </span>
+        </div>
+      )}
+
       {/* 입력 바 */}
       <div style={{
-        padding: clarifyPending ? '46px 10px 8px' : attachedFiles.length > 0 ? '6px 10px 8px' : '8px 10px',
-        borderTop: `1px solid ${clarifyPending ? primaryColor + '44' : primaryColor + '22'}`,
+        padding: attachedFiles.length > 0 ? '6px 10px 10px' : '8px 10px 10px',
+        borderTop: `1px solid ${primaryColor}33`,
+        background: `${primaryColor}08`,
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        position: 'relative',
-        transition: 'padding 0.2s',
+        flexShrink: 0,
       }}>
         {/* 숨겨진 파일 인풋 */}
         <input
@@ -878,26 +918,6 @@ export function ChatBubble({
         >
           🎤
         </button>
-
-        {/* clarify 대기 중 안내 배너 */}
-        {clarifyPending && (
-          <div style={{
-            position: 'absolute', top: -38, left: 0, right: 0,
-            background: `linear-gradient(135deg, ${primaryColor}33, ${primaryColor}11)`,
-            border: `1px solid ${primaryColor}66`,
-            borderRadius: 10, padding: '5px 10px',
-            fontSize: 10.5, color: primaryColor, fontWeight: 700,
-            display: 'flex', alignItems: 'center', gap: 5,
-          }}>
-            <span>💬</span>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {clarifyQuestion || (lang === 'en' ? 'Additional info needed' : '추가 정보가 필요합니다')}
-            </span>
-            <span style={{ opacity: 0.6, fontSize: 9 }}>
-              {lang === 'en' ? 'Type or speak your answer' : '텍스트 또는 음성으로 답해주세요'}
-            </span>
-          </div>
-        )}
         <input
           value={input}
           onChange={e => onInputChange(e.target.value)}
@@ -921,10 +941,10 @@ export function ChatBubble({
                   : lang === 'ko' ? `${assistantName}에게...` : `Ask ${assistantName}...`
           }
           style={{
-            flex: 1, background: clarifyPending ? `${primaryColor}11` : 'rgba(255,255,255,0.05)',
-            border: `1.5px solid ${clarifyPending ? primaryColor : listening ? '#ef4444' : attachedFile ? primaryColor : primaryColor}${clarifyPending || attachedFile ? 'aa' : '44'}`,
-            borderRadius: 16, padding: '7px 12px',
-            color: 'rgba(255,255,255,0.9)', fontSize: 13, outline: 'none',
+            flex: 1, background: clarifyPending ? `${primaryColor}18` : 'rgba(255,255,255,0.07)',
+            border: `1.5px solid ${clarifyPending ? primaryColor : listening ? '#ef4444' : attachedFile ? primaryColor : primaryColor}${clarifyPending || attachedFile ? 'bb' : '55'}`,
+            borderRadius: 16, padding: '8px 14px',
+            color: 'rgba(255,255,255,0.97)', fontSize: 13, outline: 'none',
             fontFamily: 'Pretendard, Inter, sans-serif',
             transition: 'border-color 0.2s, background 0.2s',
           }}

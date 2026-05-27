@@ -1,23 +1,14 @@
 /**
- * Avatar3D — Photorealistic 3D Avatar Renderer
- * 2026 standards: PBR + Environment IBL + RTX-level shaders
- *
- * GLB URL 있을 때 → Ready Player Me / Mixamo 아바타 렌더링
- * GLB URL 없을 때 → PBR ProceduralHumanoid (피부 SSS, 각막 유리, 머리 silk sheen)
- *
- * 핵심 업그레이드:
- *  - Environment IBL (City/Studio preset)
- *  - ACESFilmic tone mapping
- *  - 투명 배경 (Tauri overlay 지원)
- *  - 고품질 directional + rim 조명
+ * Avatar3D — 2D SVG AvatarEngine 래퍼 (3D WebGL 경로 제거)
+ * Three.js/Canvas 의존성 없이 AvatarEngine(SVG) 기반으로 단순화.
  */
 import React from 'react'
-import { Canvas } from '@react-three/fiber'
-import { ContactShadows, OrbitControls } from '@react-three/drei'
-import * as THREE from 'three'
-import type { AvatarEmotion, CharacterPreset } from './ProceduralHumanoid'
-import { AvatarModel } from './AvatarModel'
-import { ProceduralHumanoid, KPOP_PRESETS } from './ProceduralHumanoid'
+import { AvatarEngine } from '../AvatarEngine'
+import type { CharacterId } from '../characters'
+
+// 하위 호환 타입 — 기존 코드가 import 하던 타입 유지
+export type AvatarEmotion = 'neutral' | 'happy' | 'concerned' | 'surprised' | 'alert'
+export type CharacterPreset = 'kpop_star' | 'expert_professional' | 'natural_human' | 'creator_streamer'
 
 export interface Avatar3DProps {
   glbUrl?: string | null
@@ -36,170 +27,47 @@ export interface Avatar3DProps {
   characterOffsetY?: number
 }
 
+// AvatarEmotion → CharacterEmotion 매핑 (surprised → alert)
+function toCharacterEmotion(e: AvatarEmotion): 'neutral' | 'happy' | 'concerned' | 'alert' | 'humorous' {
+  if (e === 'surprised') return 'alert'
+  return e as 'neutral' | 'happy' | 'concerned' | 'alert'
+}
+
 export function Avatar3D({
-  glbUrl,
   emotion,
   speaking,
   listening,
   primaryColor,
   accentColor,
-  preset,
   scale = 1,
-  preview = false,
   width = 200,
   height = 340,
-  quality = 'high',
-  cameraY,
-  characterOffsetY = -0.3,
 }: Avatar3DProps) {
-
-  const resolvedCameraY = cameraY ?? 0.8
-  const cameraPos: [number, number, number] = preview
-    ? [0, resolvedCameraY, 1.8]
-    : [0, resolvedCameraY, 2.0]
-  const effectiveScale = preview ? scale * 1.4 : scale
-  const shadowSize = quality === 'high' ? 1024 : 512
-
-  const pColor = new THREE.Color(primaryColor)
-  const aColor = new THREE.Color(accentColor)
+  // localStorage에서 캐릭터 ID 읽기 (없으면 nexus 기본값)
+  let characterId: CharacterId = 'nexus'
+  try {
+    const stored = localStorage.getItem('nexus-character-id') as CharacterId | null
+    if (stored === 'iron' || stored === 'lumi' || stored === 'nexus') {
+      characterId = stored
+    }
+  } catch { /* SSR/no-localStorage 환경 무시 */ }
 
   return (
-    <div style={{ width, height, position: 'relative', overflow: 'visible' }}>
-      <Canvas
-        style={{ background: 'transparent', width: '100%', height: '100%' }}
-        camera={{
-          position: cameraPos,
-          fov: preview ? 50 : 40,
-          near: 0.01,
-          far: 100,
-        }}
-        gl={{
-          alpha: true,
-          antialias: true,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.0,
-          outputColorSpace: THREE.SRGBColorSpace,
-        }}
-        shadows
-        dpr={quality === 'high' ? [1, 2] : [1, 1.5]}
-      >
-        {/* ── 전체 기본광 — PBR 재질 색상 표현용 ── */}
-        <ambientLight intensity={1.8} color="#ffffff" />
-
-        {/* ── 주 조명 (키 라이트) ── */}
-        <directionalLight
-          position={[1.2, 2.8, 2.5]}
-          intensity={2.2}
-          castShadow
-          shadow-mapSize-width={shadowSize}
-          shadow-mapSize-height={shadowSize}
-          shadow-camera-near={0.5}
-          shadow-camera-far={10}
-          shadow-bias={-0.0004}
-        />
-
-        {/* ── 보조 조명 (필 라이트 — 왼쪽) ── */}
-        <directionalLight
-          position={[-1.8, 1.5, 1.0]}
-          intensity={1.2}
-          color={new THREE.Color('#cce0ff')}
-        />
-
-        {/* ── 림 라이트 (캐릭터 색상 기반) ── */}
-        <pointLight
-          position={[-1.2, 1.8, -1.0]}
-          intensity={1.4}
-          color={pColor}
-          distance={5}
-        />
-
-        {/* ── 어깨 하이라이트 (accent 색) ── */}
-        <pointLight
-          position={[0, 1.5, -0.8]}
-          intensity={0.8}
-          color={aColor}
-          distance={4}
-        />
-
-        {/* ── 전면 소프트 필 ── */}
-        <directionalLight
-          position={[0, 0.5, 3.5]}
-          intensity={0.9}
-          color={new THREE.Color('#fff5e8')}
-        />
-
-        {/* ── 하단 바운스 ── */}
-        <directionalLight
-          position={[0, -1.5, 1.0]}
-          intensity={0.5}
-          color={new THREE.Color('#e8f4ff')}
-        />
-
-        {/* ── 아바타 렌더링 ── */}
-        <group
-          scale={[effectiveScale, effectiveScale, effectiveScale]}
-          position={[0, characterOffsetY, 0]}
-          rotation={[0, 0, 0]}
-        >
-          {glbUrl ? (
-            <AvatarModel
-              url={glbUrl}
-              emotion={emotion}
-              speaking={speaking}
-              listening={listening}
-              primaryColor={primaryColor}
-              accentColor={accentColor}
-            />
-          ) : (
-            <ProceduralHumanoid
-              emotion={emotion}
-              speaking={speaking}
-              listening={listening}
-              primaryColor={primaryColor}
-              accentColor={accentColor}
-              preset={preset}
-            />
-          )}
-        </group>
-
-        {/* ── 발밑 그림자 ── */}
-        <ContactShadows
-          position={[0, -1.35, 0]}
-          opacity={quality === 'high' ? 0.35 : 0.22}
-          scale={2.2}
-          blur={3}
-          far={2}
-          color={primaryColor}
-        />
-
-        {/* ── 미리보기 모드 회전 컨트롤 ── */}
-        {preview && (
-          <OrbitControls
-            enableZoom={false}
-            enablePan={false}
-            minPolarAngle={Math.PI / 4}
-            maxPolarAngle={Math.PI * 0.66}
-            autoRotate
-            autoRotateSpeed={1.8}
-          />
-        )}
-      </Canvas>
-
-      {/* 발광 그라디언트 배경 */}
-      <div style={{
-        position: 'absolute',
-        bottom: 0, left: '50%',
-        transform: 'translateX(-50%)',
-        width: '65%', height: '28%',
-        background: `radial-gradient(ellipse at 50% 100%, ${primaryColor}28 0%, transparent 70%)`,
-        pointerEvents: 'none',
-        zIndex: -1,
-      }} />
+    <div style={{ width, height, position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <AvatarEngine
+        characterId={characterId}
+        emotion={toCharacterEmotion(emotion)}
+        speaking={speaking}
+        listening={listening}
+        primaryColor={primaryColor}
+        accentColor={accentColor}
+        scale={scale}
+      />
     </div>
   )
 }
 
-/** 말하기 음파 overlay */
+// SpeakingWaves — CSS 음파 (3D 불필요)
 export function SpeakingWaves({ color, active }: { color: string; active: boolean }) {
   if (!active) return null
   return (
@@ -229,5 +97,6 @@ export function SpeakingWaves({ color, active }: { color: string; active: boolea
   )
 }
 
-export { ProceduralHumanoid, KPOP_PRESETS }
-export type { AvatarEmotion, CharacterPreset }
+// 하위 호환 — ProceduralHumanoid/KPOP_PRESETS re-export 스텁
+export const KPOP_PRESETS: Record<string, string> = {}
+export const ProceduralHumanoid = Avatar3D

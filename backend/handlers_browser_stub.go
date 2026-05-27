@@ -139,6 +139,10 @@ func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
 		Mode     string `json:"mode"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
+	if req.URL == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "url required"})
+		return
+	}
 	ctx, cancel, err := getBrowserCtxMac()
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
@@ -254,6 +258,7 @@ type ScheduledTask struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
 	Command    string    `json:"command"`
+	Action     string    `json:"action"`
 	CronExpr   string    `json:"cron_expr"`
 	NextRun    time.Time `json:"next_run"`
 	LastRun    time.Time `json:"last_run"`
