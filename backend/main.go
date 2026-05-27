@@ -3,18 +3,43 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
 
-
 func main() {
+	// 파일 로그 — -H windowsgui 빌드에서 콘솔 출력 없음, 파일로 진단
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		appData = os.Getenv("USERPROFILE")
+	}
+	logDir := filepath.Join(appData, "Nexus", "logs")
+	os.MkdirAll(logDir, 0755)
+	logPath := filepath.Join(logDir, "backend.log")
+	if lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+		log.SetOutput(lf)
+		defer lf.Close()
+	}
+	log.Printf("[Nexus Backend] ===== 시작 ===== (pid=%d)", os.Getpid())
+	log.Printf("[Nexus Backend] APPDATA=%s", appData)
+	log.Printf("[Nexus Backend] 로그 경로: %s", logPath)
+
+	// 초기화 패닉 캐치
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[Nexus Backend] PANIC: %v", r)
+			fmt.Fprintf(os.Stderr, "PANIC: %v\n", r)
+		}
+	}()
+
 	mux := http.NewServeMux()
 
 	// 헬스체크
@@ -439,31 +464,42 @@ func main() {
 	mux.HandleFunc("POST /api/file/large", handleFileLarge)
 
 	// 스케줄러 + 메모리 + LLM 키 초기화
+	log.Println("[Nexus Backend] initScheduler...")
 	initScheduler()
+	log.Println("[Nexus Backend] initMemory...")
 	initMemory()
+	log.Println("[Nexus Backend] initTaskQueue...")
 	initTaskQueue()
+	log.Println("[Nexus Backend] initCronEngine...")
 	initCronEngine()
+	log.Println("[Nexus Backend] initTriggerEngine...")
 	initTriggerEngine()
+	log.Println("[Nexus Backend] loadLLMConfig...")
 	loadLLMConfig()
+	log.Println("[Nexus Backend] loadPersonaConfig...")
 	loadPersonaConfig()
+	log.Println("[Nexus Backend] loadBrainIndex...")
 	loadBrainIndex()
-	go startProactiveMonitor()   // Proactive AI 백그라운드 모니터링
-	go startBriefingScheduler()  // 아침 브리핑 + 미팅 사전 알림
-	go startWorkflowScheduler()  // 비주얼 워크플로우 스케줄 실행
-	loadOllamaConfig()           // 로컬 LLM 설정 로드
-	go startHistoryCollector()   // 성능 이력 자동 수집 (5분 간격)
-	go startRecallCollector()    // Windows Recall 자동 캡처 (60초 간격)
-	go rebuildBrainIndex()       // Second Brain 초기 인덱싱
+	go startProactiveMonitor()
+	go startBriefingScheduler()
+	go startWorkflowScheduler()
+	log.Println("[Nexus Backend] loadOllamaConfig...")
+	loadOllamaConfig()
+	go startHistoryCollector()
+	go startRecallCollector()
+	go rebuildBrainIndex()
 
 	const port = "127.0.0.1:17892"
 
+	log.Printf("[Nexus Backend] 포트 바인딩 확인: %s", port)
 	// 포트 충돌 선제 해결: 이전 인스턴스가 남아있으면 강제 종료
 	if ln, err := net.Listen("tcp", port); err != nil {
-		log.Printf("[Nexus] 포트 17892 이미 사용 중 — 이전 인스턴스 종료 시도")
+		log.Printf("[Nexus Backend] 포트 17892 이미 사용 중 (%v) — 이전 인스턴스 종료 시도", err)
 		exec.Command("taskkill", "/F", "/IM", "nexus-backend.exe").Run()
 		time.Sleep(1 * time.Second)
 	} else {
 		ln.Close()
+		log.Println("[Nexus Backend] 포트 17892 사용 가능")
 	}
 
 	srv := &http.Server{
