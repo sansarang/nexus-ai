@@ -96,6 +96,8 @@ interface ChatMessage {
   inlineCard3?: InlineCard3Data
   inlineCard4?: InlineCard4Data
   onMacroRun?: (id: string, name: string) => void
+  clarifyOptions?: string[]       // 명확화 질문 선택 버튼
+  onClarifySelect?: (option: string) => void  // 버튼 클릭 핸들러
 }
 
 export type { ChatMessage }
@@ -756,6 +758,33 @@ export function ChatBubble({
                         </span>
                       )}
                     </div>
+                    {/* 명확화 선택 버튼 */}
+                    {!isUser && msg.clarifyOptions && msg.clarifyOptions.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, maxWidth: '86%' }}>
+                        {msg.clarifyOptions.map((opt, oi) => (
+                          <button
+                            key={oi}
+                            onClick={() => msg.onClarifySelect?.(opt)}
+                            style={{
+                              padding: '5px 10px',
+                              borderRadius: 16,
+                              border: `1px solid ${primaryColor}88`,
+                              background: `${primaryColor}22`,
+                              color: primaryColor,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                              backdropFilter: 'blur(4px)',
+                            }}
+                            onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = `${primaryColor}44` }}
+                            onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = `${primaryColor}22` }}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </motion.div>
                 )
               })}

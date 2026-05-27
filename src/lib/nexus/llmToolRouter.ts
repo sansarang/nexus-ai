@@ -217,6 +217,23 @@ export async function routeWithLLM(
     } catch { /* 폴백 */ }
   }
 
+  // 4순위: 백엔드 번들 Groq 키 (API 키 없이도 작동, 번들 키 사용)
+  try {
+    const res = await fetch('http://127.0.0.1:17891/api/llm/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userMessage }),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) {
+      const data = await res.json() as { success: boolean; tool_call?: string }
+      if (data.success && data.tool_call) {
+        const parsed = parseToolCall(data.tool_call)
+        if (parsed) return parsed
+      }
+    }
+  } catch { /* 폴백 */ }
+
   return fallbackRoute(userMessage, recentHistory)
 }
 

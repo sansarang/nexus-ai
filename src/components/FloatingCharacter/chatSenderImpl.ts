@@ -580,6 +580,8 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           content: h.parts?.[0]?.text ?? '',
         })).filter(h => h.content.length > 0)
 
+        // 페르소나 ID: 백엔드 Tavily 도메인 필터 적용에 사용
+        const activePersonaId = localStorage.getItem('nexus_vertical_id') ?? 'general'
         const cmd = await sendCommand(trimmed, {
           lang:            detectedLang,
           pendingIntent:   clarifyPendingIntent   ?? undefined,
@@ -587,6 +589,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           pendingQuestion: clarifyPendingQuestion ?? undefined,
           history:         recentHistory,
           userEmail:       localStorage.getItem('nexus-user-email') ?? '',
+          context:         activePersonaId !== 'general' ? `persona:${activePersonaId}` : undefined,
         })
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
 
@@ -633,9 +636,12 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
             setTyping(false)
             typingRef.current = false
             setEmotion('neutral')
+            const clarifyOpts: string[] = (cmd as any).clarify_questions ?? []
             setMessages(prev => [...prev, {
               id: `${msgId}-res`, role: 'nexus',
               text: question,
+              clarifyOptions: clarifyOpts,
+              onClarifySelect: (opt: string) => { sendTextImpl(opt, d) },
             }])
             pushModelHistory(trimmed, question)
             // Clarify 질문 TTS — 자동 마이크 시작은 설정에 따름
@@ -687,7 +693,37 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
             if (maItems.length > 0) { setFloatingPreview(maItems); previewSet = true }
           }
 
-          // web_search / chat 공통: result.items → tagPreviewItem 적용
+          // ── 모든 액션 공통: result.items / articles / results → floatingPreview ──
+          // web_search, news_search, chat, weather, stock, exchange_rate, trip_plan 등
+          if (!previewSet && cmd.result) {
+            const anyResult = cmd.result as Record<string, unknown>
+            // 다양한 필드명 정규화: items > articles > results
+            const rawAny: Array<Record<string, string>> = (
+              (anyResult.items as Array<Record<string, string>> | undefined) ??
+              (anyResult.articles as Array<Record<string, string>> | undefined) ??
+              []
+            )
+            if (rawAny.length === 0 && Array.isArray(anyResult.results)) {
+              // results 배열: { name/title, link/url } 형태 정규화
+              const normalized = (anyResult.results as Array<Record<string, string>>)
+                .map(r => ({ title: r.name ?? r.title ?? r.link ?? r.url, url: r.link ?? r.url }))
+                .filter(it => !!it.url)
+              if (normalized.length > 0) {
+                setFloatingPreview(normalized.map(it => tagPreviewItem({ title: it.title, url: it.url })) as any)
+                previewSet = true
+              }
+            } else if (rawAny.length > 0) {
+              const universalItems = rawAny
+                .filter(it => !!(it.url ?? it.link))
+                .map(it => tagPreviewItem({ title: it.title ?? it.name ?? it.url ?? it.link, url: it.url ?? it.link }))
+              if (universalItems.length > 0) {
+                setFloatingPreview(universalItems as any)
+                previewSet = true
+              }
+            }
+          }
+
+          // web_search / chat 공통: result.items → tagPreviewItem 적용 (추가 정보 enrichment용)
           if (!previewSet && (cmd.action === 'web_search' || cmd.action === 'chat' || cmd.action === 'weather')) {
             const resultObj = cmd.result as { items?: Array<{ title?: string; url?: string; type?: string; source?: string }>; query?: string; site?: string; preview_type?: string } | undefined
             // preview_type 설정

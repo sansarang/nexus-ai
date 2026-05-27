@@ -1000,3 +1000,54 @@ func max2(a, b int) int {
 	}
 	return b
 }
+
+// POST /api/llm/route — 번들 Groq 키로 인텐트 라우팅 (프론트엔드 LLM 폴백용)
+// 클라이언트에 API 키가 없을 때 백엔드가 번들 키로 도구 선택을 대신 처리
+func handleLLMRoute(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Message string `json:"message"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if strings.TrimSpace(req.Message) == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "message required"})
+		return
+	}
+
+	systemPrompt := `You are a tool selector for NEXUS AI, a Korean Windows PC assistant.
+Given the user message, pick the SINGLE BEST tool and extract arguments.
+
+Available tools: pc_status, security_scan, full_scan, clean, repair, gpu_stats, process_top,
+volume_control, brightness, wifi_toggle, power_action, launch_app,
+driver_check, network_analysis, windows_updates, defender_status, startup_items,
+file_search, file_organize, file_duplicates, deep_search, doc_compare, doc_summary, smart_organize, open_folder,
+calendar_today, calendar_week, calendar_add, calendar_find_slot,
+email_inbox, email_send, email_summarize, email_classify, email_draft,
+web_search, news_search, youtube_search, price_compare, video_download, search_pdf,
+weather, travel_time, focus_mode, notes, translate, briefing_now,
+meeting_start, meeting_stop, meeting_summary, vision_screen, vision_ocr,
+caption_start, caption_stop, recall_search, recall_capture,
+workflow_run, workflow_list, multi_agent, journal_today, persona_switch,
+general_answer
+
+Rules:
+- news/뉴스 → web_search with {query: "뉴스 주제"}
+- youtube/유튜브/영상 → youtube_search with {query: "..."}
+- 날씨 → weather with {city: "도시명"}
+- 가격/최저가/쇼핑/쿠팡 → price_compare with {query: "상품명"}
+- 검색/알려줘/찾아줘 → web_search with {query: "..."}
+- 일반 대화 → general_answer
+- Respond ONLY with valid JSON (no explanation): {"tool":"tool_name","args":{"key":"value"}}`
+
+	msgs := []groqMsg{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: req.Message},
+	}
+
+	answer, _, err := callGroqWithFallback(msgs, 200, true)
+	if err != nil {
+		writeJSON(w, 503, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+
+	json200(w, map[string]any{"success": true, "tool_call": answer})
+}

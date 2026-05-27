@@ -166,6 +166,7 @@ func main() {
 	mux.HandleFunc("POST /api/llm/doc-compare", handleLLMDocCompare)
 	mux.HandleFunc("POST /api/llm/deep-search", handleLLMDeepSearch)
 	mux.HandleFunc("POST /api/llm/deep-search-web", handleLLMDeepSearchWeb)
+	mux.HandleFunc("POST /api/llm/route", handleLLMRoute)
 
 	// ── Browser Agent (chromedp + Stealth) ──────────────────────
 	mux.HandleFunc("GET /api/browser/status", handleBrowserStatus)

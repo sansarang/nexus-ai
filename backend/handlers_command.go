@@ -508,7 +508,7 @@ func buildNexusRoutingTools() []ToolDef {
 		{Type: "function", Function: ToolFunctionDef{
 			Name:        "clarify",
 			Description: "실행에 필수 정보가 전혀 없어서 진행 불가능할 때만 사용 (파일명 없는 파일 찾기, 수신자 없는 이메일 전송 등)",
-			Parameters:  mustParam(`"question":{` + strProp("추가로 물어볼 질문") + `},"missing":{` + strProp("없는 정보 설명") + `},"intent":{` + strProp("원래 실행하려던 액션명") + `}`),
+			Parameters: mustParam(`"question":{` + strProp("추가로 물어볼 질문") + `},"missing":{` + strProp("없는 정보 설명") + `},"intent":{` + strProp("원래 실행하려던 액션명") + `},"options":{"type":"array","items":{"type":"string"},"description":"사용자가 선택할 수 있는 2-4개 선택지 (예: [\"웹 검색\",\"뉴스\",\"쇼핑\",\"유튜브\"])"}`),
 		}},
 		{Type: "function", Function: ToolFunctionDef{
 			Name:        "chat",
@@ -1033,21 +1033,71 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		if pendingIntent == "" {
 			pendingIntent = "chat"
 		}
+
+		// LLM이 제공한 선택지 파싱
+		var clarifyOpts []string
+		if v, ok := intentParams["options"]; ok {
+			if arr, ok2 := v.([]interface{}); ok2 {
+				for _, o := range arr {
+					if s, ok3 := o.(string); ok3 && s != "" {
+						clarifyOpts = append(clarifyOpts, s)
+					}
+				}
+			}
+		}
+		// LLM이 선택지 안 줬으면 missing 필드 기반으로 자동 생성
+		if len(clarifyOpts) == 0 {
+			switch missing {
+			case "query", "topic", "subject":
+				if lang == "en" {
+					clarifyOpts = []string{"Web Search", "News", "Shopping", "YouTube"}
+				} else {
+					clarifyOpts = []string{"웹 검색", "뉴스", "쇼핑", "유튜브"}
+				}
+			case "product":
+				if lang == "en" {
+					clarifyOpts = []string{"Price Comparison", "Reviews", "Shopping", "News"}
+				} else {
+					clarifyOpts = []string{"가격 비교", "리뷰", "쇼핑", "뉴스"}
+				}
+			case "location", "city":
+				if lang == "en" {
+					clarifyOpts = []string{"Seoul", "Busan", "Incheon", "Jeju"}
+				} else {
+					clarifyOpts = []string{"서울", "부산", "인천", "제주"}
+				}
+			case "intent":
+				if lang == "en" {
+					clarifyOpts = []string{"Search Info", "Set Schedule", "Check Files", "Control PC"}
+				} else {
+					clarifyOpts = []string{"정보 검색", "일정 등록", "파일 확인", "PC 제어"}
+				}
+			}
+		}
+
 		json200(w, CommandResponse{
-			Success:         true,
-			Message:         question,
-			Action:          "clarify",
-			NeedsClarify:    true,
-			ClarifyQuestion: question,
-			PendingIntent:   pendingIntent,
-			PendingParams:   collected,
-			Duration:        time.Since(start).String(),
+			Success:          true,
+			Message:          question,
+			Action:           "clarify",
+			NeedsClarify:     true,
+			ClarifyQuestion:  question,
+			ClarifyQuestions: clarifyOpts,
+			PendingIntent:    pendingIntent,
+			PendingParams:    collected,
+			Duration:         time.Since(start).String(),
 		})
 		return
 	}
 
 	// ── 액션 실행 ────────────────────────────────────────────
 	// dispatchAction의 직접 메시지를 사용 (이중 LLM 호출 제거)
+	// req.Context에 페르소나 ID("persona:medical" 등)가 있으면 params에 주입
+	if req.Context != "" {
+		if intentParams == nil {
+			intentParams = map[string]any{}
+		}
+		intentParams["_persona_ctx"] = req.Context
+	}
 	result, msg := dispatchAction(intentAction, intentParams, req.Message, gKey, lang, req.History)
 
 	saveAgentMemory(AgentMemoryEntry{
@@ -1340,12 +1390,56 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		site := str("site")
 		output := str("output")
 		maxItems := intVal("max_items", 8)
+
+		// ── 페르소나 도메인 필터 ──────────────────────────────
+		personaCtx := str("_persona_ctx") // "persona:medical" 등
+		// 페르소나별 Tavily include_domains 매핑
+		personaDomains := map[string][]string{
+			"persona:medical":    {"pubmed.ncbi.nlm.nih.gov", "who.int", "health.gov", "medscape.com", "webmd.com", "healthline.com"},
+			"persona:legal":      {"law.go.kr", "lawnb.com", "lawmake.go.kr", "courts.go.kr", "legalengine.co.kr"},
+			"persona:developer":  {"stackoverflow.com", "github.com", "docs.microsoft.com", "developer.mozilla.org", "npmjs.com"},
+			"persona:finance":    {"finance.naver.com", "investing.com", "bloomberg.com", "reuters.com", "hankyung.com"},
+			"persona:accountant": {"nts.go.kr", "taxnet.or.kr", "kacpta.or.kr", "bizforms.co.kr"},
+			"persona:realtor":    {"realestate.daum.net", "land.naver.com", "zigbang.com", "dabangapp.com", "molit.go.kr"},
+			"persona:hr":         {"사람인.com", "jobkorea.co.kr", "wanted.co.kr", "moel.go.kr", "laborlaw.mohw.go.kr"},
+			"persona:engineer":   {"iiec.or.kr", "kssc.or.kr", "kats.go.kr", "iso.org", "ieee.org"},
+		}
+		llmMu.RLock()
+		wsKey := llmTavilyKey
+		llmMu.RUnlock()
+
 		// 사용자 메시지에 명시적 파일 저장 요청이 있을 때만 runWebSearch 호출
 		// LLM이 임의로 output 파라미터를 생성해도 무시
 		userWantsFile := detectOutputFormat(original) != outNone && hasFileSaveVerb(original)
 		if !userWantsFile {
 			cat := detectCategory(query)
-			pr := parallelWebSearch(query, maxItems, lang)
+			var pr parallelSearchResult
+
+			// 페르소나 도메인 필터가 있고 Tavily 키가 있으면 도메인 필터링 검색
+			if domains, ok := personaDomains[personaCtx]; ok && wsKey != "" && len(domains) > 0 {
+				// 도메인별로 Tavily 검색 (최대 2개 도메인)
+				var filteredItems []map[string]string
+				for _, dom := range domains[:min(2, len(domains))] {
+					if tr, ok2 := tavilySearchDomain(wsKey, query, maxItems/2+1, dom); ok2 {
+						filteredItems = append(filteredItems, tr.Items...)
+					}
+					if len(filteredItems) >= maxItems {
+						break
+					}
+				}
+				if len(filteredItems) > maxItems {
+					filteredItems = filteredItems[:maxItems]
+				}
+				// 도메인 필터 결과로 pr 구성
+				pr = parallelWebSearch(query, 3, lang) // 요약은 일반 검색에서
+				pr.Items = append(filteredItems, pr.Items...)
+				if len(pr.Items) > maxItems {
+					pr.Items = pr.Items[:maxItems]
+				}
+			} else {
+				pr = parallelWebSearch(query, maxItems, lang)
+			}
+
 			items := pr.Items
 			if len(items) == 0 {
 				items = buildFallbackURLs(query, site)
