@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -238,14 +239,11 @@ func getMachineID() string {
 			return id
 		}
 	}
-	// generate simple UUID v4
-	f, err := os.Open("/dev/urandom")
-	if err != nil {
+	// generate simple UUID v4 (crypto/rand works on all platforms including Windows)
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
 		return "default-machine"
 	}
-	defer f.Close()
-	b := make([]byte, 16)
-	_, _ = f.Read(b)
 	id := fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 	_ = os.WriteFile(p, []byte(id), 0600)
 	return id
