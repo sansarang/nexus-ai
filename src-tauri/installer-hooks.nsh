@@ -168,12 +168,20 @@
   DetailPrint "ffmpeg: OK"
 
   ; ── 5c. Windows Defender 제외 등록 (백엔드 차단 방지) ──────────────
-  DetailPrint "Registering Windows Defender exclusion..."
-  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "try { Add-MpPreference -ExclusionPath \"$INSTDIR\" -ErrorAction Stop; exit 0 } catch { exit 1 }"'
+  ; 경로 제외: 설치 폴더 + 앱 데이터 폴더
+  DetailPrint "Registering Windows Defender path exclusions..."
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "try { Add-MpPreference -ExclusionPath \"$INSTDIR\", \"$APPDATA\Nexus\", \"$LOCALAPPDATA\Nexus\" -ErrorAction Stop; exit 0 } catch { exit 1 }"'
+  Pop $0
+  StrCmp $0 "0" DefenderPathOk 0
+    DetailPrint "Defender path exclusion: skipped (no admin)"
+  DefenderPathOk:
+
+  ; 프로세스 제외: 바이너리 이름 기준 (어느 경로에서 실행돼도 허용)
+  DetailPrint "Registering Windows Defender process exclusions..."
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "try { Add-MpPreference -ExclusionProcess \"nexus-backend.exe\", \"Nexus.exe\" -ErrorAction Stop; exit 0 } catch { exit 1 }"'
   Pop $0
   StrCmp $0 "0" DefenderOk 0
-    ; 관리자 권한 없을 경우 사용자 알림
-    DetailPrint "Defender exclusion: skipped (no admin — please add manually if blocked)"
+    DetailPrint "Defender process exclusion: skipped (no admin)"
   DefenderOk:
   DetailPrint "Defender exclusion: OK"
 

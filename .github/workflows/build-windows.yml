@@ -76,7 +76,16 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Go backend (Windows x64)
+      - name: Install garble (AV obfuscation)
+        working-directory: backend
+        shell: pwsh
+        run: |
+          go install mvdan.cc/garble@latest
+          $goBin = "$(go env GOPATH)\bin"
+          echo $goBin >> $env:GITHUB_PATH
+          Write-Host "garble installed: $goBin\garble.exe"
+
+      - name: Build Go backend (Windows x64, garbled)
         working-directory: backend
         shell: pwsh
         env:
@@ -85,7 +94,7 @@ jobs:
           CGO_ENABLED: '0'
         run: |
           New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
-          go build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
+          garble build -ldflags="-s -w -H windowsgui" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
           Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
 
       - name: Build Tauri app (npm)

@@ -112,6 +112,7 @@ export function NexusChat() {
   const [listening, setListening] = useState(false)
   const [voiceInterim, setVoiceInterim] = useState('') // 실시간 음성 인식 중간 결과
   const [showMarketplace, setShowMarketplace] = useState(false)
+  const [backendDown, setBackendDown] = useState(false)
 
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [fileLoading, setFileLoading] = useState(false)
@@ -191,6 +192,17 @@ export function NexusChat() {
     syncUsageFromServer().then(data => {
       if (data) setDailyCount(data.used)
     })
+  }, [])
+
+  /* ── Watchdog: 백엔드 재시작 감지 ── */
+  useEffect(() => {
+    let u1: (() => void) | undefined
+    let u2: (() => void) | undefined
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen('backend-restarting', () => setBackendDown(true)).then(u => { u1 = u })
+      listen('backend-ready',      () => setBackendDown(false)).then(u => { u2 = u })
+    }).catch(() => {})
+    return () => { u1?.(); u2?.() }
   }, [])
 
   /* ── 능동형 모니터링 — PC 상태 폴링 후 자동 알림 ── */
@@ -890,6 +902,22 @@ export function NexusChat() {
           })()}
         </div>
       </div>
+
+      {/* 백엔드 재시작 배너 */}
+      {backendDown && (
+        <div style={{
+          padding: '6px 16px',
+          background: 'rgba(245,158,11,0.15)',
+          borderBottom: '1px solid rgba(245,158,11,0.3)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontSize: 12, color: '#f59e0b', flexShrink: 0,
+        }}>
+          <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+          {userLang === 'ko'
+            ? '백엔드 재시작 중… 잠시 후 자동 복구됩니다'
+            : 'Backend restarting… will recover shortly'}
+        </div>
+      )}
 
       {/* 메시지 영역 */}
       <div

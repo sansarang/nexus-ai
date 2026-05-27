@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -10,6 +12,9 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 // 백엔드 프로세스 핸들 (앱 종료 시 kill용)
 static BACKEND_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock::new();
+// Watchdog용: 백엔드 실행 경로 + 중복 실행 방지 플래그
+static BACKEND_PATH: OnceLock<PathBuf> = OnceLock::new();
+static WATCHDOG_STARTED: AtomicBool = AtomicBool::new(false);
 
 // ═══════════════════════════════════════════════════════════════
 // Rust 인증 서버 — 포트 17891 직접 소유
@@ -252,13 +257,74 @@ async fn check_outlook_installed() -> bool { false }
 use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+// ── 백엔드 프로세스 단건 생성 (launch_backend + watchdog 공용) ─────
+#[cfg(target_os = "windows")]
+fn spawn_backend_process() -> Option<std::process::Child> {
+    let path = BACKEND_PATH.get()?;
+    std::process::Command::new(path)
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map_err(|e| eprintln!("[Nexus] 백엔드 spawn 실패: {e}"))
+        .ok()
+}
+
+// ── Watchdog — 5초마다 생존 확인, 죽으면 3초 후 재시작 ────────────
+fn start_watchdog(app_handle: tauri::AppHandle) {
+    // 중복 실행 방지
+    if WATCHDOG_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || {
+        // 백엔드 초기 시작 대기 (10초)
+        std::thread::sleep(std::time::Duration::from_secs(10));
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+
+            #[cfg(target_os = "windows")]
+            {
+                // try_wait(): Ok(Some(_)) = 종료됨, Ok(None) = 실행 중
+                let is_dead = BACKEND_PROCESS
+                    .get()
+                    .and_then(|m| m.lock().ok())
+                    .map(|mut g| {
+                        g.as_mut()
+                            .map(|c| !matches!(c.try_wait(), Ok(None)))
+                            .unwrap_or(true) // 프로세스 없음 = dead
+                    })
+                    .unwrap_or(false);
+
+                if is_dead {
+                    eprintln!("[Watchdog] 백엔드 비정상 종료 → 3초 후 재시작");
+                    // 프론트엔드에 알림 (채팅창 배너 표시)
+                    let _ = app_handle.emit("backend-restarting", ());
+
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+
+                    if let Some(child) = spawn_backend_process() {
+                        if let Some(m) = BACKEND_PROCESS.get() {
+                            if let Ok(mut g) = m.lock() {
+                                *g = Some(child);
+                            }
+                        }
+                        eprintln!("[Watchdog] 백엔드 재시작 완료");
+                        // 2초 후 복구 알림
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        let _ = app_handle.emit("backend-ready", ());
+                    } else {
+                        eprintln!("[Watchdog] 백엔드 재시작 실패 — 5초 후 재시도");
+                    }
+                }
+            }
+        }
+    });
+}
+
 fn launch_backend<R: Runtime>(app: &App<R>) {
     BACKEND_PROCESS.get_or_init(|| Mutex::new(None));
 
     #[cfg(target_os = "windows")]
     {
-        // resource_dir = 설치 폴더 (Program Files 또는 AppData\Local\Nexus)
-        // NSIS 인스톨러가 nexus-backend.exe를 여기 직접 설치함
         let path = match app.path().resource_dir() {
             Ok(dir) => dir.join("nexus-backend.exe"),
             Err(e) => {
@@ -270,18 +336,15 @@ fn launch_backend<R: Runtime>(app: &App<R>) {
             eprintln!("[Nexus] 백엔드 바이너리 없음: {}", path.display());
             return;
         }
-        match std::process::Command::new(&path)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn()
-        {
-            Ok(child) => {
-                if let Some(mutex) = BACKEND_PROCESS.get() {
-                    if let Ok(mut guard) = mutex.lock() {
-                        *guard = Some(child);
-                    }
+        // Watchdog이 재사용할 수 있도록 경로 저장
+        let _ = BACKEND_PATH.set(path);
+
+        if let Some(child) = spawn_backend_process() {
+            if let Some(mutex) = BACKEND_PROCESS.get() {
+                if let Ok(mut guard) = mutex.lock() {
+                    *guard = Some(child);
                 }
             }
-            Err(e) => eprintln!("[Nexus] 백엔드 실행 실패: {e}"),
         }
     }
 
@@ -426,8 +489,10 @@ async fn main() {
 
             // 2. Go 백엔드 실행 (포트 17892)
             launch_backend(app);
+            // 2b. Watchdog 시작 (백엔드 비정상 종료 시 자동 재시작)
+            start_watchdog(app.handle().clone());
 
-            // 2. 시스템 트레이 설정
+            // 3. 시스템 트레이 설정
             setup_tray(app)?;
 
             // 3. Alt+Space 단축키 등록
