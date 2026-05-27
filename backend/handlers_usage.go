@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -281,43 +282,79 @@ func getPlanFromJWT(token string) string {
 	return "free"
 }
 
+// resolveUserID: JWT sub 우선, 없으면 machine ID 폴백
+func resolveUserID(fallback string) (subID string, isAuth bool) {
+	if sub := extractSubFromJWT(getJWT()); sub != "" {
+		return sub, true
+	}
+	if fallback != "" {
+		return fallback, false
+	}
+	return getMachineID(), false
+}
+
 // checkUsageLimit returns whether the user can use the feature today,
 // and the current used/limit counts.
+// Supabase가 연결되어 있으면 서버 카운트 우선, 오프라인이면 로컬 폴백.
 func checkUsageLimit(userID, feature string) (allowed bool, used int, limit int) {
 	limit, known := featureLimits[feature]
 	if !known {
-		return true, 0, -1 // unknown features are unrestricted
+		return true, 0, -1
 	}
 
 	jwt := getJWT()
 	plan := getPlanFromJWT(jwt)
 	if plan == "pro" || plan == "team" {
-		return true, 0, -1 // unlimited
+		return true, 0, -1
 	}
 
+	today := time.Now().Format("2006-01-02")
+	uid, isAuth := resolveUserID(userID)
+
+	// Supabase 서버 카운트 조회 (인증된 사용자만)
+	if isAuth {
+		count, err := supabaseFetchCount(jwt, uid, feature, today)
+		if err == nil {
+			return count < limit, count, limit
+		}
+		log.Printf("[Usage] Supabase fetch failed (%v) — local fallback", err)
+	}
+
+	// 로컬 폴백 (오프라인 or 미인증)
 	featureUsageMu.Lock()
 	defer featureUsageMu.Unlock()
-
 	d := loadFeatureUsage()
-	if d[userID] == nil {
-		d[userID] = map[string]int{}
+	if d[uid] == nil {
+		d[uid] = map[string]int{}
 	}
-	used = d[userID][feature]
-	if used >= limit {
-		return false, used, limit
-	}
-	return true, used, limit
+	used = d[uid][feature]
+	return used < limit, used, limit
 }
 
 // incrementUsage bumps the counter for a feature.
+// Supabase에 원자적으로 기록하고, 로컬에도 즉시 반영 (오프라인 대비).
 func incrementUsage(userID, feature string) {
+	today := time.Now().Format("2006-01-02")
+	uid, isAuth := resolveUserID(userID)
+	jwt := getJWT()
+
+	// Supabase 원자적 증가 (비동기 — 요청 블로킹 없음)
+	if isAuth {
+		go func() {
+			if err := supabaseIncrementRPC(jwt, uid, feature, today); err != nil {
+				log.Printf("[Usage] Supabase increment failed (%v) — local only", err)
+			}
+		}()
+	}
+
+	// 로컬 즉시 반영 (오프라인 폴백 + 즉각적인 UI 반영)
 	featureUsageMu.Lock()
 	defer featureUsageMu.Unlock()
 	d := loadFeatureUsage()
-	if d[userID] == nil {
-		d[userID] = map[string]int{}
+	if d[uid] == nil {
+		d[uid] = map[string]int{}
 	}
-	d[userID][feature]++
+	d[uid][feature]++
 	saveFeatureUsage(d)
 }
 
