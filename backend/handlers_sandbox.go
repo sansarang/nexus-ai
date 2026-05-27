@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -127,7 +126,7 @@ func runSandboxedPowerShell(script string) (string, error) {
 		return "", fmt.Errorf("보안 정책에 의해 차단된 명령입니다")
 	}
 
-	out, err := exec.Command("powershell",
+	out, err := newHiddenCmd("powershell",
 		"-NoProfile",
 		"-NonInteractive",
 		"-ExecutionPolicy", "RemoteSigned",

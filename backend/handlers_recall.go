@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -243,7 +242,7 @@ try {
 }
 `
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		out, _ := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
+		out, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command", script).Output()
 		cancel()
 		ocrText := strings.TrimSpace(string(out))
 

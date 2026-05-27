@@ -11,7 +11,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 )
@@ -32,7 +31,7 @@ $bmp.Dispose()
 `, tmp)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
+	cmd := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command", ps)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("화면 캡처 실패: %w — %s", err, string(out))
 	}

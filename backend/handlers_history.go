@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -345,7 +344,7 @@ func saveCurrentSnapshot() {
 
 // getCPUTempEstimate: PowerShell로 CPU 온도 추정 (WMI)
 func getCPUTempEstimate() float64 {
-	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | Select-Object -First 1).CurrentTemperature`,
 	).Output()
 	if err != nil {

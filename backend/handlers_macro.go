@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -201,7 +200,7 @@ func executeMacroActions(actions []MacroAction) []MacroResult {
 				folder = action.Params["folder"]
 			}
 			resolved := resolveFolder(folder)
-			err := exec.Command("explorer", resolved).Start()
+			err := newHiddenCmd("explorer", resolved).Start()
 			result.Success = err == nil
 			result.Message = fmt.Sprintf("폴더 열림: %s", folder)
 
@@ -213,7 +212,7 @@ func executeMacroActions(actions []MacroAction) []MacroResult {
 
 		case "volume":
 			level := action.Params["level"]
-			out, err := exec.Command("powershell", "-NoProfile", "-Command",
+			out, err := newHiddenCmd("powershell", "-NoProfile", "-Command",
 				fmt.Sprintf(`$vol = [System.Math]::Round(%s/100 * 65535); $wsh = New-Object -ComObject WScript.Shell; $wsh.SendKeys([char]0xAD)`, level)).Output()
 			result.Success = err == nil
 			result.Message = fmt.Sprintf("볼륨 %s%%로 설정 (결과: %s)", level, strings.TrimSpace(string(out)))
@@ -224,7 +223,7 @@ func executeMacroActions(actions []MacroAction) []MacroResult {
 			if title == "" {
 				title = "Nexus 매크로"
 			}
-			exec.Command("powershell", "-NoProfile", "-Command",
+			newHiddenCmd("powershell", "-NoProfile", "-Command",
 				fmt.Sprintf(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('%s','%s')`, msg, title)).Start()
 			result.Success = true
 			result.Message = "알림 표시됨"
@@ -241,7 +240,7 @@ func executeMacroActions(actions []MacroAction) []MacroResult {
 
 		case "shell":
 			cmd := action.Params["command"]
-			out, err := exec.Command("powershell", "-NoProfile", "-Command", cmd).Output()
+			out, err := newHiddenCmd("powershell", "-NoProfile", "-Command", cmd).Output()
 			result.Success = err == nil
 			result.Message = strings.TrimSpace(string(out))
 			if len(result.Message) > 100 {
@@ -274,10 +273,10 @@ func launchKnownApp(name string) error {
 		"outlook": "outlook.exe", "아웃룩": "outlook.exe",
 	}
 	if path, ok := appMap[lower]; ok {
-		return exec.Command("cmd", "/c", "start", "", path).Start()
+		return newHiddenCmd("cmd", "/c", "start", "", path).Start()
 	}
 	// 직접 실행 시도
-	return exec.Command("cmd", "/c", "start", "", name).Start()
+	return newHiddenCmd("cmd", "/c", "start", "", name).Start()
 }
 
 // ──────────────────────────────────────────
@@ -330,7 +329,7 @@ $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minu
 Register-ScheduledTask -TaskName "Nexus_%s" -Action $action -Trigger $trigger -Settings $settings -Force
 `, scriptPath, hour, min, macro.ID)
 
-	exec.Command("powershell", "-NoProfile", "-Command", taskScript).Start()
+	newHiddenCmd("powershell", "-NoProfile", "-Command", taskScript).Start()
 }
 
 // ──────────────────────────────────────────
@@ -351,7 +350,7 @@ func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
 		if m.ID == req.ID {
 			found = true
 			// 작업 스케줄러에서도 제거
-			exec.Command("powershell", "-NoProfile", "-Command",
+			newHiddenCmd("powershell", "-NoProfile", "-Command",
 				fmt.Sprintf(`Unregister-ScheduledTask -TaskName "Nexus_%s" -Confirm:$false -ErrorAction SilentlyContinue`, req.ID)).Start()
 		} else {
 			updated = append(updated, m)

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -187,7 +186,7 @@ try {
 func execPowerShell(script string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command", script).Output()
 	return strings.TrimSpace(string(out)), err
 }
 

@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -112,7 +111,7 @@ func (b *triggerBroadcaster) broadcast(msg string) {
 func getCPUPercentWindows() float64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive",
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-NonInteractive",
 		"-Command", "(Get-WmiObject -Query 'SELECT LoadPercentage FROM Win32_Processor' | Measure-Object LoadPercentage -Average).Average").Output()
 	if err != nil {
 		return 0

@@ -11,7 +11,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -205,7 +204,7 @@ func stripXMLTags(s string) string {
 // PDF 텍스트 추출 (Windows PowerShell / pdftotext)
 func extractPdfText(path string) (string, error) {
 	// 방법1: pdftotext (poppler) 가 설치된 경우
-	out, err := exec.Command("pdftotext", "-layout", path, "-").Output()
+	out, err := newHiddenCmd("pdftotext", "-layout", path, "-").Output()
 	if err == nil {
 		return strings.TrimSpace(string(out)), nil
 	}

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -226,7 +225,7 @@ func handleActiveWindow(w http.ResponseWriter, r *http.Request) {
 	title := getActiveWindowTitle()
 
 	// 활성 창 스크린샷
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+	out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds | Select-Object Width, Height | ConvertTo-Json -Compress`).Output()
 
 	json200(w, map[string]any{

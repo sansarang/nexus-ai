@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -74,7 +73,7 @@ var suspiciousProcessKeywords = []string{
 func detectSuspiciousProcesses() []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command",
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		"Get-Process | Select-Object -ExpandProperty Name").Output()
 	if err != nil {
 		return nil
@@ -212,7 +211,7 @@ try {
 `
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command", script).Output()
 	if err != nil || len(out) == 0 {
 		return
 	}

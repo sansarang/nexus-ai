@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -312,7 +311,7 @@ func handleJournalGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 파일 탐색기로 열기
-	exec.Command("explorer", "/select,", outPath).Start()
+	newHiddenCmd("explorer", "/select,", outPath).Start()
 
 	json200(w, map[string]any{
 		"success":  true,

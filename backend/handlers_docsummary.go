@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -297,7 +296,7 @@ func handleDocExportReport(w http.ResponseWriter, r *http.Request) {
 		filename = filepath.Join(desktop, "Desktop", filename)
 	}
 	os.WriteFile(filename, []byte(html), 0644)
-	exec.Command("explorer", filename).Start()
+	newHiddenCmd("explorer", filename).Start()
 
 	json200(w, map[string]any{
 		"success":  true,

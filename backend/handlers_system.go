@@ -25,19 +25,19 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Action {
 	case "get":
-		out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+		out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 			`Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class Vol { [DllImport("winmm.dll")] public static extern int waveOutGetVolume(System.IntPtr h, out uint v); }'; $v = [uint32]0; [Vol]::waveOutGetVolume([System.IntPtr]::Zero, [ref]$v); [math]::Round(($v -band 0xFFFF) / 65535 * 100)`).Output()
 		vol, _ := strconv.Atoi(strings.TrimSpace(string(out)))
 		json200(w, map[string]any{"volume": vol, "message": fmt.Sprintf(msgT("현재 볼륨: %d%%", "Current volume: %d%%", lang), vol)})
 
 	case "mute":
-		exec.Command("powershell", "-NoProfile", "-Command",
+		newHiddenCmd("powershell", "-NoProfile", "-Command",
 			`(New-Object -ComObject WScript.Shell).SendKeys([char]173)`).Run()
 		json200(w, map[string]any{"success": true, "message": msgT("음소거 처리했어요 🔇", "Muted 🔇", lang)})
 
 	case "unmute":
 		// nircmd 없이 순수 Windows API로 음소거 강제 해제
-		exec.Command("powershell", "-NoProfile", "-Command", `
+		newHiddenCmd("powershell", "-NoProfile", "-Command", `
 $obj = New-Object -ComObject WScript.Shell
 Add-Type -TypeDefinition @"
 using System.Runtime.InteropServices;
@@ -85,7 +85,7 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Action == "get" {
-		out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+		out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 			`(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightness).CurrentBrightness`).Output()
 		val, _ := strconv.Atoi(strings.TrimSpace(string(out)))
 		json200(w, map[string]any{"brightness": val, "message": fmt.Sprintf(msgT("현재 밝기: %d%%", "Current brightness: %d%%", lang), val)})
@@ -123,7 +123,7 @@ func handleWifi(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Action == "status" {
-		out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+		out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 			`(Get-NetAdapter -Name 'Wi-Fi' -EA SilentlyContinue).Status`).Output()
 		status := strings.TrimSpace(string(out))
 		connected := strings.EqualFold(status, "Up")
@@ -159,17 +159,17 @@ func handlePower(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Action {
 	case "lock":
-		cmd = exec.Command("rundll32.exe", "user32.dll,LockWorkStation")
+		cmd = newHiddenCmd("rundll32.exe", "user32.dll,LockWorkStation")
 		msg = msgT("화면을 잠갔어요 🔒", "Screen locked 🔒", lang)
 	case "sleep":
-		cmd = exec.Command("powershell", "-NoProfile", "-Command",
+		cmd = newHiddenCmd("powershell", "-NoProfile", "-Command",
 			`Add-Type -Assembly System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend',$false,$false)`)
 		msg = msgT("절전 모드로 전환해요 😴", "Entering sleep mode 😴", lang)
 	case "restart":
-		cmd = exec.Command("shutdown", "/r", "/t", "10")
+		cmd = newHiddenCmd("shutdown", "/r", "/t", "10")
 		msg = msgT("10초 후 재시작합니다 🔄", "Restarting in 10 seconds 🔄", lang)
 	case "shutdown":
-		cmd = exec.Command("shutdown", "/s", "/t", "10")
+		cmd = newHiddenCmd("shutdown", "/s", "/t", "10")
 		msg = msgT("10초 후 종료합니다 ⏻", "Shutting down in 10 seconds ⏻", lang)
 	default:
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("알 수 없는 명령", "Unknown command", lang)})
@@ -219,9 +219,9 @@ func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
 
 	var cmd *exec.Cmd
 	if strings.HasPrefix(target, "ms-") {
-		cmd = exec.Command("cmd", "/c", "start", "", target)
+		cmd = newHiddenCmd("cmd", "/c", "start", "", target)
 	} else {
-		cmd = exec.Command("cmd", "/c", "start", "", target)
+		cmd = newHiddenCmd("cmd", "/c", "start", "", target)
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -243,7 +243,7 @@ func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleProcessTop(w http.ResponseWriter, r *http.Request) {
-	cpuOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
+	cpuOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`Get-Process | Sort-Object CPU -Desc | Select-Object -First 10 Name,Id,CPU,WorkingSet | ConvertTo-Json -Compress`).Output()
 
 	var cpuProcs []struct {
@@ -269,7 +269,7 @@ func handleProcessTop(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	memOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
+	memOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`Get-Process | Sort-Object WorkingSet -Desc | Select-Object -First 10 Name,Id,CPU,WorkingSet | ConvertTo-Json -Compress`).Output()
 
 	var memProcs []struct {

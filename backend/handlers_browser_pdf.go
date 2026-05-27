@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -554,7 +553,7 @@ func handleOpenFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Windows: 기본 앱으로 파일 열기 (PDF → Acrobat, HTML → 브라우저)
-	exec.Command("cmd", "/c", "start", "", path).Start()
+	newHiddenCmd("cmd", "/c", "start", "", path).Start()
 
 	json200(w, map[string]any{
 		"success": true,

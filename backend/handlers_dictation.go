@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"strings"
 	"unicode/utf8"
 )
@@ -40,7 +39,7 @@ func handleDictationType(w http.ResponseWriter, r *http.Request) {
 	script += "Add-Type -AssemblyName System.Windows.Forms\n"
 	script += "[System.Windows.Forms.SendKeys]::SendWait('" + escaped + "')"
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).CombinedOutput()
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command", script).CombinedOutput()
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,
@@ -76,7 +75,7 @@ func handleDictationPaste(w http.ResponseWriter, r *http.Request) {
 		"Add-Type -AssemblyName System.Windows.Forms\n" +
 		"[System.Windows.Forms.SendKeys]::SendWait('^v')"
 
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).CombinedOutput()
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command", script).CombinedOutput()
 	if err != nil {
 		json200(w, map[string]interface{}{
 			"success": false,

@@ -47,11 +47,11 @@ func handleMeetingStart(w http.ResponseWriter, r *http.Request) {
 	var cmd *exec.Cmd
 	_, err := exec.LookPath("ffmpeg")
 	if err == nil {
-		cmd = exec.Command("ffmpeg", "-y", "-f", "dshow",
+		cmd = newHiddenCmd("ffmpeg", "-y", "-f", "dshow",
 			"-i", "audio=@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\\wave_{00000000-0000-0000-0000-000000000000}",
 			fp)
 	} else {
-		cmd = exec.Command("powershell", "-NoProfile", "-Command",
+		cmd = newHiddenCmd("powershell", "-NoProfile", "-Command",
 			"Start-Process -FilePath SoundRecorder -ArgumentList '/file', '"+fp+"' -WindowStyle Hidden")
 	}
 

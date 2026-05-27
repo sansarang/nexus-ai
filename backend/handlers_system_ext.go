@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"strings"
 )
 
@@ -31,7 +30,7 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	if req.PID > 0 {
-		out, err = exec.Command("powershell", "-NoProfile", "-Command",
+		out, err = newHiddenCmd("powershell", "-NoProfile", "-Command",
 			fmt.Sprintf(`Stop-Process -Id %d -Force -ErrorAction SilentlyContinue; Write-Output "OK"`, req.PID)).Output()
 	} else if req.Name != "" {
 		// 프로세스 이름 검증: 영숫자, 공백, 하이픈, 점만 허용
@@ -45,7 +44,7 @@ func handleProcessKill(w http.ResponseWriter, r *http.Request) {
 			json200(w, map[string]interface{}{"success": false, "message": msgT("잘못된 프로세스 이름", "Invalid process name", lang)})
 			return
 		}
-		out, err = exec.Command("powershell", "-NoProfile", "-Command",
+		out, err = newHiddenCmd("powershell", "-NoProfile", "-Command",
 			fmt.Sprintf(`Stop-Process -Name "%s" -Force -ErrorAction SilentlyContinue; Write-Output "OK"`, safeName)).Output()
 	} else {
 		json200(w, map[string]interface{}{

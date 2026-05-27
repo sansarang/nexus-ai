@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -321,7 +320,7 @@ func formatBytes(b int64) string {
 // ──────────────────────────────────────────
 
 func getRealCPU() float64 {
-	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average`).Output()
 	if err != nil {
 		return rand.Float64()*40 + 10
@@ -335,19 +334,19 @@ func getRealCPU() float64 {
 }
 
 func getGPUInfo() (usage float64, name string) {
-	nameOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
+	nameOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject Win32_VideoController | Select-Object -First 1).Name`).Output()
 	name = strings.TrimSpace(string(nameOut))
 
 	// Windows 10/11 GPU utilization via Performance Counter
-	gpuOut, _ := exec.Command("powershell", "-NoProfile", "-Command",
+	gpuOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`try { $s=(Get-Counter '\GPU Engine(*engtype_3D*)\Utilization Percentage' -EA Stop).CounterSamples; if($s){[math]::Round(($s|Measure-Object CookedValue -Average).Average,1)}else{0} }catch{0}`).Output()
 	fmt.Sscanf(strings.TrimSpace(string(gpuOut)), "%f", &usage)
 	return
 }
 
 func getAllDiskStats() []map[string]any {
-	out, _ := exec.Command("powershell", "-NoProfile", "-Command",
+	out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		`Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Used -ne $null} | Select-Object Name,@{N='Used';E={$_.Used}},@{N='Free';E={$_.Free}} | ConvertTo-Json -Compress`).Output()
 
 	var drives []struct {
@@ -456,12 +455,12 @@ func handleAutoClean(w http.ResponseWriter, r *http.Request) {
 func cleanWindowsUpdateCacheInline() int64 {
 	dir := getSystemDrive() + `Windows\SoftwareDistribution\Download`
 	freed := dirSize(dir)
-	exec.Command("net", "stop", "wuauserv").Run()
+	newHiddenCmd("net", "stop", "wuauserv").Run()
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
 		os.RemoveAll(filepath.Join(dir, e.Name()))
 	}
-	exec.Command("net", "start", "wuauserv").Run()
+	newHiddenCmd("net", "start", "wuauserv").Run()
 	return freed
 }
 
@@ -582,7 +581,7 @@ func handleFolderOpen(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Windows Explorer로 열기
-	cmd := exec.Command("explorer.exe", resolved)
+	cmd := newHiddenCmd("explorer.exe", resolved)
 	if err := cmd.Start(); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"success": false,

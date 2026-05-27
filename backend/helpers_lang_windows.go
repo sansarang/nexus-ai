@@ -3,14 +3,13 @@
 package main
 
 import (
-	"os/exec"
 	"strings"
 )
 
 // detectSystemLang: Windows 시스템 언어 감지
 // PowerShell로 CurrentCulture 조회 → "en" or "ko"
 func detectSystemLang() string {
-	out, err := exec.Command("powershell", "-NoProfile", "-Command",
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command",
 		"[System.Globalization.CultureInfo]::CurrentUICulture.Name").Output()
 	if err == nil {
 		locale := strings.TrimSpace(strings.ToLower(string(out)))

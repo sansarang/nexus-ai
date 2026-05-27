@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -835,7 +834,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 	ytdlpPaths := []string{"yt-dlp", "yt-dlp.exe", `C:\yt-dlp\yt-dlp.exe`}
 	ytdlpPath := ""
 	for _, p := range ytdlpPaths {
-		if out, err := exec.Command(p, "--version").Output(); err == nil && len(out) > 0 {
+		if out, err := newHiddenCmd(p, "--version").Output(); err == nil && len(out) > 0 {
 			ytdlpPath = p
 			break
 		}
@@ -866,7 +865,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	outTmpl := savePath + `\%(title)s.%(ext)s`
-	cmd := exec.Command(ytdlpPath, "-f", formatFlag, "-o", outTmpl, "--no-playlist", req.URL)
+	cmd := newHiddenCmd(ytdlpPath, "-f", formatFlag, "-o", outTmpl, "--no-playlist", req.URL)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		writeJSON(w, 500, map[string]any{

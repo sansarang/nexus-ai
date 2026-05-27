@@ -148,7 +148,7 @@ func runCaptionLoop() {
 		chunkPath := filepath.Join(captionDir(), fmt.Sprintf("chunk_%d.wav", time.Now().UnixMilli()))
 
 		// ffmpeg으로 시스템 오디오 캡처 (Windows WASAPI 루프백)
-		cmd := exec.Command("ffmpeg",
+		cmd := newHiddenCmd("ffmpeg",
 			"-f", "dshow",
 			"-i", "audio=CABLE Output (VB-Audio Virtual Cable)", // VB-Cable 없으면 실제 기기로 대체
 			"-t", fmt.Sprintf("%d", chunkSec),
@@ -160,7 +160,7 @@ func runCaptionLoop() {
 
 		// VB-Cable이 없을 경우 기본 스테레오 믹스 시도
 		if err := cmd.Run(); err != nil {
-			cmd2 := exec.Command("ffmpeg",
+			cmd2 := newHiddenCmd("ffmpeg",
 				"-f", "dshow",
 				"-i", "audio=Stereo Mix (Realtek Audio)",
 				"-t", fmt.Sprintf("%d", chunkSec),

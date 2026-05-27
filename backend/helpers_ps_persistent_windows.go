@@ -42,7 +42,7 @@ func getPSSession() (*PSSession, error) {
 		return globalPS, nil
 	}
 
-	cmd := exec.Command("powershell",
+	cmd := newHiddenCmd("powershell",
 		"-NoProfile",
 		"-NonInteractive",
 		"-ExecutionPolicy", "Bypass",

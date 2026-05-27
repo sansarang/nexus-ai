@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/smtp"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -163,7 +162,7 @@ func handleReportGenerate(w http.ResponseWriter, r *http.Request) {
 	filename := fmt.Sprintf("PC건강리포트_%s.html", time.Now().Format("20060102"))
 	outPath := filepath.Join(desktop, filename)
 	os.WriteFile(outPath, []byte(html), 0644)
-	exec.Command("explorer", outPath).Start()
+	newHiddenCmd("explorer", outPath).Start()
 
 	json200(w, report)
 }
@@ -378,7 +377,7 @@ func handleReportSchedule(w http.ResponseWriter, r *http.Request) {
 	saveEmailConfig(cfg)
 
 	if req.Schedule == "off" {
-		exec.Command("powershell", "-NoProfile", "-Command",
+		newHiddenCmd("powershell", "-NoProfile", "-Command",
 			`Unregister-ScheduledTask -TaskName "NexusPCReport" -Confirm:$false -ErrorAction SilentlyContinue`).Start()
 		json200(w, map[string]any{"success": true, "message": msgT("정기 리포트 예약이 취소됐어요", "Scheduled report cancelled", lang)})
 		return
@@ -401,7 +400,7 @@ $trigger = New-ScheduledTask%sTrigger -DaysOfWeek %d -At "%s"
 Register-ScheduledTask -TaskName "NexusPCReport" -Action $action -Trigger $trigger -Force
 `, cfg.ToEmail, triggerType, dayNum, taskTime)
 
-	exec.Command("powershell", "-NoProfile", "-Command", script).Start()
+	newHiddenCmd("powershell", "-NoProfile", "-Command", script).Start()
 
 	json200(w, map[string]any{
 		"success":  true,

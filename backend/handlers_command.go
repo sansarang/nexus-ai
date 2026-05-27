@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,14 +21,14 @@ import (
 func safePS(timeout time.Duration, script string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Output()
+	return newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command", script).Output()
 }
 
 // safePSRun: 출력 없는 safePS
 func safePSRun(timeout time.Duration, script string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script).Run()
+	return newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command", script).Run()
 }
 
 // ── 멀티 액션: 출력 포맷 (Windows 빌드용) ────────────────────────
@@ -2361,15 +2360,15 @@ func runLaunchApp(appName string) (any, string) {
 		if strings.Contains(lower, strings.ToLower(k)) {
 			// ms-settings: 는 start 없이 직접 실행
 			if strings.HasPrefix(v, "ms-") {
-				exec.Command("cmd", "/c", "start", v).Start()
+				newHiddenCmd("cmd", "/c", "start", v).Start()
 			} else {
-				exec.Command("cmd", "/c", "start", "", v).Start()
+				newHiddenCmd("cmd", "/c", "start", "", v).Start()
 			}
 			return map[string]any{"app": v, "requested": appName}, fmt.Sprintf("%s 실행했습니다! 🚀", appName)
 		}
 	}
 	// 알 수 없는 앱: 직접 start 시도 (설치된 앱이면 동작)
-	exec.Command("cmd", "/c", "start", "", appName).Start()
+	newHiddenCmd("cmd", "/c", "start", "", appName).Start()
 	return map[string]any{"app": appName}, fmt.Sprintf("'%s' 실행을 시도했습니다.", appName)
 }
 
@@ -2412,7 +2411,7 @@ func runSystemControl(control string, value int) (any, string) {
 	case "restart_confirmed", "재시작_확인됨":
 		ctx10, c10 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer c10()
-		exec.CommandContext(ctx10, "shutdown", "/r", "/t", "10").Run()
+		newHiddenCmdCtx(ctx10, "shutdown", "/r", "/t", "10").Run()
 		return map[string]any{"restart": true}, "10초 후 재시작합니다. 🔄"
 
 	case "shutdown", "종료":
@@ -2422,7 +2421,7 @@ func runSystemControl(control string, value int) (any, string) {
 	case "shutdown_confirmed", "종료_확인됨":
 		ctx10, c10 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer c10()
-		exec.CommandContext(ctx10, "shutdown", "/s", "/t", "10").Run()
+		newHiddenCmdCtx(ctx10, "shutdown", "/s", "/t", "10").Run()
 		return map[string]any{"shutdown": true}, "10초 후 종료합니다. ⏻"
 	}
 	return nil, fmt.Sprintf("'%s' 제어를 수행할 수 없습니다.", control)

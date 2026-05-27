@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -370,7 +369,7 @@ func registerWindowsTask(task *ScheduledTask) error {
 			"/SC", "ONCE", "/SD", schedDate, "/ST", schedTime}
 	}
 
-	cmd := exec.Command("schtasks", cmdArgs...)
+	cmd := newHiddenCmd("schtasks", cmdArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("schtasks 실패: %s (%v)", string(output), err)
@@ -379,7 +378,7 @@ func registerWindowsTask(task *ScheduledTask) error {
 }
 
 func unregisterWindowsTask(taskID string) error {
-	cmd := exec.Command("schtasks", "/Delete", "/F", "/TN", "Nexus\\"+taskID)
+	cmd := newHiddenCmd("schtasks", "/Delete", "/F", "/TN", "Nexus\\"+taskID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("schtasks 삭제 실패: %s", string(output))
@@ -501,7 +500,7 @@ func runBrowserAgentTask(command string) (string, error) {
 }
 
 func runPowerShellScript(script string) (string, error) {
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive",
+	cmd := newHiddenCmd("powershell", "-NoProfile", "-NonInteractive",
 		"-ExecutionPolicy", "Bypass", "-Command", script)
 	output, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(output)), err

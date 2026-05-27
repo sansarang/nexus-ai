@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -493,7 +492,7 @@ func main() {
 	// 포트 충돌 선제 해결: 이전 인스턴스가 남아있으면 강제 종료
 	if ln, err := net.Listen("tcp", port); err != nil {
 		log.Printf("[Nexus Backend] 포트 17892 이미 사용 중 (%v) — 이전 인스턴스 종료 시도", err)
-		exec.Command("taskkill", "/F", "/IM", "nexus-backend.exe").Run()
+		newHiddenCmd("taskkill", "/F", "/IM", "nexus-backend.exe").Run()
 		time.Sleep(1 * time.Second)
 	} else {
 		ln.Close()
