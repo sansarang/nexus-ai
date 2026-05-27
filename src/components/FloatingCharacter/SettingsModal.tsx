@@ -24,7 +24,7 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
 
   const subLabel = {
     active:  { text: isEn ? 'Active'          : '구독 중',          color: '#4ade80' },
-    trial:   { text: isEn ? '7-Day Free Trial' : '7일 무료 체험 중', color: '#facc15' },
+    trial:   { text: isEn ? '3-Day Free Trial' : '3일 무료 체험 중', color: '#facc15' },
     expired: { text: isEn ? 'Expired'          : '구독 만료',        color: '#f87171' },
     none:    { text: isEn ? 'Not subscribed'   : '미가입',           color: '#718096' },
   }[subscriptionStatus]

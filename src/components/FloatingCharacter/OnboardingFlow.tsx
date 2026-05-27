@@ -1162,8 +1162,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </h2>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
                 {isEn
-                  ? <>Sign in with Google and your<br />7-day free trial starts automatically.</>
-                  : <>구글 계정으로 로그인하면<br />7일 무료 체험이 자동으로 시작됩니다.</>}
+                  ? <>Sign in with Google and your<br />3-day free trial starts automatically.</>
+                  : <>구글 계정으로 로그인하면<br />3일 무료 체험이 자동으로 시작됩니다.</>}
               </p>
             </div>
 
@@ -1250,7 +1250,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80' }}>{googleEmail}</div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
-                  {isEn ? '7-day free trial ready to start' : '7일 무료 체험 시작 준비 완료'}
+                  {isEn ? '3-day free trial ready to start' : '3일 무료 체험 시작 준비 완료'}
                 </div>
               </div>
             )}
@@ -1263,8 +1263,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               color: 'rgba(255,255,255,0.6)', lineHeight: 2,
             }}>
               {(isEn
-                ? ['✦ Unlimited access to all AI features', '✦ Deep Search · Real-time web search', '✦ Auto updates', '✦ Early Bird $12.99/mo after 7 days · Cancel anytime']
-                : ['✦ 모든 AI 기능 무제한 사용', '✦ 딥서치 · 실시간 웹 검색', '✦ 자동 업데이트', '✦ 7일 후 Early Bird 월 14,900원 · 언제든 해지 가능']
+                ? ['✦ Unlimited access to all AI features', '✦ Deep Search · Real-time web search', '✦ Auto updates', '✦ Early Bird $12.99/mo after 3 days · Cancel anytime']
+                : ['✦ 모든 AI 기능 무제한 사용', '✦ 딥서치 · 실시간 웹 검색', '✦ 자동 업데이트', '✦ 3일 후 Early Bird 월 14,900원 · 언제든 해지 가능']
               ).map(t => <div key={t}>{t}</div>)}
             </div>
 

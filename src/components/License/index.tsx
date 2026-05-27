@@ -78,7 +78,7 @@ export function LicenseInput({ onSuccess }: { onSuccess?: () => void; compact?: 
       {error && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
 
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
-        7일 무료 체험 · 이후 월 14,900원 · 언제든 해지 가능
+        3일 무료 체험 · 이후 월 14,900원 · 언제든 해지 가능
       </p>
 
       {/* 관리자 로그인 숨김 */}
@@ -136,7 +136,7 @@ export function LicenseView() {
             Nexus 시작하기
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-            구글 계정으로 로그인하면 7일 무료 체험이 시작됩니다
+            구글 계정으로 로그인하면 3일 무료 체험이 시작됩니다
           </p>
         </div>
         <LicenseInput onSuccess={() => setView('home')} />
