@@ -97,7 +97,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
           $ldflags = "-s -w -H windowsgui -X main.bundledGroqKey=$env:GROQ_KEY -X main.bundledTavilyKey=$env:TAVILY_KEY"
-          garble build -ldflags=$ldflags -o "..\src-tauri\backend-bin\nexus-backend.exe" .
+          garble build "-ldflags=$ldflags" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
           Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
 
       - name: Build Tauri app (npm)
