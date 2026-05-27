@@ -11,7 +11,6 @@
  */
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Avatar3D } from './Avatar3D'
 import { REALISTIC_STYLE_PRESETS } from './Avatar3D/Presets'
 import type { RealisticStyleId, RealisticStylePreset } from './Avatar3D/Presets'
 import type { CharacterPreset } from './Avatar3D'
@@ -1323,7 +1322,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               {isEn ? 'Choose an avatar style and set names.' : '아바타 스타일을 고르고 이름을 설정하세요.'}
             </p>
 
-            {/* Avatar grid (2x2) */}
+            {/* AI 색상 선택 (Siri-style orb grid) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
               {REALISTIC_STYLE_PRESETS.map((s: RealisticStylePreset) => {
                 const selected = styleId === s.id
@@ -1335,34 +1334,31 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => setStyleId(s.id)}
                     style={{
                       background: selected
-                        ? `linear-gradient(135deg, ${s.primaryColor}28, ${s.accentColor}18)`
+                        ? `linear-gradient(135deg, ${s.primaryColor}22, ${s.accentColor}14)`
                         : 'rgba(255,255,255,0.04)',
                       border: selected
                         ? `1.5px solid ${s.primaryColor}88`
                         : '1.5px solid rgba(255,255,255,0.08)',
-                      borderRadius: 16, padding: '14px',
-                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.22s',
+                      borderRadius: 16, padding: '14px 10px',
+                      cursor: 'pointer', textAlign: 'center', transition: 'all 0.22s',
                       position: 'relative', overflow: 'hidden',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                     } as React.CSSProperties}
                   >
-                    <div style={{ height: 100, marginBottom: 8, overflow: 'hidden', borderRadius: 8 }}>
-                      <Avatar3D
-                        emotion={selected ? 'happy' : 'neutral'}
-                        speaking={false} listening={false}
-                        glbUrl={s.glbUrl}
-                        primaryColor={s.primaryColor}
-                        accentColor={s.accentColor}
-                        preset={s.id as CharacterPreset}
-                        width="100%" height={100}
-                        preview scale={0.55} characterOffsetY={-0.6} quality="balanced"
-                      />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 14 }}>{s.previewEmoji}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'white' }}>{s.name}</span>
+                    {/* Siri orb preview */}
+                    <div style={{
+                      width: 56, height: 56, borderRadius: '50%',
+                      background: `radial-gradient(circle at 38% 32%, ${s.accentColor}ee, ${s.primaryColor}cc 40%, ${s.primaryColor}88 68%, ${s.primaryColor}44)`,
+                      boxShadow: selected
+                        ? `0 0 18px ${s.primaryColor}99, 0 0 32px ${s.primaryColor}44`
+                        : `0 0 10px ${s.primaryColor}55`,
+                      transition: 'all 0.22s',
+                    }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: selected ? 'white' : 'rgba(255,255,255,0.7)' }}>{s.name}</span>
                       {selected && (
                         <span style={{
-                          marginLeft: 'auto', fontSize: 9,
+                          fontSize: 9,
                           background: `${s.primaryColor}44`, color: s.primaryColor,
                           padding: '2px 6px', borderRadius: 20, fontWeight: 700,
                         }}>✓</span>

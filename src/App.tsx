@@ -12,6 +12,7 @@ export default function App() {
         height: '100vh',
         overflow: 'visible',
         position: 'relative',
+        background: '#09090f',
       }}
     >
       <FloatingCharacter />
