@@ -28,7 +28,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 'stable'   # go.mod의 go 1.26 요구사항에 맞게 최신 stable 사용
           cache: true
           cache-dependency-path: backend/go.sum
 
