@@ -253,6 +253,6 @@ try {
 		}
 		data, _ := json.Marshal(entry)
 		os.WriteFile(jsonPath, data, 0644)
-		pruneRecallEntries(500)
+		pruneRecallEntries(100) // 100장 × ~2MB = 최대 200MB (VM 디스크 보호)
 	}
 }

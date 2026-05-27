@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -320,7 +321,9 @@ func formatBytes(b int64) string {
 // ──────────────────────────────────────────
 
 func getRealCPU() float64 {
-	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average`).Output()
 	if err != nil {
 		return rand.Float64()*40 + 10
@@ -334,19 +337,25 @@ func getRealCPU() float64 {
 }
 
 func getGPUInfo() (usage float64, name string) {
-	nameOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	nameOut, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject Win32_VideoController | Select-Object -First 1).Name`).Output()
 	name = strings.TrimSpace(string(nameOut))
 
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel2()
 	// Windows 10/11 GPU utilization via Performance Counter
-	gpuOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	gpuOut, _ := newHiddenCmdCtx(ctx2, "powershell", "-NoProfile", "-Command",
 		`try { $s=(Get-Counter '\GPU Engine(*engtype_3D*)\Utilization Percentage' -EA Stop).CounterSamples; if($s){[math]::Round(($s|Measure-Object CookedValue -Average).Average,1)}else{0} }catch{0}`).Output()
 	fmt.Sscanf(strings.TrimSpace(string(gpuOut)), "%f", &usage)
 	return
 }
 
 func getAllDiskStats() []map[string]any {
-	out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	out, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Used -ne $null} | Select-Object Name,@{N='Used';E={$_.Used}},@{N='Free';E={$_.Free}} | ConvertTo-Json -Compress`).Output()
 
 	var drives []struct {

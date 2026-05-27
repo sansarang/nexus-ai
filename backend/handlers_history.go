@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -342,9 +343,11 @@ func saveCurrentSnapshot() {
 	saveHistory(h)
 }
 
-// getCPUTempEstimate: PowerShell로 CPU 온도 추정 (WMI)
+// getCPUTempEstimate: PowerShell로 CPU 온도 추정 (WMI, 8초 타임아웃)
 func getCPUTempEstimate() float64 {
-	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" | Select-Object -First 1).CurrentTemperature`,
 	).Output()
 	if err != nil {

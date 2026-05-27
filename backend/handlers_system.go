@@ -3,12 +3,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ──────────────────────────────────────────
@@ -25,7 +27,9 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 
 	switch req.Action {
 	case "get":
-		out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+		defer cancel()
+		out, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 			`Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class Vol { [DllImport("winmm.dll")] public static extern int waveOutGetVolume(System.IntPtr h, out uint v); }'; $v = [uint32]0; [Vol]::waveOutGetVolume([System.IntPtr]::Zero, [ref]$v); [math]::Round(($v -band 0xFFFF) / 65535 * 100)`).Output()
 		vol, _ := strconv.Atoi(strings.TrimSpace(string(out)))
 		json200(w, map[string]any{"volume": vol, "message": fmt.Sprintf(msgT("현재 볼륨: %d%%", "Current volume: %d%%", lang), vol)})
@@ -85,7 +89,9 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Action == "get" {
-		out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+		defer cancel()
+		out, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 			`(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightness).CurrentBrightness`).Output()
 		val, _ := strconv.Atoi(strings.TrimSpace(string(out)))
 		json200(w, map[string]any{"brightness": val, "message": fmt.Sprintf(msgT("현재 밝기: %d%%", "Current brightness: %d%%", lang), val)})
@@ -123,7 +129,9 @@ func handleWifi(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Action == "status" {
-		out, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+		defer cancel()
+		out, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 			`(Get-NetAdapter -Name 'Wi-Fi' -EA SilentlyContinue).Status`).Output()
 		status := strings.TrimSpace(string(out))
 		connected := strings.EqualFold(status, "Up")
@@ -243,7 +251,9 @@ func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
 // ──────────────────────────────────────────
 
 func handleProcessTop(w http.ResponseWriter, r *http.Request) {
-	cpuOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	cpuOut, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`Get-Process | Sort-Object CPU -Desc | Select-Object -First 10 Name,Id,CPU,WorkingSet | ConvertTo-Json -Compress`).Output()
 
 	var cpuProcs []struct {
@@ -269,7 +279,7 @@ func handleProcessTop(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	memOut, _ := newHiddenCmd("powershell", "-NoProfile", "-Command",
+	memOut, _ := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`Get-Process | Sort-Object WorkingSet -Desc | Select-Object -First 10 Name,Id,CPU,WorkingSet | ConvertTo-Json -Compress`).Output()
 
 	var memProcs []struct {
