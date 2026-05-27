@@ -458,9 +458,7 @@ func main() {
 
 	// 파일 시스템 조작
 	mux.HandleFunc("POST /api/file/organize", handleFileOrganize)
-	mux.HandleFunc("POST /api/files/organize", handleFileOrganize)
 	mux.HandleFunc("POST /api/file/duplicates", handleFileDuplicates)
-	mux.HandleFunc("POST /api/files/duplicates", handleFileDuplicates)
 	mux.HandleFunc("POST /api/file/large", handleFileLarge)
 
 	// 스케줄러 + 메모리 + LLM 키 초기화
