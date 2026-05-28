@@ -363,8 +363,10 @@ export function FloatingCharacter() {
   // 페르소나 선택 → 전환
   const handlePersonaSelect = useCallback(async (id: string) => {
     setShowPersonaPopup(false)
+    // 'general' = 기본 모드 → 백엔드 'nexus' ID로 매핑
+    const backendId = id === 'general' ? 'nexus' : id
     try {
-      const res = await personaSet(id)
+      const res = await personaSet(backendId)
       if (res.ok && res.persona) setActivePersona(res.persona)
     } catch { /* 전환 실패 무시 */ }
   }, [])
@@ -2453,10 +2455,9 @@ export function FloatingCharacter() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {/* 기본 일반 모드 */}
             {[
-              { id: 'general', name: '일반 모드', emoji: '🤖', description: '기본 AI 비서 — 모든 작업 처리', color: primaryColor },
               ...personaListData,
             ].map(p => {
-              const isActive = (activePersona?.id ?? 'general') === p.id
+              const isActive = (activePersona?.id ?? 'nexus') === p.id
               return (
                 <button
                   key={p.id}
