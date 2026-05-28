@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { REALISTIC_STYLE_PRESETS } from './Avatar3D/Presets'
-import type { RealisticStyleId, RealisticStylePreset } from './Avatar3D/Presets'
+import type { RealisticStyleId } from './Avatar3D/Presets'
 import type { CharacterPreset } from './Avatar3D'
 import { signInWithGoogle } from '../../lib/supabase'
 import { ADMIN_EMAIL, ADMIN_PASSWORD, SUPABASE_URL } from '../../config/services'
@@ -256,7 +256,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [nameInput, setNameInput]     = useState(isEn ? 'Nexus' : '넥서스')
   const [userInput, setUserInput]     = useState('')
   const [userName, setUserName]       = useState('')
-  const [hoverStyle, setHoverStyle]   = useState<RealisticStyleId | null>(null)
+  // hoverStyle 제거됨 — 아바타 선택 그리드와 함께 제거
   const [openaiKey]                   = useState(() => localStorage.getItem('nexus-openai-key') ?? '')
   const [googleLoading, setGoogleLoading] = useState(false)
   const [googleEmail, setGoogleEmail]     = useState('')
@@ -1319,55 +1319,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               {isEn ? 'Personalize Your AI' : 'AI를 나에게 맞게 설정하세요'}
             </h2>
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 20, lineHeight: 1.6 }}>
-              {isEn ? 'Choose an avatar style and set names.' : '아바타 스타일을 고르고 이름을 설정하세요.'}
+              {isEn ? 'Set your assistant name and your nickname.' : 'AI 비서 이름과 내 호칭을 설정하세요.'}
             </p>
-
-            {/* AI 색상 선택 (Siri-style orb grid) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-              {REALISTIC_STYLE_PRESETS.map((s: RealisticStylePreset) => {
-                const selected = styleId === s.id
-                return (
-                  <button
-                    key={s.id}
-                    onMouseEnter={() => setHoverStyle(s.id)}
-                    onMouseLeave={() => setHoverStyle(null)}
-                    onClick={() => setStyleId(s.id)}
-                    style={{
-                      background: selected
-                        ? `linear-gradient(135deg, ${s.primaryColor}22, ${s.accentColor}14)`
-                        : 'rgba(255,255,255,0.04)',
-                      border: selected
-                        ? `1.5px solid ${s.primaryColor}88`
-                        : '1.5px solid rgba(255,255,255,0.08)',
-                      borderRadius: 16, padding: '14px 10px',
-                      cursor: 'pointer', textAlign: 'center', transition: 'all 0.22s',
-                      position: 'relative', overflow: 'hidden',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                    } as React.CSSProperties}
-                  >
-                    {/* Siri orb preview */}
-                    <div style={{
-                      width: 56, height: 56, borderRadius: '50%',
-                      background: `radial-gradient(circle at 38% 32%, ${s.accentColor}ee, ${s.primaryColor}cc 40%, ${s.primaryColor}88 68%, ${s.primaryColor}44)`,
-                      boxShadow: selected
-                        ? `0 0 18px ${s.primaryColor}99, 0 0 32px ${s.primaryColor}44`
-                        : `0 0 10px ${s.primaryColor}55`,
-                      transition: 'all 0.22s',
-                    }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: selected ? 'white' : 'rgba(255,255,255,0.7)' }}>{s.name}</span>
-                      {selected && (
-                        <span style={{
-                          fontSize: 9,
-                          background: `${s.primaryColor}44`, color: s.primaryColor,
-                          padding: '2px 6px', borderRadius: 20, fontWeight: 700,
-                        }}>✓</span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
 
             {/* Name input */}
             <div style={{ marginBottom: 14 }}>

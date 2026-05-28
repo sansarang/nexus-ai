@@ -52,7 +52,7 @@ export async function speakWithOpenAI(
         model: 'tts-1',
         input: clean,
         voice,
-        speed: speedOverride ?? (lang === 'ko' ? 0.95 : 1.0),
+        speed: speedOverride ?? 1.1,
       }),
     })
 
@@ -159,7 +159,7 @@ export function speakWithWebSpeech(
     utterance.lang = lang === 'ko' ? 'ko-KR' : 'en-US'
 
     // 감정별 파라미터 (override 없으면 기본값)
-    utterance.rate = rateOverride ?? (lang === 'ko' ? 0.9 : 0.95)
+    utterance.rate = rateOverride ?? 1.05
     utterance.pitch = pitchOverride ?? 1.1
     utterance.volume = 1.0
 

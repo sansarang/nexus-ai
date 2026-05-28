@@ -159,88 +159,7 @@ function groupByDate(entries: HistoryEntry[]): { date: string; items: HistoryEnt
   return Array.from(map.entries()).map(([date, items]) => ({ date, items }))
 }
 
-/* ── HistoryItem: 질문/답변 행 ── */
-function HistoryItem({ entry, primaryColor, onDelete }: { entry: HistoryEntry; primaryColor: string; onDelete: (id: string) => void }) {
-  const [expanded, setExpanded] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const shortA = entry.a.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 40)
-  const needsExpand = entry.a.length > 40
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(entry.a.replace(/\*\*/g, '')).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }).catch(() => {})
-  }
-
-  return (
-    <div style={{
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
-      padding: '8px 0',
-      position: 'relative',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3, paddingRight: 20 }}>
-        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
-          {formatDateTime(entry.ts)}
-        </span>
-        <span style={{
-          fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600,
-          background: `${primaryColor}22`, borderRadius: 6,
-          padding: '1px 7px', maxWidth: 160, overflow: 'hidden',
-          textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {entry.q}
-        </span>
-      </div>
-      {/* 개별 삭제 버튼 */}
-      <button
-        onClick={() => onDelete(entry.id)}
-        title="이 대화 삭제"
-        style={{
-          position: 'absolute', top: 8, right: 0,
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'rgba(255,255,255,0.2)', fontSize: 11, padding: '1px 3px',
-          lineHeight: 1,
-          transition: 'color 0.15s',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.2)')}
-      >✕</button>
-      <div
-        onClick={() => needsExpand && setExpanded(p => !p)}
-        style={{
-          fontSize: 11, color: 'rgba(255,255,255,0.55)',
-          paddingLeft: 8, lineHeight: 1.5,
-          cursor: needsExpand ? 'pointer' : 'default',
-          whiteSpace: expanded ? 'pre-wrap' : 'nowrap',
-          overflow: expanded ? 'visible' : 'hidden',
-          textOverflow: expanded ? 'clip' : 'ellipsis',
-        }}
-      >
-        {expanded ? entry.a.replace(/\*\*/g, '') : shortA + (needsExpand ? '...' : '')}
-        {needsExpand && (
-          <span style={{ color: primaryColor, marginLeft: 4, fontSize: 10 }}>
-            {expanded ? '접기' : '더보기'}
-          </span>
-        )}
-      </div>
-      {entry.a.length > 50 && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3, paddingRight: 2 }}>
-          <button
-            onClick={handleCopy}
-            style={{
-              background: copied ? `${primaryColor}33` : 'none',
-              border: `1px solid ${copied ? primaryColor : 'rgba(255,255,255,0.12)'}`,
-              borderRadius: 5, color: copied ? primaryColor : 'rgba(255,255,255,0.3)',
-              fontSize: 9, fontWeight: 700, padding: '2px 7px', cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >{copied ? '✓ 복사됨' : '복사'}</button>
-        </div>
-      )}
-    </div>
-  )
-}
+/* HistoryItem 제거 — 이력은 HistoryBubbles 형식으로 렌더링 */
 
 const FEATURED_ACTIONS_KO = [
   { emoji: '🔐', label: 'PC 해킹 점검', cmd: '내 PC 해킹당했어? 보안 점검해줘' },
@@ -285,12 +204,10 @@ const FOLLOW_UP_MAP_EN: Record<string, Array<{ label: string; cmd: string }>> = 
 interface ChatBubbleProps {
   messages: ChatMessage[]
   typing: boolean
-  listening: boolean
   input: string
   onInputChange: (v: string) => void
   onSend: (text: string) => void
   onSendWithFile?: (text: string, file: AttachedFile, extraFiles?: AttachedFile[]) => void | Promise<void>
-  onVoiceToggle: () => void
   onRepair?: (ids: string[]) => void
   assistantName: string
   typingSteps?: string[]
@@ -299,36 +216,34 @@ interface ChatBubbleProps {
   historyVersion?: number
   clarifyPending?: boolean
   clarifyQuestion?: string
-  savedPreviews?: Array<{ label: string; items: Array<{ title: string; url: string }> }>
   // 페르소나 칩 + 사용량 배지
   activePersona?: { name: string; emoji: string; color: string } | null
   subscriptionStatus?: string
   dailyUsed?: number
   onPersonaClick?: () => void
+  embedded?: boolean
 }
 
 export function ChatBubble({
   messages,
   typing,
-  listening,
   input,
   clarifyPending = false,
   clarifyQuestion = '',
   onInputChange,
   onSend,
   onSendWithFile,
-  onVoiceToggle,
   onRepair,
   assistantName,
   lang,
   primaryColor,
   historyVersion = 0,
   typingSteps,
-  savedPreviews = [],
   activePersona,
   subscriptionStatus,
   dailyUsed = 0,
   onPersonaClick,
+  embedded = false,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -512,7 +427,13 @@ export function ChatBubble({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 16, scale: 0.9 }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      style={{
+      style={embedded ? {
+        width: '100%', height: '100%',
+        background: 'transparent',
+        border: 'none', borderRadius: 0, boxShadow: 'none',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden', position: 'relative',
+      } : {
         width: chatSize.w,
         height: chatSize.h,
         background: '#0a0a14',
@@ -600,8 +521,8 @@ export function ChatBubble({
         )}
       </div>
 
-      {/* ── 페르소나 칩 + 사용량 배지 ── */}
-      {(activePersona || subscriptionStatus) && (
+      {/* ── 페르소나 칩 + 사용량 배지 (embedded 모드에선 상단 헤더에서 이미 표시) ── */}
+      {!embedded && (activePersona || subscriptionStatus) && (
         <div style={{
           padding: '6px 14px',
           borderBottom: `1px solid ${primaryColor}22`,
@@ -765,7 +686,7 @@ export function ChatBubble({
           </div>
         )}
 
-        {/* 날짜 그룹 */}
+        {/* 이전 대화 이력 (날짜 그룹 + 버블 형식) */}
         {groups.map(g => (
           <div key={g.date}>
             <div style={{
@@ -777,7 +698,48 @@ export function ChatBubble({
               {g.date}
             </div>
             {g.items.map(entry => (
-              <HistoryItem key={entry.id} entry={entry} primaryColor={primaryColor} onDelete={handleDeleteOne} />
+              <div key={entry.id} style={{ marginBottom: 10 }}>
+                {/* 사용자 질문 버블 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                  <div style={{
+                    maxWidth: '86%', padding: '8px 12px',
+                    borderRadius: '14px 14px 4px 14px',
+                    background: `${primaryColor}55`,
+                    border: `1px solid ${primaryColor}88`,
+                    fontSize: 12, color: 'rgba(255,255,255,0.95)',
+                    lineHeight: 1.6, wordBreak: 'break-word',
+                  }}>
+                    {entry.q}
+                  </div>
+                </div>
+                {/* AI 응답 버블 */}
+                <div style={{ display: 'flex', justifyContent: 'flex-start', position: 'relative' }}>
+                  <div style={{
+                    maxWidth: '86%', padding: '8px 12px',
+                    borderRadius: '4px 14px 14px 14px',
+                    background: 'rgba(255,255,255,0.09)',
+                    border: '1px solid rgba(255,255,255,0.13)',
+                    fontSize: 12, color: 'rgba(255,255,255,0.9)',
+                    lineHeight: 1.65, wordBreak: 'break-word',
+                  }}>
+                    {renderMarkdown(entry.a)}
+                  </div>
+                  <button
+                    onClick={() => handleDeleteOne(entry.id)}
+                    title="이 대화 삭제"
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'rgba(255,255,255,0.2)', fontSize: 10, padding: '0 4px',
+                      alignSelf: 'flex-start', marginTop: 4, transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.2)')}
+                  >✕</button>
+                </div>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', textAlign: 'right', marginTop: 2, paddingRight: 22 }}>
+                  {formatDateTime(entry.ts)}
+                </div>
+              </div>
             ))}
           </div>
         ))}
@@ -900,55 +862,7 @@ export function ChatBubble({
           ))}
         </AnimatePresence>
 
-        {/* ── 문제 #4: 플로팅 패널 닫힌 후 저장된 검색 결과 카드 ── */}
-        {savedPreviews.length > 0 && (
-          <AnimatePresence>
-            {savedPreviews.slice(-3).map((sp, si) => (
-              <motion.div
-                key={`sp-${si}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{
-                  marginTop: 8,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${primaryColor}33`,
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{
-                  padding: '7px 12px',
-                  borderBottom: `1px solid ${primaryColor}22`,
-                  fontSize: 10, fontWeight: 700, color: primaryColor,
-                }}>
-                  {sp.label}
-                </div>
-                <div style={{ padding: '6px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {sp.items.slice(0, 5).map((item, ii) => (
-                    <div key={ii} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 9, color: primaryColor, fontWeight: 700, minWidth: 14 }}>{ii + 1}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.title}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => window.open(item.url, '_blank')}
-                        style={{
-                          background: `${primaryColor}33`, border: `1px solid ${primaryColor}55`,
-                          borderRadius: 6, color: primaryColor, fontSize: 9, fontWeight: 700,
-                          padding: '3px 7px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                        }}
-                      >
-                        {isEn ? 'Open' : '열기'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
+        {/* savedPreviews 카드 제거됨 — floatingPreview 팝업과 함께 제거 */}
 
         {/* 마지막 응답 후 follow-up 액션 */}
         {!typing && history.length > 0 && (() => {
@@ -1091,20 +1005,6 @@ export function ChatBubble({
           {fileLoading ? '⏳' : '📎'}
         </button>
 
-        <button
-          onClick={onVoiceToggle}
-          style={{
-            width: 32, height: 32, borderRadius: '50%', border: 'none',
-            background: listening ? '#ef4444' : `${primaryColor}22`,
-            color: listening ? '#fff' : primaryColor,
-            fontSize: 14, cursor: 'pointer', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: listening ? '0 0 10px rgba(239,68,68,0.5)' : 'none',
-            transition: 'all 0.2s',
-          }}
-        >
-          🎤
-        </button>
         <input
           value={input}
           onChange={e => onInputChange(e.target.value)}
@@ -1122,14 +1022,12 @@ export function ChatBubble({
             attachedFile
               ? '파일에 대해 질문하거나 Enter로 바로 분석...'
               : clarifyPending
-                ? '답변을 입력하거나 마이크로 말씀하세요...'
-                : listening
-                  ? (lang === 'ko' ? '말씀하세요...' : 'Speak now...')
-                  : lang === 'ko' ? `${assistantName}에게...` : `Ask ${assistantName}...`
+                ? '답변을 입력하세요...'
+                : lang === 'ko' ? `${assistantName}에게...` : `Ask ${assistantName}...`
           }
           style={{
             flex: 1, background: clarifyPending ? `${primaryColor}18` : 'rgba(255,255,255,0.07)',
-            border: `1.5px solid ${clarifyPending ? primaryColor : listening ? '#ef4444' : attachedFile ? primaryColor : primaryColor}${clarifyPending || attachedFile ? 'bb' : '55'}`,
+            border: `1.5px solid ${clarifyPending ? primaryColor : attachedFile ? primaryColor : primaryColor}${clarifyPending || attachedFile ? 'bb' : '55'}`,
             borderRadius: 16, padding: '8px 14px',
             color: 'rgba(255,255,255,0.97)', fontSize: 13, outline: 'none',
             fontFamily: 'Pretendard, Inter, sans-serif',

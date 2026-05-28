@@ -13,7 +13,7 @@ import type { InlineCardData2 } from './InlineCards2'
 import type { InlineCard3Data } from './InlineCards3'
 import type { InlineCard4Data } from './InlineCards4'
 import type { InlineCard5Data } from './InlineCards5'
-import { ResultDrawer } from './ResultDrawer'
+// ResultDrawer import 제거됨
 import { SpeakingWaves } from './Avatar3D'
 import { AvatarRuntime } from './Avatar3D/AvatarRuntime'
 import { OnboardingFlow, LoginScreen } from './OnboardingFlow'
@@ -23,7 +23,6 @@ import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
 import { getDailyUsage, getMonthlyUsage } from '../../lib/nexus/usageTracker'
 import { loadHistory, saveHistory, learnFromTurn, fromStoredTurns, toStoredTurns, buildMemoryContext } from '../../lib/nexus/memory'
-import { startWakeWordDetection, stopWakeWordDetection } from '../../lib/nexus/wakeWord'
 import { getGreeting } from '../../lib/nexus/personality'
 import { speak, stopSpeaking, isAudioPlaying } from '../../lib/nexus/tts'
 import {
@@ -73,19 +72,6 @@ import { sendTextImpl } from './chatSenderImpl'
 type CharacterEmotion = NexusEmotion
 
 /* Web Speech API 타입 */
-interface SRResult { [i: number]: { transcript: string }; isFinal: boolean; length: number }
-interface SRResultList { [i: number]: SRResult; length: number }
-interface SREvent extends Event { results: SRResultList }
-interface SRErrorEvent extends Event { error: string }
-interface SRInstance {
-  lang: string; continuous: boolean; interimResults: boolean
-  onresult: ((e: SREvent) => void) | null
-  onend: (() => void) | null
-  onerror: ((e: SRErrorEvent) => void) | null
-  start(): void; stop(): void
-}
-type SRConstructor = { new(): SRInstance }
-
 interface ConversationTurn {
   role: 'user' | 'model'
   parts: Array<{ text: string }>
@@ -268,9 +254,7 @@ export function FloatingCharacter() {
   const [typingSteps, setTypingSteps]     = useState<string[]>([])
   const [emotion, setEmotion]             = useState<'neutral'|'happy'|'concerned'|'alert'|'humorous'>('neutral')
   const [speaking, setSpeaking]           = useState(false)
-  const [listening, setListening]         = useState(false)
   const [input, setInput]                 = useState('')
-  const [voiceInterim, setVoiceInterim]   = useState('')
   const [minimized, setMinimized]         = useState(false)
   const [settingsOpen, setSettingsOpen]     = useState(false)
   const [showDesktopAgent, setShowDesktopAgent] = useState(false)
@@ -280,8 +264,9 @@ export function FloatingCharacter() {
   const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
   const alertESRef = useRef<EventSource | null>(null)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
-  const [isActive, setIsActive]           = useState(true)   // 비활성화 토글
+  const [isActive, setIsActive]           = useState(true)
   const [isDragging, setIsDragging]       = useState(false)
+  const [beamEnabled, setBeamEnabled]     = useState(() => localStorage.getItem('nexus-beam') !== 'off')
   const [historyVersion, setHistoryVersion] = useState(0)
   const dragX = useMotionValue(0)
   const dragY = useMotionValue(0)
@@ -292,7 +277,7 @@ export function FloatingCharacter() {
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
   const [previewFilter, setPreviewFilter] = useState<string>('all')
-  const [resultDrawerOpen, setResultDrawerOpen] = useState(false)
+  // resultDrawerOpen 제거됨 — ResultDrawer 제거와 함께
   // ⭐ 즐겨찾기 링크 (localStorage 영구)
   const [favLinks, setFavLinks] = useState<Array<{ title: string; url: string; addedAt: string }>>(() => {
     try { return JSON.parse(localStorage.getItem('nexus-fav-links') || '[]') } catch { return [] }
@@ -305,13 +290,7 @@ export function FloatingCharacter() {
       return next
     })
   }
-  // savedPreviews: 앱 재시작 후에도 유지 (localStorage 영구 저장)
-  const [savedPreviews, setSavedPreviews] = useState<Array<{ label: string; items: Array<{ title: string; url: string }> }>>(() => {
-    try { return JSON.parse(localStorage.getItem('nexus_saved_previews') || '[]') } catch { return [] }
-  })
-  useEffect(() => {
-    try { localStorage.setItem('nexus_saved_previews', JSON.stringify(savedPreviews.slice(-5))) } catch { /* storage full */ }
-  }, [savedPreviews])
+  // savedPreviews 제거됨 — floatingPreview 팝업과 함께 제거
 
   // ── Alt+S/V/C 글로벌 단축키 → sendText 콜백 등록 ─────────────
   useEffect(() => {
@@ -386,10 +365,8 @@ export function FloatingCharacter() {
     learnFromTurn(userText, modelText)
     saveHistory(toStoredTurns(historyRef.current as ConversationTurn[]))
   }, [])
-  const voiceRecRef        = useRef<SRInstance | null>(null)
   const typingRef          = useRef(false)
   const isMountedRef       = useRef(true)   // unmount 후 setState 방지
-  const voiceEndTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const proactiveTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   const securityTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
   const focusTimerRef      = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -401,7 +378,6 @@ export function FloatingCharacter() {
     return () => {
       isMountedRef.current = false
       stopSpeaking()
-      if (voiceEndTimerRef.current) clearTimeout(voiceEndTimerRef.current)
     }
   }, [])
 
@@ -482,26 +458,6 @@ export function FloatingCharacter() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantName, userName, userLang, isOnboarded])
-
-  /* 웨이크워드 — 사용자가 마이크를 허용한 경우에만 활성화 */
-  useEffect(() => {
-    if (!micEnabled) {
-      stopWakeWordDetection()
-      return
-    }
-    const wakeWords = [
-      assistantName, `hey ${assistantName.toLowerCase()}`,
-      `헤이 ${assistantName.toLowerCase()}`,
-      '자비스', 'hey jarvis', 'nexus', 'hey nexus', '넥서스',
-    ]
-    startWakeWordDetection(wakeWords, () => {
-      setChatOpen(true)
-      setMinimized(false)
-      handleVoiceToggle()
-    })
-    return () => stopWakeWordDetection()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assistantName, micEnabled])
 
   /* ── 백엔드 연결 상태 초기 체크 + 페르소나 로딩 + API 키 동기화 + 언어 동기화 ── */
   useEffect(() => {
@@ -834,80 +790,6 @@ export function FloatingCharacter() {
   }, [userLang, emotion, ttsVoice, soundEnabled, subscriptionStatus])
 
   /* STT */
-  const handleVoiceToggle = useCallback(() => {
-    if (listening) {
-      voiceRecRef.current?.stop()
-      voiceRecRef.current = null
-      setListening(false)
-      setVoiceInterim('')
-      return
-    }
-    const win = window as unknown as Record<string, SRConstructor | undefined>
-    const SR = win['SpeechRecognition'] ?? win['webkitSpeechRecognition']
-    if (!SR) return
-
-    stopWakeWordDetection()
-    const rec = new SR()
-    voiceRecRef.current = rec
-    rec.lang = userLang === 'ko' ? 'ko-KR' : 'en-US'
-    rec.continuous = false
-    rec.interimResults = true
-
-    rec.onresult = (e: SREvent) => {
-      let interim = '', final = ''
-      for (let i = 0; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript
-        if (e.results[i].isFinal) final += t
-        else interim += t
-      }
-      setVoiceInterim(interim)
-      if (final) { setInput(final); setVoiceInterim('') }
-    }
-
-    rec.onend = () => {
-      if (!isMountedRef.current) return
-      setListening(false)
-      setVoiceInterim('')
-      voiceRecRef.current = null
-      setInput(prev => {
-        if (prev.trim() && !typingRef.current) {
-          if (voiceEndTimerRef.current) clearTimeout(voiceEndTimerRef.current)
-          voiceEndTimerRef.current = setTimeout(() => {
-            if (!isMountedRef.current) return
-            setInput(cur => {
-              if (cur.trim()) void sendText(cur)
-              return ''
-            })
-          }, 100)
-        }
-        return prev
-      })
-      const wakeWords = [assistantName, `hey ${assistantName.toLowerCase()}`, '자비스', 'nexus']
-      startWakeWordDetection(wakeWords, () => handleVoiceToggle())
-    }
-    rec.onerror = (e: SRErrorEvent) => {
-      setListening(false)
-      setVoiceInterim('')
-      voiceRecRef.current = null
-      const isKo = userLang === 'ko'
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        setBubbleText(isKo
-          ? '마이크 권한이 필요합니다. 시스템 설정 → 개인 정보 보호 → 마이크에서 앱을 허용해주세요.'
-          : 'Microphone permission denied. Allow access in System Settings → Privacy → Microphone.')
-      } else if (e.error === 'no-speech') {
-        // normal - no message
-      } else if (e.error === 'network') {
-        setBubbleText(isKo
-          ? '음성 인식 네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.'
-          : 'Speech recognition network error. Please check your internet connection.')
-      } else {
-        setBubbleText(isKo ? `음성 인식 오류: ${e.error}` : `Speech recognition error: ${e.error}`)
-      }
-    }
-    setListening(true)
-    try { rec.start() } catch { setListening(false) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listening, userLang, assistantName])
 
 
   /* ── 백엔드 인텐트 처리 — LLM 없이 즉시 ── */
@@ -1135,10 +1017,10 @@ export function FloatingCharacter() {
       clarifyPendingIntent, clarifyPendingParams, clarifyPendingQuestion,
       floatingPreview, ttsVoice,
       typingRef, historyRef, isMountedRef,
-      setMessages, setInput, setListening, setTyping, setTypingSteps, setEmotion, setSpeaking,
+      setMessages, setInput, setTyping, setTypingSteps, setEmotion, setSpeaking,
       setUserLang, setHistoryVersion, setToastAlerts, setIsActive, setFloatingPreview,
       setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
-      speakText, resetClarify, pushModelHistory, handleVoiceToggle,
+      speakText, resetClarify, pushModelHistory,
       handleBackendIntent, renderCommandResult,
       showPaywall: (feature, used, limit) => {
         setPaywallFeature(feature)
@@ -1565,7 +1447,7 @@ export function FloatingCharacter() {
     )
   }
 
-  const displayInput = voiceInterim || input
+  const displayInput = input
 
   /* ── 새 레이아웃: 캐릭터 중심 플로팅 오버레이 ──
      - 화면 우측 하단에 고정
@@ -1586,8 +1468,6 @@ export function FloatingCharacter() {
     { icon: isActive ? '💬' : '😴',    active: isActive,     color: isActive ? primaryColor : '#6b7280',
       onClick: () => { setIsActive(p => !p); if (isActive) stopSpeaking() },
       tip: userLang === 'en' ? (isActive ? 'Deactivate' : 'Activate') : (isActive ? '비활성화' : '활성화') },
-    { icon: '🎤', active: listening,   color: '#ef4444',     onClick: handleVoiceToggle,
-      tip: userLang === 'en' ? 'Voice' : '음성' },
     { icon: '⚙️', active: false,       color: primaryColor,  onClick: () => setSettingsOpen(true),
       tip: userLang === 'en' ? 'Settings' : '설정' },
     { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
@@ -1610,813 +1490,343 @@ export function FloatingCharacter() {
 
   return (
     <>
-    {/* ── ResultDrawer: 전체 검색 결과 드로어 ── */}
-    <ResultDrawer
-      open={resultDrawerOpen}
-      onClose={() => setResultDrawerOpen(false)}
-      items={floatingPreview ?? []}
-      primaryColor={primaryColor}
-      userLang={userLang}
-    />
-    {/* ── 미리보기 플로팅 패널 (화면 고정, 항상 보임) ── */}
-    <AnimatePresence>
-      {floatingPreview && floatingPreview.length > 0 && (
-        <motion.div
-          key="floating-preview-panel"
-          drag
-          dragMomentum={false}
-          initial={{ opacity: 0, x: 30, scale: 0.93 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: 20, scale: 0.93 }}
-          style={{
-            position: 'fixed',
-            bottom: 180,
-            right: 24,
-            width: 320,
-            background: 'rgba(8,8,22,0.98)',
-            border: `2px solid ${primaryColor}`,
-            borderRadius: 16,
-            padding: '12px 14px',
-            boxShadow: `0 12px 40px ${primaryColor}55, 0 0 0 1px ${primaryColor}33`,
-            backdropFilter: 'blur(20px)',
-            zIndex: 10001,
-            pointerEvents: 'auto',
-            maxHeight: 520,
-            overflowY: 'auto',
-            x: previewDragX,
-            y: previewDragY,
-            cursor: 'grab',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: primaryColor, fontWeight: 800, letterSpacing: '0.05em' }}>
-              {(() => {
-                const eng = userLang === 'en'
-                if (floatingPreview.some(x => x.isMap && x.mapType === 'directions')) return eng ? '🗺️ Route Results' : '🗺️ 길찾기 결과'
-                if (floatingPreview.some(x => x.isMap && x.mapType === 'roadview')) return eng ? '📍 Street View / Location' : '📍 로드뷰 / 위치'
-                if (floatingPreview.some(x => x.isMap)) return eng ? '🗺️ Map Results' : '🗺️ 지도 결과'
-                if (floatingPreview[0]?.isVideo) return eng ? '🎬 Video Results' : '🎬 영상 검색 결과'
-                const titleMap: Record<string, [string, string]> = {
-                  weather:       ['🌤️ Weather Info',      '🌤️ 날씨 정보'],
-                  news:          ['📰 News Results',       '📰 뉴스 결과'],
-                  recipe:        ['🍳 Recipe Sources',     '🍳 레시피 출처'],
-                  shopping:      ['🛒 Shopping Results',   '🛒 쇼핑 결과'],
-                  transit:       ['🚆 Transit Info',       '🚆 교통 정보'],
-                  food:          ['🍜 Restaurant Results', '🍜 맛집 결과'],
-                  finance:       ['📈 Finance Sources',    '📈 금융 정보'],
-                  medical:       ['🏥 Health Sources',     '🏥 건강 정보'],
-                  travel:        ['✈️ Travel Sources',     '✈️ 여행 정보'],
-                  entertainment: ['🎬 Entertainment',      '🎬 엔터테인먼트'],
-                  tech:          ['💻 Tech Sources',       '💻 IT 정보'],
-                  education:     ['📚 Study Sources',      '📚 학습 정보'],
-                  realestate:    ['🏠 Real Estate',        '🏠 부동산 정보'],
-                  legal:         ['⚖️ Legal Sources',      '⚖️ 법률 정보'],
-                }
-                const t = titleMap[previewType]
-                if (t) return eng ? t[0] : t[1]
-                return eng ? '🔍 Search Preview' : '🔍 검색 결과 미리보기'
-              })()}
-            </span>
-            <button
-              onClick={() => {
-                // 닫기 전 결과를 ChatBubble savedPreviews에 저장
-                if (floatingPreview && floatingPreview.length > 0) {
-                  const label = (() => {
-                    const eng = userLang === 'en'
-                    if (floatingPreview[0]?.isVideo) return eng ? '🎬 Video Results' : '🎬 영상 결과'
-                    if (floatingPreview[0]?.isMap) return eng ? '🗺️ Map Results' : '🗺️ 지도 결과'
-                    return eng ? '🔍 Search Results' : '🔍 검색 결과'
-                  })()
-                  setSavedPreviews(prev => {
-                    const willOverflow = prev.length >= 5
-                    const next = [...prev.slice(-4), {
-                      label,
-                      items: floatingPreview!.map(x => ({ title: x.title, url: x.url })),
-                    }]
-                    if (willOverflow) {
-                      setMessages(msgs => [...msgs, {
-                        id: `sys-${Date.now()}`, role: 'nexus' as const,
-                        text: userLang === 'en'
-                          ? '💡 Saved results are limited to 5. The oldest result has been removed.'
-                          : '💡 저장된 결과는 최대 5개입니다. 가장 오래된 결과가 삭제됐어요.',
-                      }])
-                    }
-                    return next
-                  })
-                }
-                setFloatingPreview(null)
-                setPreviewFilter('all')
-              }}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
-            >✕</button>
-          </div>
-          {/* ── 필터 탭 (영상/뉴스/쇼핑/블로그/전체) ── */}
-          {!floatingPreview.some(x => x.isMap) && floatingPreview.length > 3 && (() => {
-            const hasVideo = floatingPreview.some(x => x.isVideo || x.url.includes('youtube.com') || x.url.includes('youtu.be') || x.url.includes('tiktok.com'))
-            const hasNews = floatingPreview.some(x => /news\.|chosun\.|yna\.|yonhap\.|hankyung\.|khan\.|donga\.|joongang\.|kbs\.|mbc\.|sbs\./i.test(x.url))
-            const hasShopping = floatingPreview.some(x => /coupang\.|shopping\.naver\.|11st\.|gmarket\.|temu\.|aliexpress\.|amazon\./i.test(x.url))
-            const hasBlog = floatingPreview.some(x => /blog\.naver\.|tistory\.|velog\.|brunch\.|medium\./i.test(x.url))
-            const tabs = [
-              { key: 'all', label: userLang === 'en' ? 'All' : '전체' },
-              ...(hasVideo    ? [{ key: 'video',    label: userLang === 'en' ? '🎬 Video' : '🎬 영상'  }] : []),
-              ...(hasNews     ? [{ key: 'news',     label: userLang === 'en' ? '📰 News'  : '📰 뉴스'  }] : []),
-              ...(hasShopping ? [{ key: 'shopping', label: userLang === 'en' ? '🛒 Shop'  : '🛒 쇼핑'  }] : []),
-              ...(hasBlog     ? [{ key: 'blog',     label: userLang === 'en' ? '📝 Blog'  : '📝 블로그'}] : []),
-              ...(favLinks.length > 0 ? [{ key: 'fav', label: `⭐ ${userLang === 'en' ? 'Saved' : '즐겨찾기'}` }] : []),
-            ]
-            if (tabs.length <= 1) return null
-            return (
-              <div style={{ display: 'flex', gap: 4, marginBottom: 9, flexWrap: 'wrap' }}>
-                {tabs.map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setPreviewFilter(tab.key)}
-                    style={{
-                      padding: '3px 9px', borderRadius: 8, fontSize: 9.5, fontWeight: 700, cursor: 'pointer',
-                      background: previewFilter === tab.key ? primaryColor : 'rgba(255,255,255,0.07)',
-                      color: previewFilter === tab.key ? '#fff' : 'rgba(255,255,255,0.55)',
-                      border: previewFilter === tab.key ? 'none' : '1px solid rgba(255,255,255,0.12)',
-                      transition: 'all 0.15s',
-                    }}
-                  >{tab.label}</button>
-                ))}
-              </div>
-            )
-          })()}
-          {/* ── 길찾기 전용 교통수단 버튼 UI ── */}
-          {floatingPreview.some(x => x.isMap && (x as any).mapType === 'directions') ? (() => {
-            const dirItems = floatingPreview.filter(x => x.isMap && (x as any).mapType === 'directions')
-            const otherItems = floatingPreview.filter(x => !(x.isMap && (x as any).mapType === 'directions'))
-            const modeOrder = ['transit', 'car', 'walk', 'bicycle', 'ktx']
-            const modeEmojis: Record<string, string> = { transit: '🚌', car: '🚗', walk: '🚶', bicycle: '🚲', ktx: '🚂' }
-            const modeLabels: Record<string, string> = { transit: '대중교통', car: '자동차', walk: '도보', bicycle: '자전거', ktx: '기차/KTX' }
-            // service별로 분리
-            const googleByMode: Record<string, typeof dirItems[0]> = {}
-            const kakaoByMode: Record<string, typeof dirItems[0]> = {}
-            for (const item of dirItems) {
-              const m = (item as any).mode as string
-              const svc = (item as any).service as string
-              if (m && svc === 'google') googleByMode[m] = item
-              if (m && svc === 'kakao') kakaoByMode[m] = item
-            }
-            // from/to 파싱
-            const firstItem = dirItems[0] as any
-            const fromTo = firstItem?.title?.match(/— (.+?)→(.+)/)
-            const fromLabel = fromTo?.[1]?.trim() ?? ''
-            const toLabel = fromTo?.[2]?.replace(/\s*\(.*\)/, '').trim() ?? ''
-            // Google Maps iframe URL (실제 경로 표시)
-            const iframeSrc = fromLabel && toLabel
-              ? `https://www.google.com/maps/embed/v1/directions?key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY&origin=${encodeURIComponent(fromLabel)}&destination=${encodeURIComponent(toLabel)}&mode=transit&language=ko`
-              : ''
-            // Google Maps 직접 링크 (API 키 불필요)
-            const googleDirectUrl = fromLabel && toLabel
-              ? `https://www.google.com/maps/dir/${encodeURIComponent(fromLabel)}/${encodeURIComponent(toLabel)}/`
-              : ''
-            return (
-              <div>
-                {/* 출발→도착 헤더 */}
-                {fromLabel && toLabel && (
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 8, textAlign: 'center', fontWeight: 600 }}>
-                    {fromLabel} <span style={{ color: primaryColor }}>→</span> {toLabel}
-                  </div>
-                )}
-                {/* Google Maps 실제 경로 미리보기 */}
-                {googleDirectUrl && (
-                  <div style={{ position: 'relative', width: '100%', height: 130, borderRadius: 10, overflow: 'hidden', marginBottom: 8, background: 'rgba(255,255,255,0.05)', cursor: 'pointer' }}
-                    onClick={() => window.open(googleDirectUrl, '_blank')}
-                  >
-                    <iframe
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(fromLabel + ' to ' + toLabel)}&output=embed&hl=ko`}
-                      style={{ width: '100%', height: '100%', border: 'none', pointerEvents: 'none', borderRadius: 10 }}
-                      loading="lazy"
-                    />
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.0)' }} />
-                    <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: '3px 7px', fontSize: 9, color: '#fff', fontWeight: 700 }}>
-                      클릭 → 경로 열기
-                    </div>
-                  </div>
-                )}
-                {/* 교통수단 버튼 그리드 (Google Maps 경로 링크) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5, marginBottom: 7 }}>
-                  {modeOrder.map(mode => {
-                    const item = googleByMode[mode]
-                    if (!item) return null
-                    return (
-                      <button
-                        key={mode}
-                        onClick={() => window.open(item.url, '_blank')}
-                        style={{
-                          background: 'rgba(66,133,244,0.15)',
-                          border: '1px solid rgba(66,133,244,0.35)',
-                          borderRadius: 10, cursor: 'pointer',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center',
-                          padding: '7px 3px', gap: 2,
-                          transition: 'background 0.15s',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(66,133,244,0.3)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(66,133,244,0.15)')}
-                      >
-                        <span style={{ fontSize: 15 }}>{modeEmojis[mode]}</span>
-                        <span style={{ fontSize: 8, color: '#4285f4', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>{modeLabels[mode]}</span>
-                        <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.3)' }}>구글</span>
-                      </button>
-                    )
-                  })}
-                </div>
-                {/* 카카오맵 + 예매 링크 */}
-                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  {(['transit', 'car'] as const).map(mode => {
-                    const item = kakaoByMode[mode]
-                    if (!item) return null
-                    return (
-                      <button key={mode} onClick={() => window.open(item.url, '_blank')}
-                        style={{ background: 'rgba(249,224,0,0.1)', border: '1px solid rgba(249,224,0,0.3)', borderRadius: 8, cursor: 'pointer', padding: '4px 8px', fontSize: 9, color: '#f9e000', fontWeight: 700 }}>
-                        {modeEmojis[mode]} 카카오맵
-                      </button>
-                    )
-                  })}
-                  {otherItems.map((item, i) => (
-                    <button key={i} onClick={() => window.open(item.url, '_blank')}
-                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, cursor: 'pointer', padding: '4px 8px', fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
-                      {item.title.slice(0, 12)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })() : floatingPreview.filter(item => {
-            if (previewFilter === 'all') return true
-            if (previewFilter === 'video') return !!(item.isVideo || item.url.includes('youtube.com') || item.url.includes('youtu.be') || item.url.includes('tiktok.com'))
-            if (previewFilter === 'news') return /news\.|chosun\.|yna\.|yonhap\.|hankyung\.|khan\.|donga\.|joongang\.|kbs\.|mbc\.|sbs\./i.test(item.url)
-            if (previewFilter === 'shopping') return /coupang\.|shopping\.naver\.|11st\.|gmarket\.|temu\.|aliexpress\.|amazon\./i.test(item.url)
-            if (previewFilter === 'blog') return /blog\.naver\.|tistory\.|velog\.|brunch\.|medium\./i.test(item.url)
-            return true
-          }).filter(item => {
-            if (previewFilter === 'fav') return favLinks.some(f => f.url === item.url)
-            return true
-          }).slice(0, 14).map((item, i) => {
-            const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
-            const isNaverTV = item.url.includes('tv.naver.com')
-            const isStream = item.url.includes('tving.com') || item.url.includes('wavve.com')
-            const isNaver = item.service === 'naver' || item.url.includes('map.naver.com')
-            const isKakao = item.service === 'kakao' || item.url.includes('map.kakao.com')
-            const isGoogle = item.service === 'google' || item.url.includes('google.com/maps')
-            const isRoadview = item.mapType === 'roadview'
-            const isDirectionsLink = item.mapType === 'directions'
+    {/* ── 전체 화면 패널 레이아웃 (v2.6) ── */}
+    <style>{`
+      @keyframes orb-idle { 0%,100% { box-shadow: 0 0 14px COLOR88, 0 0 28px COLOR44; } 50% { box-shadow: 0 0 22px COLORcc, 0 0 44px COLOR66; } }
+      @keyframes orb-speak { 0% { transform: scale(1); } 100% { transform: scale(1.06); } }
+      @keyframes beam-sweep { 0%,100% { opacity:0.0; transform: translateX(-120px); } 50% { opacity:1; transform: translateX(240px); } }
+    `}</style>
+    <div style={{
+      position: 'fixed', inset: 0,
+      display: 'flex', flexDirection: 'column',
+      background: 'rgba(6,6,18,0.97)',
+      backdropFilter: 'blur(24px)',
+      borderRadius: 16,
+      border: `1px solid ${primaryColor}33`,
+      boxShadow: `0 0 0 1px ${primaryColor}18, 0 8px 48px rgba(0,0,0,0.9)`,
+      overflow: 'hidden',
+      zIndex: 9999,
+    }}>
 
-            const isInstagram = item.url.includes('instagram.com')
-            const isX = item.url.includes('x.com/') || item.url.includes('twitter.com/')
-            const isTikTok = item.url.includes('tiktok.com')
-
-            const typeBadge = isYt ? { label: 'YT', color: '#e53e3e' }
-              : isNaverTV ? { label: 'TV', color: '#03c75a' }
-              : isStream ? { label: '스트림', color: '#7c3aed' }
-              : isTikTok ? { label: 'TikTok', color: '#010101' }
-              : isInstagram ? { label: 'IG', color: '#e1306c' }
-              : isX ? { label: 'X', color: '#1a1a1a' }
-              : item.isVideo ? { label: '영상', color: '#e53e3e' }
-              : (item as any).isSocial ? { label: 'SNS', color: '#7c3aed' }
-              : isRoadview && isNaver ? { label: '로드뷰', color: '#03c75a' }
-              : isRoadview && isKakao ? { label: '로드뷰', color: '#ffcd00' }
-              : isRoadview && isGoogle ? { label: 'StreetView', color: '#4285f4' }
-              : isDirectionsLink && isNaver ? { label: '네이버지도', color: '#03c75a' }
-              : isDirectionsLink && isKakao ? { label: '카카오맵', color: '#ffcd00' }
-              : isDirectionsLink && isGoogle ? { label: '구글지도', color: '#4285f4' }
-              : item.mapType === 'bus' ? { label: '버스', color: '#f59e0b' }
-              : item.isMap ? { label: '지도', color: '#06b6d4' }
-              : null
-
-            const mapBtnColor = isNaver ? '#03c75a' : isKakao ? '#f9e000' : isGoogle ? '#4285f4' : primaryColor
-            const mapBtnText = isRoadview ? (isGoogle ? (userLang === 'en' ? 'Street View' : '거리뷰') : (userLang === 'en' ? 'Street View' : '로드뷰'))
-              : isDirectionsLink ? (userLang === 'en' ? 'Directions' : '경로보기')
-              : item.isMap ? (userLang === 'en' ? 'Open Map' : '지도열기')
-              : null
-
-            return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, padding: '4px 0', borderBottom: i < Math.min(floatingPreview.length, 14) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-              {/* favicon or 번호 */}
-              <div style={{ width: 20, height: 20, borderRadius: 4, background: item.isMap ? `${mapBtnColor}33` : `${primaryColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                <img
-                  src={`https://www.google.com/s2/favicons?domain=${(() => { try { return new URL(item.url).hostname } catch { return '' } })()}&sz=16`}
-                  width={14} height={14} style={{ borderRadius: 2 }}
-                  onError={e => {
-                    const parent = (e.target as HTMLImageElement).parentElement!
-                    parent.innerHTML = `<span style="font-size:9px;color:${item.isMap ? mapBtnColor : primaryColor};font-weight:700">${i + 1}</span>`
-                  }}
-                />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {typeBadge && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: isKakao ? '#000' : '#fff', background: typeBadge.color, borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
-                      {typeBadge.label}
-                    </span>
-                  )}
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                    {item.title}
-                  </div>
-                </div>
-                <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
-                  {item.url.replace(/^https?:\/\//, '').slice(0, 40)}
-                </div>
-              </div>
-              {/* ⭐ 즐겨찾기 버튼 */}
-              <button
-                title={favLinks.some(f => f.url === item.url) ? (userLang === 'en' ? 'Remove from favorites' : '즐겨찾기 해제') : (userLang === 'en' ? 'Add to favorites' : '즐겨찾기 추가')}
-                onClick={(e) => { e.stopPropagation(); toggleFav(item.url, item.title) }}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0,
-                  fontSize: 12, lineHeight: 1, transition: 'transform 0.15s',
-                  color: favLinks.some(f => f.url === item.url) ? '#fbbf24' : 'rgba(255,255,255,0.22)',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.3)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
-              >{favLinks.some(f => f.url === item.url) ? '⭐' : '☆'}</button>
-              {/* URL 복사 아이콘 (일반 링크에만) */}
-              {!item.isVideo && !item.isMap && !(item as any).isImage && !(item as any).isSocial && (
-                <button
-                  title="URL 복사"
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    try {
-                      await navigator.clipboard.writeText(item.url)
-                      const btn = e.currentTarget
-                      btn.textContent = '✓'
-                      setTimeout(() => { btn.textContent = '⎘' }, 1200)
-                    } catch { /* 복사 실패 */ }
-                  }}
-                  style={{
-                    background: 'none', border: 'none', color: 'rgba(255,255,255,0.28)',
-                    fontSize: 11, cursor: 'pointer', padding: '0 2px', flexShrink: 0,
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.75)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.28)' }}
-                >⎘</button>
-              )}
-              {(item as any).isImage ? (
-                <button
-                  onClick={() => openPreview(item.url, item.title)}
-                  style={{
-                    background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-                    border: 'none', borderRadius: 8,
-                    color: '#fff', fontSize: 10, fontWeight: 700,
-                    padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
-                    flexShrink: 0, boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
-                  }}
-                >{userLang === 'en' ? 'View' : '사진보기'}</button>
-              ) : (item as any).isSocial ? (
-                <button
-                  onClick={() => window.open(item.url, '_blank')}
-                  style={{
-                    background: isInstagram
-                      ? 'linear-gradient(135deg, #e1306c, #833ab4)'
-                      : isX ? '#1a1a1a' : '#7c3aed',
-                    border: 'none', borderRadius: 8,
-                    color: '#fff', fontSize: 10, fontWeight: 700,
-                    padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
-                >{isInstagram ? '📷 보기' : isX ? '𝕏 보기' : '보기'}</button>
-              ) : item.isVideo ? (
-                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button
-                    onClick={() => window.open(item.url, '_blank')}
-                    title="재생"
-                    style={{
-                      background: isTikTok
-                        ? 'linear-gradient(135deg, #010101, #69c9d0)'
-                        : `linear-gradient(135deg, #e53e3e, #c53030)`,
-                      border: 'none', borderRadius: 7,
-                      color: '#fff', fontSize: 13, fontWeight: 700,
-                      width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: isTikTok ? '0 2px 8px rgba(105,201,208,0.4)' : '0 2px 8px rgba(229,62,62,0.4)',
-                    }}
-                  >▶</button>
-                  <button
-                    onClick={async () => {
-                      const msg = await videoDownload(item.url, 'best').catch(() => ({ success: false, message: 'yt-dlp 필요' }))
-                      void sendText(`"${item.title}" 다운로드 ${msg.success ? '완료' : '실패: ' + msg.message}`)
-                    }}
-                    title="다운로드"
-                    style={{
-                      background: 'rgba(255,255,255,0.1)',
-                      border: '1px solid rgba(255,255,255,0.2)', borderRadius: 7,
-                      color: '#fff', fontSize: 11, fontWeight: 700,
-                      width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >↓</button>
-                </div>
-              ) : mapBtnText ? (
-                <button
-                  onClick={() => window.open(item.url, '_blank')}
-                  style={{
-                    background: `linear-gradient(135deg, ${mapBtnColor}, ${mapBtnColor}bb)`,
-                    border: 'none', borderRadius: 8,
-                    color: isKakao ? '#000' : '#fff', fontSize: 10, fontWeight: 800,
-                    padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
-                    flexShrink: 0, boxShadow: `0 2px 8px ${mapBtnColor}44`,
-                  }}
-                >{mapBtnText}</button>
-              ) : (
-                <button
-                  onClick={() => openPreview(item.url, item.title)}
-                  style={{
-                    background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})`,
-                    border: 'none', borderRadius: 8,
-                    color: '#fff', fontSize: 10, fontWeight: 700,
-                    padding: '5px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
-                    flexShrink: 0, boxShadow: `0 2px 8px ${primaryColor}44`,
-                  }}
-                >{userLang === 'en' ? 'Preview' : '미리보기'}</button>
-              )}
-            </div>
-            )
-          })}
-          {/* ── 전체보기 버튼 ── */}
-          {floatingPreview.length > 3 && (
-            <button
-              onClick={() => setResultDrawerOpen(true)}
-              style={{
-                width: '100%', marginTop: 8,
-                background: `${primaryColor}18`,
-                border: `1px solid ${primaryColor}44`,
-                borderRadius: 10, padding: '7px 0',
-                color: primaryColor, fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${primaryColor}30` }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = `${primaryColor}18` }}
-            >
-              {userLang === 'en' ? `View all ${floatingPreview.length} results →` : `전체 ${floatingPreview.length}개 결과 보기 →`}
-            </button>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-
-    {/* ── 드래그 가능한 통합 컨테이너 (캐릭터 + 채팅 + 말풍선) ── */}
-    <motion.div
-      drag
-      dragMomentum={false}
-      dragElastic={0}
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        right: 0,
-        x: dragX,
-        y: dragY,
-        zIndex: 9999,
-        pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'flex-end',
-      }}
-      onDragStart={() => setIsDragging(true)}
-      onDragEnd={() => setIsDragging(false)}
-    >
-      {/* ─── 채팅 패널 — 캐릭터 바로 왼쪽 ─── */}
-      <AnimatePresence>
-        {chatOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: 30, scale: 0.94 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 30, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            style={{
-              pointerEvents: 'auto',
-              marginBottom: 60,
-              marginRight: 4,
-            }}
-          >
-            {focusEndMs && (
-              <div style={{
-                background: `${primaryColor}18`, border: `1px solid ${primaryColor}44`,
-                borderRadius: '8px 8px 0 0', padding: '4px 10px', fontSize: 10, color: primaryColor,
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-                <span>🎯</span>
-                <span>집중 모드 — {Math.max(0, Math.ceil((focusEndMs - Date.now()) / 60_000))}분 남음</span>
-              </div>
-            )}
-            <ChatBubble
-              messages={messages}
-              typing={typing}
-              listening={listening}
-              input={displayInput}
-              onInputChange={v => { setInput(v); setVoiceInterim('') }}
-              onSend={handleSend}
-              onSendWithFile={handleSendWithFileImpl}
-              onVoiceToggle={handleVoiceToggle}
-              onRepair={handleRepair}
-              assistantName={assistantName}
-              lang={userLang}
-              primaryColor={primaryColor}
-              historyVersion={historyVersion}
-              clarifyPending={!!clarifyPendingIntent}
-              clarifyQuestion={clarifyPendingQuestion ?? ''}
-              typingSteps={typingSteps}
-              savedPreviews={savedPreviews}
-              activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
-              subscriptionStatus={subscriptionStatus}
-              dailyUsed={dailyUsedCount}
-              onPersonaClick={handlePersonaChipClick}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ─── 영상 의도 확인 팝업 ─── */}
-      {videoIntentPending && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+      {/* ── 상단 헤더: Orb + 상태바 + 컨트롤 ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 14px 8px',
+        background: 'rgba(8,8,24,0.85)',
+        borderBottom: `1px solid ${primaryColor}28`,
+        flexShrink: 0,
+        position: 'relative', overflow: 'hidden',
+      }}>
+        {/* 빛줄기 */}
+        {beamEnabled && (
           <div style={{
-            background: 'rgba(12,12,28,0.97)', border: `1.5px solid ${primaryColor}55`,
-            borderRadius: 18, padding: '22px 24px', width: 300,
-            boxShadow: `0 12px 40px ${primaryColor}44`,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
-              🎬 영상을 어떻게 할까요?
-            </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>
-              {videoIntentPending.file.name}
-            </div>
-            {[
-              { label: '🔍 내용 분석 / 요약', text: '이 영상 내용을 분석하고 요약해줘' },
-              { label: '✂️ 구간 자르기', text: '이 영상에서 구간을 잘라줘' },
-              { label: '📦 용량 압축', text: '이 영상 용량을 압축해줘' },
-              { label: '⚡ 배속 변환', text: '이 영상 속도를 바꿔줘' },
-            ].map(({ label, text }) => (
-              <button key={label}
-                onClick={() => {
-                  const { file, extra } = videoIntentPending
-                  setVideoIntentPending(null)
-                  handleSendWithFileImpl(text, file, extra)
-                }}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left',
-                  background: `${primaryColor}18`, border: `1px solid ${primaryColor}33`,
-                  color: '#fff', fontSize: 12, fontWeight: 600,
-                  padding: '8px 12px', borderRadius: 10, marginBottom: 8, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = `${primaryColor}35`)}
-                onMouseLeave={e => (e.currentTarget.style.background = `${primaryColor}18`)}
-              >
-                {label}
-              </button>
-            ))}
-            <button onClick={() => setVideoIntentPending(null)}
-              style={{
-                width: '100%', background: 'transparent', border: 'none',
-                color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', marginTop: 2,
-              }}>
-              취소
-            </button>
-          </div>
-        </div>
-      )}
+            position: 'absolute', top: 0, bottom: 0, left: 0, width: 80,
+            background: `linear-gradient(90deg, transparent, ${primaryColor}18, transparent)`,
+            animation: 'beam-sweep 5s ease-in-out infinite',
+            pointerEvents: 'none',
+          }} />
+        )}
 
-      {/* ─── 캐릭터 + 버튼 래퍼 ─── */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', pointerEvents: 'auto' }}>
-
-        {/* ─── 캐릭터 컬럼 ─── */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          marginRight: 8,
-          userSelect: 'none',
-          paddingBottom: 4,
-        }}>
-
-          {/* ── 말풍선 (플로우 최상단) ── */}
-          <AnimatePresence>
-            {bubbleText ? (
-              <motion.div
-                key="bubble"
-                initial={{ opacity: 0, scale: 0.88, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.88, y: 8 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-                style={{
-                  width: 260,
-                  maxHeight: bubbleExpanded ? 420 : 160,
-                  overflowY: bubbleExpanded ? 'auto' : 'hidden',
-                  background: '#08081a',
-                  border: `1.5px solid ${primaryColor}99`,
-                  borderRadius: 16,
-                  padding: '10px 14px 36px 14px',
-                  fontSize: 12.5,
-                  color: 'rgba(255,255,255,0.95)',
-                  fontWeight: 500,
-                  lineHeight: 1.6,
-                  boxShadow: `0 12px 40px rgba(0,0,0,0.85), 0 0 0 1px ${primaryColor}33`,
-                  pointerEvents: 'auto',
-                  wordBreak: 'keep-all',
-                  marginBottom: 6,
-                  position: 'relative',
-                  scrollbarWidth: 'thin',
-                  transition: 'max-height 0.25s ease',
-                }}
-              >
-                {bubbleText}
-                {/* 하단 버튼 바 */}
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '4px 8px 6px',
-                  background: 'rgba(8,8,22,0.95)',
-                  borderTop: `1px solid ${primaryColor}22`,
-                  borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
-                }}>
-                  {/* 복사 버튼 */}
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(bubbleText).catch(() => {}); }}
-                    title="복사"
-                    style={{
-                      background: `${primaryColor}22`, border: `1px solid ${primaryColor}44`,
-                      borderRadius: 6, color: primaryColor, fontSize: 10, fontWeight: 700,
-                      padding: '3px 8px', cursor: 'pointer',
-                    }}
-                  >복사</button>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {/* 펼치기/접기 */}
-                    <button
-                      onClick={() => setBubbleExpanded(e => !e)}
-                      title={bubbleExpanded ? '접기' : '더보기'}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'rgba(255,255,255,0.35)', fontSize: 12, padding: '2px 4px',
-                        lineHeight: 1,
-                      }}
-                    >{bubbleExpanded ? '▲' : '▼'}</button>
-                    {/* 닫기 */}
-                    <button
-                      onClick={() => { setBubbleText(''); setBubbleExpanded(false); }}
-                      title="닫기"
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'rgba(255,255,255,0.4)', fontSize: 13, padding: '2px 4px',
-                        lineHeight: 1,
-                      }}
-                    >✕</button>
-                  </div>
-                </div>
-                {/* 말풍선 꼬리 */}
-                <div style={{
-                  position: 'absolute', bottom: -8, left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0, height: 0,
-                  borderLeft: '8px solid transparent',
-                  borderRight: '8px solid transparent',
-                  borderTop: `8px solid ${primaryColor}88`,
-                }} />
-              </motion.div>
-            ) : listening ? (
-              <motion.div
-                key="listen"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                style={{
-                  background: 'rgba(239,68,68,0.15)',
-                  border: '1.5px solid rgba(239,68,68,0.55)',
-                  borderRadius: 22,
-                  padding: '6px 16px', fontSize: 11,
-                  color: '#fca5a5', fontWeight: 700,
-                  whiteSpace: 'nowrap', pointerEvents: 'none',
-                  marginBottom: 6, position: 'relative',
-                }}
-              >
-                🎤 듣고 있어요...
-                <div style={{
-                  position: 'absolute', bottom: -7, left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0, height: 0,
-                  borderLeft: '7px solid transparent',
-                  borderRight: '7px solid transparent',
-                  borderTop: '7px solid rgba(239,68,68,0.55)',
-                }} />
-              </motion.div>
-            ) : !isActive ? (
-              <motion.div
-                key="inactive"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                style={{
-                  background: 'rgba(100,100,120,0.9)',
-                  borderRadius: 16, padding: '7px 14px',
-                  fontSize: 11, color: 'rgba(255,255,255,0.6)',
-                  whiteSpace: 'nowrap', pointerEvents: 'none',
-                  marginBottom: 6, position: 'relative',
-                }}
-              >
-                😴 비활성화 — 이름을 불러주세요
-                <div style={{
-                  position: 'absolute', bottom: -7, left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0, height: 0,
-                  borderLeft: '7px solid transparent',
-                  borderRight: '7px solid transparent',
-                  borderTop: '7px solid rgba(100,100,120,0.9)',
-                }} />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-
-          {/* ─── 캐릭터 본체 ─── */}
-          <div
-            onClick={isDragging ? undefined : handleCharacterClick}
-            style={{ cursor: isDragging ? 'grabbing' : 'pointer', position: 'relative' }}
-            title="클릭해서 대화하기"
-          >
-            <div style={{ position: 'relative', opacity: isActive ? 1 : 0.55, transition: 'opacity 0.3s' }}>
-              <AvatarRuntime
-                glbUrl={glbUrl}
-                emotion={
-                  emotion === 'happy'    ? 'happy'    :
-                  emotion === 'alert'    ? 'surprised':
-                  emotion === 'concerned'? 'concerned':
-                  emotion === 'humorous' ? 'happy'    : 'neutral'
-                }
-                runtimeState={speaking ? 'speaking' : listening ? 'listening' : 'idle'}
-                primaryColor={primaryColor}
-                accentColor={accentColor}
-                preset={avatarPreset}
-                width={200}
-                height={340}
-                scale={0.82}
-                characterOffsetY={-0.55}
-                cameraY={0.35}
-                quality="high"
-              />
-              <SpeakingWaves color={primaryColor} active={speaking} />
-            </div>
-            {/* 발광 플랫폼 */}
-            <motion.div
-              animate={{ opacity: [0.3, 0.6, 0.3], scaleX: [0.9, 1.05, 0.9] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              style={{
-                position: 'absolute', bottom: -4, left: '50%',
-                transform: 'translateX(-50%)',
-                width: 140, height: 16,
-                background: `radial-gradient(ellipse, ${primaryColor}88 0%, transparent 70%)`,
-                borderRadius: '50%', filter: 'blur(4px)', pointerEvents: 'none',
-              }}
-            />
-          </div>
-
-          {/* ── 드래그 핸들 (캐릭터 아래) ── */}
+        {/* ─ Siri Orb ─ */}
+        <div
+          onClick={handleCharacterClick}
+          title="클릭해서 대화하기"
+          style={{ flexShrink: 0, cursor: 'pointer', position: 'relative', zIndex: 1 }}
+        >
           <motion.div
-            animate={{ opacity: isDragging ? 1 : 0.3 }}
-            whileHover={{ opacity: 0.8 }}
+            animate={speaking
+              ? { scale: [1, 1.08, 1], boxShadow: [`0 0 14px ${primaryColor}88`, `0 0 28px ${primaryColor}dd`, `0 0 14px ${primaryColor}88`] }
+              : { scale: [1, 1.03, 1], boxShadow: [`0 0 12px ${primaryColor}66`, `0 0 20px ${primaryColor}99`, `0 0 12px ${primaryColor}66`] }
+            }
+            transition={{ duration: speaking ? 0.5 : 3.5, repeat: Infinity, ease: 'easeInOut' }}
             style={{
-              cursor: 'grab', fontSize: 11,
-              color: 'rgba(255,255,255,0.45)',
-              marginTop: 6, letterSpacing: 2, userSelect: 'none',
+              width: 46, height: 46, borderRadius: '50%',
+              background: `radial-gradient(circle at 38% 32%, ${accentColor}ee, ${primaryColor}cc 40%, ${primaryColor}88 68%, ${primaryColor}44)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+              opacity: isActive ? 1 : 0.55,
             }}
-            title="드래그하여 이동"
           >
-            ⠿ 이동
+            {!isActive && '😴'}
           </motion.div>
+          {speaking && (
+            <div style={{
+              position: 'absolute', inset: -4, borderRadius: '50%',
+              border: `1.5px solid ${primaryColor}66`,
+              animation: 'orb-speak 0.5s ease-in-out infinite alternate',
+              pointerEvents: 'none',
+            }} />
+          )}
         </div>
 
-        {/* ── 수직 버튼 (캐릭터 오른쪽) ── */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: 8,
-          marginBottom: 60, zIndex: 3,
-        }}>
+        {/* ─ 상태 정보 ─ */}
+        <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {activePersona && <span style={{ fontSize: 12 }}>{activePersona.emoji}</span>}
+            <span style={{
+              fontSize: 12, fontWeight: 700,
+              color: activePersona ? activePersona.color : primaryColor,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {activePersona?.name ?? (userLang === 'en' ? 'General Mode' : '일반 모드')}
+            </span>
+          </div>
+          <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
+            {userLang === 'en'
+              ? `${dailyUsedCount} / 15 today`
+              : `오늘 ${dailyUsedCount} / 15회`}
+          </div>
+        </div>
+
+        {/* ─ 컨트롤 버튼 ─ */}
+        <div style={{ display: 'flex', gap: 4, zIndex: 1 }}>
+          {/* 빛줄기 토글 */}
+          <motion.button
+            whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }}
+            onClick={() => setBeamEnabled(p => { const next = !p; localStorage.setItem('nexus-beam', next ? 'on' : 'off'); return next })}
+            title={beamEnabled ? '빛줄기 끄기' : '빛줄기 켜기'}
+            style={{
+              width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
+              background: beamEnabled ? `${primaryColor}28` : 'rgba(255,255,255,0.08)',
+              color: beamEnabled ? primaryColor : 'rgba(255,255,255,0.45)',
+              fontSize: 12,
+            }}
+          >✦</motion.button>
           {btnList.map(btn => (
             <motion.button
               key={btn.tip}
-              whileTap={{ scale: 0.9 }}
-              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }}
               onClick={btn.onClick}
               title={btn.tip}
               style={{
-                width: 36, height: 36, borderRadius: '50%', outline: 'none',
-                border: btn.active ? `1px solid ${btn.color}44` : '1px solid rgba(255,255,255,0.08)',
-                background: btn.active ? `${btn.color}28` : 'rgba(8,8,20,0.75)',
-                color: btn.active ? btn.color : 'rgba(255,255,255,0.55)',
-                fontSize: btn.icon === '—' ? 18 : 14,
-                cursor: 'pointer', backdropFilter: 'blur(12px)',
-                boxShadow: btn.active
-                  ? `0 0 12px ${btn.color}66, 0 2px 8px rgba(0,0,0,0.4)`
-                  : '0 2px 8px rgba(0,0,0,0.4)',
-                transition: 'all 0.2s',
+                width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                background: btn.active ? `${btn.color}28` : 'rgba(255,255,255,0.08)',
+                color: btn.active ? btn.color : 'rgba(255,255,255,0.45)',
+                fontSize: btn.icon === '—' ? 16 : 12,
               } as React.CSSProperties}
             >
               {btn.icon}
             </motion.button>
           ))}
         </div>
-
       </div>
-    </motion.div>
+
+      {/* ── TTS 말풍선 ── */}
+      <AnimatePresence>
+        {bubbleText && (
+          <motion.div
+            key="bubble"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{
+              overflow: 'hidden',
+              background: `${primaryColor}12`,
+              borderBottom: `1px solid ${primaryColor}28`,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{
+              padding: '10px 14px',
+              fontSize: 12.5, color: 'rgba(255,255,255,0.93)',
+              lineHeight: 1.6, wordBreak: 'keep-all',
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>💬</span>
+              <span style={{ flex: 1 }}>
+                {bubbleExpanded ? bubbleText : bubbleText.slice(0, 200) + (bubbleText.length > 200 ? '…' : '')}
+              </span>
+              <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                {bubbleText.length > 200 && (
+                  <button onClick={() => setBubbleExpanded(e => !e)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: primaryColor, fontSize: 11, padding: '2px 4px' }}>
+                    {bubbleExpanded ? '▲' : '▼'}
+                  </button>
+                )}
+                <button onClick={() => navigator.clipboard.writeText(bubbleText).catch(() => {})}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '2px 4px' }}>
+                  ⎘
+                </button>
+                <button onClick={() => { setBubbleText(''); setBubbleExpanded(false) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '2px 4px' }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 비활성화 상태 배너 ── */}
+      {!isActive && (
+        <div style={{
+          padding: '5px 14px', fontSize: 10,
+          color: 'rgba(255,255,255,0.45)',
+          background: 'rgba(100,100,120,0.2)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          flexShrink: 0, textAlign: 'center',
+        }}>
+          😴 비활성화 상태 — {assistantName}을(를) 불러주세요
+        </div>
+      )}
+
+      {/* ── 집중 모드 배너 ── */}
+      {focusEndMs && (
+        <div style={{
+          padding: '5px 14px', fontSize: 10,
+          color: primaryColor,
+          background: `${primaryColor}12`,
+          borderBottom: `1px solid ${primaryColor}28`,
+          flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <span>🎯</span>
+          <span>집중 모드 — {Math.max(0, Math.ceil((focusEndMs - Date.now()) / 60_000))}분 남음</span>
+        </div>
+      )}
+
+      {/* ── 동적 결과창 (floatingPreview 데이터 표시) ── */}
+      <AnimatePresence>
+        {floatingPreview && floatingPreview.length > 0 && (
+          <motion.div
+            key="result-panel"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{
+              overflow: 'hidden', flexShrink: 0,
+              borderBottom: `1px solid ${primaryColor}28`,
+              maxHeight: 220,
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: primaryColor, fontWeight: 800 }}>
+                  {floatingPreview.some(x => x.isMap && x.mapType === 'directions') ? '🗺️ 길찾기 결과'
+                    : floatingPreview.some(x => x.isMap) ? '🗺️ 지도 결과'
+                    : floatingPreview[0]?.isVideo ? '🎬 영상 결과'
+                    : '🔍 검색 결과'} ({floatingPreview.length})
+                </span>
+                <button onClick={() => { setFloatingPreview(null); setPreviewFilter('all') }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>✕</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {floatingPreview.slice(0, 6).map((item, i) => {
+                  const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
+                  const isKakao = (item as any).service === 'kakao'
+                  const modeEmoji: Record<string, string> = { transit: '🚌', car: '🚗', walk: '🚶', bicycle: '🚲', ktx: '🚂' }
+                  const mode = (item as any).mode as string | undefined
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      onClick={() => window.open(item.url, '_blank')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer',
+                        padding: '5px 6px', borderRadius: 8,
+                        background: 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${primaryColor}22`,
+                        transition: 'all 0.15s',
+                      }}
+                      whileHover={{ background: `rgba(${primaryColor},0.1)`, borderColor: `${primaryColor}55` } as any}
+                    >
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 5,
+                        background: isYt ? '#e53e3e22' : `${primaryColor}22`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, fontSize: 10, fontWeight: 700,
+                        color: isYt ? '#e53e3e' : primaryColor,
+                      }}>
+                        {isYt ? '▶' : mode ? modeEmoji[mode] ?? '→' : (i + 1)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>
+                          {(() => { try { return new URL(item.url).hostname.replace('www.','') } catch { return '' } })()}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 9, color: primaryColor, flexShrink: 0 }}>↗</span>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 채팅 영역 (flex: 1) ── */}
+      <div style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <ChatBubble
+          messages={messages}
+          typing={typing}
+          input={displayInput}
+          onInputChange={v => setInput(v)}
+          onSend={handleSend}
+          onSendWithFile={handleSendWithFileImpl}
+          onRepair={handleRepair}
+          assistantName={assistantName}
+          lang={userLang}
+          primaryColor={primaryColor}
+          historyVersion={historyVersion}
+          clarifyPending={!!clarifyPendingIntent}
+          clarifyQuestion={clarifyPendingQuestion ?? ''}
+          typingSteps={typingSteps}
+          activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
+          subscriptionStatus={subscriptionStatus}
+          dailyUsed={dailyUsedCount}
+          onPersonaClick={handlePersonaChipClick}
+          embedded={true}
+        />
+      </div>
+
+    </div>
+
+    {/* ── 영상 의도 확인 팝업 ── */}
+    {videoIntentPending && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 10100,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          background: 'rgba(12,12,28,0.97)', border: `1.5px solid ${primaryColor}55`,
+          borderRadius: 18, padding: '22px 24px', width: 300,
+          boxShadow: `0 12px 40px ${primaryColor}44`,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>🎬 영상을 어떻게 할까요?</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>{videoIntentPending.file.name}</div>
+          {[
+            { label: '🔍 내용 분석 / 요약', text: '이 영상 내용을 분석하고 요약해줘' },
+            { label: '✂️ 구간 자르기', text: '이 영상에서 구간을 잘라줘' },
+            { label: '📦 용량 압축', text: '이 영상 용량을 압축해줘' },
+            { label: '⚡ 배속 변환', text: '이 영상 속도를 바꿔줘' },
+          ].map(({ label, text }) => (
+            <button key={label}
+              onClick={() => { const { file, extra } = videoIntentPending; setVideoIntentPending(null); handleSendWithFileImpl(text, file, extra) }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: `${primaryColor}18`, border: `1px solid ${primaryColor}33`,
+                color: '#fff', fontSize: 12, fontWeight: 600,
+                padding: '8px 12px', borderRadius: 10, marginBottom: 8, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = `${primaryColor}35`)}
+              onMouseLeave={e => (e.currentTarget.style.background = `${primaryColor}18`)}
+            >{label}</button>
+          ))}
+          <button onClick={() => setVideoIntentPending(null)}
+            style={{ width: '100%', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', marginTop: 2 }}>
+            취소
+          </button>
+        </div>
+      </div>
+    )}
 
     <SettingsModal
       open={settingsOpen}

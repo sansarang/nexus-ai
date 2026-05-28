@@ -85,7 +85,6 @@ export interface ChatSenderDeps {
   isMountedRef: MutableRefObject<boolean>
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>
   setInput: Dispatch<SetStateAction<string>>
-  setListening: Dispatch<SetStateAction<boolean>>
   setTyping: Dispatch<SetStateAction<boolean>>
   setTypingSteps: Dispatch<SetStateAction<string[]>>
   setEmotion: Dispatch<SetStateAction<CharacterEmotion>>
@@ -102,7 +101,6 @@ export interface ChatSenderDeps {
   speakText: (text: string, em?: CharacterEmotion) => void
   resetClarify: () => void
   pushModelHistory: (userText: string, modelText: string) => void
-  handleVoiceToggle: () => void
   handleBackendIntent: (intent: Intent, msgId: string, originalText?: string) => Promise<{ text: string; card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
   renderCommandResult: (action: string, result: unknown, trimmed: string) => Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
   showPaywall?: (feature: string, used: number, limit: number) => void
@@ -113,10 +111,10 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     clarifyPendingIntent, clarifyPendingParams, clarifyPendingQuestion,
     floatingPreview, ttsVoice,
     typingRef, historyRef, isMountedRef,
-    setMessages, setInput, setListening, setTyping, setTypingSteps, setEmotion, setSpeaking,
+    setMessages, setInput, setTyping, setTypingSteps, setEmotion, setSpeaking,
     setUserLang, setHistoryVersion, setToastAlerts, setIsActive, setFloatingPreview,
     setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
-    speakText, resetClarify, pushModelHistory, handleVoiceToggle,
+    speakText, resetClarify, pushModelHistory,
     handleBackendIntent, renderCommandResult, showPaywall,
   } = d
 
@@ -156,7 +154,6 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       return next.filter(m => !toRemove.has(m.id))
     })
     setInput('')
-    setListening(false)
     setTyping(true)
     setEmotion('neutral')
     historyRef.current.push({ role: 'user', parts: [{ text: trimmed }] })
@@ -645,14 +642,8 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
             }])
             pushModelHistory(trimmed, question)
             // Clarify 질문 TTS — 자동 마이크 시작은 설정에 따름
-            const clarifyAutoMic = localStorage.getItem('nexus-clarify-auto-mic') !== 'false'
             speak(question, userLang, () => setSpeaking(true), () => {
               setSpeaking(false)
-              if (clarifyAutoMic && isMountedRef.current) {
-                setTimeout(() => {
-                  if (isMountedRef.current && !typingRef.current) handleVoiceToggle()
-                }, 300)
-              }
             })
             return
           }
