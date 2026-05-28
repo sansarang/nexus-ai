@@ -129,6 +129,10 @@ interface AppState {
   /* Actions */
   setView: (view: ViewId) => void
   toggleCommand: () => void
+  /** Alt+S/V/C 단축키 → 채팅 명령 자동 입력용 콜백 (FloatingCharacter가 등록) */
+  triggerCommand?: (text: string) => void
+  /** triggerCommand 콜백 등록 */
+  registerTriggerCommand: (fn: (text: string) => void) => void
   setLoggedIn: (email: string, status: 'active' | 'trial' | 'expired' | 'none', expiry: string, userId?: string) => void
   setLoggedOut: () => Promise<void>
   refreshSubscription: () => Promise<void>
@@ -306,6 +310,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setView: (view) => set({ currentView: view }),
   toggleCommand: () => set((s) => ({ commandOpen: !s.commandOpen })),
+  registerTriggerCommand: (fn) => set({ triggerCommand: fn }),
   setLoggedIn: (email, status, expiry, userId?: string) => {
     localStorage.setItem('nexus-user-email', email)
     localStorage.setItem('nexus-sub-status', status)

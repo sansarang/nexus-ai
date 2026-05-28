@@ -11,8 +11,74 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 )
+
+// recallEnabled: 1=활성, 0=비활성 (원자적 플래그 — 경쟁조건 없음)
+var recallEnabled int32 = 1
+
+type recallConfig struct {
+	Enabled       bool `json:"enabled"`
+	IntervalSec   int  `json:"interval_sec"`    // 기본 300초 (5분)
+	MaxEntries    int  `json:"max_entries"`     // 기본 100
+}
+
+func recallConfigPath() string {
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		appData = os.TempDir()
+	}
+	return filepath.Join(appData, "Nexus", "recall_config.json")
+}
+
+func loadRecallConfig() recallConfig {
+	cfg := recallConfig{Enabled: true, IntervalSec: 300, MaxEntries: 100}
+	data, err := os.ReadFile(recallConfigPath())
+	if err == nil {
+		json.Unmarshal(data, &cfg)
+	}
+	return cfg
+}
+
+func saveRecallConfig(cfg recallConfig) {
+	data, _ := json.Marshal(cfg)
+	os.WriteFile(recallConfigPath(), data, 0644)
+}
+
+// GET/POST /api/recall/config
+func handleRecallConfig(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
+	if r.Method == http.MethodGet {
+		cfg := loadRecallConfig()
+		cfg.Enabled = atomic.LoadInt32(&recallEnabled) == 1
+		json200(w, map[string]any{"success": true, "config": cfg})
+		return
+	}
+	// POST
+	var cfg recallConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "invalid body"})
+		return
+	}
+	if cfg.IntervalSec < 60 {
+		cfg.IntervalSec = 300
+	}
+	if cfg.MaxEntries < 10 {
+		cfg.MaxEntries = 100
+	}
+	saveRecallConfig(cfg)
+	if cfg.Enabled {
+		atomic.StoreInt32(&recallEnabled, 1)
+	} else {
+		atomic.StoreInt32(&recallEnabled, 0)
+	}
+	json200(w, map[string]any{
+		"success": true,
+		"message": msgT("Recall 설정 저장됨", "Recall config saved", lang),
+		"config":  cfg,
+	})
+}
 
 // ══════════════════════════════════════════════════════════════════
 //  Windows Recall — 주기적 스크린샷 + OCR 인덱싱 + 키워드 검색
@@ -202,12 +268,25 @@ func pruneRecallEntries(max int) {
 	}
 }
 
-// startRecallCollector — 5분 간격으로 자동 캡처 (60초는 VM 메모리 과부하 원인)
+// startRecallCollector — 설정 파일 기반 주기 자동 캡처 (기본 5분)
 func startRecallCollector() {
-	ticker := time.NewTicker(5 * time.Minute)
+	// 초기 설정 로드
+	cfg := loadRecallConfig()
+	if !cfg.Enabled {
+		atomic.StoreInt32(&recallEnabled, 0)
+	}
+	interval := time.Duration(cfg.IntervalSec) * time.Second
+	if interval < 60*time.Second {
+		interval = 5 * time.Minute
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for range ticker.C {
+		// 비활성화된 경우 skip
+		if atomic.LoadInt32(&recallEnabled) == 0 {
+			continue
+		}
 		ts := time.Now().Format("20060102_150405")
 		dir := recallDir()
 		imgPath := filepath.Join(dir, "screen_"+ts+".png")
@@ -253,6 +332,8 @@ try {
 		}
 		data, _ := json.Marshal(entry)
 		os.WriteFile(jsonPath, data, 0644)
-		pruneRecallEntries(100) // 100장 × ~2MB = 최대 200MB (VM 디스크 보호)
+		maxE := loadRecallConfig().MaxEntries
+		if maxE < 10 { maxE = 100 }
+		pruneRecallEntries(maxE) // 설정값 × ~2MB = 디스크 보호
 	}
 }

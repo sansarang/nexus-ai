@@ -749,7 +749,14 @@ func getCachedSearch(query string) (parallelSearchResult, bool) {
 func setCachedSearch(query string, r parallelSearchResult) {
 	searchCacheMu.Lock()
 	defer searchCacheMu.Unlock()
-	searchCache[query] = searchCacheEntry{result: r, expiresAt: time.Now().Add(5 * time.Minute)}
+	// 날씨/주가/환율/실시간 데이터는 30초 TTL, 나머지는 5분
+	ttl := 5 * time.Minute
+	cat := detectCategory(query)
+	if cat == catWeather || cat == catFinance {
+		// 날씨/주가/환율/코인은 실시간 데이터 → 30초 TTL
+		ttl = 30 * time.Second
+	}
+	searchCache[query] = searchCacheEntry{result: r, expiresAt: time.Now().Add(ttl)}
 	// 캐시 항목이 100개 초과 시 만료된 것 정리
 	if len(searchCache) > 100 {
 		now := time.Now()

@@ -8,6 +8,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   redditSearch, redditTrending,
   schedulerAdd, schedulerList, schedulerDelete,
   recallCapture, recallSearch,
+  clipboardHistory, clipboardHistoryClear,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
   dictationType, dictationPaste,
   weatherGet, travelTime,
@@ -144,6 +145,7 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
       case 'travel_time': return ['Looking up coordinates...', 'Calculating route']
       case 'translate': return ['Checking clipboard...', 'Translating...']
       case 'clipboard_ai': return ['Getting clipboard content...', 'Processing with AI']
+      case 'clipboard_history': return ['Loading clipboard history...']
       case 'voice_todo': return ['Analyzing content...', 'Saving note', 'Registering to calendar']
       case 'persona_list': return ['Loading persona list...']
       case 'persona_switch': return ['Switching persona...']
@@ -248,8 +250,9 @@ function buildAgentSteps(intent: Intent, lang: 'ko' | 'en' = 'ko'): string[] {
     case 'weather':          return ['날씨 데이터 수집 중...', '예보 분석 중']
     case 'travel_time':      return ['출발지·목적지 좌표 조회 중...', '경로 계산 중']
     case 'translate':        return ['클립보드 내용 확인 중...', '번역 중...']
-    case 'clipboard_ai':     return ['클립보드 내용 가져오는 중...', 'AI 처리 중']
-    case 'voice_todo':       return ['내용 분석 중...', '메모 저장 중', '캘린더 등록 중']
+    case 'clipboard_ai':      return ['클립보드 내용 가져오는 중...', 'AI 처리 중']
+    case 'clipboard_history': return ['클립보드 히스토리 불러오는 중...']
+    case 'voice_todo':        return ['내용 분석 중...', '메모 저장 중', '캘린더 등록 중']
     case 'persona_list':     return ['페르소나 목록 불러오는 중...']
     case 'persona_switch':   return ['페르소나 전환 중...']
     case 'brain_search':     return ['🧠 Second Brain 검색 중...', '관련 기억 분석 중']
@@ -1064,8 +1067,8 @@ export async function handleBackendIntentImpl(
         case 'email_inbox': {
           const data = await emailInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
           if ((data as any).action === 'outlook_setup_required') {
-            d.openEmailSetup?.()
-            return { text: t('Outlook 연동이 필요합니다. 설정 창을 열었어요 📧', 'Outlook setup required. Opening settings 📧', userLang), emotion: 'neutral' }
+            // 팝업 강제 오픈 제거 — 사용자가 원할 때만 설정
+            return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
           }
           return {
             text: data.message,
@@ -1089,8 +1092,8 @@ export async function handleBackendIntentImpl(
         case 'email_summarize': {
           const data = await emailSummarize().catch(() => ({ success: false, emails: [], summary: '', message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
           if ((data as any).action === 'outlook_setup_required') {
-            d.openEmailSetup?.()
-            return { text: t('Outlook 연동이 필요합니다. 설정 창을 열었어요 📧', 'Outlook setup required. Opening settings 📧', userLang), emotion: 'neutral' }
+            // 팝업 강제 오픈 제거
+            return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
           }
           return {
             text: data.message,
@@ -1460,6 +1463,33 @@ export async function handleBackendIntentImpl(
               success: true,
             },
             emotion: 'happy',
+          }
+        }
+
+        /* ── 📋 클립보드 히스토리 ── */
+        case 'clipboard_history': {
+          const shouldClear = /지워|삭제|clear/i.test(originalText)
+          if (shouldClear) {
+            await clipboardHistoryClear().catch(() => null)
+            return { text: t('클립보드 히스토리를 모두 지웠어요!', 'Clipboard history cleared!', userLang), emotion: 'happy' }
+          }
+          const res = await clipboardHistory().catch(() => ({ success: false, history: [], total: 0 }))
+          const history = res.history ?? []
+          if (history.length === 0) {
+            return { text: t('클립보드 히스토리가 없어요. 텍스트를 복사하면 자동으로 저장돼요.', 'No clipboard history yet. Text you copy will be tracked automatically.', userLang), emotion: 'neutral' }
+          }
+          const lines = history.slice(0, 10).map((e, i) => {
+            const preview = e.text.length > 60 ? e.text.slice(0, 60) + '...' : e.text
+            const ts = new Date(e.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            return `${i + 1}. [${ts}] ${preview}`
+          })
+          return {
+            text: t(
+              `클립보드 히스토리 최근 ${Math.min(history.length, 10)}개예요:\n\n${lines.join('\n')}`,
+              `Last ${Math.min(history.length, 10)} clipboard entries:\n\n${lines.join('\n')}`,
+              userLang
+            ),
+            emotion: 'neutral',
           }
         }
 

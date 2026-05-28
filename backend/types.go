@@ -8,9 +8,9 @@ const (
 	pplxFastModel = "sonar"     // 빠른 의도 파악용
 	pplxAPIBase   = "https://api.perplexity.ai/chat/completions"
 
-	// 하위 호환 별칭 (기존 코드 callGroq 호출 유지)
-	groqChatModel = pplxChatModel
-	groqFastModel = pplxFastModel
+	// Groq LLM 모델 (callGroqWithCitations 등에서 Groq 키 사용 시)
+	groqChatModel = "llama-3.3-70b-versatile" // Groq 일반 채팅용 70B 모델
+	groqFastModel = "llama-3.1-8b-instant"    // Groq 빠른 응답용 8B 모델
 
 	// Groq — Structured Outputs 전용 (Clarify 판단) + Vision
 	groqRealAPIBase     = "https://api.groq.com/openai/v1/chat/completions"

@@ -481,14 +481,107 @@ func handleFocusMode(w http.ResponseWriter, r *http.Request) {
 // 클립보드 히스토리
 // ──────────────────────────────────────────
 
+type clipEntry struct {
+	Text      string `json:"text"`
+	Timestamp string `json:"timestamp"`
+}
+
+func clipboardHistoryPath() string {
+	dir := filepath.Join(os.Getenv("APPDATA"), "Nexus")
+	os.MkdirAll(dir, 0755)
+	return filepath.Join(dir, "clipboard_history.json")
+}
+
+func loadClipboardHistory() []clipEntry {
+	data, err := os.ReadFile(clipboardHistoryPath())
+	if err != nil {
+		return nil
+	}
+	var entries []clipEntry
+	json.Unmarshal(data, &entries)
+	return entries
+}
+
+func saveClipboardHistory(entries []clipEntry) {
+	data, _ := json.Marshal(entries)
+	os.WriteFile(clipboardHistoryPath(), data, 0644)
+}
+
+// 클립보드 변경 감지 → 히스토리 자동 저장 (30초 폴링)
+var lastClipText string
+
+func startClipboardMonitor() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		out, err := execPS(`Get-Clipboard -Format Text`)
+		if err != nil {
+			continue
+		}
+		text := strings.TrimSpace(string(out))
+		if text == "" || text == lastClipText {
+			continue
+		}
+		lastClipText = text
+		entries := loadClipboardHistory()
+		// 중복 제거
+		filtered := make([]clipEntry, 0, len(entries))
+		for _, e := range entries {
+			if e.Text != text {
+				filtered = append(filtered, e)
+			}
+		}
+		// 최신을 맨 앞에
+		filtered = append([]clipEntry{{Text: text, Timestamp: time.Now().Format(time.RFC3339)}}, filtered...)
+		// 최대 50개 유지
+		if len(filtered) > 50 {
+			filtered = filtered[:50]
+		}
+		saveClipboardHistory(filtered)
+	}
+}
+
 func handleClipboard(w http.ResponseWriter, r *http.Request) {
 	out, _ := execPS(`Get-Clipboard -Format Text`)
 	current := strings.TrimSpace(string(out))
+
+	// 현재 클립보드를 히스토리에 추가 (변경된 경우)
+	if current != "" && current != lastClipText {
+		lastClipText = current
+		entries := loadClipboardHistory()
+		filtered := make([]clipEntry, 0, len(entries))
+		for _, e := range entries {
+			if e.Text != current {
+				filtered = append(filtered, e)
+			}
+		}
+		filtered = append([]clipEntry{{Text: current, Timestamp: time.Now().Format(time.RFC3339)}}, filtered...)
+		if len(filtered) > 50 {
+			filtered = filtered[:50]
+		}
+		saveClipboardHistory(filtered)
+	}
 
 	json200(w, map[string]any{
 		"current": current,
 		"tip":     "Windows + V 로 클립보드 히스토리를 볼 수 있어요",
 	})
+}
+
+// GET  /api/clipboard/history — 히스토리 목록
+// DELETE /api/clipboard/history — 히스토리 삭제
+func handleClipboardHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodDelete {
+		os.Remove(clipboardHistoryPath())
+		lastClipText = ""
+		json200(w, map[string]any{"success": true, "message": "클립보드 히스토리 삭제됨"})
+		return
+	}
+	entries := loadClipboardHistory()
+	if entries == nil {
+		entries = []clipEntry{}
+	}
+	json200(w, map[string]any{"success": true, "history": entries, "total": len(entries)})
 }
 
 // ──────────────────────────────────────────

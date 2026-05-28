@@ -22,6 +22,21 @@ async function setupTauriEvents() {
       useAppStore.getState().toggleCommand()
     })
 
+    // Alt+S: 스크린샷 + AI 분석 → 채팅창에 "화면 분석해줘" 명령 전송
+    await listen('shortcut-screenshot', () => {
+      useAppStore.getState().triggerCommand?.('화면 분석해줘')
+    })
+
+    // Alt+V: 비전 / OCR → 클립보드 이미지 OCR
+    await listen('shortcut-vision', () => {
+      useAppStore.getState().triggerCommand?.('클립보드 이미지 OCR 해줘')
+    })
+
+    // Alt+C: 클립보드 히스토리
+    await listen('shortcut-clipboard', () => {
+      useAppStore.getState().triggerCommand?.('클립보드 히스토리 보여줘')
+    })
+
     // Google OAuth 딥링크 콜백 처리
     await listen('oauth-callback', async (event) => {
       try {

@@ -42,6 +42,7 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload, videoQuickSearch,
   schedulerAdd, schedulerList, schedulerDelete,
   recallCapture, recallSearch,
+  clipboardHistory, clipboardHistoryClear,
   meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize,
   dictationType, dictationPaste,
   weatherGet, travelTime,
@@ -245,9 +246,12 @@ export function FloatingCharacter() {
     isLoggedIn, setLoggedIn, subscriptionStatus, userEmail,
     setUserLang,
     showWorkflowBuilder: storeShowWorkflowBuilder, workflowBuilderInitialName, setShowWorkflowBuilder: storeSetShowWorkflowBuilder,
+    registerTriggerCommand,
   } = useAppStore()
 
-  const primaryColor = storePrimary || '#a78bfa'
+  // 저장된 테마 색상이 있으면 우선 적용
+  const savedThemeColor = localStorage.getItem('nexus-theme-color')
+  const primaryColor = savedThemeColor || storePrimary || '#a78bfa'
   const accentColor  = storeAccent  || '#f9a8d4'
 
   // RPM GLB URL (있으면 RPM 아바타, 없으면 ProceduralHumanoid)
@@ -289,6 +293,18 @@ export function FloatingCharacter() {
   const [previewType, setPreviewType] = useState<string>('general')
   const [previewFilter, setPreviewFilter] = useState<string>('all')
   const [resultDrawerOpen, setResultDrawerOpen] = useState(false)
+  // ⭐ 즐겨찾기 링크 (localStorage 영구)
+  const [favLinks, setFavLinks] = useState<Array<{ title: string; url: string; addedAt: string }>>(() => {
+    try { return JSON.parse(localStorage.getItem('nexus-fav-links') || '[]') } catch { return [] }
+  })
+  const toggleFav = (url: string, title: string) => {
+    setFavLinks(prev => {
+      const exists = prev.some(f => f.url === url)
+      const next = exists ? prev.filter(f => f.url !== url) : [...prev, { url, title, addedAt: new Date().toISOString() }]
+      localStorage.setItem('nexus-fav-links', JSON.stringify(next))
+      return next
+    })
+  }
   // savedPreviews: 앱 재시작 후에도 유지 (localStorage 영구 저장)
   const [savedPreviews, setSavedPreviews] = useState<Array<{ label: string; items: Array<{ title: string; url: string }> }>>(() => {
     try { return JSON.parse(localStorage.getItem('nexus_saved_previews') || '[]') } catch { return [] }
@@ -297,12 +313,23 @@ export function FloatingCharacter() {
     try { localStorage.setItem('nexus_saved_previews', JSON.stringify(savedPreviews.slice(-5))) } catch { /* storage full */ }
   }, [savedPreviews])
 
+  // ── Alt+S/V/C 글로벌 단축키 → sendText 콜백 등록 ─────────────
+  useEffect(() => {
+    registerTriggerCommand((text: string) => {
+      // 창이 닫혀 있으면 열고 명령 전송
+      sendText(text)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── Clarify 멀티턴 상태 ──────────────────────────────────
   const [clarifyPendingIntent,   setClarifyPendingIntent]   = useState<string | null>(null)
   const [clarifyPendingParams,   setClarifyPendingParams]   = useState<Record<string, unknown> | null>(null)
   const [clarifyPendingQuestion, setClarifyPendingQuestion] = useState<string | null>(null)
   const [activePersona, setActivePersona] = useState<PersonaDef | null>(null)
   const [dailyUsedCount, setDailyUsedCount] = useState(() => getDailyUsage().count)
+  const [showPersonaPopup, setShowPersonaPopup] = useState(false)
+  const [personaListData, setPersonaListData] = useState<PersonaDef[]>([])
   // 영상 파일 첨부 시 의도 확인 팝업
   const [videoIntentPending, setVideoIntentPending] = useState<{ file: AttachedFile; extra: AttachedFile[] } | null>(null)
   const [captionRunning, setCaptionRunning] = useState(false)
@@ -322,6 +349,24 @@ export function FloatingCharacter() {
       // 브라우저 환경 폴백
       window.open(url, '_blank')
     }
+  }, [])
+
+  // 페르소나 칩 클릭 → 팝업 열기 + 목록 로드
+  const handlePersonaChipClick = useCallback(async () => {
+    try {
+      const data = await personaList()
+      setPersonaListData(data.personas)
+    } catch { /* 목록 로드 실패 시 기존 빈 목록 */ }
+    setShowPersonaPopup(true)
+  }, [])
+
+  // 페르소나 선택 → 전환
+  const handlePersonaSelect = useCallback(async (id: string) => {
+    setShowPersonaPopup(false)
+    try {
+      const res = await personaSet(id)
+      if (res.ok && res.persona) setActivePersona(res.persona)
+    } catch { /* 전환 실패 무시 */ }
   }, [])
 
   // useCallback으로 안정적인 참조 유지 (sendText deps에 포함됨)
@@ -1675,6 +1720,7 @@ export function FloatingCharacter() {
               ...(hasNews     ? [{ key: 'news',     label: userLang === 'en' ? '📰 News'  : '📰 뉴스'  }] : []),
               ...(hasShopping ? [{ key: 'shopping', label: userLang === 'en' ? '🛒 Shop'  : '🛒 쇼핑'  }] : []),
               ...(hasBlog     ? [{ key: 'blog',     label: userLang === 'en' ? '📝 Blog'  : '📝 블로그'}] : []),
+              ...(favLinks.length > 0 ? [{ key: 'fav', label: `⭐ ${userLang === 'en' ? 'Saved' : '즐겨찾기'}` }] : []),
             ]
             if (tabs.length <= 1) return null
             return (
@@ -1803,6 +1849,9 @@ export function FloatingCharacter() {
             if (previewFilter === 'shopping') return /coupang\.|shopping\.naver\.|11st\.|gmarket\.|temu\.|aliexpress\.|amazon\./i.test(item.url)
             if (previewFilter === 'blog') return /blog\.naver\.|tistory\.|velog\.|brunch\.|medium\./i.test(item.url)
             return true
+          }).filter(item => {
+            if (previewFilter === 'fav') return favLinks.some(f => f.url === item.url)
+            return true
           }).slice(0, 14).map((item, i) => {
             const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
             const isNaverTV = item.url.includes('tv.naver.com')
@@ -1869,6 +1918,18 @@ export function FloatingCharacter() {
                   {item.url.replace(/^https?:\/\//, '').slice(0, 40)}
                 </div>
               </div>
+              {/* ⭐ 즐겨찾기 버튼 */}
+              <button
+                title={favLinks.some(f => f.url === item.url) ? (userLang === 'en' ? 'Remove from favorites' : '즐겨찾기 해제') : (userLang === 'en' ? 'Add to favorites' : '즐겨찾기 추가')}
+                onClick={(e) => { e.stopPropagation(); toggleFav(item.url, item.title) }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', flexShrink: 0,
+                  fontSize: 12, lineHeight: 1, transition: 'transform 0.15s',
+                  color: favLinks.some(f => f.url === item.url) ? '#fbbf24' : 'rgba(255,255,255,0.22)',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.3)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)' }}
+              >{favLinks.some(f => f.url === item.url) ? '⭐' : '☆'}</button>
               {/* URL 복사 아이콘 (일반 링크에만) */}
               {!item.isVideo && !item.isMap && !(item as any).isImage && !(item as any).isSocial && (
                 <button
@@ -2056,6 +2117,7 @@ export function FloatingCharacter() {
               activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
               subscriptionStatus={subscriptionStatus}
               dailyUsed={dailyUsedCount}
+              onPersonaClick={handlePersonaChipClick}
             />
           </motion.div>
         )}
@@ -2358,7 +2420,78 @@ export function FloatingCharacter() {
       open={settingsOpen}
       onClose={() => setSettingsOpen(false)}
       primaryColor={primaryColor}
+      onPrimaryColorChange={(c) => {
+        setPrimaryColor(c)
+        localStorage.setItem('nexus-theme-color', c)
+      }}
     />
+
+    {/* ── 페르소나 선택 팝업 ── */}
+    {showPersonaPopup && (
+      <>
+        <div
+          onClick={() => setShowPersonaPopup(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 10200, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        />
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10201,
+          background: 'rgba(10,10,24,0.98)',
+          border: `1.5px solid ${primaryColor}44`,
+          borderRadius: 18,
+          padding: '20px 18px',
+          width: 320,
+          boxShadow: `0 16px 48px rgba(0,0,0,0.8), 0 0 0 1px ${primaryColor}22`,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: primaryColor, marginBottom: 4 }}>
+            🤖 AI 모드 선택
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 14 }}>
+            현재: {activePersona?.name ?? '일반 모드'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {/* 기본 일반 모드 */}
+            {[
+              { id: 'general', name: '일반 모드', emoji: '🤖', description: '기본 AI 비서 — 모든 작업 처리', color: primaryColor },
+              ...personaListData,
+            ].map(p => {
+              const isActive = (activePersona?.id ?? 'general') === p.id
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handlePersonaSelect(p.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 12,
+                    background: isActive ? `${p.color}22` : 'rgba(255,255,255,0.04)',
+                    border: isActive ? `1.5px solid ${p.color}88` : '1px solid rgba(255,255,255,0.1)',
+                    cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                >
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>{p.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? p.color : 'rgba(255,255,255,0.9)' }}>{p.name}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
+                  </div>
+                  {isActive && <span style={{ fontSize: 10, color: p.color, fontWeight: 700, flexShrink: 0 }}>✓ 현재</span>}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => setShowPersonaPopup(false)}
+            style={{
+              marginTop: 14, width: '100%', padding: '8px 0',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 10, color: 'rgba(255,255,255,0.5)', fontSize: 11, cursor: 'pointer',
+            }}
+          >닫기</button>
+        </div>
+      </>
+    )}
 
     {/* ── 새 패널들 ── */}
     <AnimatePresence>

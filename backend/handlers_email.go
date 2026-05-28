@@ -33,7 +33,7 @@ func handleEmailInbox(w http.ResponseWriter, r *http.Request) {
 			"emails":  []EmailItem{},
 			"total":   0,
 			"action":  "outlook_setup_required",
-			"message": msgT("Outlook이 설치되지 않았거나 연동이 필요해요. 설정에서 이메일을 연결해주세요.", "Outlook is not installed or not connected. Please set up email in Settings.", lang),
+			"message": msgT("이메일 계정이 연동되지 않았어요. 설정 → 이메일 탭에서 Gmail/Outlook 계정을 추가해주세요.", "No email account connected. Go to Settings → Email tab to add Gmail/Outlook.", lang),
 		})
 		return
 	}
@@ -109,7 +109,7 @@ func handleEmailSummarize(w http.ResponseWriter, r *http.Request) {
 			"success": false,
 			"summary": "",
 			"action":  "outlook_setup_required",
-			"message": msgT("Outlook이 설치되지 않았거나 연동이 필요해요. 설정에서 이메일을 연결해주세요.", "Outlook is not installed or not connected. Please set up email in Settings.", lang),
+			"message": msgT("이메일 계정이 연동되지 않았어요. 설정 → 이메일 탭에서 Gmail/Outlook 계정을 추가해주세요.", "No email account connected. Go to Settings → Email tab to add Gmail/Outlook.", lang),
 		})
 		return
 	}

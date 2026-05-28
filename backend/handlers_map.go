@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ──────────────────────────────────────────────────────────────
@@ -112,6 +113,15 @@ func handleDirections(w http.ResponseWriter, r *http.Request) {
 		travelSummary = buildDirectionsSummary(from, to, req.Mode)
 	}
 
+	// 소요시간 파싱 → 링크 title에 추가 (예: "🚌 대중교통 — 서울→부산 · 약 2시간 50분")
+	durationHints := parseDurationHints(travelSummary, eng)
+	for i, link := range links {
+		mode := link["mode"]
+		if hint, ok := durationHints[mode]; ok && hint != "" {
+			links[i]["title"] = links[i]["title"] + " · " + hint
+		}
+	}
+
 	writeJSON(w, 200, map[string]any{
 		"success":        true,
 		"from":           from,
@@ -145,27 +155,67 @@ func handlePlaceView(w http.ResponseWriter, r *http.Request) {
 	enc := url.QueryEscape(place)
 	engPlace := isEnglishQuery(req.Query + " " + place)
 
-	var links []map[string]string
-	if engPlace {
-		links = []map[string]string{
-			{"title": "🌐 Google Street View — " + place, "url": fmt.Sprintf("https://www.google.com/maps/search/%s", enc), "type": "roadview", "service": "google"},
-			{"title": "📍 Google Maps — " + place, "url": fmt.Sprintf("https://www.google.com/maps/place/%s", enc), "type": "map", "service": "google"},
-			{"title": "🗺️ Apple Maps — " + place, "url": fmt.Sprintf("https://maps.apple.com/?q=%s", enc), "type": "map", "service": "apple"},
-			{"title": "📌 Bing Maps — " + place, "url": fmt.Sprintf("https://www.bing.com/maps?q=%s", enc), "type": "map", "service": "bing"},
-		}
-	} else {
-		links = []map[string]string{
-			{"title": "🗺️ 네이버 지도 로드뷰", "url": fmt.Sprintf("https://map.naver.com/v5/search/%s", enc), "type": "roadview", "service": "naver"},
-			{"title": "🗺️ 카카오맵 로드뷰", "url": fmt.Sprintf("https://map.kakao.com/?q=%s&map_type=roadview", enc), "type": "roadview", "service": "kakao"},
-			{"title": "🌐 구글 스트리트뷰", "url": fmt.Sprintf("https://www.google.com/maps/search/%s", enc), "type": "roadview", "service": "google"},
-			{"title": "📍 카카오맵 위치", "url": fmt.Sprintf("https://map.kakao.com/?q=%s", enc), "type": "map", "service": "kakao"},
-		}
-	}
-
-	// Tavily로 장소 정보 검색
+	// ── Tavily로 좌표 + 장소 정보 검색 ───────────────────────────
 	llmMu.RLock()
 	tKey := llmTavilyKey
 	llmMu.RUnlock()
+
+	// 좌표 검색: Nominatim (OpenStreetMap) API — 무료, 키 불필요
+	lat, lng := fetchCoordinates(place)
+
+	var links []map[string]string
+	if engPlace {
+		if lat != 0 && lng != 0 {
+			// 실제 좌표 기반 Street View URL
+			links = []map[string]string{
+				{"title": "🌐 Google Street View — " + place,
+					"url":     fmt.Sprintf("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%.6f,%.6f", lat, lng),
+					"type":    "roadview", "service": "google"},
+				{"title": "📍 Google Maps — " + place,
+					"url":     fmt.Sprintf("https://www.google.com/maps/place/%.6f,%.6f", lat, lng),
+					"type":    "map", "service": "google"},
+				{"title": "🗺️ Apple Maps — " + place,
+					"url":     fmt.Sprintf("https://maps.apple.com/?ll=%.6f,%.6f&q=%s", lat, lng, enc),
+					"type":    "map", "service": "apple"},
+				{"title": "📌 Bing Maps — " + place,
+					"url":     fmt.Sprintf("https://www.bing.com/maps?cp=%.6f~%.6f&q=%s", lat, lng, enc),
+					"type":    "map", "service": "bing"},
+			}
+		} else {
+			links = []map[string]string{
+				{"title": "🌐 Google Street View — " + place, "url": fmt.Sprintf("https://www.google.com/maps/search/%s", enc), "type": "roadview", "service": "google"},
+				{"title": "📍 Google Maps — " + place, "url": fmt.Sprintf("https://www.google.com/maps/place/%s", enc), "type": "map", "service": "google"},
+				{"title": "🗺️ Apple Maps — " + place, "url": fmt.Sprintf("https://maps.apple.com/?q=%s", enc), "type": "map", "service": "apple"},
+			}
+		}
+	} else {
+		if lat != 0 && lng != 0 {
+			// 실제 좌표 기반 로드뷰 URL
+			links = []map[string]string{
+				{"title": "🗺️ 네이버 로드뷰 — " + place,
+					"url":     fmt.Sprintf("https://map.naver.com/v5/entry/place/%.0f?c=%.6f,%.6f,15,0,0,0,dh", lat*1e7, lng, lat),
+					"type":    "roadview", "service": "naver"},
+				{"title": "🗺️ 카카오맵 로드뷰 — " + place,
+					"url":     fmt.Sprintf("https://map.kakao.com/?map_type=roadview&q=%s", enc),
+					"type":    "roadview", "service": "kakao"},
+				{"title": "🌐 구글 스트리트뷰 — " + place,
+					"url":     fmt.Sprintf("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=%.6f,%.6f", lat, lng),
+					"type":    "roadview", "service": "google"},
+				{"title": "📍 네이버지도 위치 — " + place,
+					"url":     fmt.Sprintf("https://map.naver.com/v5/search/%s", enc),
+					"type":    "map", "service": "naver"},
+				{"title": "📍 카카오맵 위치 — " + place,
+					"url":     fmt.Sprintf("https://map.kakao.com/?q=%s", enc),
+					"type":    "map", "service": "kakao"},
+			}
+		} else {
+			links = []map[string]string{
+				{"title": "🗺️ 네이버 지도 검색 — " + place, "url": fmt.Sprintf("https://map.naver.com/v5/search/%s", enc), "type": "roadview", "service": "naver"},
+				{"title": "🗺️ 카카오맵 로드뷰 — " + place, "url": fmt.Sprintf("https://map.kakao.com/?q=%s&map_type=roadview", enc), "type": "roadview", "service": "kakao"},
+				{"title": "🌐 구글 스트리트뷰 — " + place, "url": fmt.Sprintf("https://www.google.com/maps/search/%s", enc), "type": "roadview", "service": "google"},
+			}
+		}
+	}
 
 	var placeInfo []map[string]string
 	if tKey != "" {
@@ -187,9 +237,38 @@ func handlePlaceView(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{
 		"success":    true,
 		"place":      place,
+		"lat":        lat,
+		"lng":        lng,
 		"map_links":  links,
 		"place_info": placeInfo,
 	})
+}
+
+// fetchCoordinates: OpenStreetMap Nominatim으로 장소명 → 위도/경도
+func fetchCoordinates(place string) (lat, lng float64) {
+	enc := url.QueryEscape(place)
+	apiURL := fmt.Sprintf("https://nominatim.openstreetmap.org/search?q=%s&format=json&limit=1&accept-language=ko", enc)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return 0, 0
+	}
+	req.Header.Set("User-Agent", "NexusAI/1.0")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return 0, 0
+	}
+	defer resp.Body.Close()
+	var results []struct {
+		Lat string `json:"lat"`
+		Lon string `json:"lon"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil || len(results) == 0 {
+		return 0, 0
+	}
+	fmt.Sscanf(results[0].Lat, "%f", &lat)
+	fmt.Sscanf(results[0].Lon, "%f", &lng)
+	return lat, lng
 }
 
 // ── 헬퍼 ──────────────────────────────────────────────────────
@@ -378,6 +457,87 @@ func buildMapLinks(from, to, mode string, eng bool) []map[string]string {
 
 	_ = mode
 	return links
+}
+
+// parseDurationHints: LLM 요약 텍스트에서 교통수단별 소요시간 파싱
+// 예) "KTX 약 2시간 30분", "자동차 4시간", "버스 3시간 20분" → map[transit:약 2시간 30분, car:4시간]
+func parseDurationHints(summary string, eng bool) map[string]string {
+	result := map[string]string{}
+	if summary == "" {
+		return result
+	}
+	// 시간 패턴: 숫자 + 시간/분/hour/minute
+	timePattern := `(\d+시간\s*\d*분?|\d+분|\d+\s*hours?\s*\d*\s*min(?:utes?)?|\d+\s*min(?:utes?)?)`
+
+	// 한국어 키워드 → 모드 매핑
+	koKeywords := map[string]string{
+		"ktx": "ktx", "기차": "ktx", "고속철": "ktx",
+		"버스": "transit", "지하철": "transit", "대중교통": "transit",
+		"자동차": "car", "자가용": "car", "운전": "car",
+		"도보": "walk", "걸어": "walk",
+		"자전거": "bicycle",
+	}
+	enKeywords := map[string]string{
+		"train": "ktx", "ktx": "ktx",
+		"bus": "transit", "subway": "transit", "transit": "transit", "public": "transit",
+		"car": "car", "drive": "car", "driving": "car",
+		"walk": "walk", "on foot": "walk",
+		"bicycle": "bicycle", "bike": "bicycle",
+	}
+
+	keywords := koKeywords
+	if eng {
+		keywords = enKeywords
+	}
+
+	lower := strings.ToLower(summary)
+	for kw, modeID := range keywords {
+		idx := strings.Index(lower, kw)
+		if idx < 0 {
+			continue
+		}
+		// 키워드 앞뒤 50자 범위에서 시간 패턴 탐색
+		start := idx - 30
+		if start < 0 {
+			start = 0
+		}
+		end := idx + len(kw) + 30
+		if end > len(lower) {
+			end = len(lower)
+		}
+		window := summary[start:end]
+		// 간단한 정규표현 대체: 숫자+시간/분 추출
+		var found string
+		for _, seg := range strings.Fields(window) {
+			if matchesTimePattern(seg) {
+				found = seg
+				break
+			}
+		}
+		// 2-token: "2시간 30분", "2 hours 30 minutes"
+		if found == "" {
+			parts := strings.Fields(window)
+			for i := 0; i < len(parts)-1; i++ {
+				combined := parts[i] + " " + parts[i+1]
+				if matchesTimePattern(combined) {
+					found = combined
+					break
+				}
+			}
+		}
+		if found != "" && result[modeID] == "" {
+			result[modeID] = "약 " + found
+		}
+		_ = timePattern
+	}
+	return result
+}
+
+// matchesTimePattern: 간단한 시간 표현 감지
+func matchesTimePattern(s string) bool {
+	s = strings.TrimSpace(strings.ToLower(s))
+	return strings.Contains(s, "시간") || strings.Contains(s, "분") ||
+		strings.Contains(s, "hour") || strings.Contains(s, "min")
 }
 
 func buildDirectionsSummary(from, to, mode string) string {

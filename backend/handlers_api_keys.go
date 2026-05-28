@@ -3,7 +3,10 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,6 +16,66 @@ import (
 	"strings"
 	"time"
 )
+
+// ── AES-256-GCM 암호화 헬퍼 ──────────────────────────────────────────
+
+// deriveEncKey: 머신 ID에서 32바이트 AES-256 키 유도 (SHA-256)
+func deriveEncKey() []byte {
+	mid := getMachineID()
+	h := sha256.Sum256([]byte("nexus-api-keys-v1:" + mid))
+	return h[:]
+}
+
+// encryptJSON: JSON 바이트 → AES-256-GCM 암호화 → hex 인코딩 + "enc:" 마커
+func encryptJSON(plain []byte) ([]byte, error) {
+	key := deriveEncKey()
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	sealed := gcm.Seal(nonce, nonce, plain, nil)
+	return []byte("enc:" + hex.EncodeToString(sealed)), nil
+}
+
+// decryptJSON: "enc:" + hex → AES-256-GCM 복호화 → 원본 JSON
+// "enc:" 마커가 없으면 평문 JSON으로 간주 (하위 호환)
+func decryptJSON(data []byte) ([]byte, error) {
+	s := string(data)
+	if !strings.HasPrefix(s, "enc:") {
+		return data, nil // 평문 (구버전 호환)
+	}
+	key := deriveEncKey()
+	cipherHex := s[4:]
+	cipherBytes, err := hex.DecodeString(cipherHex)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	if len(cipherBytes) < gcm.NonceSize() {
+		return nil, fmt.Errorf("암호화 데이터가 너무 짧습니다")
+	}
+	nonce, ciphertext := cipherBytes[:gcm.NonceSize()], cipherBytes[gcm.NonceSize():]
+	plain, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("복호화 실패 (다른 기기의 파일이거나 손상됨): %w", err)
+	}
+	return plain, nil
+}
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -78,16 +141,28 @@ func loadAPIKeys() []APIKey {
 	if err != nil {
 		return []APIKey{}
 	}
+	// 복호화 시도 (평문 파일은 그대로 통과)
+	plain, err := decryptJSON(data)
+	if err != nil {
+		// 복호화 실패 시 비어 있는 슬라이스 반환 (손상 파일 보호)
+		return []APIKey{}
+	}
 	var keys []APIKey
-	json.Unmarshal(data, &keys)
+	json.Unmarshal(plain, &keys)
 	return keys
 }
 
 func saveAPIKeys(keys []APIKey) error {
 	path := apiKeysPath()
 	os.MkdirAll(filepath.Dir(path), 0755)
-	data, _ := json.MarshalIndent(keys, "", "  ")
-	return os.WriteFile(path, data, 0600)
+	plain, _ := json.MarshalIndent(keys, "", "  ")
+	// AES-256-GCM 암호화 후 저장
+	enc, err := encryptJSON(plain)
+	if err != nil {
+		// 암호화 실패 시 평문으로 폴백 (기능 중단 방지)
+		return os.WriteFile(path, plain, 0600)
+	}
+	return os.WriteFile(path, enc, 0600)
 }
 
 // ── Validation ─────────────────────────────────────────────────────

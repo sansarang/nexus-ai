@@ -101,6 +101,7 @@ interface ChatMessage {
   onMacroRun?: (id: string, name: string) => void
   clarifyOptions?: string[]       // 명확화 질문 선택 버튼
   onClarifySelect?: (option: string) => void  // 버튼 클릭 핸들러
+  action?: string                 // follow-up 칩용 액션 키 (web_search, stock 등)
 }
 
 export type { ChatMessage }
@@ -489,6 +490,7 @@ export function ChatBubble({
 
   // 긴 메시지 펼치기 상태
   const [expandedMsgs, setExpandedMsgs] = useState<Set<string>>(new Set())
+  const [showUsagePopup, setShowUsagePopup] = useState(false)
   const toggleExpand = useCallback((id: string) => {
     setExpandedMsgs(prev => {
       const next = new Set(prev)
@@ -628,7 +630,7 @@ export function ChatBubble({
             </button>
           ) : <div />}
 
-          {/* 사용량 배지 */}
+          {/* 사용량 배지 — 클릭 시 상세 팝업 */}
           {(() => {
             const DAILY_LIMIT = 15
             const MONTHLY_LIMIT = 2000
@@ -637,25 +639,93 @@ export function ChatBubble({
               const remaining = Math.max(0, DAILY_LIMIT - dailyUsed)
               const color = remaining <= 3 ? '#ef4444' : remaining <= 7 ? '#f59e0b' : '#22c55e'
               return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+                <button
+                  onClick={() => setShowUsagePopup(v => !v)}
+                  title={isEn ? 'Click to view usage details' : '클릭하면 상세 사용량 확인'}
+                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 6 }}
+                >
                   <span style={{ color: 'rgba(255,255,255,0.4)' }}>{isEn ? 'Today' : '오늘'}</span>
                   <span style={{ color, fontWeight: 700 }}>{remaining}</span>
                   <span style={{ color: 'rgba(255,255,255,0.4)' }}>/{DAILY_LIMIT}{isEn ? ' left' : '회'}</span>
-                </div>
+                  <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 9 }}>▾</span>
+                </button>
               )
             }
             const pct = Math.min(100, Math.round((dailyUsed / MONTHLY_LIMIT) * 100))
             const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : primaryColor
             return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+              <button
+                onClick={() => setShowUsagePopup(v => !v)}
+                title={isEn ? 'Click to view usage details' : '클릭하면 상세 사용량 확인'}
+                style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 6 }}
+              >
                 <span style={{ color: 'rgba(255,255,255,0.4)' }}>{isEn ? 'This month' : '이번달'}</span>
                 <span style={{ color, fontWeight: 700 }}>{dailyUsed.toLocaleString()}</span>
                 <span style={{ color: 'rgba(255,255,255,0.4)' }}>/{MONTHLY_LIMIT.toLocaleString()}</span>
-              </div>
+                <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 9 }}>▾</span>
+              </button>
             )
           })()}
         </div>
       )}
+
+      {/* 사용량 상세 팝업 */}
+      {showUsagePopup && (() => {
+        const DAILY_LIMIT = 15
+        const MONTHLY_LIMIT = 2000
+        const isFree = !subscriptionStatus || subscriptionStatus === 'none' || subscriptionStatus === 'expired'
+        const usedToday = isFree ? dailyUsed : 0
+        const remaining = Math.max(0, DAILY_LIMIT - usedToday)
+        const pct = isFree
+          ? Math.min(100, Math.round((usedToday / DAILY_LIMIT) * 100))
+          : Math.min(100, Math.round((dailyUsed / MONTHLY_LIMIT) * 100))
+        const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e'
+        return (
+          <div style={{
+            margin: '0 10px 8px',
+            background: 'rgba(0,0,0,0.6)',
+            border: `1px solid ${primaryColor}33`,
+            borderRadius: 12,
+            padding: '12px 14px',
+            backdropFilter: 'blur(12px)',
+            flexShrink: 0,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: primaryColor, marginBottom: 10 }}>
+              📊 {isEn ? 'Usage Details' : '사용량 상세'}
+            </div>
+            {isFree ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
+                  <span>{isEn ? 'Daily limit (free)' : '오늘 무료 한도'}</span>
+                  <span style={{ color: barColor, fontWeight: 700 }}>{usedToday} / {DAILY_LIMIT}{isEn ? ' used' : '회 사용'}</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden', marginBottom: 8 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 3, transition: 'width 0.4s' }} />
+                </div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
+                  {isEn ? `${remaining} requests remaining today` : `오늘 ${remaining}회 남음 · 자정에 초기화`}
+                </div>
+                <div style={{ fontSize: 10, color: primaryColor, fontWeight: 600 }}>
+                  {isEn ? '✨ Upgrade for 2,000/month' : '✨ 프리미엄 업그레이드 시 월 2,000회'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
+                  <span>{isEn ? 'Monthly (premium)' : '이번달 (프리미엄)'}</span>
+                  <span style={{ color: barColor, fontWeight: 700 }}>{dailyUsed.toLocaleString()} / {MONTHLY_LIMIT.toLocaleString()}</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden', marginBottom: 8 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 3, transition: 'width 0.4s' }} />
+                </div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+                  {isEn ? `${(MONTHLY_LIMIT - dailyUsed).toLocaleString()} remaining this month` : `이번달 ${(MONTHLY_LIMIT - dailyUsed).toLocaleString()}회 남음`}
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })()}
 
       {/* 이력 + 실시간 카드 영역 */}
       <div ref={scrollRef} style={{
@@ -763,29 +833,46 @@ export function ChatBubble({
                     </div>
                     {/* 명확화 선택 버튼 */}
                     {!isUser && msg.clarifyOptions && msg.clarifyOptions.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, maxWidth: '86%' }}>
-                        {msg.clarifyOptions.map((opt, oi) => (
-                          <button
-                            key={oi}
-                            onClick={() => msg.onClarifySelect?.(opt)}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: 16,
-                              border: `1px solid ${primaryColor}88`,
-                              background: `${primaryColor}22`,
-                              color: primaryColor,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s',
-                              backdropFilter: 'blur(4px)',
-                            }}
-                            onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = `${primaryColor}44` }}
-                            onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = `${primaryColor}22` }}
-                          >
-                            {opt}
-                          </button>
-                        ))}
+                      <div style={{ marginTop: 10, maxWidth: '90%' }}>
+                        <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
+                          {isEn ? '▸ SELECT AN OPTION' : '▸ 아래에서 선택하세요'}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {msg.clarifyOptions.map((opt, oi) => (
+                            <button
+                              key={oi}
+                              onClick={() => msg.onClarifySelect?.(opt)}
+                              style={{
+                                padding: '8px 14px',
+                                borderRadius: 10,
+                                border: `1px solid ${primaryColor}55`,
+                                background: `${primaryColor}15`,
+                                color: 'rgba(255,255,255,0.88)',
+                                fontSize: 12,
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s',
+                                display: 'flex', alignItems: 'center', gap: 8,
+                              }}
+                              onMouseEnter={e => {
+                                const b = e.currentTarget
+                                b.style.background = `${primaryColor}30`
+                                b.style.borderColor = `${primaryColor}99`
+                                b.style.color = '#fff'
+                              }}
+                              onMouseLeave={e => {
+                                const b = e.currentTarget
+                                b.style.background = `${primaryColor}15`
+                                b.style.borderColor = `${primaryColor}55`
+                                b.style.color = 'rgba(255,255,255,0.88)'
+                              }}
+                            >
+                              <span style={{ fontSize: 10, color: primaryColor, fontWeight: 800, flexShrink: 0 }}>{oi + 1}</span>
+                              <span>{opt}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </motion.div>
@@ -867,7 +954,7 @@ export function ChatBubble({
         {!typing && history.length > 0 && (() => {
           const last = history[history.length - 1]
           const lastAction = messages.filter(m => m.role === 'nexus').slice(-1)[0]
-          const actionKey = (lastAction as any)?.action ?? ''
+          const actionKey = lastAction?.action ?? ''
           const suggestions = FOLLOW_UP_MAP[actionKey] ?? FOLLOW_UP_MAP['chat']
           return (
             <AnimatePresence>

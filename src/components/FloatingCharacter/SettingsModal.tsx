@@ -3,15 +3,30 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { openCheckout, openBillingPortal } from '../../lib/paddle'
 
+// 미리 정의된 테마 컬러 팔레트
+const THEME_COLORS = [
+  { name: '💜 기본 퍼플', value: '#9b59b6' },
+  { name: '🔵 오션 블루', value: '#3b82f6' },
+  { name: '🟢 민트 그린', value: '#10b981' },
+  { name: '🟠 선셋 오렌지', value: '#f97316' },
+  { name: '🔴 루비 레드', value: '#ef4444' },
+  { name: '🌸 벚꽃 핑크', value: '#ec4899' },
+  { name: '💛 골든 옐로우', value: '#eab308' },
+  { name: '🩵 스카이 시안', value: '#06b6d4' },
+]
+
 interface SettingsModalProps {
   open: boolean
   onClose: () => void
   primaryColor: string
+  onPrimaryColorChange?: (color: string) => void
 }
 
-export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProps) {
+export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChange }: SettingsModalProps) {
   const { micEnabled, setMicEnabled, userEmail, subscriptionStatus, subscriptionExpiry, setLoggedOut, userLang, setUserLang } = useAppStore()
   const [clarifyAutoMic, setClarifyAutoMic] = useState(localStorage.getItem('nexus-clarify-auto-mic') !== 'false')
+  const [themeColor, setThemeColor] = useState(localStorage.getItem('nexus-theme-color') ?? primaryColor)
+  const [customColor, setCustomColor] = useState(localStorage.getItem('nexus-theme-color') ?? primaryColor)
   const [claudeKey,   setClaudeKey]   = useState(localStorage.getItem('nexus-claude-key') ?? '')
   const [openaiKey,   setOpenaiKey]   = useState(localStorage.getItem('nexus-openai-key') ?? '')
   const [ollamaUrl,   setOllamaUrl]   = useState(localStorage.getItem('nexus-ollama-url') ?? 'http://localhost:11434')
@@ -33,7 +48,18 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
     ? new Date(subscriptionExpiry).toLocaleDateString(isEn ? 'en-US' : 'ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
 
+  const applyThemeColor = (color: string) => {
+    setThemeColor(color)
+    setCustomColor(color)
+    localStorage.setItem('nexus-theme-color', color)
+    onPrimaryColorChange?.(color)
+  }
+
   const save = () => {
+    // 테마 색상 저장
+    localStorage.setItem('nexus-theme-color', themeColor)
+    onPrimaryColorChange?.(themeColor)
+
     if (claudeKey.trim()) localStorage.setItem('nexus-claude-key', claudeKey.trim())
     else                  localStorage.removeItem('nexus-claude-key')
 
@@ -245,6 +271,62 @@ export function SettingsModal({ open, onClose, primaryColor }: SettingsModalProp
                     {isEn ? 'Log Out' : '로그아웃'}
                   </button>
                 )}
+
+                {/* 🎨 테마 색상 */}
+                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
+                    {isEn ? '🎨 Theme Color' : '🎨 테마 색상'}
+                  </div>
+                  {/* 팔레트 스와치 */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {THEME_COLORS.map(t => (
+                      <button
+                        key={t.value}
+                        title={t.name}
+                        onClick={() => applyThemeColor(t.value)}
+                        style={{
+                          width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                          background: t.value,
+                          outline: themeColor === t.value ? `3px solid ${t.value}` : '3px solid transparent',
+                          outlineOffset: 2,
+                          boxShadow: themeColor === t.value ? `0 0 8px ${t.value}88` : 'none',
+                          transition: 'all 0.15s',
+                          transform: themeColor === t.value ? 'scale(1.15)' : 'scale(1)',
+                        }}
+                      />
+                    ))}
+                    {/* 직접 입력 */}
+                    <div style={{ position: 'relative', width: 28, height: 28 }}>
+                      <input
+                        type="color"
+                        value={customColor}
+                        onChange={e => {
+                          setCustomColor(e.target.value)
+                          applyThemeColor(e.target.value)
+                        }}
+                        title={isEn ? 'Custom color' : '직접 색상 선택'}
+                        style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          border: 'none', cursor: 'pointer', padding: 0,
+                          background: 'transparent', opacity: 0,
+                          position: 'absolute', top: 0, left: 0,
+                        }}
+                      />
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        background: `conic-gradient(red, yellow, lime, cyan, blue, magenta, red)`,
+                        pointerEvents: 'none',
+                        border: '2px solid rgba(255,255,255,0.3)',
+                        boxSizing: 'border-box',
+                      }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                    {isEn ? 'Current: ' : '현재: '}
+                    <span style={{ color: themeColor, fontWeight: 700 }}>{themeColor}</span>
+                    <span style={{ marginLeft: 4 }}>— {isEn ? 'changes apply immediately' : '즉시 적용됨'}</span>
+                  </div>
+                </div>
 
                 {/* 혜택 안내 */}
                 <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: '12px 14px', fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.9 }}>

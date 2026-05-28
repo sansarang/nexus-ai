@@ -7,7 +7,7 @@ import type { ChatMessage } from './ChatBubble'
 import { detectIntent, extractFolderName, extractVolume, extractBrightness, extractWifiAction, extractPowerAction, extractAppName, extractNoteContent, extractTwoFilePaths, extractVisionQuestion, extractDeepSearchQuery } from '../../lib/nexus/intentDetector'
 import type { Intent } from '../../lib/nexus/intentDetector'
 import { routeWithLLM } from '../../lib/nexus/llmToolRouter'
-import { backendAPI, sendCommand, emailInbox, emailSend, emailSummarize, emailClassify, emailDraftReply, virusTotalCheck, historyStats, historyAnomalies, processKill, appPermissions, windowsUpdates, gpuStats, priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload, videoQuickSearch, recallCapture, recallSearch, meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize, dictationType, dictationPaste, weatherGet, travelTime, personaList, personaSet, personaCurrent, brainSearch, brainStats, brainRebuild, workflowRun, workflowPlan, workflowList, workflowFromText, workflowTemplates, captionStart, captionStop, captionLatest, briefingNow, taskList, taskCancel, multiAgentRun, multiAgentPlan, searchAndPDF, siteSearch, getAuthHeader } from '../../lib/nexus/backendAPI'
+import { backendAPI, sendCommand, emailInbox, emailSend, emailSummarize, emailClassify, emailDraftReply, virusTotalCheck, historyStats, historyAnomalies, processKill, appPermissions, windowsUpdates, gpuStats, priceCompare, newsSearch, youtubeSearch, tiktokSearch, naverShoppingSearch, coupangSearch, videoDownload, videoQuickSearch, recallCapture, recallSearch, clipboardHistory, clipboardHistoryClear, meetingStart, meetingStop, meetingList, meetingTranscribe, meetingSummarize, dictationType, dictationPaste, weatherGet, travelTime, personaList, personaSet, personaCurrent, brainSearch, brainStats, brainRebuild, workflowRun, workflowPlan, workflowList, workflowFromText, workflowTemplates, captionStart, captionStop, captionLatest, briefingNow, taskList, taskCancel, multiAgentRun, multiAgentPlan, searchAndPDF, siteSearch, getAuthHeader } from '../../lib/nexus/backendAPI'
 import type { PersonaDef } from '../../lib/nexus/backendAPI'
 import { learnFromTurn, saveHistory, toStoredTurns, buildMemoryContext } from '../../lib/nexus/memory'
 import { safeCall } from '../../lib/nexus/environment'
@@ -772,6 +772,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           setMessages(prev => [...prev, {
             id: `${msgId}-res`, role: 'nexus', text: displayText,
             inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5,
+            action: cmd.action, // follow-up 칩 표시를 위한 액션 키
           }])
           pushModelHistory(trimmed, displayText)
           if (displayText) {
@@ -840,7 +841,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
             { role: 'system', content: detectedLang === 'en'
               ? `You are Nexus AI, a helpful assistant. Answer naturally and helpfully in English.`
               : `당신은 Nexus AI 비서입니다. 사용자를 "주인님"으로 부르며 친절하게 답변하세요.` },
-            ...historyRef.current.slice(-6).map((t: { role: string; parts: Array<{ text: string }> }) => ({
+            ...historyRef.current.slice(-12).map((t: { role: string; parts: Array<{ text: string }> }) => ({
               role: t.role === 'user' ? 'user' : 'assistant',
               content: t.parts[0]?.text ?? '',
             })),

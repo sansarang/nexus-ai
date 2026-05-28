@@ -114,6 +114,8 @@ func main() {
 	// ── 생산성 ─────────────────────────────────
 	mux.HandleFunc("POST /api/productivity/focus", handleFocusMode)
 	mux.HandleFunc("GET /api/productivity/clipboard", handleClipboard)
+	mux.HandleFunc("GET /api/clipboard/history", handleClipboardHistory)
+	mux.HandleFunc("DELETE /api/clipboard/history", handleClipboardHistory)
 	mux.HandleFunc("GET /api/notes", handleNotes)
 	mux.HandleFunc("POST /api/notes", handleSaveNote)
 
@@ -259,6 +261,8 @@ func main() {
 	// ── 🖥️ Windows Recall ────────────────────────────────────────
 	mux.HandleFunc("POST /api/recall/capture", handleRecallCapture)
 	mux.HandleFunc("POST /api/recall/search", handleRecallSearch)
+	mux.HandleFunc("GET /api/recall/config", handleRecallConfig)
+	mux.HandleFunc("POST /api/recall/config", handleRecallConfig)
 
 	// ── 🎙️ 회의 어시스턴트 ───────────────────────────────────────
 	mux.HandleFunc("POST /api/meeting/start", handleMeetingStart)
@@ -485,6 +489,7 @@ func main() {
 	loadOllamaConfig()
 	go startHistoryCollector()
 	go startRecallCollector()
+	go startClipboardMonitor()
 	go rebuildBrainIndex()
 
 	const port = "127.0.0.1:17892"

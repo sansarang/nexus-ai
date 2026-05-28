@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -114,21 +116,56 @@ func callOpenAICompat(apiKey, baseURL, model string, msgs []groqMsg, maxTokens i
 	// Perplexity sonar는 response_format을 지원하지 않음 — JSON은 system prompt로 강제
 
 	body, _ := json.Marshal(rb)
-	httpReq, err := http.NewRequest("POST", baseURL, bytes.NewReader(body))
-	if err != nil {
-		return "", 0, err
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
 
+	// ── 429 재시도: 최대 3회, 지수 백오프 (1s → 2s → 4s) ──────────
+	const maxRetries = 3
+	var (
+		resp *http.Response
+		err  error
+		raw  []byte
+	)
 	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return "", 0, fmt.Errorf("연결 실패 (%s): %w", model, err)
-	}
-	defer resp.Body.Close()
+	backoff := time.Second
 
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024)) // 4MB 상한
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		httpReq, rerr := http.NewRequest("POST", baseURL, bytes.NewReader(body))
+		if rerr != nil {
+			return "", 0, rerr
+		}
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		resp, err = client.Do(httpReq)
+		if err != nil {
+			if attempt < maxRetries-1 {
+				time.Sleep(backoff)
+				backoff *= 2
+				continue
+			}
+			return "", 0, fmt.Errorf("연결 실패 (%s): %w", model, err)
+		}
+
+		raw, _ = io.ReadAll(io.LimitReader(resp.Body, 4*1024*1024))
+		resp.Body.Close()
+
+		// 429 Too Many Requests — Retry-After 헤더 또는 지수 백오프
+		if resp.StatusCode == 429 && attempt < maxRetries-1 {
+			wait := backoff
+			if ra := resp.Header.Get("Retry-After"); ra != "" {
+				if secs, pe := strconv.Atoi(ra); pe == nil {
+					wait = time.Duration(secs) * time.Second
+					if wait > 30*time.Second {
+						wait = 30 * time.Second // 상한 30초
+					}
+				}
+			}
+			log.Printf("[LLM] 429 rate-limit (%s) — %v 후 재시도 (%d/%d)", model, wait, attempt+1, maxRetries)
+			time.Sleep(wait)
+			backoff *= 2
+			continue
+		}
+		break
+	}
 
 	var gr struct {
 		Choices []struct {

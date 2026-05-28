@@ -411,34 +411,103 @@ fn setup_tray<R: Runtime>(app: &App<R>) -> tauri::Result<()> {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 전역 단축키 Alt+Space
+// 전역 단축키 등록
+//   Alt+Space  — Nexus 토글 (기존)
+//   Alt+S      — 스크린샷 + AI 분석
+//   Alt+V      — 비전 / OCR 클립보드
+//   Alt+C      — 클립보드 히스토리
 // ═══════════════════════════════════════════════════════════════
 fn setup_shortcut<R: Runtime>(app: &App<R>) -> tauri::Result<()> {
-    let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
-    let handle   = app.handle().clone();
+    // ── Alt+Space: Nexus 토글 ────────────────────────────────────
+    {
+        let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
+        let handle   = app.handle().clone();
+        app.global_shortcut()
+            .on_shortcut(shortcut, move |_, _, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Some(char_win) = handle.get_webview_window("character") {
+                        if char_win.is_visible().unwrap_or(false) {
+                            let _ = char_win.emit("wake-word-activated", ());
+                            return;
+                        }
+                    }
+                    if let Some(main) = handle.get_webview_window("main") {
+                        if main.is_visible().unwrap_or(false) {
+                            let _ = main.emit("toggle-command", ());
+                        } else {
+                            let _ = main.show();
+                            let _ = main.set_focus();
+                            let _ = main.center();
+                            let _ = main.emit("toggle-command", ());
+                        }
+                    }
+                }
+            })
+            .map_err(|e| tauri::Error::Anyhow(e.into()))?;
+    }
 
-    app.global_shortcut()
-        .on_shortcut(shortcut, move |_, _, event| {
-            if event.state == ShortcutState::Pressed {
-                if let Some(char_win) = handle.get_webview_window("character") {
-                    if char_win.is_visible().unwrap_or(false) {
-                        let _ = char_win.emit("wake-word-activated", ());
-                        return;
+    // ── Alt+S: 스크린샷 + AI 분석 ───────────────────────────────
+    {
+        let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::KeyS);
+        let handle   = app.handle().clone();
+        app.global_shortcut()
+            .on_shortcut(shortcut, move |_, _, event| {
+                if event.state == ShortcutState::Pressed {
+                    let win = handle.get_webview_window("main")
+                        .or_else(|| handle.get_webview_window("character"));
+                    if let Some(w) = win {
+                        if !w.is_visible().unwrap_or(false) {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                        let _ = w.emit("shortcut-screenshot", ());
                     }
                 }
-                if let Some(main) = handle.get_webview_window("main") {
-                    if main.is_visible().unwrap_or(false) {
-                        let _ = main.emit("toggle-command", ());
-                    } else {
-                        let _ = main.show();
-                        let _ = main.set_focus();
-                        let _ = main.center();
-                        let _ = main.emit("toggle-command", ());
+            })
+            .map_err(|e| tauri::Error::Anyhow(e.into()))?;
+    }
+
+    // ── Alt+V: 비전 / OCR 클립보드 ──────────────────────────────
+    {
+        let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::KeyV);
+        let handle   = app.handle().clone();
+        app.global_shortcut()
+            .on_shortcut(shortcut, move |_, _, event| {
+                if event.state == ShortcutState::Pressed {
+                    let win = handle.get_webview_window("main")
+                        .or_else(|| handle.get_webview_window("character"));
+                    if let Some(w) = win {
+                        if !w.is_visible().unwrap_or(false) {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                        let _ = w.emit("shortcut-vision", ());
                     }
                 }
-            }
-        })
-        .map_err(|e| tauri::Error::Anyhow(e.into()))?;
+            })
+            .map_err(|e| tauri::Error::Anyhow(e.into()))?;
+    }
+
+    // ── Alt+C: 클립보드 히스토리 ────────────────────────────────
+    {
+        let shortcut = Shortcut::new(Some(Modifiers::ALT), Code::KeyC);
+        let handle   = app.handle().clone();
+        app.global_shortcut()
+            .on_shortcut(shortcut, move |_, _, event| {
+                if event.state == ShortcutState::Pressed {
+                    let win = handle.get_webview_window("main")
+                        .or_else(|| handle.get_webview_window("character"));
+                    if let Some(w) = win {
+                        if !w.is_visible().unwrap_or(false) {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                        let _ = w.emit("shortcut-clipboard", ());
+                    }
+                }
+            })
+            .map_err(|e| tauri::Error::Anyhow(e.into()))?;
+    }
 
     Ok(())
 }

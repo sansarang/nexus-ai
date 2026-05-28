@@ -13,7 +13,9 @@
  * ──────────────────────────────────────────────────────────────
  */
 const BASE = 'http://127.0.0.1:17891'
-const TIMEOUT = 8000 // 프로덕션에서 느린 PowerShell 쿼리 고려
+const TIMEOUT = 15000        // 기본 15초 (딥서치·PowerShell 고려)
+const TIMEOUT_FAST = 8000    // 빠른 응답 기대 엔드포인트 (상태 조회 등)
+const TIMEOUT_DEEP = 45000   // 딥서치·파일 분석·병렬 브라우저 크롤링
 
 // Supabase 세션 JWT를 가져와 Go 백엔드로 전달 (Edge Function 프록시 라우팅용)
 export async function getAuthHeader(): Promise<Record<string, string>> {
@@ -127,8 +129,8 @@ export interface RepairResult {
 
 /* ── API 함수 ── */
 export const backendAPI = {
-  health:      ()                         => request<{ status: string }>('GET',  '/api/health'),
-  stats:       ()                         => request<StatsData>          ('GET',  '/api/stats'),
+  health:      ()                         => request<{ status: string }>('GET',  '/api/health', undefined, TIMEOUT_FAST),
+  stats:       ()                         => request<StatsData>          ('GET',  '/api/stats',  undefined, TIMEOUT_FAST),
   scan:        ()                         => request<ScanResult>         ('POST', '/api/scan'),
   repair:      (items: string[])          => request<RepairResult>       ('POST', '/api/repair',      { items }),
   clean:       (targets: string[])        => request<{ freed: number; message: string }>('POST', '/api/clean', { targets }),
@@ -219,7 +221,8 @@ export const backendAPI = {
   // ── Deep Search ──────────────────────────────────────────
   deepSearch: (query: string, searchIn?: string, folder?: string, fileType?: string, maxResults?: number) =>
     request<{ results: DeepSearchResult[]; total: number; query: string; message: string }>(
-      'POST', '/api/search/deep', { query, search_in: searchIn, folder, file_type: fileType, max_results: maxResults }
+      'POST', '/api/search/deep', { query, search_in: searchIn, folder, file_type: fileType, max_results: maxResults },
+      TIMEOUT_DEEP
     ),
 
   // ── Vision & OCR ─────────────────────────────────────────
@@ -259,11 +262,11 @@ export const backendAPI = {
     ),
   llmDeepSearch: (query: string, folder?: string, maxResults?: number) =>
     request<{ success: boolean; results: DeepSearchResult[]; total: number; keywords_used: string[]; ai_enhanced: boolean }>(
-      'POST', '/api/llm/deep-search', { query, folder, max_results: maxResults }
+      'POST', '/api/llm/deep-search', { query, folder, max_results: maxResults }, TIMEOUT_DEEP
     ),
   llmDeepSearchWeb: (query: string, maxResults?: number) =>
     request<{ success: boolean; query: string; summary: string; items: Array<{ title: string; url: string; source?: string }>; total: number }>(
-      'POST', '/api/llm/deep-search-web', { query, max_results: maxResults ?? 10 }
+      'POST', '/api/llm/deep-search-web', { query, max_results: maxResults ?? 10 }, TIMEOUT_DEEP
     ),
 
   // ── Browser Agent (chromedp) ──────────────────────────────
@@ -612,6 +615,16 @@ export const recallCapture = () =>
   request<{ success: boolean; timestamp: string; ocr_text: string; message: string }>('POST', '/api/recall/capture', {})
 export const recallSearch  = (query: string) =>
   request<{ success: boolean; results: Array<{ timestamp: string; snippet: string; file_path: string }>; total: number; message: string }>('POST', '/api/recall/search', { query })
+export const recallConfig  = () =>
+  request<{ success: boolean; config: { enabled: boolean; interval_sec: number; max_entries: number } }>('GET', '/api/recall/config')
+export const recallConfigUpdate = (cfg: { enabled: boolean; interval_sec?: number; max_entries?: number }) =>
+  request<{ success: boolean; config: object; message: string }>('POST', '/api/recall/config', cfg)
+
+/* ── 📋 클립보드 히스토리 ── */
+export const clipboardHistory = () =>
+  request<{ success: boolean; history: Array<{ text: string; timestamp: string }>; total: number }>('GET', '/api/clipboard/history')
+export const clipboardHistoryClear = () =>
+  request<{ success: boolean; message: string }>('DELETE', '/api/clipboard/history')
 
 /* ── 🎙️ 회의 어시스턴트 ── */
 export const meetingStart      = () =>
@@ -816,9 +829,9 @@ export const taskCancel = (id: string) => request<{ success: boolean; message: s
 
 /* ── Multi-Agent ── */
 export const multiAgentRun  = (goal: string) =>
-  request<{ success: boolean; task_id: string; message: string }>('POST', '/api/agent/multi/run', { goal })
+  request<{ success: boolean; task_id: string; message: string }>('POST', '/api/agent/multi/run', { goal }, TIMEOUT_DEEP)
 export const multiAgentPlan = (goal: string) =>
-  request<{ success: boolean; plan: unknown }>('POST', '/api/agent/multi/plan', { goal })
+  request<{ success: boolean; plan: unknown }>('POST', '/api/agent/multi/plan', { goal }, TIMEOUT_DEEP)
 export const agentList      = () =>
   request<{ agents: unknown[]; count: number }>('GET', '/api/agent/multi/agents')
 

@@ -80,11 +80,17 @@ func tavilySearchDomain(apiKey, query string, maxItems int, domain string) (tavi
 }
 
 func tavilySearchDomainDirect(apiKey, query string, maxItems int, domain string) (tavilyResult, bool) {
+	// 뉴스/의료 카테고리는 advanced depth로 더 깊은 검색
+	depth := "basic"
+	cat := detectCategory(query)
+	if domain == "" && (cat == catNews || cat == catMedical) {
+		depth = "advanced"
+	}
 	payload := map[string]any{
 		"api_key":      apiKey,
 		"query":        query,
 		"max_results":  maxItems,
-		"search_depth": "basic",
+		"search_depth": depth,
 	}
 	if domain != "" {
 		// 도메인 지정 시 topic/days 제거 — 조합하면 결과 0개 발생
