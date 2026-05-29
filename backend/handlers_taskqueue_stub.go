@@ -5,6 +5,6 @@ package main
 import "net/http"
 
 func initTaskQueue() {}
-func handleTaskStream(w http.ResponseWriter, r *http.Request) { json200(w, map[string]any{"status": "stub"}) }
-func handleTaskList(w http.ResponseWriter, r *http.Request)   { json200(w, map[string]any{"tasks": []any{}}) }
-func handleTaskCancel(w http.ResponseWriter, r *http.Request) { json200(w, map[string]any{"success": false}) }
+func handleTaskStream(w http.ResponseWriter, r *http.Request) { proxyToPythonGET(w, r, "/tasks/list") }
+func handleTaskList(w http.ResponseWriter, r *http.Request)   { proxyToPythonGET(w, r, "/tasks/list") }
+func handleTaskCancel(w http.ResponseWriter, r *http.Request) { proxyToPython(w, r, "/tasks/cancel") }

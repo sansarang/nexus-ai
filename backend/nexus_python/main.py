@@ -140,6 +140,61 @@ def youtube_search(body: dict):
         return fail(str(e))
 
 
+@app.get("/tiktok/trending")
+def tiktok_trending():
+    """TikTok 트렌딩 — yt-dlp ttsearch fallback"""
+    try:
+        import yt_dlp
+        ydl_opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
+        results = []
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info("ttsearch15:trending korea viral 2025", download=False)
+            for e in (info.get("entries") or []):
+                if e:
+                    results.append({
+                        "title":   e.get("title", ""),
+                        "url":     e.get("webpage_url", ""),
+                        "author":  e.get("uploader", ""),
+                        "views":   str(e.get("view_count", "")),
+                    })
+        return ok(items=results, count=len(results), source="yt_dlp",
+                  message=f"🔥 TikTok 트렌딩 {len(results)}개")
+    except Exception as e:
+        return fail(str(e))
+
+
+@app.post("/tiktok/profile")
+def tiktok_profile(body: dict):
+    """특정 TikTok 계정의 최근 영상 — yt-dlp"""
+    username = body.get("username", "").lstrip("@")
+    limit = body.get("limit", 10)
+    if not username:
+        return fail("username 필요")
+    try:
+        import yt_dlp
+        url = f"https://www.tiktok.com/@{username}"
+        ydl_opts = {
+            "quiet": True, "no_warnings": True,
+            "extract_flat": True, "skip_download": True,
+            "playlistend": limit,
+        }
+        results = []
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            for e in (info.get("entries") or []):
+                if e:
+                    results.append({
+                        "title":  e.get("title", ""),
+                        "url":    e.get("webpage_url", ""),
+                        "author": username,
+                        "views":  str(e.get("view_count", "")),
+                    })
+        return ok(items=results, count=len(results),
+                  message=f"👤 @{username} 최근 영상 {len(results)}개")
+    except Exception as e:
+        return fail(str(e))
+
+
 @app.post("/tiktok/search")
 def tiktok_search(body: dict):
     query = body.get("query", "")
@@ -451,6 +506,62 @@ def email_extract_events(body: dict):
     except Exception:
         events = []
     return ok(events=events, count=len(events), message=f"일정 {len(events)}개 추출")
+
+
+@app.post("/calendar/find-slot")
+def calendar_find_slot(body: dict):
+    duration_min = body.get("duration_min", 60)
+    prefer_time  = body.get("prefer_time", "morning")
+    within_days  = body.get("within_days", 7)
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    prefer_hour = {"morning": 9, "afternoon": 14, "evening": 17}.get(prefer_time, 9)
+    slots = []
+    for day in range(1, within_days + 1):
+        if len(slots) >= 5:
+            break
+        date = now + timedelta(days=day)
+        if date.weekday() >= 5:
+            continue
+        end_hour = prefer_hour + duration_min // 60
+        slots.append({
+            "date":       date.strftime("%Y-%m-%d"),
+            "start_time": f"{prefer_hour:02d}:00",
+            "end_time":   f"{end_hour:02d}:{duration_min%60:02d}",
+        })
+    return ok(slots=slots, message=f"{duration_min}분 미팅 가능 시간대 {len(slots)}개")
+
+
+@app.post("/calendar/smart-add")
+def calendar_smart_add(body: dict):
+    text = body.get("text", "")
+    if not text:
+        return fail("text 필요")
+    prompt = f"""다음 자연어 문장에서 일정 정보를 추출해줘. JSON만 반환:
+{{"title":"제목","date":"YYYY-MM-DD","time":"HH:MM","duration_min":60,"location":"장소"}}
+문장: {text}"""
+    result_str = groq_chat([{"role": "user", "content": prompt}], max_tokens=200)
+    try:
+        event = json.loads(re.search(r'\{.*\}', result_str, re.DOTALL).group())
+    except Exception:
+        return fail("일정 파싱 실패")
+    return ok(event=event, message=f"일정 추출 완료: {event.get('title','')}")
+
+
+@app.post("/content/script")
+def content_script(body: dict):
+    topic    = body.get("topic", "")
+    platform = body.get("platform", "youtube")
+    duration = body.get("duration", "3분")
+    style    = body.get("style", "informative")
+    if not topic:
+        return fail("topic 필요")
+    prompt = f"""다음 주제로 {platform} {duration} 영상 스크립트를 {style} 스타일로 작성해줘.
+주제: {topic}
+형식: 인트로 → 본론 → 아웃트로 구조. 한국어로 작성."""
+    script = groq_chat([{"role": "user", "content": prompt}], max_tokens=1500)
+    return ok(script=script, topic=topic, platform=platform,
+              message=f"'{topic}' {platform} 스크립트 생성 완료")
 
 
 @app.post("/imap/classify")
@@ -875,6 +986,7 @@ def desktop_key(body: dict):
         return fail(str(e))
 
 
+@app.get("/desktop/screenshot")
 @app.post("/desktop/screenshot")
 def desktop_screenshot():
     try:
