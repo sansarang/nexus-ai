@@ -219,7 +219,7 @@ try {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || strings.HasPrefix(line, "ERROR:") {
 			continue
 		}
 		parts := strings.SplitN(line, "|", 2)

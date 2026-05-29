@@ -1184,8 +1184,8 @@ export async function handleBackendIntentImpl(
           if (articles.length > 0) setFloatingPreview(articles.slice(0, 5).map(a => ({ title: a.title, url: a.url })))
           return {
             text: data.summary || t(`${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`, `Found ${articles.length} video(s) for "${query}" on ${platform}!`, userLang),
-            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || t('결과를 가져오는 중...', 'Loading results...', userLang), success: data.success },
-            emotion: 'happy',
+            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || t(`"${query}" 검색 결과가 없어요.`, `No results found for "${query}".`, userLang), success: articles.length > 0 },
+            emotion: articles.length > 0 ? 'happy' : 'neutral',
           }
         }
 
@@ -1216,8 +1216,8 @@ export async function handleBackendIntentImpl(
               type: 'system_action',
               icon: '🔴',
               title: `Reddit${subreddit ? ` r/${subreddit}` : ''}: ${query || t('트렌딩', 'trending', userLang)}`,
-              detail: detail || t('결과를 가져오는 중...', 'Loading results...', userLang),
-              success: data.success,
+              detail: detail || t(`"${query || '트렌딩'}" 검색 결과가 없어요.`, `No results found for "${query || 'trending'}".`, userLang),
+              success: posts.length > 0,
             },
             emotion: posts.length > 0 ? 'happy' : 'neutral',
           }
