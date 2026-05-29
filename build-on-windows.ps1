@@ -19,6 +19,18 @@ if ($isShared) {
 $Root = $ScriptDir
 Set-Location $Root
 
+# Ensure LLVM/clang is in PATH (required by some Rust crates via cc-rs)
+$llvmBin = "C:\Program Files\LLVM\bin"
+if (Test-Path $llvmBin) {
+    if ($env:PATH -notlike "*LLVM*") {
+        $env:PATH = "$llvmBin;" + $env:PATH
+    }
+    $env:LIBCLANG_PATH = $llvmBin
+    Ok "LLVM clang: $llvmBin"
+} else {
+    Write-Host "[WARN] LLVM not found at $llvmBin — some crates may fail" -ForegroundColor Yellow
+}
+
 # Detect architecture
 $osArch = (Get-WmiObject Win32_Processor | Select-Object -First 1).Architecture
 # 9=x86_64, 12=ARM64
