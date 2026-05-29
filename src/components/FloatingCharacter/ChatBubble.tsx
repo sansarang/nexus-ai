@@ -88,6 +88,7 @@ import { InlineCardRenderer4 } from './InlineCards4'
 import type { InlineCard4Data } from './InlineCards4'
 import { InlineCard5Renderer } from './InlineCards5'
 import type { InlineCard5Data } from './InlineCards5'
+import { CardWrapper } from './CardWrapper'
 
 interface ChatMessage {
   id: string
@@ -181,24 +182,66 @@ const FOLLOW_UP_MAP_KO: Record<string, Array<{ label: string; cmd: string }>> = 
   stock:            [{ label: '📰 관련 뉴스', cmd: '관련 뉴스 찾아줘' }, { label: '📊 차트 보기', cmd: '차트 보여줘' }, { label: '🔔 알림 설정', cmd: '가격 알림 설정해줘' }],
   exchange_rate:    [{ label: '💱 다른 통화', cmd: '유로 환율도 알려줘' }, { label: '📈 환율 추이', cmd: '최근 환율 변화 알려줘' }],
   web_search:       [{ label: '🔍 더 찾기', cmd: '더 자세히 찾아줘' }, { label: '📄 요약', cmd: '요약해줘' }],
+  news_search:      [{ label: '🔍 뉴스 더 보기', cmd: '뉴스 더 찾아줘' }, { label: '📄 요약', cmd: '요약해줘' }],
   deep_research:    [{ label: '📁 파일 저장', cmd: '파일로 저장해줘' }, { label: '🔍 더 조사', cmd: '더 깊이 조사해줘' }],
   chat:             [{ label: '🔍 검색', cmd: '웹에서 찾아줘' }, { label: '📝 정리', cmd: '핵심만 정리해줘' }],
   file_ops:         [{ label: '📂 결과 열기', cmd: '정리된 폴더 열어줘' }, { label: '↩️ 취소', cmd: '방금 정리 취소해줘' }],
   screen_analyze:   [{ label: '📋 텍스트 복사', cmd: '화면 텍스트 복사해줘' }, { label: '🔍 자세히', cmd: '더 자세히 분석해줘' }],
   clipboard_action: [{ label: '📁 저장', cmd: '파일로 저장해줘' }, { label: '🔄 다시', cmd: '다시 처리해줘' }],
   weather:          [{ label: '📅 주간 날씨', cmd: '이번 주 날씨 알려줘' }, { label: '🌍 다른 지역', cmd: '서울 날씨 알려줘' }],
+  pc_status:        [{ label: '🛠️ 문제 수리', cmd: '문제 수리해줘' }, { label: '📊 상세 리포트', cmd: 'PC 건강 리포트 보여줘' }],
+  security_scan:    [{ label: '🔧 문제 수리', cmd: '발견된 문제 수리해줘' }, { label: '🦠 바이러스 검사', cmd: '바이러스 검사해줘' }],
+  full_scan:        [{ label: '🔧 수리 시작', cmd: '문제 수리해줘' }, { label: '📋 결과 저장', cmd: '결과 파일로 저장해줘' }],
+  clean:            [{ label: '📂 폴더 열기', cmd: '정리된 폴더 열어줘' }, { label: '📊 디스크 상태', cmd: 'PC 상태 보여줘' }],
+  smart_organize:   [{ label: '📂 폴더 열기', cmd: '정리된 폴더 열어줘' }, { label: '↩️ 취소', cmd: '방금 정리 취소해줘' }],
+  daily_report:     [{ label: '📅 주간 통계', cmd: '이번 주 통계 보여줘' }, { label: '📊 PC 상태', cmd: 'PC 상태 보여줘' }],
+  pc_report:        [{ label: '🔧 수리하기', cmd: '문제 수리해줘' }, { label: '💾 디스크 정리', cmd: '디스크 정리해줘' }],
+  doc_summary:      [{ label: '🌐 번역하기', cmd: '이 문서 번역해줘' }, { label: '📁 파일 저장', cmd: '파일로 저장해줘' }],
+  journal_generate: [{ label: '📅 어제 일지', cmd: '어제 업무일지 보여줘' }, { label: '📊 주간 요약', cmd: '이번 주 업무 요약해줘' }],
+  macro_run:        [{ label: '▶️ 다시 실행', cmd: '다시 실행해줘' }, { label: '📋 매크로 목록', cmd: '매크로 목록 보여줘' }],
+  macro_create:     [{ label: '▶️ 지금 실행', cmd: '방금 만든 매크로 실행해줘' }, { label: '📋 목록 보기', cmd: '매크로 목록 보여줘' }],
+  vision_ocr:       [{ label: '📋 텍스트 복사', cmd: '화면 텍스트 복사해줘' }, { label: '🌐 번역', cmd: '이 텍스트 번역해줘' }],
+  translate:        [{ label: '📋 복사', cmd: '번역 결과 복사해줘' }, { label: '🔄 다른 언어', cmd: '영어로도 번역해줘' }],
+  youtube_search:   [{ label: '▶️ 첫 영상 열기', cmd: '첫 번째 영상 열어줘' }, { label: '🔍 더 찾기', cmd: '더 찾아줘' }],
+  file_search:      [{ label: '📂 파일 열기', cmd: '첫 번째 파일 열어줘' }, { label: '🔍 다시 검색', cmd: '다시 검색해줘' }],
+  find_duplicates:  [{ label: '🗑️ 중복 삭제', cmd: '중복 파일 삭제해줘' }, { label: '📂 폴더 열기', cmd: '해당 폴더 열어줘' }],
+  app_list:         [{ label: '🗑️ 앱 삭제', cmd: '앱 삭제해줘' }, { label: '🔍 앱 검색', cmd: '앱 찾아줘' }],
+  process_top:      [{ label: '🔫 프로세스 종료', cmd: '가장 많이 쓰는 프로세스 종료해줘' }, { label: '🔄 새로고침', cmd: '프로세스 다시 보여줘' }],
+  schedule_add:     [{ label: '📅 일정 목록', cmd: '내 일정 보여줘' }, { label: '➕ 일정 추가', cmd: '일정 추가해줘' }],
+  meeting_summary:  [{ label: '📁 저장', cmd: '요약 파일로 저장해줘' }, { label: '📧 이메일 전송', cmd: '요약 이메일로 보내줘' }],
 }
 
 const FOLLOW_UP_MAP_EN: Record<string, Array<{ label: string; cmd: string }>> = {
   stock:            [{ label: '📰 Related News', cmd: 'Find related news' }, { label: '📊 View Chart', cmd: 'Show me the chart' }, { label: '🔔 Set Alert', cmd: 'Set a price alert' }],
   exchange_rate:    [{ label: '💱 Other Currency', cmd: 'What about Euro exchange rate?' }, { label: '📈 Rate Trend', cmd: 'Show recent exchange rate changes' }],
   web_search:       [{ label: '🔍 Find More', cmd: 'Search for more details' }, { label: '📄 Summarize', cmd: 'Summarize this' }],
+  news_search:      [{ label: '🔍 More News', cmd: 'Find more news' }, { label: '📄 Summarize', cmd: 'Summarize this' }],
   deep_research:    [{ label: '📁 Save File', cmd: 'Save this to a file' }, { label: '🔍 Dig Deeper', cmd: 'Research this more deeply' }],
   chat:             [{ label: '🔍 Search', cmd: 'Search the web for this' }, { label: '📝 Summarize', cmd: 'Summarize the key points' }],
   file_ops:         [{ label: '📂 Open Folder', cmd: 'Open the organized folder' }, { label: '↩️ Undo', cmd: 'Undo the last action' }],
   screen_analyze:   [{ label: '📋 Copy Text', cmd: 'Copy the text from screen' }, { label: '🔍 More Detail', cmd: 'Analyze this in more detail' }],
   clipboard_action: [{ label: '📁 Save', cmd: 'Save to a file' }, { label: '🔄 Redo', cmd: 'Process this again' }],
   weather:          [{ label: '📅 Weekly Forecast', cmd: 'Show me this week\'s weather' }, { label: '🌍 Other City', cmd: 'What\'s the weather in New York?' }],
+  pc_status:        [{ label: '🛠️ Fix Issues', cmd: 'Fix the problems' }, { label: '📊 Health Report', cmd: 'Show PC health report' }],
+  security_scan:    [{ label: '🔧 Fix Issues', cmd: 'Fix the found issues' }, { label: '🦠 Virus Scan', cmd: 'Run virus scan' }],
+  full_scan:        [{ label: '🔧 Start Repair', cmd: 'Repair the issues' }, { label: '📋 Save Results', cmd: 'Save results to file' }],
+  clean:            [{ label: '📂 Open Folder', cmd: 'Open the cleaned folder' }, { label: '📊 Disk Status', cmd: 'Show PC status' }],
+  smart_organize:   [{ label: '📂 Open Folder', cmd: 'Open the organized folder' }, { label: '↩️ Undo', cmd: 'Undo the organize' }],
+  daily_report:     [{ label: '📅 Weekly Stats', cmd: 'Show this week\'s stats' }, { label: '📊 PC Status', cmd: 'Show PC status' }],
+  pc_report:        [{ label: '🔧 Fix Issues', cmd: 'Fix the issues' }, { label: '💾 Clean Disk', cmd: 'Clean up disk' }],
+  doc_summary:      [{ label: '🌐 Translate', cmd: 'Translate this document' }, { label: '📁 Save File', cmd: 'Save to file' }],
+  journal_generate: [{ label: '📅 Yesterday', cmd: 'Show yesterday\'s journal' }, { label: '📊 Weekly Summary', cmd: 'Summarize this week' }],
+  macro_run:        [{ label: '▶️ Run Again', cmd: 'Run it again' }, { label: '📋 Macro List', cmd: 'Show macro list' }],
+  macro_create:     [{ label: '▶️ Run Now', cmd: 'Run the macro I just created' }, { label: '📋 View List', cmd: 'Show macro list' }],
+  vision_ocr:       [{ label: '📋 Copy Text', cmd: 'Copy the text' }, { label: '🌐 Translate', cmd: 'Translate this text' }],
+  translate:        [{ label: '📋 Copy', cmd: 'Copy the translation' }, { label: '🔄 Other Language', cmd: 'Translate to Japanese too' }],
+  youtube_search:   [{ label: '▶️ Open First', cmd: 'Open the first video' }, { label: '🔍 Find More', cmd: 'Find more videos' }],
+  file_search:      [{ label: '📂 Open File', cmd: 'Open the first file' }, { label: '🔍 Search Again', cmd: 'Search again' }],
+  find_duplicates:  [{ label: '🗑️ Delete Dupes', cmd: 'Delete duplicate files' }, { label: '📂 Open Folder', cmd: 'Open that folder' }],
+  app_list:         [{ label: '🗑️ Uninstall', cmd: 'Uninstall an app' }, { label: '🔍 Find App', cmd: 'Find an app' }],
+  process_top:      [{ label: '🔫 Kill Process', cmd: 'Kill the top process' }, { label: '🔄 Refresh', cmd: 'Show processes again' }],
+  schedule_add:     [{ label: '📅 My Schedule', cmd: 'Show my schedule' }, { label: '➕ Add Event', cmd: 'Add another event' }],
+  meeting_summary:  [{ label: '📁 Save', cmd: 'Save summary to file' }, { label: '📧 Email', cmd: 'Send summary by email' }],
 }
 
 interface ChatBubbleProps {
@@ -396,11 +439,17 @@ export function ChatBubble({
   const FEATURED_ACTIONS = isEn ? FEATURED_ACTIONS_EN : FEATURED_ACTIONS_KO
   const FOLLOW_UP_MAP = isEn ? FOLLOW_UP_MAP_EN : FOLLOW_UP_MAP_KO
 
-  /* 카드가 붙은 메시지 — 최근 6개 표시 */
-  const liveCards = useMemo(
-    () => messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5).slice(-6),
+  /* 카드가 붙은 메시지 전체 — 히스토리용 */
+  const allCardMessages = useMemo(
+    () => messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5),
     [messages]
   )
+  /* 최근 6개만 실시간 표시 */
+  const liveCards = useMemo(() => allCardMessages.slice(-6), [allCardMessages])
+  const hiddenCardCount = allCardMessages.length - liveCards.length
+
+  /* 이전 결과 패널 토글 */
+  const [showCardHistory, setShowCardHistory] = useState(false)
 
   // 실시간 대화 메시지 — 최근 20개
   const liveMessages = useMemo(() => messages.slice(-20), [messages])
@@ -846,21 +895,76 @@ export function ChatBubble({
           </div>
         )}
 
+        {/* 이전 결과 히스토리 버튼 */}
+        {hiddenCardCount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+            <button
+              onClick={() => setShowCardHistory(v => !v)}
+              style={{
+                background: 'rgba(255,255,255,0.05)', border: `1px solid ${primaryColor}44`,
+                borderRadius: 12, color: `${primaryColor}bb`, fontSize: 10, fontWeight: 600,
+                padding: '4px 12px', cursor: 'pointer', transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}22` }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            >
+              {showCardHistory
+                ? (lang === 'en' ? '▲ Hide history' : '▲ 이전 결과 숨기기')
+                : (lang === 'en' ? `▼ View ${hiddenCardCount} previous results` : `▼ 이전 결과 ${hiddenCardCount}개 보기`)}
+            </button>
+          </div>
+        )}
+
+        {/* 이전 결과 히스토리 패널 */}
+        <AnimatePresence>
+          {showCardHistory && hiddenCardCount > 0 && (
+            <motion.div
+              key="card-history-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div style={{
+                maxHeight: 320, overflowY: 'auto', border: `1px solid ${primaryColor}22`,
+                borderRadius: 10, padding: '8px 6px', marginTop: 6,
+                background: 'rgba(255,255,255,0.02)',
+              }}>
+                {allCardMessages.slice(0, -6).map(msg => (
+                  <div key={msg.id} style={{ marginBottom: 10, opacity: 0.75 }}>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 3, paddingLeft: 2 }}>
+                      {msg.id.replace(/-res$/, '')}
+                    </div>
+                    {msg.inlineCard && <InlineCardRenderer card={msg.inlineCard} accentColor={primaryColor} onRepair={onRepair} />}
+                    {msg.inlineCard2 && <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} onPersonaSelect={onPersonaSelect} />}
+                    {msg.inlineCard3 && <InlineCardRenderer3 card={msg.inlineCard3} />}
+                    {msg.inlineCard4 && <InlineCardRenderer4 card={msg.inlineCard4} onMacroRun={msg.onMacroRun} />}
+                    {msg.inlineCard5 && <InlineCard5Renderer card={msg.inlineCard5} accentColor={primaryColor} />}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* 최근 인라인 카드 (실시간) */}
         <AnimatePresence>
           {liveCards.map(msg => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{ marginTop: 8 }}
-            >
-              {msg.inlineCard && <InlineCardRenderer card={msg.inlineCard} accentColor={primaryColor} onRepair={onRepair} />}
-              {msg.inlineCard2 && <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} onPersonaSelect={onPersonaSelect} />}
+            <div key={msg.id} style={{ width: '100%', overflow: 'hidden' }}>
+              {msg.inlineCard && (
+                <CardWrapper variant="dark" accentColor={primaryColor} animate={false}>
+                  <InlineCardRenderer card={msg.inlineCard} accentColor={primaryColor} onRepair={onRepair} />
+                </CardWrapper>
+              )}
+              {msg.inlineCard2 && (
+                <CardWrapper variant="default" accentColor={primaryColor} animate={false}>
+                  <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} onPersonaSelect={onPersonaSelect} />
+                </CardWrapper>
+              )}
               {msg.inlineCard3 && <InlineCardRenderer3 card={msg.inlineCard3} />}
               {msg.inlineCard4 && <InlineCardRenderer4 card={msg.inlineCard4} onMacroRun={msg.onMacroRun} />}
               {msg.inlineCard5 && <InlineCard5Renderer card={msg.inlineCard5} accentColor={primaryColor} />}
-            </motion.div>
+            </div>
           ))}
         </AnimatePresence>
 
@@ -871,7 +975,7 @@ export function ChatBubble({
           const last = history[history.length - 1]
           const lastAction = messages.filter(m => m.role === 'nexus').slice(-1)[0]
           const actionKey = lastAction?.action ?? ''
-          const suggestions = FOLLOW_UP_MAP[actionKey] ?? FOLLOW_UP_MAP['chat']
+          const suggestions = FOLLOW_UP_MAP[actionKey] ?? (actionKey ? FOLLOW_UP_MAP['chat'] : [])
           return (
             <AnimatePresence>
               <motion.div

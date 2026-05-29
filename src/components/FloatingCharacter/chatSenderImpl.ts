@@ -656,7 +656,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
         setTyping(false)
         typingRef.current = false
         setEmotion(resEmotion)
-        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5 }])
+        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5, action: fastIntent }])
         pushModelHistory(trimmed, resText)
         if (resText) {
           speakText(resText)
@@ -918,7 +918,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       setTyping(false)
       typingRef.current = false
       setEmotion(resEmotion)
-      setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5 }])
+      setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5, action: intent }])
       pushModelHistory(trimmed, resText)
       if (resText) {
         speakText(resText)
@@ -1027,6 +1027,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
 
     setMessages(prev => [...prev, {
       id: `${msgId}-res`, role: 'nexus', text: response!.text, inlineCard2: llmCard2,
+      action: previewItems.length > 0 ? 'web_search' : 'chat',
     }])
     pushModelHistory(trimmed, response.text)
     if (response.text) {

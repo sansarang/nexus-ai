@@ -79,8 +79,20 @@ func handleDocSummary(w http.ResponseWriter, r *http.Request) {
 	// 핵심 내용 추출 (로컬)
 	result.KeyPoints = extractKeyPoints(text, result.Category)
 
-	// 요약 생성 (로컬 룰 기반)
-	result.Summary = buildDocSummary(result)
+	// 요약 생성 — Groq AI 우선, 실패 시 로컬 룰 기반 fallback
+	excerpt := text
+	if len(excerpt) > 3000 {
+		excerpt = excerpt[:3000]
+	}
+	aiSummary, _, aiErr := callGroqWithFallback([]groqMsg{
+		{Role: "system", Content: "문서 요약 전문가. 핵심 내용을 3~5문장으로 자연스럽게 한국어로 요약해줘."},
+		{Role: "user", Content: fmt.Sprintf("파일명: %s\n\n%s", result.FileName, excerpt)},
+	}, 300, false)
+	if aiErr == nil && strings.TrimSpace(aiSummary) != "" {
+		result.Summary = strings.TrimSpace(aiSummary)
+	} else {
+		result.Summary = buildDocSummary(result)
+	}
 
 	json200(w, result)
 }

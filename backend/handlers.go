@@ -8,12 +8,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -326,13 +326,10 @@ func getRealCPU() float64 {
 	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
 		`(Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average`).Output()
 	if err != nil {
-		return rand.Float64()*40 + 10
+		return 0
 	}
 	val := 0.0
 	fmt.Sscanf(strings.TrimSpace(string(out)), "%f", &val)
-	if val == 0 {
-		return rand.Float64()*40 + 10
-	}
 	return val
 }
 
@@ -392,6 +389,70 @@ func getRAMDetail() (totalGB, usedGB float64) {
 	return
 }
 
+func getCPUTemp() float64 {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
+		`try { $t=(Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace root/wmi -EA Stop | Select-Object -First 1).CurrentTemperature; [math]::Round($t/10-273.15,1) } catch { 0 }`).Output()
+	if err != nil {
+		return 0
+	}
+	val := 0.0
+	fmt.Sscanf(strings.TrimSpace(string(out)), "%f", &val)
+	return val
+}
+
+// networkStatCache holds bytes sent/received from the previous measurement
+var (
+	netStatMu       sync.Mutex
+	netPrevBytes    [2]uint64 // [sent, recv]
+	netPrevTime     time.Time
+	netCachedUp     float64
+	netCachedDown   float64
+)
+
+func getNetworkStat(dir string) float64 {
+	netStatMu.Lock()
+	defer netStatMu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(netPrevTime).Seconds()
+	if elapsed < 1 {
+		if dir == "up" {
+			return netCachedUp
+		}
+		return netCachedDown
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	out, err := newHiddenCmdCtx(ctx, "powershell", "-NoProfile", "-Command",
+		`$a=Get-NetAdapterStatistics|Where-Object{$_.ReceivedBytes -gt 0}|Select-Object -First 1; if($a){"$($a.SentBytes) $($a.ReceivedBytes)"}else{"0 0"}`).Output()
+	if err != nil {
+		return 0
+	}
+	var sent, recv uint64
+	fmt.Sscanf(strings.TrimSpace(string(out)), "%d %d", &sent, &recv)
+
+	if !netPrevTime.IsZero() && elapsed > 0 && elapsed < 60 {
+		netCachedUp = float64(sent-netPrevBytes[0]) / elapsed / 1024   // KB/s
+		netCachedDown = float64(recv-netPrevBytes[1]) / elapsed / 1024 // KB/s
+		if netCachedUp < 0 {
+			netCachedUp = 0
+		}
+		if netCachedDown < 0 {
+			netCachedDown = 0
+		}
+	}
+	netPrevBytes = [2]uint64{sent, recv}
+	netPrevTime = now
+
+	if dir == "up" {
+		return netCachedUp
+	}
+	return netCachedDown
+}
+
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	cpu := getRealCPU()
 	memPct := float64(getMemoryUsage())
@@ -399,8 +460,8 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	gpuUsage, gpuName := getGPUInfo()
 	disks := getAllDiskStats()
 
-	// C: 디스크 사용률 기본값
-	diskPct := rand.Float64()*30 + 55
+	// C: 디스크 사용률 (getAllDiskStats 결과 우선)
+	diskPct := 0.0
 	if len(disks) > 0 {
 		if pct, ok := disks[0]["pct"].(int); ok {
 			diskPct = float64(pct)
@@ -408,18 +469,18 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json200(w, map[string]any{
-		"cpu":         cpu,
-		"mem":         memPct,
-		"mem_used_gb": ramUsed,
+		"cpu":          cpu,
+		"mem":          memPct,
+		"mem_used_gb":  ramUsed,
 		"mem_total_gb": ramTotal,
-		"disk":        diskPct,
-		"disks":       disks,
-		"cpu_temp":    float64(rand.Intn(20)) + 45, // 하드웨어별 WMI 필요
-		"gpu":         gpuUsage,
-		"gpu_name":    gpuName,
-		"net_up":      rand.Float64() * 500,
-		"net_down":    rand.Float64() * 2000,
-		"timestamp":   time.Now().Unix(),
+		"disk":         diskPct,
+		"disks":        disks,
+		"cpu_temp":     getCPUTemp(),
+		"gpu":          gpuUsage,
+		"gpu_name":     gpuName,
+		"net_up":       getNetworkStat("up"),
+		"net_down":     getNetworkStat("down"),
+		"timestamp":    time.Now().Unix(),
 	})
 }
 

@@ -39,12 +39,24 @@ func main() {
 		}
 	}()
 
+	// Python sidecar 준비 대기 (최대 30초) + 백그라운드 헬스 루프 시작
+	go func() {
+		waitForPython()
+		startPythonHealthLoop()
+	}()
+
 	mux := http.NewServeMux()
 
 	// 헬스체크
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]string{"status": "ok"})
 	})
+
+	// Python 사이드카 상태 체크
+	mux.HandleFunc("GET /api/python/health", handlePythonHealth)
+
+	// Feature Flag 목록
+	mux.HandleFunc("GET /api/features", handleFeatureList)
 
 	// PC 전체 진단
 	mux.HandleFunc("POST /api/scan", handleScan)

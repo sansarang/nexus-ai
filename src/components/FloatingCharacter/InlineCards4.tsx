@@ -2,6 +2,7 @@
  * InlineCards4 — 업무 일지 / 매크로 / PC 리포트 / 문서 요약 카드
  */
 import React, { useState } from 'react'
+import { CardWrapper } from './CardWrapper'
 
 /* ──────────────────────────────────────────
    공통 타입
@@ -107,7 +108,7 @@ const card: React.CSSProperties = {
   marginTop: 8,
   fontSize: 13,
   color: '#e2e8f0',
-  maxWidth: 420,
+  width: 'clamp(240px, 100%, 420px)',
   lineHeight: 1.55,
 }
 

@@ -939,10 +939,14 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'journal_generate': {
-          const res = await backendAPI.journalGenerate()
+          const [todayData, res] = await Promise.all([
+            backendAPI.journalToday().catch(() => null),
+            backendAPI.journalGenerate(),
+          ])
+          const cardData = todayData ?? { date: new Date().toISOString().slice(0,10), work_hours: 0, app_usage: [], recent_files: [], summary: res.preview || '', generated: '' }
           return {
             text: res.message,
-            card4: { type: 'journal_today', data: { date: new Date().toISOString().slice(0,10), work_hours: 0, app_usage: [], recent_files: [], summary: res.preview || '', generated: '' } },
+            card4: { type: 'journal_today', data: cardData as unknown as Parameters<typeof import('./InlineCards4').JournalTodayCard>[0]['data'] },
             emotion: 'happy',
           }
         }
@@ -983,11 +987,23 @@ export async function handleBackendIntentImpl(
           const list = await backendAPI.macroList()
           const macros = (list as { macros?: Array<{ id: string; name: string }> }).macros || []
           if (macros.length === 0) {
-            return { text: '실행할 매크로가 없어요. 먼저 매크로를 등록해주세요.', emotion: 'neutral' }
+            return { text: t('실행할 매크로가 없어요. 먼저 매크로를 등록해주세요.', 'No macros registered. Please create a macro first.', userLang), emotion: 'neutral' }
           }
-          const res = await backendAPI.macroRun(macros[0].id)
+          // 사용자 발화에서 매크로 이름 매칭
+          const nameLow = originalText.toLowerCase()
+          const matched = macros.find(m => nameLow.includes(m.name.toLowerCase()))
+          if (!matched && macros.length > 1) {
+            // 여러 개 있고 특정 매크로 지정 안 했으면 목록 반환
+            return {
+              text: t(`매크로가 ${macros.length}개 있어요. 어떤 매크로를 실행할까요?`, `You have ${macros.length} macros. Which one should I run?`, userLang),
+              card4: { type: 'macro_list', data: list as { macros: Parameters<typeof import('./InlineCards4').MacroListCard>[0]['data']['macros']; total: number } },
+              emotion: 'neutral',
+            }
+          }
+          const target = matched ?? macros[0]
+          const res = await backendAPI.macroRun(target.id)
           return {
-            text: (res as { message?: string }).message || '매크로를 실행했어요!',
+            text: (res as { message?: string }).message || t('매크로를 실행했어요!', 'Macro executed!', userLang),
             card4: { type: 'macro_run', data: res as { name: string; results: Parameters<typeof import('./InlineCards4').MacroRunCard>[0]['data']['results']; message: string } },
             emotion: 'happy',
           }
@@ -999,7 +1015,7 @@ export async function handleBackendIntentImpl(
           return {
             text: t(`PC 건강 점수: ${(data as { score?: number }).score || 0}점. 리포트가 바탕화면에 저장됐어요!`, `PC health score: ${(data as { score?: number }).score || 0}. Report saved to desktop!`, userLang),
             card4: { type: 'pc_report', data: data as unknown as Parameters<typeof import('./InlineCards4').PCReportCard>[0]['data'] },
-            emotion: (data as { score?: number }).score && (data as { score?: number }).score! < 60 ? 'concerned' : 'happy',
+            emotion: ((data as { score?: number }).score ?? 100) < 60 ? 'concerned' : 'happy',
           }
         }
         case 'report_email': {
@@ -1029,12 +1045,13 @@ export async function handleBackendIntentImpl(
         case 'smart_organize': {
           const isDesktop = /바탕화면|desktop/.test(originalText)
           const isDownloads = /다운로드|download/.test(originalText)
-          const target = isDesktop ? 'desktop' : isDownloads ? 'downloads' : 'all'
-          const res = await backendAPI.filesOrganize(undefined, 'both').catch(() => ({
-            success: false, moved: 0, message: '파일 정리 실패',
+          const target = isDesktop ? 'desktop' : isDownloads ? 'downloads' : ''
+          const res = await backendAPI.filesOrganize(target || undefined, 'type').catch(() => ({
+            success: false, moved: 0, message: t('파일 정리 실패', 'File organization failed', userLang),
           }))
+          const targetLabel = isDesktop ? t('바탕화면', 'Desktop', userLang) : isDownloads ? t('다운로드', 'Downloads', userLang) : t('다운로드', 'Downloads', userLang)
           return {
-            text: res.success ? `${target === 'desktop' ? '바탕화면' : target === 'downloads' ? '다운로드' : 'PC 전체'} 정리 완료!` : res.message,
+            text: res.success ? t(`${targetLabel} 정리 완료!`, `${targetLabel} organized!`, userLang) : res.message,
             card3: { type: 'smart_organize', data: { moved: res.moved, folders: [], message: res.message } },
             emotion: res.success ? 'happy' : 'concerned',
           }

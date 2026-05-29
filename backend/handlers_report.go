@@ -117,10 +117,17 @@ func handleReportGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 디스크 분석
-	diskFree := 50.0
-	if v, ok := stats["disk"].(float64); ok && v > 85 {
+	freeBytes, totalBytes := getDiskSpace()
+	diskFree := float64(freeBytes) / (1 << 30) // GB
+	diskUsedPct := 0.0
+	if totalBytes > 0 {
+		diskUsedPct = float64(totalBytes-freeBytes) / float64(totalBytes) * 100
+	} else if v, ok := stats["disk"].(float64); ok {
+		diskUsedPct = v
+	}
+	if diskUsedPct > 85 {
 		score -= 20
-		issues = append(issues, ReportIssue{"critical", "디스크 공간 부족", fmt.Sprintf("%.0f%% 사용 중", v)})
+		issues = append(issues, ReportIssue{"critical", "디스크 공간 부족", fmt.Sprintf("%.0f%% 사용 중 (여유 공간 %.1fGB)", diskUsedPct, diskFree)})
 		suggestions = append(suggestions, "다운로드 폴더와 임시 파일을 정리해 공간을 확보하세요")
 	}
 

@@ -104,8 +104,11 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 		Mode string `json:"mode"` // type | date
 	}
 	json.NewDecoder(r.Body).Decode(&req)
-	if req.Path == "" {
-		home, _ := os.UserHomeDir()
+	home, _ := os.UserHomeDir()
+	switch req.Path {
+	case "desktop":
+		req.Path = filepath.Join(home, "Desktop")
+	case "downloads", "":
 		req.Path = filepath.Join(home, "Downloads")
 	}
 	if req.Mode == "" {

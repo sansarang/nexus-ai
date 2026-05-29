@@ -3,6 +3,7 @@
  */
 import React, { useState, useCallback } from 'react'
 import type { DocCompareResult, DocFindResult, DeepSearchResult, DiffLine, NumberMismatch } from '../../lib/nexus/backendAPI'
+import { CardWrapper } from './CardWrapper'
 
 /* ──────────────────────────────────────────
    타입 정의
@@ -26,7 +27,7 @@ const card: React.CSSProperties = {
   marginTop: 8,
   fontSize: 13,
   color: '#e2e8f0',
-  maxWidth: 420,
+  width: 'clamp(240px, 100%, 420px)',
   lineHeight: 1.55,
 }
 

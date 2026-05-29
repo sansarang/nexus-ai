@@ -5,10 +5,99 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// ══════════════════════════════════════════════════════════════
+//  Python 사이드카 헬스 상태 관리
+// ══════════════════════════════════════════════════════════════
+
+var (
+	pythonHealthy  atomic.Bool          // true = 연결 정상
+	pythonHealthMu sync.Mutex
+)
+
+// waitForPython — 앱 시작 시 Python 준비될 때까지 최대 30초 retry (300ms 간격)
+func waitForPython() {
+	client := &http.Client{Timeout: 2 * time.Second}
+	for i := 0; i < 100; i++ {
+		resp, err := client.Get(pythonBase + "/health")
+		if err == nil && resp.StatusCode == 200 {
+			resp.Body.Close()
+			pythonHealthy.Store(true)
+			log.Printf("[Python] sidecar ready (attempt %d)", i+1)
+			go injectKeysToPython()
+			return
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	log.Printf("[Python] sidecar not ready after 30s — continuing without it")
+}
+
+// startPythonHealthLoop — 백그라운드에서 Python 상태를 주기적으로 체크 (30초 간격)
+// 연결 끊어지면 exponential backoff (1s→2s→4s→8s→16s→30s)로 재연결 시도
+func startPythonHealthLoop() {
+	go func() {
+		client := &http.Client{Timeout: 2 * time.Second}
+		backoff := time.Second
+		for {
+			time.Sleep(30 * time.Second)
+			resp, err := client.Get(pythonBase + "/health")
+			if err == nil && resp.StatusCode == 200 {
+				resp.Body.Close()
+				if !pythonHealthy.Load() {
+					log.Printf("[Python] sidecar reconnected")
+					pythonHealthy.Store(true)
+					go injectKeysToPython()
+				}
+				backoff = time.Second
+				continue
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
+			pythonHealthy.Store(false)
+			log.Printf("[Python] sidecar unreachable — retry in %v", backoff)
+
+			// exponential backoff 재시도
+			for attempt := 0; attempt < 6; attempt++ {
+				time.Sleep(backoff)
+				r2, e2 := client.Get(pythonBase + "/health")
+				if e2 == nil && r2.StatusCode == 200 {
+					r2.Body.Close()
+					pythonHealthy.Store(true)
+					log.Printf("[Python] sidecar recovered (backoff attempt %d)", attempt+1)
+					go injectKeysToPython()
+					break
+				}
+				if r2 != nil {
+					r2.Body.Close()
+				}
+				if backoff < 30*time.Second {
+					backoff *= 2
+				}
+			}
+		}
+	}()
+}
+
+// handlePythonHealth — GET /api/python/health : 프론트엔드가 Python 상태를 폴링
+func handlePythonHealth(w http.ResponseWriter, r *http.Request) {
+	healthy := pythonHealthy.Load()
+	status := "ok"
+	if !healthy {
+		status = "unavailable"
+	}
+	json200(w, map[string]any{"status": status, "healthy": healthy})
+}
 
 // ══════════════════════════════════════════════════════════════
 //  Python 사이드카 프록시 헬퍼 (포트 17893) — 공통
