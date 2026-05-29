@@ -1067,7 +1067,7 @@ export async function handleBackendIntentImpl(
         case 'email_inbox': {
           const data = await emailInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
           if ((data as any).action === 'outlook_setup_required') {
-            // 팝업 강제 오픈 제거 — 사용자가 원할 때만 설정
+            d.openEmailSetup?.()
             return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
           }
           return {
@@ -1092,7 +1092,7 @@ export async function handleBackendIntentImpl(
         case 'email_summarize': {
           const data = await emailSummarize().catch(() => ({ success: false, emails: [], summary: '', message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
           if ((data as any).action === 'outlook_setup_required') {
-            // 팝업 강제 오픈 제거
+            d.openEmailSetup?.()
             return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
           }
           return {
@@ -1708,7 +1708,11 @@ export async function handleBackendIntentImpl(
 
         /* ── 📧 이메일 분류 ── */
         case 'email_classify': {
-          const data = await emailClassify(20).catch(() => ({ success: false, classified: [], counts: {}, message: 'Outlook이 필요합니다.' }))
+          const data = await emailClassify(20).catch(() => ({ success: false, classified: [], counts: {}, message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
+          if ((data as any).action === 'outlook_setup_required') {
+            d.openEmailSetup?.()
+            return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
+          }
           const countStr = Object.entries(data.counts ?? {}).map(([k, v]) => `${k}: ${v}`).join(' · ')
           return {
             text: data.message || t(`이메일 분류 완료! ${countStr}`, `Email classification done! ${countStr}`, userLang),

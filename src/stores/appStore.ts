@@ -542,4 +542,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   if (!localStorage.getItem('nexus-tts-voice'))
     localStorage.setItem('nexus-tts-voice', 'nova')
   // API 키는 .env → services.ts → gemini_engine.ts 에서 직접 읽음 (localStorage 불필요)
+
+  // 개발자 테스트: Pro 구독 상태 강제 설정
+  if (!localStorage.getItem('nexus-sub-status')) {
+    localStorage.setItem('nexus-sub-status', 'active')
+    localStorage.setItem('nexus-sub-expiry', '2099-12-31T00:00:00.000Z')
+  }
 })()

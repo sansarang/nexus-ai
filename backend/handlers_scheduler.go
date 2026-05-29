@@ -392,7 +392,7 @@ func unregisterWindowsTask(taskID string) error {
 
 func runEmailSummaryTask() (string, error) {
 	// 아웃룩 이메일 최근 3개 가져오기
-	script := `$outlook = New-Object -ComObject Outlook.Application; ` +
+	script := outlookProfileCheckPS + `$outlook = New-Object -ComObject Outlook.Application; ` +
 		`$ns = $outlook.GetNamespace('MAPI'); ` +
 		`$inbox = $ns.GetDefaultFolder(6); ` +
 		`$mails = $inbox.Items | Sort-Object ReceivedTime -Descending | Select-Object -First 3; ` +

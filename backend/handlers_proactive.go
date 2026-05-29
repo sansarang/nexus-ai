@@ -194,7 +194,7 @@ Keep it short and friendly, include emojis, under 300 words.`, pcHealth)
 
 func checkUpcomingMeetings(eng bool) {
 	// 캘린더 이벤트 확인 (PowerShell Outlook COM)
-	script := `
+	script := outlookProfileCheckPS + `
 try {
   $outlook = New-Object -ComObject Outlook.Application
   $cal = $outlook.GetNamespace("MAPI").GetDefaultFolder(9)

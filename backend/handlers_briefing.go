@@ -143,7 +143,7 @@ type BriefCalEvent struct {
 func getCalendarEventsToday() []BriefCalEvent {
 	// Google Calendar API 또는 Windows Calendar 연동
 	// 현재는 handlers_calendar.go의 데이터 재활용
-	script := `
+	script := outlookProfileCheckPS + `
 $today = Get-Date -Format "yyyy-MM-dd"
 $outlook = $null
 try {

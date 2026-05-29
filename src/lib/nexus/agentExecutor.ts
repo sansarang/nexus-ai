@@ -3,6 +3,8 @@
  * 복잡한 요청을 여러 단계로 분해 → 순차 실행 → 자기검증 → 최종 답변 합성
  */
 
+import { callProxy, isProActive } from './proxyAPI'
+
 const BASE = 'http://127.0.0.1:17891'
 const GROQ_BASE = 'https://api.groq.com/openai/v1'
 const GROQ_MODEL = 'llama-3.1-8b-instant'
@@ -55,6 +57,19 @@ export interface AgentPlan {
 // ── LLM 호출 ────────────────────────────────────────────────────
 
 async function callClaude(system: string, user: string): Promise<string> {
+  if (isProActive()) {
+    try {
+      const result = await callProxy('claude_intent', {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        system,
+        messages: [{ role: 'user', content: user }],
+      })
+      const data = result as { content?: Array<{ text?: string }> }
+      const text = (data.content?.[0]?.text ?? '').trim()
+      if (text) return text
+    } catch { /* BYOK로 폴백 */ }
+  }
   const key = localStorage.getItem('nexus-claude-key') ?? ''
   if (!key) throw new Error('no claude key')
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -78,6 +93,19 @@ async function callClaude(system: string, user: string): Promise<string> {
 }
 
 async function callGroq(system: string, user: string): Promise<string> {
+  if (isProActive()) {
+    try {
+      const result = await callProxy('groq_chat', {
+        model: GROQ_MODEL,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        temperature: 0.3,
+        max_tokens: 4000,
+      })
+      const data = result as { choices?: Array<{ message?: { content?: string } }> }
+      const text = (data.choices?.[0]?.message?.content ?? '').trim()
+      if (text) return text
+    } catch { /* BYOK로 폴백 */ }
+  }
   const key = localStorage.getItem('nexus-groq-key') ?? ''
   if (!key) throw new Error('no groq key')
   const res = await fetch(`${GROQ_BASE}/chat/completions`, {
@@ -98,6 +126,17 @@ async function callGroq(system: string, user: string): Promise<string> {
 // ── 도구 실행 함수들 ─────────────────────────────────────────────
 
 async function tavilySearch(query: string): Promise<string> {
+  if (isProActive()) {
+    try {
+      const result = await callProxy('tavily_search', { query, max_results: 5, search_depth: 'advanced' })
+      const data = result as { results?: Array<{ title: string; content: string }> }
+      const text = (data.results ?? [])
+        .slice(0, 5)
+        .map((r, i) => `[${i + 1}] ${r.title}\n${r.content}`)
+        .join('\n\n')
+      if (text) return text
+    } catch { /* BYOK로 폴백 */ }
+  }
   const key = localStorage.getItem('nexus-tavily-key') ?? ''
   if (!key) return '(웹 검색 키 없음 — 내부 지식으로 진행)'
   try {
@@ -123,23 +162,31 @@ async function captureScreen(): Promise<string> {
     const b64 = data.image_base64 ?? data.data ?? ''
     if (!b64) return data.description ?? '(캡처 데이터 없음)'
 
-    // Groq Vision으로 화면 분석
+    // Groq Vision으로 화면 분석 (Pro: 프록시 / BYOK: 직접)
+    const visionPayload = {
+      model: 'llama-3.2-11b-vision-preview',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: '이 화면에 있는 파일, 폴더, 앱, 텍스트를 상세히 설명하라. 파일명과 위치를 정확히 포함할 것.' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
+        ],
+      }],
+      max_tokens: 1500,
+    }
+    if (isProActive()) {
+      try {
+        const result = await callProxy('vision_analyze', visionPayload)
+        const vd = result as { choices?: Array<{ message?: { content?: string } }> }
+        return vd.choices?.[0]?.message?.content ?? '(Vision 분석 실패)'
+      } catch { /* BYOK로 폴백 */ }
+    }
     const key = localStorage.getItem('nexus-groq-key') ?? ''
     if (!key) return '(Groq Vision 키 없음)'
     const visionRes = await fetch(`${GROQ_BASE}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'llama-3.2-11b-vision-preview',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: '이 화면에 있는 파일, 폴더, 앱, 텍스트를 상세히 설명하라. 파일명과 위치를 정확히 포함할 것.' },
-            { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
-          ],
-        }],
-        max_tokens: 1500,
-      }),
+      body: JSON.stringify(visionPayload),
     })
     const vd = await visionRes.json()
     return vd.choices?.[0]?.message?.content ?? '(Vision 분석 실패)'

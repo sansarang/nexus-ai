@@ -4,6 +4,7 @@
  */
 
 import { PPLX_API_KEY, OPENAI_API_KEY } from '../../config/services'
+import { callProxy, isProActive } from './proxyAPI'
 
 export interface ToolCall {
   tool: string
@@ -283,22 +284,36 @@ export async function routeWithLLMMulti(
     { role: 'user', content: userMessage },
   ]
 
-  // 1순위: Claude Haiku (한국어 복합 의도 분류 정확도 최고)
-  const claudeKey = localStorage.getItem('nexus-claude-key') || ''
-  if (claudeKey) {
+  // 1순위: Claude Haiku — Pro면 프록시, BYOK면 직접 호출
+  if (isProActive()) {
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
-        signal: AbortSignal.timeout(10000),
+      const result = await callProxy('claude_intent', {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
       })
-      if (res.ok) {
-        const data = await res.json() as { content?: Array<{ text?: string }> }
-        const parsed = parseToolCallArray(data.content?.[0]?.text?.trim() ?? '')
-        if (parsed.length > 0) return parsed
-      }
+      const data = result as { content?: Array<{ text?: string }> }
+      const parsed = parseToolCallArray(data.content?.[0]?.text?.trim() ?? '')
+      if (parsed.length > 0) return parsed
     } catch { /* fallback */ }
+  } else {
+    const claudeKey = localStorage.getItem('nexus-claude-key') || ''
+    if (claudeKey) {
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': claudeKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
+          signal: AbortSignal.timeout(10000),
+        })
+        if (res.ok) {
+          const data = await res.json() as { content?: Array<{ text?: string }> }
+          const parsed = parseToolCallArray(data.content?.[0]?.text?.trim() ?? '')
+          if (parsed.length > 0) return parsed
+        }
+      } catch { /* fallback */ }
+    }
   }
 
   const openaiKey = OPENAI_API_KEY || localStorage.getItem('nexus-openai-key') || ''

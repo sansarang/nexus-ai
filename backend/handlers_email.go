@@ -72,7 +72,7 @@ func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	script := fmt.Sprintf(`
+	script := outlookProfileCheckPS + fmt.Sprintf(`
 try {
   $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
   $mail = $ol.CreateItem(0) # MailItem
@@ -135,7 +135,7 @@ func handleEmailSummarize(w http.ResponseWriter, r *http.Request) {
 
 // sendOutlookEmail — 워크플로우 등 내부에서 직접 호출용
 func sendOutlookEmail(to, subject, body string) error {
-	script := fmt.Sprintf(`
+	script := outlookProfileCheckPS + fmt.Sprintf(`
 try {
   $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
   $mail = $ol.CreateItem(0)
@@ -161,7 +161,7 @@ try {
 // getOutlookInbox — PowerShell COM으로 받은 편지함 읽기
 func getOutlookInbox(limit int) ([]EmailItem, error) {
 	// 백틱 충돌 방지: 스크립트를 임시 파일에 저장 후 실행
-	script := fmt.Sprintf(
+	script := outlookProfileCheckPS + fmt.Sprintf(
 		"try {\n"+
 			"  $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop\n"+
 			"  $ns = $ol.GetNamespace(\"MAPI\")\n"+

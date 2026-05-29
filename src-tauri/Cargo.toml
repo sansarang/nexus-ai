@@ -1,6 +1,6 @@
 [package]
 name = "nexus"
-version = "2.5.105"
+version = "2.6.1"
 description = "Nexus — AI PC 비서"
 authors = ["Jung"]
 edition = "2021"

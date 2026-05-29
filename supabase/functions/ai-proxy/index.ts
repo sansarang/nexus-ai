@@ -10,7 +10,7 @@ const CLAUDE_KEY     = Deno.env.get('CLAUDE_KEY')!
 const TAVILY_KEY     = Deno.env.get('TAVILY_KEY')!
 
 const DAILY_FREE_LIMIT    = 30
-const DAILY_PREMIUM_LIMIT = 2000
+const DAILY_PREMIUM_LIMIT = 300
 
 const PREMIUM_ACTIONS = new Set([
   'web_search', 'trip_plan', 'price_compare',

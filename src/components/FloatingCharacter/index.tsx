@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { AnimatePresence, motion, useMotionValue } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { saveUserSettings } from '../../lib/supabase'
 import { DesktopAgent } from '../DesktopAgent'
@@ -13,9 +13,7 @@ import type { InlineCardData2 } from './InlineCards2'
 import type { InlineCard3Data } from './InlineCards3'
 import type { InlineCard4Data } from './InlineCards4'
 import type { InlineCard5Data } from './InlineCards5'
-// ResultDrawer import 제거됨
-import { SpeakingWaves } from './Avatar3D'
-import { AvatarRuntime } from './Avatar3D/AvatarRuntime'
+// ResultDrawer / Avatar3D import 제거됨 (v2.6 Orb 레이아웃)
 import { OnboardingFlow, LoginScreen } from './OnboardingFlow'
 import type { AvatarConfig } from './OnboardingFlow'
 import { PaywallModal } from '../PaywallModal'
@@ -265,31 +263,13 @@ export function FloatingCharacter() {
   const alertESRef = useRef<EventSource | null>(null)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
   const [isActive, setIsActive]           = useState(true)
-  const [isDragging, setIsDragging]       = useState(false)
   const [beamEnabled, setBeamEnabled]     = useState(() => localStorage.getItem('nexus-beam') !== 'off')
   const [historyVersion, setHistoryVersion] = useState(0)
-  const dragX = useMotionValue(0)
-  const dragY = useMotionValue(0)
-  const previewDragX = useMotionValue(0)
-  const previewDragY = useMotionValue(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd())
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
-  const [previewFilter, setPreviewFilter] = useState<string>('all')
-  // resultDrawerOpen 제거됨 — ResultDrawer 제거와 함께
-  // ⭐ 즐겨찾기 링크 (localStorage 영구)
-  const [favLinks, setFavLinks] = useState<Array<{ title: string; url: string; addedAt: string }>>(() => {
-    try { return JSON.parse(localStorage.getItem('nexus-fav-links') || '[]') } catch { return [] }
-  })
-  const toggleFav = (url: string, title: string) => {
-    setFavLinks(prev => {
-      const exists = prev.some(f => f.url === url)
-      const next = exists ? prev.filter(f => f.url !== url) : [...prev, { url, title, addedAt: new Date().toISOString() }]
-      localStorage.setItem('nexus-fav-links', JSON.stringify(next))
-      return next
-    })
-  }
+  // resultDrawerOpen / favLinks / previewFilter 제거됨 — v2.6 인라인 결과창으로 대체
   // savedPreviews 제거됨 — floatingPreview 팝업과 함께 제거
 
   // ── Alt+S/V/C 글로벌 단축키 → sendText 콜백 등록 ─────────────
@@ -980,36 +960,6 @@ export function FloatingCharacter() {
       .trim()
   }
 
-  /* ── 검색 fallback URL 생성 (백엔드 items 없을 때 항상 미리보기 보장) ── */
-  // URL을 보고 isVideo/isImage 자동 태깅
-  const tagPreviewItem = (item: { title: string; url: string; isVideo?: boolean; isImage?: boolean; source?: string; type?: string }) => {
-    const u = item.url.toLowerCase()
-    const isVideo = item.isVideo ||
-      u.includes('youtube.com') || u.includes('youtu.be') ||
-      u.includes('tiktok.com') || u.includes('tv.naver.com') ||
-      u.includes('tving.com') || u.includes('wavve.com') ||
-      item.source === 'youtube' || item.source === 'video' || item.type === 'video'
-    const isSocial = !isVideo && (
-      u.includes('instagram.com') || u.includes('x.com/') || u.includes('twitter.com/') ||
-      item.source === 'instagram' || item.source === 'x' || item.type === 'social'
-    )
-    const isImage = item.isImage || u.match(/\.(jpg|jpeg|png|webp|gif)(\?|$)/i) !== null
-    return { ...item, isVideo: isVideo || undefined, isSocial: isSocial || undefined, isImage: isImage || undefined }
-  }
-
-  const buildFrontendFallbackURLs = (query: string, site: string) => {
-    const enc = encodeURIComponent(query)
-    const s = site.toLowerCase()
-    const q = query.toLowerCase()
-    // 특정 플랫폼 직접 지정 시에만 해당 플랫폼 URL 반환
-    if (s === 'coupang' || q.includes('쿠팡'))
-      return [{ title: `쿠팡에서 "${query}" 검색`, url: `https://www.coupang.com/np/search?q=${enc}` }]
-    if (s === 'youtube' || q.includes('유튜브') || q.includes('youtube'))
-      return [{ title: `YouTube: ${query}`, url: `https://www.youtube.com/results?search_query=${enc}`, isVideo: true }]
-    // 그 외: 백엔드 items를 신뢰 → 프론트 fallback 없음 (검색 URL 절대 생성 안 함)
-    return []
-  }
-
   /* ── 메시지 전송 ── */
   const sendText = useCallback(async (text: string) => {
     return sendTextImpl(text, {
@@ -1416,9 +1366,8 @@ export function FloatingCharacter() {
     setTyping(false)
   }, [])
 
-  /* 캐릭터 클릭 */
+  /* 캐릭터 클릭 — Orb 클릭 시 최소화 해제만 */
   const handleCharacterClick = () => {
-    setChatOpen(prev => !prev)
     setMinimized(false)
   }
 
@@ -1492,7 +1441,6 @@ export function FloatingCharacter() {
     <>
     {/* ── 전체 화면 패널 레이아웃 (v2.6) ── */}
     <style>{`
-      @keyframes orb-idle { 0%,100% { box-shadow: 0 0 14px COLOR88, 0 0 28px COLOR44; } 50% { box-shadow: 0 0 22px COLORcc, 0 0 44px COLOR66; } }
       @keyframes orb-speak { 0% { transform: scale(1); } 100% { transform: scale(1.06); } }
       @keyframes beam-sweep { 0%,100% { opacity:0.0; transform: translateX(-120px); } 50% { opacity:1; transform: translateX(240px); } }
     `}</style>
@@ -1708,13 +1656,12 @@ export function FloatingCharacter() {
                     : floatingPreview[0]?.isVideo ? '🎬 영상 결과'
                     : '🔍 검색 결과'} ({floatingPreview.length})
                 </span>
-                <button onClick={() => { setFloatingPreview(null); setPreviewFilter('all') }}
+                <button onClick={() => setFloatingPreview(null)}
                   style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>✕</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {floatingPreview.slice(0, 6).map((item, i) => {
                   const isYt = item.url.includes('youtube.com') || item.url.includes('youtu.be')
-                  const isKakao = (item as any).service === 'kakao'
                   const modeEmoji: Record<string, string> = { transit: '🚌', car: '🚗', walk: '🚶', bicycle: '🚲', ktx: '🚂' }
                   const mode = (item as any).mode as string | undefined
                   return (
@@ -1731,7 +1678,7 @@ export function FloatingCharacter() {
                         border: `1px solid ${primaryColor}22`,
                         transition: 'all 0.15s',
                       }}
-                      whileHover={{ background: `rgba(${primaryColor},0.1)`, borderColor: `${primaryColor}55` } as any}
+                      whileHover={{ background: `${primaryColor}1a`, borderColor: `${primaryColor}55` } as any}
                     >
                       <div style={{
                         width: 20, height: 20, borderRadius: 5,
@@ -1867,7 +1814,7 @@ export function FloatingCharacter() {
             {[
               ...personaListData,
             ].map(p => {
-              const isActive = (activePersona?.id ?? 'nexus') === p.id
+              const isCurrentPersona = (activePersona?.id ?? 'nexus') === p.id
               return (
                 <button
                   key={p.id}
@@ -1875,19 +1822,19 @@ export function FloatingCharacter() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '10px 12px', borderRadius: 12,
-                    background: isActive ? `${p.color}22` : 'rgba(255,255,255,0.04)',
-                    border: isActive ? `1.5px solid ${p.color}88` : '1px solid rgba(255,255,255,0.1)',
+                    background: isCurrentPersona ? `${p.color}22` : 'rgba(255,255,255,0.04)',
+                    border: isCurrentPersona ? `1.5px solid ${p.color}88` : '1px solid rgba(255,255,255,0.1)',
                     cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
                   }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                  onMouseEnter={e => { if (!isCurrentPersona) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                  onMouseLeave={e => { if (!isCurrentPersona) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                 >
                   <span style={{ fontSize: 20, flexShrink: 0 }}>{p.emoji}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? p.color : 'rgba(255,255,255,0.9)' }}>{p.name}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: isCurrentPersona ? p.color : 'rgba(255,255,255,0.9)' }}>{p.name}</div>
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
                   </div>
-                  {isActive && <span style={{ fontSize: 10, color: p.color, fontWeight: 700, flexShrink: 0 }}>✓ 현재</span>}
+                  {isCurrentPersona && <span style={{ fontSize: 10, color: p.color, fontWeight: 700, flexShrink: 0 }}>✓ 현재</span>}
                 </button>
               )
             })}

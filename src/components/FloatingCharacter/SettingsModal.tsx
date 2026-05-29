@@ -413,49 +413,65 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                   </button>
                 </div>
 
-                {/* AI 서버 안내 */}
-                <div style={{
-                  background: 'rgba(72,187,120,0.08)', border: '1px solid rgba(72,187,120,0.2)',
-                  borderRadius: 10, padding: '10px 14px', fontSize: 11, color: '#68d391',
-                }}>
-                  {isEn ? '✅ AI features are provided automatically via Nexus server.' : '✅ AI 기능은 Nexus 서버에서 자동으로 제공됩니다.'}<br/>
-                  <span style={{ color: '#718096', marginTop: 4, display: 'block' }}>
-                    {isEn
-                      ? 'No API key needed — all AI features activate with your subscription.'
-                      : '별도 API 키 입력 없이 구독만으로 모든 AI 기능이 활성화됩니다.'}
-                  </span>
-                </div>
-
-                {/* Claude API Key — 1순위 LLM */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label style={{ ...labelStyle, color: '#f6ad55' }}>
-                      {isEn ? '✦ CLAUDE API KEY (highest quality · priority #1)' : '✦ CLAUDE API KEY (최고 품질 · 1순위)'}
-                    </label>
-                    {claudeKey.trim().startsWith('sk-ant-') && (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
-                        background: 'rgba(246,173,85,0.18)', color: '#f6ad55', border: '1px solid rgba(246,173,85,0.4)',
-                      }}>
-                        {isEn ? 'ACTIVE' : '활성'}
-                      </span>
-                    )}
+                {/* ── Pro: 키 불필요 안내 / Free: BYOK 안내 ── */}
+                {(subscriptionStatus === 'active' || subscriptionStatus === 'trial') ? (
+                  <div style={{
+                    background: 'rgba(72,187,120,0.08)', border: '1px solid rgba(72,187,120,0.2)',
+                    borderRadius: 10, padding: '10px 14px', fontSize: 11, color: '#68d391',
+                  }}>
+                    {isEn ? '✅ Claude Haiku + Groq + Tavily are managed by Nexus Pro.' : '✅ Claude Haiku · Groq · Tavily가 Nexus Pro에서 자동 제공됩니다.'}<br/>
+                    <span style={{ color: '#718096', marginTop: 4, display: 'block' }}>
+                      {isEn
+                        ? 'No API key needed — all AI features are included in your subscription.'
+                        : 'API 키 입력 없이 구독만으로 모든 AI 기능이 활성화됩니다.'}
+                    </span>
                   </div>
-                  <input
-                    type="password"
-                    value={claudeKey}
-                    onChange={e => setClaudeKey(e.target.value)}
-                    placeholder="sk-ant-api03-..."
-                    style={inputStyle(claudeKey.trim().startsWith('sk-ant-'))}
-                  />
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                    {isEn
-                      ? 'claude-sonnet-4-6 is used when set — Claude-level accuracy'
-                      : '설정 시 claude-sonnet-4-6 사용 — Claude 수준의 정확도'}
-                  </span>
-                </div>
+                ) : (
+                  <div style={{
+                    background: 'rgba(255,165,0,0.06)', border: '1px solid rgba(255,165,0,0.2)',
+                    borderRadius: 10, padding: '10px 14px', fontSize: 11, color: '#f6ad55',
+                  }}>
+                    {isEn ? '🔑 BYOK Mode — Enter your own API keys below.' : '🔑 BYOK 모드 — 아래에 직접 API 키를 입력하세요.'}<br/>
+                    <span style={{ color: '#718096', marginTop: 4, display: 'block' }}>
+                      {isEn
+                        ? 'Upgrade to Pro to skip key management entirely.'
+                        : 'Pro로 업그레이드하면 키 관리 없이 바로 사용 가능합니다.'}
+                    </span>
+                  </div>
+                )}
 
-                {/* Ollama URL */}
+                {/* Claude API Key — Free 전용 */}
+                {subscriptionStatus !== 'active' && subscriptionStatus !== 'trial' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={{ ...labelStyle, color: '#f6ad55' }}>
+                        {isEn ? '✦ CLAUDE API KEY (highest quality · priority #1)' : '✦ CLAUDE API KEY (최고 품질 · 1순위)'}
+                      </label>
+                      {claudeKey.trim().startsWith('sk-ant-') && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
+                          background: 'rgba(246,173,85,0.18)', color: '#f6ad55', border: '1px solid rgba(246,173,85,0.4)',
+                        }}>
+                          {isEn ? 'ACTIVE' : '활성'}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      value={claudeKey}
+                      onChange={e => setClaudeKey(e.target.value)}
+                      placeholder="sk-ant-api03-..."
+                      style={inputStyle(claudeKey.trim().startsWith('sk-ant-'))}
+                    />
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                      {isEn
+                        ? 'claude-haiku-4-5 is used when set — highest accuracy'
+                        : '설정 시 claude-haiku-4-5 사용 — 최고 정확도'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Ollama URL — 모두에게 표시 (로컬 무료) */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ ...labelStyle, color: '#68d391' }}>
                     {isEn ? '🦙 OLLAMA SERVER (local free LLM · priority #1)' : '🦙 OLLAMA 서버 (로컬 무료 LLM · 우선순위 1위)'}
@@ -472,48 +488,50 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                   </span>
                 </div>
 
-                {/* OpenAI TTS */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ ...labelStyle, color: primaryColor }}>
-                    {isEn ? '🎵 OPENAI API KEY (high-quality TTS · optional)' : '🎵 OPENAI API KEY (고품질 TTS · 선택)'}
-                  </label>
-                  <input
-                    type="password"
-                    value={openaiKey}
-                    onChange={e => setOpenaiKey(e.target.value)}
-                    placeholder="sk-proj-..."
-                    style={inputStyle(!!openaiKey)}
-                  />
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                    {isEn ? 'Falls back to browser TTS if not set (free)' : '없으면 브라우저 기본 TTS 사용 (무료)'}
-                  </span>
-                </div>
+                {/* OpenAI TTS — Free 전용 (Pro는 서버 TTS 제공) */}
+                {subscriptionStatus !== 'active' && subscriptionStatus !== 'trial' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ ...labelStyle, color: primaryColor }}>
+                      {isEn ? '🎵 OPENAI API KEY (high-quality TTS · optional)' : '🎵 OPENAI API KEY (고품질 TTS · 선택)'}
+                    </label>
+                    <input
+                      type="password"
+                      value={openaiKey}
+                      onChange={e => setOpenaiKey(e.target.value)}
+                      placeholder="sk-proj-..."
+                      style={inputStyle(!!openaiKey)}
+                    />
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                      {isEn ? 'Falls back to browser TTS if not set (free)' : '없으면 브라우저 기본 TTS 사용 (무료)'}
+                    </span>
+                  </div>
+                )}
 
                 {/* AI 우선순위 안내 */}
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 12px', fontSize: 11 }}>
                   <div style={{ color: '#a0aec0', marginBottom: 4, fontWeight: 600 }}>
                     {isEn ? '⚡ AI Response Priority' : '⚡ AI 응답 우선순위'}
                   </div>
-                  {(isEn ? [
-                    ['#1', 'Ollama Local',   'Fully free · offline',                    '#68d391'],
-                    ['#2', 'Claude API',     'sk-ant- key · highest accuracy',          '#f6ad55'],
-                    ['#3', 'Nexus Server',   'Subscription incl. · no key',             '#63b3ed'],
-                    ['#4', 'Built-in Logic', 'Always works · no LLM needed',            '#90cdf4'],
-                  ] : [
-                    ['1위', 'Ollama 로컬',  '완전 무료 · 오프라인',                    '#68d391'],
-                    ['2위', 'Claude API',   'sk-ant- 키 · 최고 정확도',               '#f6ad55'],
-                    ['3위', 'Nexus 서버',   '구독 포함 · 키 불필요',                  '#63b3ed'],
-                    ['4위', '내장 키워드',  '항상 동작 · LLM 불필요',                '#90cdf4'],
-                  ]).map(([rank, name, desc, color]) => (
-                    <div key={rank} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0' }}>
-                      <span style={{ color, fontWeight: 700, minWidth: 28 }}>{rank}</span>
-                      <span style={{ color: claudeKey.trim().startsWith('sk-ant-') && name.includes('Claude') ? '#f6ad55' : '#e2e8f0', fontWeight: claudeKey.trim().startsWith('sk-ant-') && name.includes('Claude') ? 700 : 400 }}>{name}</span>
-                      <span style={{ color: '#718096', fontSize: 10 }}>{desc}</span>
-                      {claudeKey.trim().startsWith('sk-ant-') && name.includes('Claude') && (
-                        <span style={{ fontSize: 9, color: '#f6ad55', fontWeight: 700 }}>●</span>
-                      )}
-                    </div>
-                  ))}
+                  {(() => {
+                    const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
+                    return (isEn ? [
+                      ['#1', 'Ollama Local',   'Fully free · offline',                                    '#68d391'],
+                      ['#2', 'Claude Haiku',   isPro ? 'Nexus Pro included ✓' : 'sk-ant- key required', '#f6ad55'],
+                      ['#3', 'Nexus Server',   isPro ? 'Active ✓' : 'Subscription required',             '#63b3ed'],
+                      ['#4', 'Built-in Logic', 'Always works · no LLM needed',                           '#90cdf4'],
+                    ] : [
+                      ['1위', 'Ollama 로컬',    '완전 무료 · 오프라인',                                '#68d391'],
+                      ['2위', 'Claude Haiku',  isPro ? 'Nexus Pro 포함 ✓' : 'sk-ant- 키 필요',        '#f6ad55'],
+                      ['3위', 'Nexus 서버',    isPro ? '활성 ✓' : '구독 필요',                        '#63b3ed'],
+                      ['4위', '내장 키워드',   '항상 동작 · LLM 불필요',                              '#90cdf4'],
+                    ]).map(([rank, name, desc, color]) => (
+                      <div key={rank} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0' }}>
+                        <span style={{ color, fontWeight: 700, minWidth: 28 }}>{rank}</span>
+                        <span style={{ color: '#e2e8f0' }}>{name}</span>
+                        <span style={{ color: '#718096', fontSize: 10 }}>{desc}</span>
+                      </div>
+                    ))
+                  })()}
                 </div>
               </>
             )}

@@ -115,15 +115,19 @@ func handleCalendarAdd(w http.ResponseWriter, r *http.Request) {
 	esc := func(s string) string {
 		return strings.ReplaceAll(strings.ReplaceAll(s, `"`, `\"`), "`", "'")
 	}
-	script := fmt.Sprintf(`
-$ol = New-Object -ComObject Outlook.Application
-$appt = $ol.CreateItem(1) # AppointmentItem
-$appt.Subject = "%s"
-$appt.Start = "%s"
-$appt.End = "%s"
-$appt.Location = "%s"
-$appt.Save()
-Write-Output "OK"
+	script := outlookProfileCheckPS + fmt.Sprintf(`
+try {
+  $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
+  $appt = $ol.CreateItem(1) # AppointmentItem
+  $appt.Subject = "%s"
+  $appt.Start = "%s"
+  $appt.End = "%s"
+  $appt.Location = "%s"
+  $appt.Save()
+  Write-Output "OK"
+} catch {
+  Write-Output "ERROR: $_"
+}
 `, esc(req.Subject), esc(req.Start), esc(req.End), esc(req.Location))
 
 	out, err := execPS(script)
@@ -179,7 +183,7 @@ func getOutlookEvents(period string) ([]CalendarEvent, error) {
 		)
 	}
 
-	script := fmt.Sprintf(`
+	script := outlookProfileCheckPS + fmt.Sprintf(`
 try {
   $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
   $ns = $ol.GetNamespace("MAPI")
