@@ -5,13 +5,20 @@
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 
+; ── 파일 복사 전 프로세스 종료 (가장 먼저 실행) ─────────────────
+!macro customInit
+  nsExec::Exec 'taskkill /F /IM Nexus.exe /T'
+  nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
+  Sleep 2000
+!macroend
+
 !macro customInstall
 
-  ; ── 0. 기존 프로세스 강제 종료 (파일 잠금 방지) ──────────────────
+  ; ── 0. 혹시 남은 프로세스 재확인 종료 ───────────────────────────
   DetailPrint "Stopping existing Nexus processes..."
-  nsExec::Exec 'taskkill /F /IM nexus.exe /T'
+  nsExec::Exec 'taskkill /F /IM Nexus.exe /T'
   nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
-  Sleep 1000
+  Sleep 500
 
   ; ── 1. Microsoft Visual C++ Redistributable 확인 ─────────────────
   DetailPrint "Checking Visual C++ Redistributable..."
