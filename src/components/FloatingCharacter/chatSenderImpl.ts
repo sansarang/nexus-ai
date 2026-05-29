@@ -651,12 +651,12 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
               ? (detectedLang === 'en' ? ['Collecting PC stats...', 'CPU / Memory / Disk'] : ['📊 PC 상태 수집 중...', 'CPU / 메모리 / 디스크'])
               : [detectedLang === 'en' ? 'Processing...' : '처리 중...'] },
         }])
-        const { text: resText, card, card2, card3, card4, emotion: resEmotion } = await handleBackendIntent(fastIntent, msgId, trimmed)
+        const { text: resText, card, card2, card3, card4, card5, emotion: resEmotion } = await handleBackendIntent(fastIntent, msgId, trimmed)
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
         setTyping(false)
         typingRef.current = false
         setEmotion(resEmotion)
-        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4 }])
+        setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5 }])
         pushModelHistory(trimmed, resText)
         if (resText) {
           speakText(resText)
@@ -914,11 +914,11 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     // ── 2순위: 로컬 detectIntent ──────────────────────────────
     const intent = detectIntent(trimmed)
     if (intent !== 'none') {
-      const { text: resText, card, card2, card3, card4, emotion: resEmotion } = await handleBackendIntent(intent, msgId, trimmed)
+      const { text: resText, card, card2, card3, card4, card5, emotion: resEmotion } = await handleBackendIntent(intent, msgId, trimmed)
       setTyping(false)
       typingRef.current = false
       setEmotion(resEmotion)
-      setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4 }])
+      setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: resText, inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5 }])
       pushModelHistory(trimmed, resText)
       if (resText) {
         speakText(resText)

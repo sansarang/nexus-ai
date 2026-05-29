@@ -147,6 +147,12 @@ export type Intent =
   // ── 🔍 검색+PDF ──────────────────────────────────────────────
   | 'search_pdf'       // 웹 검색 후 PDF 보고서 생성
   | 'reddit_search'    // Reddit 커뮤니티 검색
+  // ── 전문가 페르소나 Pro ───────────────────────────────────────
+  | 'stock_analysis'   // 주식·금융 분석 (investor 페르소나)
+  | 'medical_search'   // 의료·임상 검색 (medical 페르소나)
+  | 'legal_search'     // 법률·판례 검색 (legal 페르소나)
+  | 'contract_review'  // 계약서 검토 (legal 페르소나)
+  | 'content_script'   // 콘텐츠 스크립트 생성 (creator 페르소나)
   | 'none'             // LLM으로 위임
 
 const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
@@ -1016,6 +1022,44 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /자막.*끄|자막.*종료|caption.*stop|캡션.*꺼줘/i,
       /자막.*멈춰|번역.*자막.*꺼/i,
+    ],
+  },
+  // ── 전문가 페르소나 Pro ──
+  {
+    intent: 'stock_analysis',
+    patterns: [
+      /주식.*분석|종목.*분석|stock.*analysis|주가.*알려|PER|ROE|시총|시가총액/i,
+      /[A-Z]{2,5}\s*주식|[A-Z]{2,5}\s*분석|삼성전자|카카오|네이버.*주가/i,
+      /투자.*종목|ETF.*분석|코스피.*종목|나스닥.*종목/i,
+    ],
+  },
+  {
+    intent: 'medical_search',
+    patterns: [
+      /의료.*검색|의학.*검색|임상.*자료|처방.*정보|진단.*기준/i,
+      /약.*복용|부작용.*확인|질병.*정보|증상.*원인.*의학/i,
+      /medical.*search|clinical.*data|ICD|진단코드/i,
+    ],
+  },
+  {
+    intent: 'legal_search',
+    patterns: [
+      /법률.*검색|판례.*검색|법무.*자료|법령.*찾아|조항.*검색/i,
+      /legal.*search|case.*law|판례.*찾아|법조문|규정.*검색/i,
+    ],
+  },
+  {
+    intent: 'contract_review',
+    patterns: [
+      /계약서.*검토|계약.*리뷰|contract.*review|계약서.*분석/i,
+      /계약서.*위험|독소조항|계약.*문제점|클립보드.*계약/i,
+    ],
+  },
+  {
+    intent: 'content_script',
+    patterns: [
+      /스크립트.*만들어|콘텐츠.*대본|유튜브.*스크립트|script.*generate/i,
+      /영상.*대본|유튜브.*대본|틱톡.*스크립트|콘텐츠.*글.*써줘/i,
     ],
   },
 ]

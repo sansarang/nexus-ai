@@ -26,6 +26,11 @@ import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
   imapInbox,
   imapSend,
   dispatchParallel,
+  stockAnalysis,
+  medicalSearch,
+  legalSearch,
+  contractReview,
+  contentScript,
 } from '../../lib/nexus/backendAPI'
 import type { ParallelEvent } from '../../lib/nexus/backendAPI'
 import type { PersonaDef } from '../../lib/nexus/backendAPI'
@@ -1427,12 +1432,14 @@ export async function handleBackendIntentImpl(
           const textToTranslate = clip.current || originalText.replace(/번역.*해줘|번역해|이거.*영어로|translate.*to|translate/gi, '').trim()
           if (!textToTranslate) return { text: t('번역할 내용이 없어요. 텍스트를 먼저 복사해주세요.', 'Nothing to translate. Please copy some text first.', userLang), emotion: 'neutral' }
 
+          const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
           let translated = ''
-          const translateRes = await backendAPI.llmChat([
-            { role: 'user', content: `다음 텍스트를 ${targetLang}로 번역해줘. 번역 결과만 출력:\n\n${textToTranslate}` }
-          ], { maxTokens: 500 }).catch(() => null)
-          translated = translateRes?.answer ?? ''
-          if (!translated) translated = t('번역에 실패했어요. 잠시 후 다시 시도해주세요.', 'Translation failed. Please try again.', userLang)
+          if (apiKey) {
+            const { callGemini } = await import('../../lib/nexus/gemini_engine')
+            const res = await callGemini(apiKey, `다음 텍스트를 ${targetLang}로 번역해줘. 번역 결과만 출력:\n\n${textToTranslate}`, []).catch(() => null)
+            translated = res?.text ?? ''
+          }
+          if (!translated) translated = t('번역을 위해 Perplexity API 키가 필요해요.', 'Perplexity API key is required for translation.', userLang)
 
           // 번역 결과를 클립보드에 저장 (paste API 사용)
           if (translated && !translated.includes('API 키')) {
@@ -1461,12 +1468,14 @@ export async function handleBackendIntentImpl(
             : /쉽게/.test(originalText) ? '쉽게 설명해줘'
             : '핵심만 요약해줘'
 
+          const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
           let result = ''
-          const clipAiRes = await backendAPI.llmChat([
-            { role: 'user', content: `다음 텍스트를 ${action}. 결과만 출력:\n\n${clip.current.slice(0, 500)}` }
-          ], { maxTokens: 500 }).catch(() => null)
-          result = clipAiRes?.answer ?? ''
-          if (!result) return { text: t('AI 처리에 실패했어요. 잠시 후 다시 시도해주세요.', 'AI processing failed. Please try again.', userLang), emotion: 'neutral' }
+          if (apiKey) {
+            const { callGemini } = await import('../../lib/nexus/gemini_engine')
+            const res = await callGemini(apiKey, `다음 텍스트를 ${action}. 결과만 출력:\n\n${clip.current.slice(0, 500)}`, []).catch(() => null)
+            result = res?.text ?? ''
+          }
+          if (!result) return { text: t('AI 처리를 위해 Perplexity API 키가 필요해요.', 'Perplexity API key is required for AI processing.', userLang), emotion: 'neutral' }
 
           await dictationPaste(result).catch(() => {})
           return {
@@ -1940,6 +1949,82 @@ export async function handleBackendIntentImpl(
             text: data.message,
             card2: { type: 'system_action', icon: '🎮', title: gpu ? `${gpu.name}` : t('GPU 정보', 'GPU Info', userLang), detail: gpu ? t(`사용률 ${gpu.usage_pct}% · 온도 ${gpu.temp_c}°C · VRAM ${gpu.mem_used_mb}/${gpu.mem_total_mb}MB`, `Usage ${gpu.usage_pct}% · Temp ${gpu.temp_c}°C · VRAM ${gpu.mem_used_mb}/${gpu.mem_total_mb}MB`, userLang) : t('정보 없음', 'No info', userLang), success: data.success },
             emotion: gpu && gpu.temp_c > 80 ? 'alert' : gpu && gpu.usage_pct > 90 ? 'concerned' : 'neutral',
+          }
+        }
+
+        /* ── 📋 멀티 액션 (검색 + 저장) ── */
+        case 'multi_action': {
+          const query = originalText.replace(/그리고|동시에|저장|파일로|한꺼번에/gi, '').trim() || originalText
+          const data = await backendAPI.llmDeepSearchWeb(query, 5).catch(() => ({ query, summary: '', items: [] as Array<{title: string; url: string}> }))
+          const items = (data as { items?: Array<{title: string; url: string}> }).items ?? []
+          const detail = items.slice(0, 5).map(i => `• ${i.title}`).join('\n')
+          if (items.length > 0) setFloatingPreview(items.slice(0, 5).map(i => ({ title: i.title, url: i.url })))
+          return {
+            text: t(`"${query}" 검색 + 결과 수집 완료 (${items.length}개)`, `Multi-action done: ${items.length} results for "${query}"`, userLang),
+            card2: { type: 'system_action', icon: '📋', title: `멀티액션: ${query.slice(0, 40)}`, detail: detail || t('결과 없음', 'No results', userLang), success: items.length > 0 },
+            emotion: items.length > 0 ? 'happy' : 'neutral',
+          }
+        }
+
+        /* ── 📈 주식·금융 분석 (investor 페르소나) ── */
+        case 'stock_analysis': {
+          const tickerMatch = originalText.match(/[A-Z]{2,5}|\d{5,6}/)
+          const ticker = tickerMatch?.[0] ?? originalText.replace(/주식|분석|종목|투자|시세/gi, '').trim()
+          const data = await stockAnalysis(ticker, originalText).catch(() => ({ success: false, ticker, analysis: '', message: '주식 분석 실패' }))
+          return {
+            text: data.message || `${ticker} 분석 완료`,
+            card2: { type: 'system_action', icon: '📈', title: `${ticker} 주식 분석`, detail: data.analysis?.slice(0, 200) ?? '', success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 🩺 의료·임상 검색 (medical 페르소나) ── */
+        case 'medical_search': {
+          const query = originalText.replace(/의료|의학|진단|임상|처방|약|치료|질병|증상/gi, '').trim() || originalText
+          const data = await medicalSearch(query).catch(() => ({ success: false, query, results: [], summary: '', message: '의료 검색 실패' }))
+          const detail = data.summary || (data.results as Array<{title: string}>).slice(0, 3).map(r => `• ${r.title}`).join('\n')
+          return {
+            text: data.message || `"${query}" 의료 검색 완료`,
+            card2: { type: 'system_action', icon: '🩺', title: `의료 검색: ${query.slice(0, 40)}`, detail, success: data.success },
+            emotion: 'neutral',
+          }
+        }
+
+        /* ── ⚖️ 법무·법률 검색 (legal 페르소나) ── */
+        case 'legal_search': {
+          const query = originalText.replace(/법률|법무|판례|계약|조항|법|규정/gi, '').trim() || originalText
+          const data = await legalSearch(query).catch(() => ({ success: false, query, results: [], summary: '', message: '법률 검색 실패' }))
+          const detail = data.summary || (data.results as Array<{title: string}>).slice(0, 3).map(r => `• ${r.title}`).join('\n')
+          return {
+            text: data.message || `"${query}" 법률 검색 완료`,
+            card2: { type: 'system_action', icon: '⚖️', title: `법률 검색: ${query.slice(0, 40)}`, detail, success: data.success },
+            emotion: 'neutral',
+          }
+        }
+
+        /* ── 📄 계약서 검토 (legal 페르소나) ── */
+        case 'contract_review': {
+          const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
+          const text = clip.current || originalText
+          if (!text || text === originalText) return { text: t('검토할 계약서 내용을 클립보드에 복사해주세요.', 'Please copy the contract text to clipboard.', userLang), emotion: 'neutral' }
+          const data = await contractReview(text).catch(() => ({ success: false, risks: [], clauses: [], summary: '', message: '계약서 검토 실패' }))
+          const detail = data.summary || (data.risks as string[]).slice(0, 3).map(r => `⚠️ ${r}`).join('\n')
+          return {
+            text: data.message || '계약서 검토 완료',
+            card2: { type: 'system_action', icon: '📄', title: '계약서 AI 검토', detail, success: data.success },
+            emotion: (data.risks as string[]).length > 0 ? 'concerned' : 'happy',
+          }
+        }
+
+        /* ── 🎬 콘텐츠 스크립트 생성 (creator 페르소나) ── */
+        case 'content_script': {
+          const topic = originalText.replace(/스크립트|콘텐츠|유튜브|틱톡|만들어|작성해|생성/gi, '').trim() || originalText
+          const platform = /틱톡|tiktok/i.test(originalText) ? 'tiktok' : /인스타|instagram/i.test(originalText) ? 'instagram' : 'youtube'
+          const data = await contentScript(topic, platform).catch(() => ({ success: false, script: '', title: '', tags: [], message: '스크립트 생성 실패' }))
+          return {
+            text: data.message || '스크립트 생성 완료!',
+            card2: { type: 'system_action', icon: '🎬', title: `${platform.toUpperCase()} 스크립트: ${topic.slice(0, 30)}`, detail: data.script?.slice(0, 200) ?? data.title, success: data.success },
+            emotion: data.success ? 'happy' : 'concerned',
           }
         }
 

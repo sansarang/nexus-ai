@@ -1238,3 +1238,25 @@ export const imapInbox = (limit = 10, folder = 'INBOX') =>
   )
 export const imapSend = (to: string, subject: string, body: string) =>
   request<{ success: boolean; message: string }>('POST', '/api/imap/send', { to, subject, body }, 15000)
+
+// ── 전문가 페르소나 Pro API ──────────────────────────────────────────────
+export const stockAnalysis = (ticker: string, query = '') =>
+  request<{ success: boolean; ticker: string; analysis: string; price?: number; change?: string; message: string }>(
+    'POST', '/api/finance/stock', { ticker, query }, TIMEOUT_DEEP
+  )
+export const medicalSearch = (query: string, specialty = '') =>
+  request<{ success: boolean; query: string; results: Array<{title: string; content: string; source: string}>; summary: string; message: string }>(
+    'POST', '/api/medical/search', { query, specialty }, TIMEOUT_DEEP
+  )
+export const legalSearch = (query: string, category = '') =>
+  request<{ success: boolean; query: string; results: Array<{title: string; content: string; source: string}>; summary: string; message: string }>(
+    'POST', '/api/legal/search', { query, category }, TIMEOUT_DEEP
+  )
+export const contractReview = (text: string, focus = '') =>
+  request<{ success: boolean; risks: string[]; clauses: string[]; summary: string; message: string }>(
+    'POST', '/api/legal/review', { text, focus }, TIMEOUT_DEEP
+  )
+export const contentScript = (topic: string, platform = 'youtube', style = 'engaging') =>
+  request<{ success: boolean; script: string; title: string; tags: string[]; message: string }>(
+    'POST', '/api/content/script', { topic, platform, style }, TIMEOUT_DEEP
+  )
