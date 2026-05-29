@@ -1189,6 +1189,25 @@ export async function handleBackendIntentImpl(
           }
         }
 
+        /* ── 🎬 영상 검색 (video_search = youtube_search alias) ── */
+        case 'video_search': {
+          const query = originalText.replace(/영상|비디오|video|search|찾아줘|검색해줘|보여줘|유튜브|youtube|틱톡|tiktok/gi, '').trim() || originalText
+          const isTiktok = /틱톡|tiktok/i.test(originalText)
+          const data = isTiktok
+            ? await tiktokSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
+            : await youtubeSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
+          const platform = isTiktok ? t('틱톡', 'TikTok', userLang) : t('유튜브', 'YouTube', userLang)
+          const icon = isTiktok ? '🎵' : '🎬'
+          const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
+          const detail = articles.slice(0, 5).map(a => `• ${a.title}\n  ${a.url}`).join('\n\n')
+          if (articles.length > 0) setFloatingPreview(articles.slice(0, 5).map(a => ({ title: a.title, url: a.url })))
+          return {
+            text: data.summary || t(`${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`, `Found ${articles.length} video(s) for "${query}" on ${platform}!`, userLang),
+            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || t(`"${query}" 검색 결과가 없어요.`, `No results found for "${query}".`, userLang), success: articles.length > 0 },
+            emotion: articles.length > 0 ? 'happy' : 'neutral',
+          }
+        }
+
         /* ── 🔴 Reddit 검색 ── */
         case 'reddit_search': {
           const subredditMatch = originalText.match(/r\/(\w+)/i)
@@ -1408,14 +1427,12 @@ export async function handleBackendIntentImpl(
           const textToTranslate = clip.current || originalText.replace(/번역.*해줘|번역해|이거.*영어로|translate.*to|translate/gi, '').trim()
           if (!textToTranslate) return { text: t('번역할 내용이 없어요. 텍스트를 먼저 복사해주세요.', 'Nothing to translate. Please copy some text first.', userLang), emotion: 'neutral' }
 
-          const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
           let translated = ''
-          if (apiKey) {
-            const { callGemini } = await import('../../lib/nexus/gemini_engine')
-            const res = await callGemini(apiKey, `다음 텍스트를 ${targetLang}로 번역해줘. 번역 결과만 출력:\n\n${textToTranslate}`, []).catch(() => null)
-            translated = res?.text ?? ''
-          }
-          if (!translated) translated = t('번역을 위해 Perplexity API 키가 필요해요.', 'Perplexity API key is required for translation.', userLang)
+          const translateRes = await backendAPI.llmChat([
+            { role: 'user', content: `다음 텍스트를 ${targetLang}로 번역해줘. 번역 결과만 출력:\n\n${textToTranslate}` }
+          ], { maxTokens: 500 }).catch(() => null)
+          translated = translateRes?.answer ?? ''
+          if (!translated) translated = t('번역에 실패했어요. 잠시 후 다시 시도해주세요.', 'Translation failed. Please try again.', userLang)
 
           // 번역 결과를 클립보드에 저장 (paste API 사용)
           if (translated && !translated.includes('API 키')) {
@@ -1444,14 +1461,12 @@ export async function handleBackendIntentImpl(
             : /쉽게/.test(originalText) ? '쉽게 설명해줘'
             : '핵심만 요약해줘'
 
-          const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
           let result = ''
-          if (apiKey) {
-            const { callGemini } = await import('../../lib/nexus/gemini_engine')
-            const res = await callGemini(apiKey, `다음 텍스트를 ${action}. 결과만 출력:\n\n${clip.current.slice(0, 500)}`, []).catch(() => null)
-            result = res?.text ?? ''
-          }
-          if (!result) return { text: t('AI 처리를 위해 Perplexity API 키가 필요해요.', 'Perplexity API key is required for AI processing.', userLang), emotion: 'neutral' }
+          const clipAiRes = await backendAPI.llmChat([
+            { role: 'user', content: `다음 텍스트를 ${action}. 결과만 출력:\n\n${clip.current.slice(0, 500)}` }
+          ], { maxTokens: 500 }).catch(() => null)
+          result = clipAiRes?.answer ?? ''
+          if (!result) return { text: t('AI 처리에 실패했어요. 잠시 후 다시 시도해주세요.', 'AI processing failed. Please try again.', userLang), emotion: 'neutral' }
 
           await dictationPaste(result).catch(() => {})
           return {
@@ -1642,11 +1657,16 @@ export async function handleBackendIntentImpl(
         /* ── 🧠 Second Brain ── */
         case 'brain_search': {
           const query = originalText.replace(/second.*brain|세컨드.*브레인|기억.*검색|장기.*기억.*찾아|내가.*했던|작년에.*내가|과거에/gi, '').trim() || originalText
-          const data = await brainSearch(query, 8).catch(() => ({ results: [], total: 0, summary: '', query }))
-          const items = data.results.slice(0, 5).map((r) => `[${r.entry.source}] ${r.entry.title}`)
+          const data = await brainSearch(query, 8).catch(() => ({ results: [], total: 0, summary: '', query, message: '' }))
+          const anyData = data as { results: Array<{ entry: { source: string; title: string } }>; summary?: string; message?: string }
+          const items = anyData.results.slice(0, 5).map((r) => `[${r.entry.source}] ${r.entry.title}`)
+          const displayText = anyData.summary
+            || (anyData.results.length > 0
+              ? t(`"${query}" 관련 기억 ${anyData.results.length}건 찾았어요:\n${items.join('\n')}`, `Found ${anyData.results.length} memory match(es) for "${query}":\n${items.join('\n')}`, userLang)
+              : (anyData as { message?: string }).message || t(`"${query}"에 대한 기억이 없어요.`, `No memories found for "${query}".`, userLang))
           return {
-            text: data.summary || (data.results.length > 0 ? t(`"${query}" 관련 기억 ${data.results.length}건 찾았어요:\n${items.join('\n')}`, `Found ${data.results.length} memory match(es) for "${query}":\n${items.join('\n')}`, userLang) : t(`"${query}"에 대한 기억이 없어요.`, `No memories found for "${query}".`, userLang)),
-            emotion: data.results.length > 0 ? 'happy' as const : 'neutral' as const,
+            text: displayText,
+            emotion: anyData.results.length > 0 ? 'happy' as const : 'neutral' as const,
           }
         }
 
@@ -1821,9 +1841,11 @@ export async function handleBackendIntentImpl(
         case 'multi_agent': {
           const goal = originalText.replace(/멀티.*에이전트|여러.*ai.*동시|multi.*agent|에이전트.*팀/gi, '').trim() || originalText
           const data = await multiAgentRun(goal).catch(() => ({ success: false, task_id: '', message: '멀티 에이전트 실행 실패' }))
+          const combinedResult = (data as { combined_result?: string }).combined_result
+          const agentCount = (data as { agents?: unknown[] }).agents?.length ?? 0
           return {
-            text: data.message || t(`멀티 에이전트 작업이 시작됐어요! 작업 ID: ${data.task_id}`, `Multi-agent task started! Task ID: ${data.task_id}`, userLang),
-            card2: { type: 'system_action', icon: '🤖', title: t('멀티 에이전트 실행', 'Multi-agent running', userLang), detail: t(`목표: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, `Goal: ${goal.slice(0, 80)}\nTask ID: ${data.task_id}`, userLang), success: data.success },
+            text: combinedResult || data.message || t(`멀티 에이전트 ${agentCount}명이 작업을 완료했어요!`, `Multi-agent team of ${agentCount} completed the task!`, userLang),
+            card2: { type: 'system_action', icon: '🤖', title: t('멀티 에이전트 실행', 'Multi-agent running', userLang), detail: t(`목표: ${goal.slice(0, 80)}\n결과: ${(combinedResult || data.message || '').slice(0, 100)}`, `Goal: ${goal.slice(0, 80)}\nResult: ${(combinedResult || data.message || '').slice(0, 100)}`, userLang), success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
         }
@@ -1878,9 +1900,10 @@ export async function handleBackendIntentImpl(
         /* ── 📢 브리핑 ── */
         case 'briefing_now': {
           const data = await briefingNow().catch(() => ({ success: false, task_id: '', message: '브리핑 시작 실패' }))
+          const briefingContent = (data as { briefing?: string }).briefing || data.message || t('모닝 브리핑 준비 중이에요...', 'Preparing morning briefing...', userLang)
           return {
-            text: data.message || t('모닝 브리핑이 시작됐어요! 날씨·일정·이메일 정보를 수집 중이에요.', 'Morning briefing started! Collecting weather, schedule & email info.', userLang),
-            card2: { type: 'system_action', icon: '📢', title: t('모닝 브리핑 시작', 'Morning Briefing', userLang), detail: `Task ID: ${data.task_id}`, success: data.success },
+            text: briefingContent,
+            card2: { type: 'system_action', icon: '📢', title: t('모닝 브리핑', 'Morning Briefing', userLang), detail: briefingContent.slice(0, 150), success: data.success },
             emotion: data.success ? 'happy' : 'concerned',
           }
         }

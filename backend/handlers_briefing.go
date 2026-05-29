@@ -271,24 +271,20 @@ func startBriefingScheduler() {
 
 // POST /api/briefing/now — 지금 즉시 브리핑 실행
 func handleBriefingNow(w http.ResponseWriter, r *http.Request) {
-	lang := getLang(r)
-	task := globalTaskQueue.Enqueue("아침 브리핑 생성", PriorityNormal, nil, func(t *AgentTask) {
-		t.UpdateProgress(30, "날씨 정보 수집 중...")
-		briefing := generateMorningBriefing()
-		t.UpdateProgress(80, "브리핑 전송 중...")
-		publishAlert(Alert{
-			ID:      fmt.Sprintf("briefing_now_%d", time.Now().Unix()),
-			Level:   "info",
-			Title:   "📋 Nexus 브리핑",
-			Message: briefing,
-		})
-		t.Result = map[string]any{"briefing": briefing}
+	// 동기 생성: 프론트엔드가 바로 결과를 표시할 수 있도록
+	briefing := generateMorningBriefing()
+	taskID := fmt.Sprintf("briefing_%d", time.Now().Unix())
+	go publishAlert(Alert{
+		ID:      taskID,
+		Level:   "info",
+		Title:   "📋 Nexus 브리핑",
+		Message: briefing,
 	})
-
 	json200(w, map[string]any{
 		"success": true,
-		"task_id": task.ID,
-		"message": msgT("브리핑 생성 중...", "Generating briefing...", lang),
+		"task_id": taskID,
+		"briefing": briefing,
+		"message":  briefing,
 	})
 }
 

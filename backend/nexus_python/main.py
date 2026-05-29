@@ -652,7 +652,26 @@ def brain_search(body: dict):
         enc = get_encoder()
         idx, ids = get_index()
         if idx.ntotal == 0:
-            return ok(results=[], message="인덱스가 비어있어요")
+            # 인덱스 비어있음 → Groq + Tavily 웹 폴백
+            fallback_answer = ""
+            web_items = tavily_search_local(query, 3)
+            if web_items:
+                context = "\n".join(
+                    f"- {r.get('title','')}: {r.get('content','')[:200]}"
+                    for r in web_items
+                )
+                fallback_answer = groq_chat(
+                    [{"role": "user", "content": f"다음 정보를 바탕으로 '{query}'에 대해 답해줘:\n{context}"}],
+                    max_tokens=500
+                )
+            elif GROQ_KEY:
+                fallback_answer = groq_chat(
+                    [{"role": "user", "content": query}], max_tokens=400
+                )
+            msg = "🧠 Second Brain 인덱스가 비어있어요. 파일을 인덱싱하면 개인화 검색이 가능해요."
+            if fallback_answer:
+                msg = f"🧠 Second Brain이 비어있어 웹 검색으로 대체했어요:\n\n{fallback_answer}"
+            return ok(results=[], count=0, fallback=fallback_answer, message=msg)
         qvec = enc.encode([query])[0].astype(np.float32).reshape(1, -1)
         distances, indices = idx.search(qvec, min(top_k, idx.ntotal))
         con = sqlite3.connect(DB_PATH)
@@ -1247,6 +1266,7 @@ def multi_agent_plan(body: dict):
 @app.post("/multi-agent/run")
 @app.post("/agent/multi/run")
 def multi_agent_run(body: dict):
+    import uuid as _uuid
     task    = body.get("task", "")
     agents  = body.get("agents", [])
     if not task:
@@ -1254,6 +1274,8 @@ def multi_agent_run(body: dict):
     if not agents:
         plan_resp = multi_agent_plan(body)
         agents = plan_resp.get("plan", {}).get("agents", [])
+        if not agents:
+            agents = [{"name": "기본 에이전트", "role": "AI", "action": task}]
     results = []
     for agent in agents[:5]:
         agent_prompt = f"당신은 {agent.get('role','AI 에이전트')}입니다. 다음 작업을 수행해주세요: {agent.get('action', task)}"
@@ -1264,8 +1286,9 @@ def multi_agent_run(body: dict):
         {"role": "system", "content": "다음 여러 에이전트의 결과를 통합해서 최종 답변을 작성해줘."},
         {"role": "user", "content": json.dumps(results, ensure_ascii=False)}
     ], max_tokens=800)
-    return ok(task=task, agents=results, combined_result=combined,
-              message=f"멀티 에이전트 {len(results)}명 완료")
+    task_id = str(_uuid.uuid4())[:8]
+    return ok(task=task, task_id=task_id, agents=results, combined_result=combined,
+              message=combined or f"멀티 에이전트 {len(results)}명 완료")
 
 
 @app.post("/multi-agent/stream/{task_id}")
@@ -1292,7 +1315,8 @@ def agent_list():
 # ════════════════════════════════════════════════════════════
 
 def tavily_search_local(query: str, max_results: int = 5) -> list:
-    tavily_key = os.environ.get("NEXUS_TAVILY_KEY", "")
+    # TAVILY_KEY 전역 변수 우선 (Go 백엔드가 주입), 그다음 환경변수
+    tavily_key = TAVILY_KEY or os.environ.get("NEXUS_TAVILY_KEY", "")
     if not tavily_key:
         return []
     try:
