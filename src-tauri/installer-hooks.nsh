@@ -7,9 +7,16 @@
 
 ; ── 파일 복사 전 프로세스 종료 (가장 먼저 실행) ─────────────────
 !macro customInit
-  ; PowerShell로 프로세스 완전 종료 + 잠긴 파일 강제 삭제
-  nsExec::Exec 'powershell -WindowStyle Hidden -Command "Stop-Process -Name Nexus -Force -ErrorAction SilentlyContinue; Stop-Process -Name nexus-backend -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; Remove-Item \"$env:LOCALAPPDATA\Nexus\nexus-backend.exe\" -Force -ErrorAction SilentlyContinue; Remove-Item \"$env:LOCALAPPDATA\Nexus\Nexus.exe\" -Force -ErrorAction SilentlyContinue"'
+  ; taskkill로 프로세스 강제 종료
+  nsExec::Exec 'taskkill /F /IM Nexus.exe /T'
+  nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
+  nsExec::Exec 'taskkill /F /IM nexus-python.exe /T'
   Sleep 3000
+  ; 잠긴 파일 직접 삭제
+  Delete "$LOCALAPPDATA\Nexus\nexus-backend.exe"
+  Delete "$LOCALAPPDATA\Nexus\nexus-python.exe"
+  Delete "$LOCALAPPDATA\Nexus\Nexus.exe"
+  Sleep 1000
 !macroend
 
 !macro customInstall
