@@ -228,7 +228,7 @@ func queryFreeOSINT(ip string) (ShodanResult, error) {
 	// 일반 노출 포트 스캔 (비동기 제한적)
 	commonPorts := []int{21, 22, 23, 25, 80, 443, 3306, 3389, 5900, 6379, 8080, 8443, 27017}
 	for _, port := range commonPorts {
-		addr := fmt.Sprintf("%s:%d", ip, port)
+		addr := net.JoinHostPort(ip, fmt.Sprintf("%d", port))
 		conn, err := net.DialTimeout("tcp", addr, 800*time.Millisecond)
 		if err == nil {
 			conn.Close()

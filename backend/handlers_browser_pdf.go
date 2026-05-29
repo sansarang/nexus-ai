@@ -520,7 +520,7 @@ body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:#f5
   가격 및 재고는 실시간 변동될 수 있습니다.
 </div>
 </body></html>`,
-		query, subTitle, now, query, len(products),
+		query, subTitle, now, now, query, len(products),
 		len(products),
 		func() string {
 			if len(products) > 0 {

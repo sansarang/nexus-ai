@@ -190,7 +190,7 @@ func getOutlookInbox(limit int) ([]EmailItem, error) {
 
 	outStr := strings.TrimSpace(string(out))
 	if strings.HasPrefix(outStr, "ERROR") {
-		return nil, fmt.Errorf(outStr)
+		return nil, fmt.Errorf("%s", outStr)
 	}
 	if outStr == "" || outStr == "null" {
 		return []EmailItem{}, nil

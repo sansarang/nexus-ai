@@ -683,8 +683,10 @@ func handleDesktopScroll(w http.ResponseWriter, r *http.Request) {
 // POST /api/agent/desktop/drag
 func handleDesktopDrag(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		FromX, FromY int `json:"from_x"`
-		ToX, ToY     int `json:"to_x"`
+		FromX int `json:"from_x"`
+		FromY int `json:"from_y"`
+		ToX   int `json:"to_x"`
+		ToY   int `json:"to_y"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 	if err := dragTo(req.FromX, req.FromY, req.ToX, req.ToY); err != nil {

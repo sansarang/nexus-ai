@@ -131,7 +131,7 @@ Rules:
 	if err != nil {
 		msg := "오케스트레이터 실패: " + err.Error()
 		if eng { msg = "Orchestrator failed: " + err.Error() }
-		return AgentPlan{}, fmt.Errorf(msg)
+		return AgentPlan{}, fmt.Errorf("%s", msg)
 	}
 
 	clean := strings.TrimSpace(raw)
@@ -146,7 +146,7 @@ Rules:
 	if err := json.Unmarshal([]byte(clean), &plan); err != nil {
 		msg := "플랜 파싱 실패: " + err.Error()
 		if eng { msg = "Plan parsing failed: " + err.Error() }
-		return AgentPlan{}, fmt.Errorf(msg)
+		return AgentPlan{}, fmt.Errorf("%s", msg)
 	}
 
 	for i := range plan.Steps {
