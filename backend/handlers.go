@@ -627,27 +627,47 @@ func handlePrivacy(w http.ResponseWriter, r *http.Request) {
 
 func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
+	today := now.Format("2006-01-02")
 
-	// 실제 시스템 통계 수집 (PowerShell WMI)
-	stats, _ := getWindowsStats()
-	cpu := 30.0
-	if v, ok := stats["cpu"].(float64); ok {
-		cpu = v
-	}
-	mem := 55.0
-	if v, ok := stats["mem"].(float64); ok {
-		mem = v
-	}
+	entries := loadDailyStats(today)
+	firstRun := len(entries) == 0
 
-	// 실제 디스크 여유 공간
-	free, total := getDiskSpace()
-	diskFreeGB := 50.0
-	if total > 0 {
-		diskFreeGB = float64(free) / (1 << 30)
+	var cpu, mem, diskFreeGB float64
+
+	if firstRun {
+		// 수집된 데이터 없음 — 현재 스냅샷으로 기준값만 반환
+		stats, _ := getWindowsStats()
+		cpu = 0
+		if v, ok := stats["cpu"].(float64); ok {
+			cpu = v
+		}
+		mem = 0
+		if v, ok := stats["mem"].(float64); ok {
+			mem = v
+		}
+		free, total := getDiskSpace()
+		if total > 0 {
+			diskFreeGB = float64(free) / (1 << 30)
+		}
+	} else {
+		// 하루치 수집 데이터 평균
+		var cpuSum, memSum, diskSum float64
+		for _, e := range entries {
+			cpuSum += e.CPU
+			memSum += e.Mem
+			diskSum += e.DiskFree
+		}
+		n := float64(len(entries))
+		cpu = cpuSum / n
+		mem = memSum / n
+		diskFreeGB = diskSum / n
 	}
 
 	score := 100
 	recs := []string{}
+	if firstRun {
+		recs = append(recs, "오늘 처음 실행됐습니다. 10분마다 데이터를 수집합니다.")
+	}
 	if cpu > 80 {
 		score -= 15
 		recs = append(recs, "CPU 사용률이 높습니다. 백그라운드 프로세스를 확인하세요.")
@@ -656,11 +676,11 @@ func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 		score -= 10
 		recs = append(recs, "메모리 사용량이 많습니다. 불필요한 프로그램을 종료하세요.")
 	}
-	if diskFreeGB < 10 {
+	if diskFreeGB > 0 && diskFreeGB < 10 {
 		score -= 20
 		recs = append(recs, "디스크 여유 공간이 부족합니다. PC 정리를 실행하세요.")
 	}
-	if score >= 90 {
+	if !firstRun && score >= 90 {
 		recs = append(recs, fmt.Sprintf("%s PC 상태가 양호합니다. ✅", now.Format("01월 02일")))
 	}
 
@@ -673,7 +693,7 @@ func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 		memTrend = "up"
 	}
 	diskTrend := "stable"
-	if diskFreeGB < 20 {
+	if diskFreeGB > 0 && diskFreeGB < 20 {
 		diskTrend = "down"
 	}
 
@@ -684,7 +704,9 @@ func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json200(w, map[string]any{
-		"date":            now.Format("2006-01-02"),
+		"date":            today,
+		"first_run":       firstRun,
+		"data_points":     len(entries),
 		"pc_score":        score,
 		"cpu_avg":         cpu,
 		"mem_avg":         mem,

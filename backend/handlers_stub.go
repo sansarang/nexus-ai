@@ -222,6 +222,18 @@ func handleProcessTop(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{"processes": procs, "success": true})
 }
 
+// handlers_stats_collector.go stubs
+type StatEntry struct {
+	Time     string  `json:"time"`
+	CPU      float64 `json:"cpu"`
+	Mem      float64 `json:"mem"`
+	DiskFree float64 `json:"disk_free"`
+}
+
+func startStatsCollector()                    {}
+func collectAndSaveStat()                     {}
+func loadDailyStats(date string) []StatEntry  { return nil }
+
 // handlers_advanced.go stubs
 func handleDrivers(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{"success": false, "message": "드라이버 관리는 Windows에서만 사용 가능합니다.", "drivers": []any{}})

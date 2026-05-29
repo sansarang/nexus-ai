@@ -483,6 +483,7 @@ func main() {
 	loadPersonaConfig()
 	log.Println("[Nexus Backend] loadBrainIndex...")
 	loadBrainIndex()
+	go startStatsCollector()
 	go startProactiveMonitor()
 	go startBriefingScheduler()
 	go startWorkflowScheduler()
