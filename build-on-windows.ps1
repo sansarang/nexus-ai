@@ -81,7 +81,11 @@ Push-Location "$Root\backend"
 go build -ldflags="-s -w" -o "..\src-tauri\binaries\backend-$rustTarget.exe" .
 if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "Go build failed" }
 Pop-Location
-Ok "Go backend done"
+
+# Also copy to backend-bin/ (Tauri resource path in tauri.conf.json)
+New-Item -ItemType Directory -Force -Path "$Root\src-tauri\backend-bin" | Out-Null
+Copy-Item "$Root\src-tauri\binaries\backend-$rustTarget.exe" "$Root\src-tauri\backend-bin\nexus-backend.exe" -Force
+Ok "Go backend done → binaries/ and backend-bin/"
 
 # npm install
 Write-Host "`n[3/4] npm install..." -ForegroundColor Cyan
