@@ -478,6 +478,7 @@ func main() {
 	initTriggerEngine()
 	log.Println("[Nexus Backend] loadLLMConfig...")
 	loadLLMConfig()
+	go injectKeysToPython() // Python 사이드카에 복호화된 API 키 비동기 주입
 	log.Println("[Nexus Backend] loadPersonaConfig...")
 	loadPersonaConfig()
 	log.Println("[Nexus Backend] loadBrainIndex...")

@@ -47,8 +47,30 @@ def init_db():
 
 init_db()
 
-# ── Groq 헬퍼 ────────────────────────────────────────────────
-GROQ_KEY = os.environ.get("NEXUS_GROQ_KEY", "")
+# ── API 키 (Go 백엔드가 /admin/keys 로 주입) ─────────────────
+GROQ_KEY   = os.environ.get("NEXUS_GROQ_KEY", "")
+CLAUDE_KEY = os.environ.get("NEXUS_CLAUDE_KEY", "")
+TAVILY_KEY = os.environ.get("NEXUS_TAVILY_KEY", "")
+
+def _load_keys_from_config():
+    """llm_config.json 에서 평문 키 로드 (Mac 개발환경 전용 — Windows는 Go가 주입)"""
+    global GROQ_KEY, CLAUDE_KEY, TAVILY_KEY
+    config_paths = [
+        Path(os.environ.get("APPDATA", "")) / "Nexus" / "llm_config.json",
+        Path.home() / ".nexus" / "llm_config.json",
+    ]
+    for p in config_paths:
+        if p.exists():
+            try:
+                cfg = json.loads(p.read_text(encoding="utf-8"))
+                if not GROQ_KEY:   GROQ_KEY   = cfg.get("groq_key", "")
+                if not CLAUDE_KEY: CLAUDE_KEY = cfg.get("claude_key", "")
+                if not TAVILY_KEY: TAVILY_KEY = cfg.get("tavily_key", "")
+                break
+            except Exception:
+                pass
+
+_load_keys_from_config()
 
 def groq_chat(messages: list, model="llama-3.1-8b-instant", max_tokens=1024) -> str:
     if not GROQ_KEY:
@@ -73,6 +95,15 @@ app = FastAPI(title="Nexus Python Sidecar", version="1.0.0", lifespan=lifespan)
 
 def ok(**kwargs): return {"success": True, **kwargs}
 def fail(msg): return {"success": False, "message": msg}
+
+# ── Go 백엔드가 시작 직후 키를 주입하는 내부 엔드포인트 ──────────
+@app.post("/admin/keys")
+def admin_set_keys(body: dict):
+    global GROQ_KEY, CLAUDE_KEY, TAVILY_KEY
+    if body.get("groq_key"):   GROQ_KEY   = body["groq_key"]
+    if body.get("claude_key"): CLAUDE_KEY = body["claude_key"]
+    if body.get("tavily_key"): TAVILY_KEY = body["tavily_key"]
+    return ok(message="keys updated", groq=bool(GROQ_KEY), claude=bool(CLAUDE_KEY), tavily=bool(TAVILY_KEY))
 
 # ════════════════════════════════════════════════════════════
 # 2단계 — 검색
@@ -871,6 +902,7 @@ def desktop_status():
         return fail(str(e))
 
 
+@app.post("/desktop/agent/run")
 @app.post("/desktop-agent/run")
 def desktop_agent_run(body: dict):
     task   = body.get("task", "")
@@ -924,6 +956,7 @@ def desktop_agent_run(body: dict):
               message=f"작업 완료: {len(results)}개 액션 실행")
 
 
+@app.post("/desktop/agent/cancel")
 @app.post("/desktop-agent/cancel")
 def desktop_agent_cancel():
     _desktop_cancel_flag.set()
@@ -1080,6 +1113,7 @@ def workflow_run_now(body: dict):
 # 10단계 — Multi-Agent
 # ════════════════════════════════════════════════════════════
 
+@app.post("/multi-agent/plan")
 @app.post("/agent/multi/plan")
 def multi_agent_plan(body: dict):
     task = body.get("task", "")
@@ -1098,6 +1132,7 @@ def multi_agent_plan(body: dict):
     return ok(plan=plan, message=f"에이전트 팀 {len(plan.get('agents',[]))}명 배치 완료")
 
 
+@app.post("/multi-agent/run")
 @app.post("/agent/multi/run")
 def multi_agent_run(body: dict):
     task    = body.get("task", "")
@@ -1121,11 +1156,13 @@ def multi_agent_run(body: dict):
               message=f"멀티 에이전트 {len(results)}명 완료")
 
 
+@app.post("/multi-agent/stream/{task_id}")
 @app.post("/agent/multi/stream")
-def multi_agent_stream(body: dict):
+def multi_agent_stream(body: dict, task_id: str = ""):
     return multi_agent_run(body)
 
 
+@app.get("/multi-agent/agents")
 @app.get("/agent/list")
 def agent_list():
     agents = [

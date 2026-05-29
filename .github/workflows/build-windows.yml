@@ -100,6 +100,44 @@ jobs:
           garble build "-ldflags=$ldflags" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
           Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build Python sidecar (nexus-python.exe)
+        working-directory: backend/nexus_python
+        shell: pwsh
+        run: |
+          pip install pyinstaller --quiet
+          pip install -r requirements.txt --quiet
+          pyinstaller `
+            --onefile `
+            --name nexus-python `
+            --distpath "..\..\src-tauri\backend-bin" `
+            --workpath "$env:TEMP\nexus_python_build" `
+            --hidden-import "uvicorn.logging" `
+            --hidden-import "uvicorn.loops.auto" `
+            --hidden-import "uvicorn.protocols.http.auto" `
+            --hidden-import "uvicorn.protocols.websockets.auto" `
+            --hidden-import "uvicorn.lifespan.on" `
+            --hidden-import "fastapi" `
+            --hidden-import "yt_dlp" `
+            --hidden-import "ytmusicapi" `
+            --hidden-import "easyocr" `
+            --hidden-import "fitz" `
+            --hidden-import "pandas" `
+            --hidden-import "yfinance" `
+            --hidden-import "sentence_transformers" `
+            --hidden-import "pyautogui" `
+            --hidden-import "pygetwindow" `
+            --hidden-import "groq" `
+            --collect-all "yt_dlp" `
+            --collect-all "ytmusicapi" `
+            --noconfirm `
+            main.py
+          Get-Item "..\..\src-tauri\backend-bin\nexus-python.exe" | Select-Object Name, @{N='MB';E={[math]::Round($_.Length/1MB,1)}}
+
       - name: Build Tauri app (npm)
         shell: pwsh
         env:

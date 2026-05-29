@@ -119,6 +119,33 @@ func isPythonReady() bool {
 	return resp.StatusCode == 200
 }
 
+// injectKeysToPython: Python 사이드카에 API 키 주입 (Go가 llm_config에서 복호화한 키 전달)
+func injectKeysToPython() {
+	llmMu.RLock()
+	groqKey   := llmGroqKey
+	claudeKey := llmClaudeKey
+	tavilyKey := llmTavilyKey
+	llmMu.RUnlock()
+
+	if groqKey == "" && claudeKey == "" && tavilyKey == "" {
+		return
+	}
+
+	// Python이 뜰 때까지 최대 30초 대기
+	for i := 0; i < 30; i++ {
+		if isPythonReady() {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	callPython("POST", "/admin/keys", map[string]any{
+		"groq_key":   groqKey,
+		"claude_key": claudeKey,
+		"tavily_key": tavilyKey,
+	})
+}
+
 // ── YouTube 검색: Python yt-dlp 우선, Tavily fallback ──────────
 
 func handleYouTubeSearchWithPython(w http.ResponseWriter, r *http.Request) {
