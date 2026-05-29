@@ -608,6 +608,386 @@ export function FocusModeCard({ active, duration, accentColor }: {
 }
 
 /* ─────────────────────────────────────────────────────────── */
+/* 이메일 목록 카드 (email_inbox, imap_inbox, email_classify)  */
+/* ─────────────────────────────────────────────────name────── */
+
+export function EmailListCard({ data, accentColor }: {
+  data: { emails?: Array<{ subject?: string; from?: string; date?: string; priority?: string; unread?: boolean }>; count?: number; unread?: number; summary?: string }
+  accentColor: string
+}) {
+  const list = (data.emails ?? []).slice(0, 5)
+  const priColor = (p?: string) => p === 'high' ? '#ef4444' : p === 'medium' ? '#f59e0b' : 'rgba(255,255,255,0.3)'
+  return (
+    <CardWrap accent={accentColor}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <SectionTitle icon="📧" title={`이메일 ${data.count ?? list.length}개`} accentColor={accentColor} />
+        {(data.unread ?? 0) > 0 && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#ef4444', background: 'rgba(239,68,68,0.12)', padding: '2px 7px', borderRadius: 10 }}>
+            안읽음 {data.unread}
+          </span>
+        )}
+      </div>
+      {data.summary && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{data.summary}</div>}
+      {list.length === 0 ? (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '8px 0' }}>새 메일 없음</div>
+      ) : list.map((m, i) => (
+        <div key={i} style={{ padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', marginBottom: 3, borderLeft: `2px solid ${m.unread ? accentColor : 'transparent'}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: m.unread ? 700 : 400, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{m.subject ?? '(제목 없음)'}</span>
+            {m.priority && m.priority !== 'low' && <span style={{ fontSize: 9, color: priColor(m.priority), fontWeight: 700 }}>{m.priority === 'high' ? '🔴' : '🟡'}</span>}
+          </div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>{m.from} · {m.date}</div>
+        </div>
+      ))}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 타임라인 카드 (calendar_today, calendar_week, find_slot)   */
+/* ─────────────────────────────────────────────────────────── */
+
+export function TimelineCard({ data, accentColor }: {
+  data: { events?: Array<{ title?: string; start?: string; end?: string; location?: string; is_meeting?: boolean }>; slots?: Array<{ start?: string; end?: string; duration?: number }>; count?: number; title?: string }
+  accentColor: string
+}) {
+  const events = data.events ?? []
+  const slots = data.slots ?? []
+  return (
+    <CardWrap accent={accentColor}>
+      <SectionTitle icon="📅" title={data.title ?? `일정 ${data.count ?? events.length}개`} accentColor={accentColor} />
+      {events.length === 0 && slots.length === 0 && (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '8px 0' }}>일정 없음</div>
+      )}
+      {events.slice(0, 5).map((e, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ width: 3, borderRadius: 2, background: e.is_meeting ? '#818cf8' : accentColor, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{e.title}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+              {e.start}{e.end ? ` → ${e.end}` : ''}{e.location ? ` · ${e.location}` : ''}
+            </div>
+          </div>
+        </div>
+      ))}
+      {slots.slice(0, 4).map((s, i) => (
+        <div key={i} style={{ padding: '4px 8px', borderRadius: 7, background: `${accentColor}12`, border: `1px solid ${accentColor}33`, marginBottom: 3 }}>
+          <div style={{ fontSize: 11, color: accentColor, fontWeight: 700 }}>✅ 가능 시간: {s.start} ~ {s.end}</div>
+          {s.duration && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{s.duration}분 블록</div>}
+        </div>
+      ))}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 게이지 바 카드 (perf_history, perf_anomaly, gpu_stats)     */
+/* ─────────────────────────────────────────────────────────── */
+
+function GaugeBar({ label, value, max = 100, unit = '%', color }: { label: string; value: number; max?: number; unit?: string; color: string }) {
+  const pct = Math.min(100, (value / max) * 100)
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>{label}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color }}>{value}{unit}</span>
+      </div>
+      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)' }}>
+        <div style={{ height: '100%', borderRadius: 3, background: color, width: `${pct}%`, transition: 'width 0.5s ease' }} />
+      </div>
+    </div>
+  )
+}
+
+export function GaugeBarCard({ data, accentColor }: {
+  data: {
+    gpu_name?: string; gpu_load?: number; vram_total?: number; vram_used?: number; temperature?: number
+    history?: Array<{ time?: string; cpu?: number; mem?: number; disk?: number }>
+    anomalies?: Array<{ metric?: string; value?: number; threshold?: number; message?: string }>
+    summary?: string
+  }
+  accentColor: string
+}) {
+  const history = data.history ?? []
+  const anomalies = data.anomalies ?? []
+  const last = history[history.length - 1] ?? {}
+  return (
+    <CardWrap accent={accentColor}>
+      {data.gpu_name && (
+        <>
+          <SectionTitle icon="🎮" title={`GPU: ${data.gpu_name}`} accentColor={accentColor} />
+          <GaugeBar label="GPU 부하" value={data.gpu_load ?? 0} color={accentColor} />
+          {data.vram_total && <GaugeBar label="VRAM" value={data.vram_used ?? 0} max={data.vram_total} unit="MB" color="#818cf8" />}
+          {data.temperature && <GaugeBar label="온도" value={data.temperature} max={100} unit="°C" color={data.temperature > 80 ? '#ef4444' : '#22c55e'} />}
+        </>
+      )}
+      {history.length > 0 && (
+        <>
+          <SectionTitle icon="📈" title="성능 이력" accentColor={accentColor} />
+          <GaugeBar label="CPU (최근)" value={last.cpu ?? 0} color={accentColor} />
+          <GaugeBar label="메모리 (최근)" value={last.mem ?? 0} color="#818cf8" />
+        </>
+      )}
+      {anomalies.length > 0 && (
+        <>
+          <SectionTitle icon="⚠️" title="이상 감지" accentColor="#f59e0b" />
+          {anomalies.slice(0, 3).map((a, i) => (
+            <div key={i} style={{ fontSize: 10, color: '#fbbf24', padding: '3px 6px', background: 'rgba(245,158,11,0.08)', borderRadius: 6, marginBottom: 2 }}>
+              {a.message ?? `${a.metric}: ${a.value} (기준: ${a.threshold})`}
+            </div>
+          ))}
+        </>
+      )}
+      {data.summary && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{data.summary}</div>}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 텍스트 블록 카드 (email_draft, translate, clipboard_ai…)   */
+/* ─────────────────────────────────────────────────────────── */
+
+export function TextBlockCard({ data, accentColor }: {
+  data: { icon?: string; title?: string; content?: string; draft?: string; summary?: string; translated?: string; result?: string; text?: string; saved_to?: string; file_path?: string }
+  accentColor: string
+}) {
+  const body = data.content ?? data.draft ?? data.summary ?? data.translated ?? data.result ?? data.text ?? ''
+  const icon = data.icon ?? '📄'
+  const title = data.title ?? '결과'
+  return (
+    <CardWrap accent={accentColor}>
+      <SectionTitle icon={icon} title={title} accentColor={accentColor} />
+      {body ? (
+        <div style={{
+          fontSize: 11, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6,
+          background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '8px 10px',
+          maxHeight: 160, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        }}>
+          {body}
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', padding: '8px 0' }}>내용 없음</div>
+      )}
+      {data.saved_to && (
+        <div style={{ fontSize: 9, color: accentColor, marginTop: 4 }}>💾 저장됨: {data.saved_to}</div>
+      )}
+      {data.file_path && (
+        <div style={{ fontSize: 9, color: accentColor, marginTop: 4 }}>📂 파일: {data.file_path}</div>
+      )}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 단계 목록 카드 (workflow_plan, workflow_list, schedule_list)*/
+/* ─────────────────────────────────────────────────────────── */
+
+export function StepListCard({ data, accentColor }: {
+  data: {
+    steps?: Array<{ step?: number; action?: string; description?: string; status?: string }>
+    workflows?: Array<{ id?: string; name?: string; description?: string; step_count?: number }>
+    templates?: Array<{ id?: string; name?: string; description?: string }>
+    schedules?: Array<{ id?: string; name?: string; next_run?: string; enabled?: boolean }>
+    plan?: string; title?: string
+  }
+  accentColor: string
+}) {
+  const steps = data.steps ?? []
+  const workflows = data.workflows ?? data.templates ?? []
+  const schedules = data.schedules ?? []
+  const statusColor = (s?: string) => s === 'done' ? '#22c55e' : s === 'running' ? accentColor : 'rgba(255,255,255,0.3)'
+  const statusIcon = (s?: string) => s === 'done' ? '✅' : s === 'running' ? '⚡' : '⏸'
+  return (
+    <CardWrap accent={accentColor}>
+      <SectionTitle icon="📋" title={data.title ?? '목록'} accentColor={accentColor} />
+      {steps.slice(0, 6).map((s, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '4px 0' }}>
+          <span style={{ fontSize: 12, color: statusColor(s.status), flexShrink: 0 }}>{statusIcon(s.status)}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>{s.action ?? s.description}</div>
+            {s.description && s.action && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{s.description}</div>}
+          </div>
+        </div>
+      ))}
+      {workflows.slice(0, 5).map((w, i) => (
+        <div key={i} style={{ padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', marginBottom: 3 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: accentColor }}>{w.name}</div>
+          {w.description && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{w.description}</div>}
+          {(w as { step_count?: number }).step_count && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>{(w as { step_count?: number }).step_count}단계</div>}
+        </div>
+      ))}
+      {schedules.slice(0, 4).map((s, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 2 }}>
+          <span style={{ fontSize: 11, color: s.enabled !== false ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.3)' }}>{s.name}</span>
+          <span style={{ fontSize: 9, color: accentColor }}>{s.next_run}</span>
+        </div>
+      ))}
+      {data.plan && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{data.plan}</div>}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 항목 목록 카드 (brain_search, clipboard_history, updates…) */
+/* ─────────────────────────────────────────────────────────── */
+
+export function ItemListCard({ data, accentColor }: {
+  data: {
+    items?: Array<{ name?: string; title?: string; content?: string; text?: string; date?: string; source?: string; relevance?: number; severity?: string; installed?: boolean; allowed?: boolean }>
+    results?: Array<{ name?: string; title?: string; content?: string; text?: string; date?: string; source?: string; relevance?: number }>
+    meetings?: Array<{ id?: string; title?: string; date?: string; duration?: number }>
+    updates?: Array<{ title?: string; kb?: string; severity?: string; date?: string }>
+    permissions?: Array<{ app?: string; permission?: string; allowed?: boolean }>
+    detections?: number; scan_date?: string
+    stats?: { total?: number; categories?: Record<string, number> }
+    total?: number; icon?: string; title?: string; summary?: string
+  }
+  accentColor: string
+}) {
+  const rows = data.items ?? data.results ?? []
+  const meetings = data.meetings ?? []
+  const updates = data.updates ?? []
+  const permissions = data.permissions ?? []
+  const icon = data.icon ?? '📋'
+  const title = data.title ?? `항목 ${data.total ?? rows.length}개`
+  return (
+    <CardWrap accent={accentColor}>
+      <SectionTitle icon={icon} title={title} accentColor={accentColor} />
+      {data.summary && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>{data.summary}</div>}
+      {/* virus check 결과 */}
+      {data.detections !== undefined && (
+        <div style={{ fontSize: 13, fontWeight: 800, color: data.detections === 0 ? '#22c55e' : '#ef4444', marginBottom: 6 }}>
+          {data.detections === 0 ? '✅ 위협 없음' : `⚠️ ${data.detections}개 위협 감지`}
+          {data.scan_date && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>({data.scan_date})</span>}
+        </div>
+      )}
+      {/* stats */}
+      {data.stats && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+          {Object.entries(data.stats.categories ?? {}).slice(0, 4).map(([k, v]) => (
+            <div key={k} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '4px 8px', textAlign: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: accentColor }}>{v}</div>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>{k}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* generic rows */}
+      {rows.slice(0, 6).map((r, i) => (
+        <div key={i} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 3 }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {r.name ?? r.title ?? r.content ?? r.text}
+          </div>
+          {(r.date ?? r.source) && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>{r.source}{r.source && r.date ? ' · ' : ''}{r.date}</div>}
+        </div>
+      ))}
+      {/* meetings */}
+      {meetings.slice(0, 4).map((m, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 2 }}>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{m.title}</span>
+          <span style={{ fontSize: 9, color: accentColor }}>{m.date}{m.duration ? ` (${m.duration}분)` : ''}</span>
+        </div>
+      ))}
+      {/* windows updates */}
+      {updates.slice(0, 4).map((u, i) => (
+        <div key={i} style={{ padding: '4px 8px', borderRadius: 6, background: u.severity === 'critical' ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.04)', marginBottom: 2 }}>
+          <div style={{ fontSize: 10, color: u.severity === 'critical' ? '#fca5a5' : 'rgba(255,255,255,0.75)' }}>{u.title}</div>
+          {u.kb && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>KB{u.kb} · {u.severity}</div>}
+        </div>
+      ))}
+      {/* app permissions */}
+      {permissions.slice(0, 4).map((p, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 2 }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>{p.app} · {p.permission}</span>
+          <span style={{ fontSize: 11 }}>{p.allowed ? '✅' : '❌'}</span>
+        </div>
+      ))}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 그리드 선택 카드 (persona_list)                             */
+/* ─────────────────────────────────────────────────────────── */
+
+export function GridSelectCard({ data, accentColor, onSelect }: {
+  data: { personas?: Array<{ id: string; name: string; icon?: string; description?: string; active?: boolean }>; title?: string }
+  accentColor: string
+  onSelect?: (id: string) => void
+}) {
+  const personas = data.personas ?? []
+  return (
+    <CardWrap accent={accentColor}>
+      <SectionTitle icon="🎭" title={data.title ?? '페르소나 선택'} accentColor={accentColor} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        {personas.map((p) => (
+          <button key={p.id}
+            onClick={() => onSelect?.(p.id)}
+            style={{
+              background: p.active ? `${accentColor}22` : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${p.active ? accentColor : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 10, padding: '8px 10px', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center',
+            }}>
+            <span style={{ fontSize: 20 }}>{p.icon ?? '🤖'}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: p.active ? accentColor : 'rgba(255,255,255,0.8)' }}>{p.name}</span>
+            {p.description && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', lineHeight: 1.3 }}>{p.description}</span>}
+          </button>
+        ))}
+      </div>
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* 날씨 카드 (weather)                                         */
+/* ─────────────────────────────────────────────────────────── */
+
+export function WeatherCard({ data, accentColor }: {
+  data: {
+    city?: string; condition?: string; temp_c?: number; feels_like?: number; humidity?: number; wind_kph?: number; icon?: string
+    forecast?: Array<{ date?: string; condition?: string; high_c?: number; low_c?: number; icon?: string }>
+    summary?: string
+  }
+  accentColor: string
+}) {
+  const weatherIcon = data.icon ?? (data.condition?.includes('맑') ? '☀️' : data.condition?.includes('구름') ? '⛅' : data.condition?.includes('비') ? '🌧️' : data.condition?.includes('눈') ? '❄️' : '🌤️')
+  return (
+    <CardWrap accent={accentColor}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
+        <span style={{ fontSize: 44 }}>{weatherIcon}</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.9)' }}>{data.city ?? '현재 위치'}</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: accentColor, lineHeight: 1 }}>{data.temp_c !== undefined ? `${data.temp_c}°C` : '--'}</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{data.condition}</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
+        {[
+          { label: '체감', value: data.feels_like !== undefined ? `${data.feels_like}°` : '--' },
+          { label: '습도', value: data.humidity !== undefined ? `${data.humidity}%` : '--' },
+          { label: '바람', value: data.wind_kph !== undefined ? `${data.wind_kph}km/h` : '--' },
+        ].map((item, i) => (
+          <div key={i} style={{ padding: '5px 0', borderRadius: 7, background: 'rgba(255,255,255,0.05)', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: accentColor }}>{item.value}</div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{item.label}</div>
+          </div>
+        ))}
+      </div>
+      {(data.forecast ?? []).slice(0, 3).map((f, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 4px' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', width: 48 }}>{f.date}</span>
+          <span style={{ fontSize: 12 }}>{f.icon ?? '🌤️'}</span>
+          <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>{f.high_c}°</span>
+          <span style={{ fontSize: 10, color: '#60a5fa' }}>{f.low_c}°</span>
+        </div>
+      ))}
+      {data.summary && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>{data.summary}</div>}
+    </CardWrap>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
 /* InlineCardData2 타입 + 렌더러                               */
 /* ─────────────────────────────────────────────────────────── */
 
@@ -628,13 +1008,23 @@ export type InlineCardData2 =
   | { type: 'boot_analysis'; data: { uptime_minutes: string; startup_count: string; message: string } }
   | { type: 'focus_mode'; active: boolean; duration?: number }
   | { type: 'file_result'; data: { fileName: string; url: string; mimeType: string; width?: number; height?: number; frames?: number; operation?: string } }
+  | { type: 'email_list'; data: Parameters<typeof EmailListCard>[0]['data'] }
+  | { type: 'timeline'; data: Parameters<typeof TimelineCard>[0]['data'] }
+  | { type: 'gauge_bar'; data: Parameters<typeof GaugeBarCard>[0]['data'] }
+  | { type: 'text_block'; data: Parameters<typeof TextBlockCard>[0]['data'] }
+  | { type: 'step_list'; data: Parameters<typeof StepListCard>[0]['data'] }
+  | { type: 'item_list'; data: Parameters<typeof ItemListCard>[0]['data'] }
+  | { type: 'grid_select'; data: Parameters<typeof GridSelectCard>[0]['data'] }
+  | { type: 'weather_card'; data: Parameters<typeof WeatherCard>[0]['data'] }
 
 export function InlineCardRenderer2({
   card,
   accentColor,
+  onPersonaSelect,
 }: {
   card: InlineCardData2
   accentColor: string
+  onPersonaSelect?: (id: string) => void
 }) {
   switch (card.type) {
     case 'price_compare':    return <PriceCompareCard     data={card.data} accentColor={accentColor} />
@@ -652,7 +1042,15 @@ export function InlineCardRenderer2({
     case 'notes':            return <NotesCard           data={card.data} accentColor={accentColor} />
     case 'boot_analysis':    return <BootAnalysisCard    data={card.data} accentColor={accentColor} />
     case 'focus_mode':       return <FocusModeCard       active={card.active} duration={card.duration} accentColor={accentColor} />
-    case 'file_result':      return <FileResultCard       data={card.data} accentColor={accentColor} />
+    case 'file_result':      return <FileResultCard      data={card.data} accentColor={accentColor} />
+    case 'email_list':       return <EmailListCard       data={card.data} accentColor={accentColor} />
+    case 'timeline':         return <TimelineCard        data={card.data} accentColor={accentColor} />
+    case 'gauge_bar':        return <GaugeBarCard        data={card.data} accentColor={accentColor} />
+    case 'text_block':       return <TextBlockCard       data={card.data} accentColor={accentColor} />
+    case 'step_list':        return <StepListCard        data={card.data} accentColor={accentColor} />
+    case 'item_list':        return <ItemListCard        data={card.data} accentColor={accentColor} />
+    case 'grid_select':      return <GridSelectCard      data={card.data} accentColor={accentColor} onSelect={onPersonaSelect} />
+    case 'weather_card':     return <WeatherCard         data={card.data} accentColor={accentColor} />
     default:                 return null
   }
 }

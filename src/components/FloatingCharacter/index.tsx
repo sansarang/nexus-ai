@@ -269,6 +269,22 @@ export function FloatingCharacter() {
   const [focusEndMs, setFocusEndMs]       = useState<number | undefined>(getFocusModeEnd())
   const [floatingPreview, setFloatingPreview] = useState<Array<{ title: string; url: string; isVideo?: boolean; isSocial?: boolean; isMap?: boolean; mapType?: string; service?: string; isImage?: boolean }> | null>(null)
   const [previewType, setPreviewType] = useState<string>('general')
+  const [lastActionKey, setLastActionKey] = useState<string>('')
+  const [lastResultPath, setLastResultPath] = useState<string>('')
+  const [lastQuery, setLastQuery] = useState<string>('')
+
+  interface DynamicResultAction { icon: string; label: string; onClick: () => void }
+  interface DynamicResultState {
+    icon: string
+    title: string
+    success: boolean
+    stats?: Array<{ label: string; value: string }>
+    items?: string[]
+    links?: Array<{ title: string; url: string }>
+    fileInfo?: { name: string; size?: string; path?: string; mimeType?: string }
+    actions: DynamicResultAction[]
+  }
+  const [dynamicResult, setDynamicResult] = useState<DynamicResultState | null>(null)
   // resultDrawerOpen / favLinks / previewFilter 제거됨 — v2.6 인라인 결과창으로 대체
   // savedPreviews 제거됨 — floatingPreview 팝업과 함께 제거
 
@@ -942,6 +958,219 @@ export function FloatingCharacter() {
           const answer = (await callGeminiWithImage(ss.base64, trimmed).catch(() => null)) ?? (ss as { ocr_text?: string }).ocr_text ?? '분석 불가'
           return { card3: { type: 'vision_result', data: { question: trimmed, answer: answer || '분석 불가', screenshot_b64: ss.base64 } }, emotion: 'happy' }
         }
+        /* ── 이메일 카드 ── */
+        case 'email_inbox':
+        case 'imap_inbox':
+        case 'email_classify': {
+          const r = result as { emails?: unknown[]; count?: number; unread?: number; summary?: string } | undefined
+          return {
+            card2: { type: 'email_list', data: { emails: (r?.emails ?? []) as Parameters<typeof import('./InlineCards2').EmailListCard>[0]['data']['emails'], count: r?.count, unread: r?.unread, summary: r?.summary } },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 캘린더 카드 ── */
+        case 'calendar_today':
+        case 'calendar_week':
+        case 'calendar_find_slot': {
+          const r = result as { events?: unknown[]; slots?: unknown[]; count?: number; title?: string } | undefined
+          return {
+            card2: { type: 'timeline', data: { events: (r?.events ?? []) as Parameters<typeof import('./InlineCards2').TimelineCard>[0]['data']['events'], slots: (r?.slots ?? []) as Parameters<typeof import('./InlineCards2').TimelineCard>[0]['data']['slots'], count: r?.count, title: r?.title } },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 게이지 바 카드 ── */
+        case 'perf_history':
+        case 'perf_anomaly':
+        case 'gpu_stats': {
+          const r = result as Parameters<typeof import('./InlineCards2').GaugeBarCard>[0]['data'] | undefined
+          return {
+            card2: { type: 'gauge_bar', data: r ?? {} },
+            emotion: 'neutral',
+          }
+        }
+
+        /* ── 텍스트 블록 카드 ── */
+        case 'email_draft':
+        case 'email_summarize':
+        case 'translate':
+        case 'clipboard_ai':
+        case 'meeting_summary':
+        case 'recall_capture':
+        case 'search_pdf':
+        case 'dictation_start':
+        case 'voice_todo': {
+          const iconMap: Record<string, string> = {
+            email_draft: '✉️', email_summarize: '📧', translate: '🌐',
+            clipboard_ai: '📋', meeting_summary: '🎙️', recall_capture: '📸',
+            search_pdf: '📄', dictation_start: '🎤', voice_todo: '📝',
+          }
+          const titleMap: Record<string, string> = {
+            email_draft: '이메일 초안', email_summarize: '이메일 요약', translate: '번역 결과',
+            clipboard_ai: 'AI 처리 결과', meeting_summary: '회의 요약', recall_capture: '화면 캡처 메모',
+            search_pdf: 'PDF 보고서', dictation_start: '받아쓰기 결과', voice_todo: '음성 메모',
+          }
+          const r = result as Parameters<typeof import('./InlineCards2').TextBlockCard>[0]['data'] | undefined
+          return {
+            card2: { type: 'text_block', data: { ...(r ?? {}), icon: iconMap[action], title: titleMap[action] } },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 단계 목록 카드 ── */
+        case 'workflow_plan':
+        case 'workflow_list':
+        case 'workflow_templates':
+        case 'schedule_list': {
+          const titleMap: Record<string, string> = {
+            workflow_plan: '워크플로 계획', workflow_list: '워크플로 목록',
+            workflow_templates: '워크플로 템플릿', schedule_list: '예약 스케줄',
+          }
+          const r = result as Parameters<typeof import('./InlineCards2').StepListCard>[0]['data'] | undefined
+          return {
+            card2: { type: 'step_list', data: { ...(r ?? {}), title: r?.title ?? titleMap[action] } },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 항목 목록 카드 ── */
+        case 'brain_search':
+        case 'brain_stats':
+        case 'clipboard_history':
+        case 'recall_search':
+        case 'meeting_list':
+        case 'windows_updates':
+        case 'app_permissions':
+        case 'virus_check': {
+          const iconMap: Record<string, string> = {
+            brain_search: '🧠', brain_stats: '📊', clipboard_history: '📋',
+            recall_search: '🔍', meeting_list: '🎙️', windows_updates: '🪟',
+            app_permissions: '🔐', virus_check: '🛡️',
+          }
+          const titleMap: Record<string, string> = {
+            brain_search: 'Second Brain 검색', brain_stats: 'Brain 통계',
+            clipboard_history: '클립보드 기록', recall_search: 'Recall 검색',
+            meeting_list: '회의 목록', windows_updates: 'Windows 업데이트',
+            app_permissions: '앱 권한', virus_check: '바이러스 스캔',
+          }
+          const r = result as Parameters<typeof import('./InlineCards2').ItemListCard>[0]['data'] | undefined
+          return {
+            card2: { type: 'item_list', data: { ...(r ?? {}), icon: iconMap[action], title: r?.title ?? titleMap[action] } },
+            emotion: action === 'virus_check' && (r as { detections?: number })?.detections ? 'alert' : 'happy',
+          }
+        }
+
+        /* ── 페르소나 그리드 ── */
+        case 'persona_list': {
+          const r = result as { personas?: unknown[]; title?: string } | undefined
+          return {
+            card2: { type: 'grid_select', data: { personas: (r?.personas ?? []) as Parameters<typeof import('./InlineCards2').GridSelectCard>[0]['data']['personas'], title: r?.title } },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 날씨 카드 ── */
+        case 'weather': {
+          const r = result as Parameters<typeof import('./InlineCards2').WeatherCard>[0]['data'] | undefined
+          return {
+            card2: { type: 'weather_card', data: r ?? {} },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 보안 상세 카드 ── */
+        case 'remote_access': {
+          const r = result as { found?: boolean; tools?: unknown[]; rdp_open?: boolean; score?: number } | undefined
+          return {
+            card2: { type: 'remote_access', data: { found: r?.found ?? false, tools: (r?.tools ?? []) as import('../../lib/nexus/backendAPI').RemoteAccessResult['tools'], rdp_open: r?.rdp_open ?? false, score: r?.score ?? 100 } },
+            emotion: r?.found ? 'alert' : 'happy',
+          }
+        }
+        case 'process_security': {
+          const r = result as { suspicious_processes?: unknown[]; open_ports?: unknown[]; score?: number } | undefined
+          return {
+            card2: { type: 'process_security', data: { suspicious_processes: (r?.suspicious_processes ?? []) as import('../../lib/nexus/backendAPI').ProcessSecurityResult['suspicious_processes'], open_ports: (r?.open_ports ?? []) as import('../../lib/nexus/backendAPI').ProcessSecurityResult['open_ports'], score: r?.score ?? 100 } },
+            emotion: (r?.score ?? 100) < 80 ? 'alert' : 'happy',
+          }
+        }
+        case 'defender_status': {
+          const r = result as import('../../lib/nexus/backendAPI').DefenderStatus | undefined
+          return {
+            card2: { type: 'defender', data: r ?? { antivirus_enabled: true, realtime_protection: true, quick_scan_age: 0, full_scan_age: 0, score: 100, issues: [] } },
+            emotion: (r?.score ?? 100) >= 80 ? 'happy' : 'alert',
+          }
+        }
+        case 'startup_items': {
+          const r = result as { items?: unknown[]; total?: number; suspicious_count?: number } | undefined
+          return {
+            card2: { type: 'startup_items', data: { items: (r?.items ?? []) as import('../../lib/nexus/backendAPI').StartupItem[], total: r?.total ?? 0, suspicious_count: r?.suspicious_count ?? 0 } },
+            emotion: (r?.suspicious_count ?? 0) > 0 ? 'concerned' : 'happy',
+          }
+        }
+        case 'process_top': {
+          const r = result as { by_cpu?: unknown[]; by_mem?: unknown[] } | undefined
+          return {
+            card2: { type: 'process_top', data: { by_cpu: (r?.by_cpu ?? []) as import('../../lib/nexus/backendAPI').ProcItem[], by_mem: (r?.by_mem ?? []) as import('../../lib/nexus/backendAPI').ProcItem[] } },
+            emotion: 'neutral',
+          }
+        }
+        case 'network_analysis': {
+          const r = result as { adapters?: unknown[]; dns_servers?: string; public_ip?: string; ping_ms?: string; connected?: boolean } | undefined
+          return {
+            card2: { type: 'network', data: { adapters: (r?.adapters ?? []) as import('../../lib/nexus/backendAPI').NetworkAdapter[], dns_servers: r?.dns_servers ?? '', public_ip: r?.public_ip ?? '', ping_ms: r?.ping_ms ?? '', connected: r?.connected ?? false } },
+            emotion: r?.connected ? 'happy' : 'concerned',
+          }
+        }
+        case 'driver_check': {
+          const r = result as { total?: number; problematic?: unknown[]; problem_count?: number; score?: number; message?: string } | undefined
+          return {
+            card2: { type: 'drivers', data: { total: r?.total ?? 0, problematic: (r?.problematic ?? []) as import('../../lib/nexus/backendAPI').DriverItem[], problem_count: r?.problem_count ?? 0, score: r?.score ?? 100, message: r?.message ?? '' } },
+            emotion: (r?.problem_count ?? 0) > 0 ? 'concerned' : 'happy',
+          }
+        }
+        case 'programs_list': {
+          const r = result as { programs?: unknown[]; total?: number } | undefined
+          return {
+            card2: { type: 'programs_list', data: { programs: (r?.programs ?? []) as import('../../lib/nexus/backendAPI').ProgramItem[], total: r?.total ?? 0 } },
+            emotion: 'neutral',
+          }
+        }
+        case 'file_search': {
+          const r = result as { results?: unknown[]; total?: number; message?: string } | undefined
+          return {
+            card2: { type: 'file_search', data: { results: (r?.results ?? []) as import('../../lib/nexus/backendAPI').FileResult[], total: r?.total ?? 0, message: r?.message ?? '' } },
+            emotion: 'neutral',
+          }
+        }
+        case 'file_duplicates': {
+          const r = result as { groups?: unknown[]; total_groups?: number; waste_mb?: number; waste?: string; message?: string } | undefined
+          return {
+            card2: { type: 'duplicates', data: { groups: (r?.groups ?? []) as import('../../lib/nexus/backendAPI').DupGroup[], total_groups: r?.total_groups ?? 0, waste_mb: r?.waste_mb ?? 0, waste: r?.waste ?? '0B', message: r?.message ?? '' } },
+            emotion: (r?.total_groups ?? 0) > 0 ? 'concerned' : 'happy',
+          }
+        }
+        case 'notes': {
+          const r = result as { notes?: unknown[]; total?: number } | undefined
+          return {
+            card2: { type: 'notes', data: { notes: (r?.notes ?? []) as import('../../lib/nexus/backendAPI').NoteItem[], total: r?.total ?? 0 } },
+            emotion: 'happy',
+          }
+        }
+        case 'boot_analysis': {
+          const r = result as { uptime_minutes?: string; startup_count?: string; message?: string } | undefined
+          return {
+            card2: { type: 'boot_analysis', data: { uptime_minutes: r?.uptime_minutes ?? '0', startup_count: r?.startup_count ?? '?', message: r?.message ?? '' } },
+            emotion: 'neutral',
+          }
+        }
+        case 'focus_mode': {
+          const r = result as { active?: boolean; duration?: number } | undefined
+          return {
+            card2: { type: 'focus_mode', active: r?.active ?? true, duration: r?.duration },
+            emotion: 'happy',
+          }
+        }
         default:
           return { emotion: 'neutral' }
       }
@@ -972,6 +1201,7 @@ export function FloatingCharacter() {
       setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
       speakText, resetClarify, pushModelHistory,
       handleBackendIntent, renderCommandResult,
+      setDynamicResult,
       showPaywall: (feature, used, limit) => {
         setPaywallFeature(feature)
         setPaywallUsed(used)
@@ -981,7 +1211,7 @@ export function FloatingCharacter() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantName, backendStatus, clarifyPendingIntent, clarifyPendingParams,
     clarifyPendingQuestion, handleBackendIntent, renderCommandResult, resetClarify, speakText,
-    userLang, isActive, floatingPreview, ttsVoice])
+    userLang, isActive, floatingPreview, ttsVoice, setDynamicResult])
 
   const handleSend = useCallback((text: string) => void sendText(text), [sendText])
 
@@ -1447,11 +1677,12 @@ export function FloatingCharacter() {
     <div style={{
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
-      background: 'rgba(6,6,18,0.97)',
-      backdropFilter: 'blur(24px)',
+      background: 'rgba(6,6,18,0.62)',
+      backdropFilter: 'blur(32px)',
+      WebkitBackdropFilter: 'blur(32px)',
       borderRadius: 16,
       border: `1px solid ${primaryColor}33`,
-      boxShadow: `0 0 0 1px ${primaryColor}18, 0 8px 48px rgba(0,0,0,0.9)`,
+      boxShadow: `0 0 0 1px ${primaryColor}18, 0 8px 48px rgba(0,0,0,0.55)`,
       overflow: 'hidden',
       zIndex: 9999,
     }}>
@@ -1707,30 +1938,211 @@ export function FloatingCharacter() {
         )}
       </AnimatePresence>
 
-      {/* ── 채팅 영역 (flex: 1) ── */}
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-        <ChatBubble
-          messages={messages}
-          typing={typing}
-          input={displayInput}
-          onInputChange={v => setInput(v)}
-          onSend={handleSend}
-          onSendWithFile={handleSendWithFileImpl}
-          onRepair={handleRepair}
-          assistantName={assistantName}
-          lang={userLang}
-          primaryColor={primaryColor}
-          historyVersion={historyVersion}
-          clarifyPending={!!clarifyPendingIntent}
-          clarifyQuestion={clarifyPendingQuestion ?? ''}
-          typingSteps={typingSteps}
-          activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
-          subscriptionStatus={subscriptionStatus}
-          dailyUsed={dailyUsedCount}
-          onPersonaClick={handlePersonaChipClick}
-          embedded={true}
-        />
+      {/* ── 메인 콘텐츠: 좌우 분할 ── */}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
+
+        {/* ── 좌: 채팅 영역 ── */}
+        <div style={{ flex: 1, overflow: 'hidden', borderRight: `1px solid ${primaryColor}20`, display: 'flex', flexDirection: 'column' }}>
+          <ChatBubble
+            messages={messages}
+            typing={typing}
+            input={displayInput}
+            onInputChange={v => setInput(v)}
+            onSend={handleSend}
+            onSendWithFile={handleSendWithFileImpl}
+            onRepair={handleRepair}
+            assistantName={assistantName}
+            lang={userLang}
+            primaryColor={primaryColor}
+            historyVersion={historyVersion}
+            clarifyPending={!!clarifyPendingIntent}
+            clarifyQuestion={clarifyPendingQuestion ?? ''}
+            typingSteps={typingSteps}
+            activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
+            subscriptionStatus={subscriptionStatus}
+            dailyUsed={dailyUsedCount}
+            onPersonaClick={handlePersonaChipClick}
+            onPersonaSelect={handlePersonaSelect}
+            embedded={true}
+          />
+        </div>
+
+        {/* ── 우: 기본 결과창 (항상 표시) ── */}
+        <div style={{
+          width: 172, flexShrink: 0,
+          display: 'flex', flexDirection: 'column',
+          background: 'rgba(0,0,0,0.18)',
+          overflow: 'hidden',
+        }}>
+          <div style={{ padding: '8px 10px 4px', borderBottom: `1px solid ${primaryColor}22`, flexShrink: 0 }}>
+            <span style={{ fontSize: 9.5, fontWeight: 800, color: `${primaryColor}99`, letterSpacing: '0.06em' }}>
+              📋 {userLang === 'en' ? 'LAST RESULT' : '최근 결과'}
+            </span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px', scrollbarWidth: 'none' }}>
+            {(() => {
+              const lastMsg = messages.filter(m => m.role === 'nexus' && m.text).slice(-1)[0]
+              if (!lastMsg) return (
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 8, textAlign: 'center', lineHeight: 1.7 }}>
+                  {userLang === 'en' ? 'Results appear\nhere after tasks' : '작업 완료 후\n결과 요약이\n여기 표시됩니다'}
+                </div>
+              )
+              const lines = lastMsg.text.split('\n').filter(l => l.trim()).slice(0, 5)
+              return lines.map((line, i) => (
+                <div key={i} style={{ fontSize: 10, color: i === 0 ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.55)', marginBottom: 4, lineHeight: 1.5, wordBreak: 'break-all' }}>
+                  {i === 0 ? <span style={{ fontWeight: 700 }}>{line.slice(0, 40)}{line.length > 40 ? '…' : ''}</span> : `• ${line.slice(0, 32)}${line.length > 32 ? '…' : ''}`}
+                </div>
+              ))
+            })()}
+          </div>
+          {/* 기본 결과창 하단 — 마지막 액션 시간 */}
+          {messages.filter(m => m.role === 'nexus').length > 0 && (
+            <div style={{ padding: '4px 10px 6px', borderTop: `1px solid ${primaryColor}18`, flexShrink: 0 }}>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>
+                {new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* ── 동적 결과창 (결과 완료 시만 슬라이드인) ── */}
+      <AnimatePresence>
+        {dynamicResult && (
+          <motion.div
+            key="dynamic-result"
+            initial={{ opacity: 0, y: 60 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 60 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            style={{
+              position: 'absolute', left: 0, right: 0, bottom: 0,
+              zIndex: 200,
+              background: 'rgba(8,8,22,0.97)',
+              borderTop: `2px solid ${primaryColor}88`,
+              boxShadow: `0 -8px 32px rgba(0,0,0,0.7), 0 0 0 1px ${primaryColor}22`,
+              maxHeight: '62%',
+              display: 'flex', flexDirection: 'column',
+              backdropFilter: 'blur(24px)',
+            }}
+          >
+            {/* 헤더 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px 8px', borderBottom: `1px solid ${primaryColor}28`, flexShrink: 0 }}>
+              <span style={{ fontSize: 13 }}>{dynamicResult.icon}</span>
+              <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: dynamicResult.success ? '#22c55e' : '#f59e0b' }}>
+                {dynamicResult.title}
+              </span>
+              <button
+                onClick={() => setDynamicResult(null)}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px' }}
+              >✕</button>
+            </div>
+
+            {/* 내용 */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', scrollbarWidth: 'none' }}>
+              {/* 요약 숫자 칩 */}
+              {dynamicResult.stats && dynamicResult.stats.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                  {dynamicResult.stats.map((s, i) => (
+                    <div key={i} style={{
+                      background: `${primaryColor}18`, border: `1px solid ${primaryColor}33`,
+                      borderRadius: 8, padding: '4px 10px',
+                      fontSize: 11, fontWeight: 700, color: primaryColor,
+                    }}>
+                      {s.label}: <span style={{ color: '#fff' }}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* 상세 항목 */}
+              {dynamicResult.items && dynamicResult.items.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {dynamicResult.items.map((item, i) => (
+                    <div key={i} style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                      <span style={{ color: primaryColor, flexShrink: 0 }}>•</span>
+                      <span style={{ wordBreak: 'break-all' }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* 동영상 파일 결과 */}
+              {dynamicResult.fileInfo && (
+                <div style={{
+                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${primaryColor}33`,
+                  borderRadius: 10, padding: '8px 12px', marginBottom: 8,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>
+                    {dynamicResult.fileInfo.mimeType?.startsWith('video/') ? '🎬' : dynamicResult.fileInfo.mimeType?.startsWith('image/') ? '🖼️' : '📄'}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {dynamicResult.fileInfo.name}
+                    </div>
+                    {dynamicResult.fileInfo.size && (
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                        {dynamicResult.fileInfo.size}
+                      </div>
+                    )}
+                    {dynamicResult.fileInfo.path && (
+                      <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📁 {dynamicResult.fileInfo.path}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* 링크 목록 (검색 결과 등) */}
+              {dynamicResult.links && dynamicResult.links.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {dynamicResult.links.slice(0, 5).map((link, i) => (
+                    <div
+                      key={i}
+                      onClick={() => window.open(link.url, '_blank')}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '5px 8px', borderRadius: 8, cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${primaryColor}22`,
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = `${primaryColor}18`)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                    >
+                      <span style={{ fontSize: 11, color: primaryColor, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                      <span style={{ flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.title}</span>
+                      <span style={{ fontSize: 9, color: primaryColor, flexShrink: 0 }}>↗</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 액션 버튼 */}
+            <div style={{ display: 'flex', gap: 6, padding: '8px 14px 12px', borderTop: `1px solid ${primaryColor}22`, flexShrink: 0, flexWrap: 'wrap' }}>
+              {dynamicResult.actions.map((act, i) => (
+                <button
+                  key={i}
+                  onClick={act.onClick}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '6px 12px', borderRadius: 10, cursor: 'pointer',
+                    background: i === 0 ? primaryColor : `${primaryColor}18`,
+                    border: i === 0 ? 'none' : `1px solid ${primaryColor}44`,
+                    color: i === 0 ? '#fff' : primaryColor,
+                    fontSize: 11, fontWeight: 700, transition: 'all 0.15s',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '0.82' }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+                >
+                  {act.icon} {act.label}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
 

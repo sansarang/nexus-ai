@@ -69,6 +69,118 @@ function cleanForHistory(text: string): string {
     .trim()
 }
 
+/* ── 동적 결과창 공통 아이콘 맵 ── */
+const ACTION_ICONS: Record<string, string> = {
+  clean: '🧹', security_scan: '🔒', full_scan: '🔍', pc_status: '💻',
+  file_organize: '📁', file_duplicates: '📁', smart_organize: '📁',
+  web_search: '🔍', news_search: '📰', youtube_search: '🎬',
+  email_inbox: '📩', email_summarize: '📩', email_draft: '✉️',
+  email_classify: '📨', imap_inbox: '📬',
+  calendar_today: '📅', calendar_week: '📅', calendar_find_slot: '🗓️',
+  weather: '🌤️', translate: '🌐', clipboard_ai: '📋', clipboard_history: '📋',
+  meeting_summary: '🎙️', meeting_list: '🎙️',
+  recall_search: '🔎', recall_capture: '📸',
+  brain_search: '🧠', brain_stats: '📊',
+  perf_history: '📈', perf_anomaly: '⚠️', gpu_stats: '🖥️',
+  virus_check: '🦠', windows_updates: '🪟', app_permissions: '🔐',
+  workflow_plan: '⚡', workflow_run: '⚡', workflow_list: '📋', workflow_templates: '📋',
+  schedule_list: '⏰',
+  remote_access: '🔒', process_security: '🔒', defender_status: '🛡️',
+  startup_items: '🚀', process_top: '📊', network_analysis: '🌐',
+  driver_check: '🔧', programs_list: '📦', file_search: '🔍',
+  notes: '📝', boot_analysis: '⚡', focus_mode: '🎯',
+  voice_todo: '📝', dictation_start: '🎤', search_pdf: '📄',
+  persona_list: '🎭',
+}
+
+type DynAction = { icon: string; label: string; onClick: () => void }
+type DynResultPayload = {
+  icon: string; title: string; success: boolean
+  stats?: Array<{ label: string; value: string }>
+  items?: string[]
+  links?: Array<{ title: string; url: string }>
+  fileInfo?: { name: string; size?: string; path?: string; mimeType?: string }
+  actions: DynAction[]
+}
+
+/* ── 동적 결과창 페이로드 생성 헬퍼 ── */
+function buildDynResult(
+  action: string,
+  displayText: string,
+  rawResult: Record<string, unknown> | undefined,
+  isEn: boolean,
+  onRetry: () => void,
+): DynResultPayload {
+  const icon = ACTION_ICONS[action] ?? '✅'
+  const isOk = !displayText.includes('❌') && !displayText.includes('실패') && !displayText.includes('failed')
+  const summaryLines = displayText.split('\n').filter(l => l.trim() && !l.startsWith('#')).slice(0, 5)
+  const stats: Array<{ label: string; value: string }> = []
+  const items: string[] = []
+  const links: Array<{ title: string; url: string }> = []
+
+  summaryLines.forEach(line => {
+    const numMatch = line.match(/(\d[\d,.]+\s*(?:GB|MB|KB|개|회|%|ms|초|분|건))/)
+    if (numMatch) stats.push({ label: line.replace(numMatch[0], '').replace(/[•:]/g, '').trim().slice(0, 16), value: numMatch[0] })
+    else if (/^[•\-–]/.test(line)) items.push(line.replace(/^[•\-–]\s*/, '').slice(0, 60))
+  })
+
+  const rawItems = (rawResult?.items ?? rawResult?.articles ?? rawResult?.results ?? []) as Array<{ title?: string; url?: string; link?: string; name?: string }>
+  rawItems.slice(0, 5).forEach(it => {
+    const url = it.url ?? it.link
+    if (url) links.push({ title: it.title ?? it.name ?? url, url })
+  })
+
+  let fileInfo: DynResultPayload['fileInfo']
+  if (rawResult?.file_name) {
+    const filePath = rawResult.file_path ? String(rawResult.file_path) : rawResult.out_path ? String(rawResult.out_path) : undefined
+    fileInfo = {
+      name: String(rawResult.file_name),
+      size: rawResult.file_size ? String(rawResult.file_size) : undefined,
+      path: filePath,
+      mimeType: rawResult.mime_type ? String(rawResult.mime_type) : undefined,
+    }
+  }
+
+  const actions: DynAction[] = [
+    { icon: '🔄', label: isEn ? 'Retry' : '다시 실행', onClick: onRetry },
+  ]
+  if (fileInfo?.path) {
+    const filePath = fileInfo.path!
+    actions.push({
+      icon: '📂', label: isEn ? 'Open folder' : '폴더 열기',
+      onClick: () => {
+        import('@tauri-apps/plugin-shell').then(({ open }) => {
+          const sep = filePath.includes('\\') ? '\\' : '/'
+          const dir = filePath.substring(0, filePath.lastIndexOf(sep)) || filePath
+          open(dir).catch(() => {})
+        }).catch(() => {})
+      },
+    })
+  }
+  if (links.length > 0) actions.push({ icon: '🔗', label: isEn ? 'Open all' : '전체 열기', onClick: () => links.forEach(l => window.open(l.url, '_blank')) })
+  actions.push({ icon: '📋', label: isEn ? 'Copy' : '복사', onClick: () => navigator.clipboard.writeText(displayText).catch(() => {}) })
+  if (displayText.length > 20) actions.push({
+    icon: '💾', label: isEn ? 'Save' : '저장',
+    onClick: () => {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([displayText], { type: 'text/plain' }))
+      a.download = `nexus_result_${Date.now()}.txt`
+      a.click()
+    },
+  })
+
+  return {
+    icon,
+    title: summaryLines[0]?.slice(0, 50) || (isEn ? 'Task complete' : '작업 완료'),
+    success: isOk,
+    stats: stats.length > 0 ? stats.slice(0, 4) : undefined,
+    items: items.length > 0 ? items.slice(0, 6) : undefined,
+    links: links.length > 0 ? links : undefined,
+    fileInfo,
+    actions,
+  }
+}
+
 export interface ChatSenderDeps {
   userLang: 'ko' | 'en'
   assistantName: string
@@ -104,6 +216,14 @@ export interface ChatSenderDeps {
   handleBackendIntent: (intent: Intent, msgId: string, originalText?: string) => Promise<{ text: string; card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
   renderCommandResult: (action: string, result: unknown, trimmed: string) => Promise<{ card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
   showPaywall?: (feature: string, used: number, limit: number) => void
+  setDynamicResult?: (r: {
+    icon: string; title: string; success: boolean
+    stats?: Array<{ label: string; value: string }>
+    items?: string[]
+    links?: Array<{ title: string; url: string }>
+    fileInfo?: { name: string; size?: string; path?: string; mimeType?: string }
+    actions: Array<{ icon: string; label: string; onClick: () => void }>
+  } | null) => void
 }
 
 export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<void> {
@@ -115,7 +235,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     setUserLang, setHistoryVersion, setToastAlerts, setIsActive, setFloatingPreview,
     setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
     speakText, resetClarify, pushModelHistory,
-    handleBackendIntent, renderCommandResult, showPaywall,
+    handleBackendIntent, renderCommandResult, showPaywall, setDynamicResult,
   } = d
 
     const trimmed = text.trim()
@@ -543,6 +663,10 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(resText) })
           setHistoryVersion(v => v + 1)
         }
+        // ── 동적 결과창 ──
+        if (setDynamicResult && resText) {
+          setDynamicResult(buildDynResult(fastIntent, resText, undefined, detectedLang === 'en', () => setDynamicResult(null)))
+        }
         return
       }
     }
@@ -763,8 +887,16 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           setMessages(prev => [...prev, {
             id: `${msgId}-res`, role: 'nexus', text: displayText,
             inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5,
-            action: cmd.action, // follow-up 칩 표시를 위한 액션 키
+            action: cmd.action,
           }])
+
+          // ── 동적 결과창 ─────────────────────────────────────────
+          // cmd.success 여부와 관계없이 결과 텍스트가 있으면 표시
+          if (setDynamicResult && displayText && cmd.action && cmd.action !== 'clarify' && cmd.action !== 'chat') {
+            const r = cmd.result as Record<string, unknown> | undefined
+            setDynamicResult(buildDynResult(cmd.action, displayText, r, userLang === 'en', () => setDynamicResult(null)))
+          }
+
           pushModelHistory(trimmed, displayText)
           if (displayText) {
             speakText(displayText)
@@ -792,6 +924,10 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
         speakText(resText)
         appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(resText) })
         setHistoryVersion(v => v + 1)
+      }
+      // ── 동적 결과창 ──
+      if (setDynamicResult && resText) {
+        setDynamicResult(buildDynResult(intent, resText, undefined, detectedLang === 'en', () => setDynamicResult(null)))
       }
       return
     }

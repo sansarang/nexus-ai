@@ -221,6 +221,7 @@ interface ChatBubbleProps {
   subscriptionStatus?: string
   dailyUsed?: number
   onPersonaClick?: () => void
+  onPersonaSelect?: (id: string) => void
   embedded?: boolean
 }
 
@@ -243,6 +244,7 @@ export function ChatBubble({
   subscriptionStatus,
   dailyUsed = 0,
   onPersonaClick,
+  onPersonaSelect,
   embedded = false,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -396,7 +398,7 @@ export function ChatBubble({
 
   /* 카드가 붙은 메시지 — 최근 6개 표시 */
   const liveCards = useMemo(
-    () => messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4).slice(-6),
+    () => messages.filter(m => m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5).slice(-6),
     [messages]
   )
 
@@ -854,7 +856,7 @@ export function ChatBubble({
               style={{ marginTop: 8 }}
             >
               {msg.inlineCard && <InlineCardRenderer card={msg.inlineCard} accentColor={primaryColor} onRepair={onRepair} />}
-              {msg.inlineCard2 && <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} />}
+              {msg.inlineCard2 && <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} onPersonaSelect={onPersonaSelect} />}
               {msg.inlineCard3 && <InlineCardRenderer3 card={msg.inlineCard3} />}
               {msg.inlineCard4 && <InlineCardRenderer4 card={msg.inlineCard4} onMacroRun={msg.onMacroRun} />}
               {msg.inlineCard5 && <InlineCard5Renderer card={msg.inlineCard5} accentColor={primaryColor} />}
