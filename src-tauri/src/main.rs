@@ -12,6 +12,8 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 
 // 백엔드 프로세스 핸들 (앱 종료 시 kill용)
 static BACKEND_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock::new();
+// Python 사이드카 프로세스 핸들
+static PYTHON_PROCESS: OnceLock<Mutex<Option<std::process::Child>>> = OnceLock::new();
 // Watchdog용: 백엔드 실행 경로 + 중복 실행 방지 플래그
 static BACKEND_PATH: OnceLock<PathBuf> = OnceLock::new();
 static WATCHDOG_STARTED: AtomicBool = AtomicBool::new(false);
@@ -366,12 +368,59 @@ fn kill_backend() {
             *guard = None;
         }
     }
-    // 혹시 살아있는 프로세스 정리 (Windows)
+    if let Some(mutex) = PYTHON_PROCESS.get() {
+        if let Ok(mut guard) = mutex.lock() {
+            if let Some(child) = guard.as_mut() {
+                let _ = child.kill();
+            }
+            *guard = None;
+        }
+    }
     #[cfg(target_os = "windows")]
     {
         let _ = std::process::Command::new("taskkill")
             .args(["/F", "/IM", "nexus-backend.exe"])
             .output();
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/IM", "nexus-python.exe"])
+            .output();
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn launch_python_sidecar(app: &impl tauri::Manager<tauri::Wry>) {
+    PYTHON_PROCESS.get_or_init(|| Mutex::new(None));
+
+    let path = match app.path().resource_dir() {
+        Ok(dir) => dir.join("nexus-python.exe"),
+        Err(e) => { eprintln!("[Nexus] Python sidecar resource_dir 실패: {e}"); return; }
+    };
+    if !path.exists() {
+        eprintln!("[Nexus] Python sidecar 없음: {} — AI 기능 일부 비활성화", path.display());
+        return;
+    }
+
+    // API 키를 환경변수로 전달 (llm_config.json 로드 전이므로 env 사용)
+    let groq_key  = std::env::var("NEXUS_GROQ_KEY").unwrap_or_default();
+    let claude_key = std::env::var("NEXUS_CLAUDE_KEY").unwrap_or_default();
+    let tavily_key = std::env::var("NEXUS_TAVILY_KEY").unwrap_or_default();
+
+    match std::process::Command::new(&path)
+        .env("NEXUS_GROQ_KEY",   &groq_key)
+        .env("NEXUS_CLAUDE_KEY", &claude_key)
+        .env("NEXUS_TAVILY_KEY", &tavily_key)
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+    {
+        Ok(child) => {
+            if let Some(mutex) = PYTHON_PROCESS.get() {
+                if let Ok(mut guard) = mutex.lock() {
+                    *guard = Some(child);
+                }
+            }
+            eprintln!("[Nexus] Python sidecar 시작 완료 :17893");
+        }
+        Err(e) => eprintln!("[Nexus] Python sidecar 시작 실패: {e}"),
     }
 }
 
@@ -564,6 +613,9 @@ async fn main() {
             launch_backend(app);
             // 2b. Watchdog 시작 (백엔드 비정상 종료 시 자동 재시작)
             start_watchdog(app.handle().clone());
+            // 2c. Python 사이드카 실행 (포트 17893 — AI/ML 전용)
+            #[cfg(target_os = "windows")]
+            launch_python_sidecar(app);
 
             // 3. 시스템 트레이 설정
             setup_tray(app)?;

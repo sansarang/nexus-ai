@@ -217,33 +217,7 @@ func handleYouTubePlaylistBatch(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// POST /api/youtube/search
+// POST /api/youtube/search  — Python yt-dlp 우선, Tavily fallback
 func handleYouTubeSearch(w http.ResponseWriter, r *http.Request) {
-	lang := getLang(r)
-	var req struct {
-		Query    string `json:"query"`
-		MaxItems int    `json:"max_items"`
-	}
-	json.NewDecoder(r.Body).Decode(&req)
-	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
-		return
-	}
-	if req.MaxItems == 0 {
-		req.MaxItems = 10
-	}
-	llmMu.RLock()
-	tKey := llmTavilyKey
-	llmMu.RUnlock()
-	if tKey != "" {
-		tr, ok := tavilySearchDomain(tKey, req.Query, req.MaxItems, "youtube.com")
-		if ok {
-			json200(w, map[string]any{
-				"success": true, "items": tr.Items, "summary": tr.Summary, "count": len(tr.Items),
-				"message": fmt.Sprintf("YouTube '%s' 검색 결과 %d개", req.Query, len(tr.Items)),
-			})
-			return
-		}
-	}
-	writeJSON(w, 500, map[string]any{"success": false, "message": msgT("검색 실패", "Search failed", lang)})
+	handleYouTubeSearchWithPython(w, r)
 }

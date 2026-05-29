@@ -97,15 +97,15 @@ JSON 배열로만 출력: [{"title":"노래제목","artist":"아티스트"}]
 	})
 }
 
-// POST /api/ytmusic/search
+// POST /api/ytmusic/search  — Python ytmusicapi 우선, chromedp fallback
 func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
-	lang := getLang(r)
-	var req struct {
-		Query string `json:"query"`
-	}
-	json.NewDecoder(r.Body).Decode(&req)
-	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
+	handleYTMusicSearchWithPython(w, r)
+}
+
+// handleYTMusicSearchChromedp: chromedp 기반 원래 구현 (fallback용)
+func handleYTMusicSearchChromedp(w http.ResponseWriter, _ *http.Request, query string) {
+	if query == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return
 	}
 
@@ -115,7 +115,7 @@ func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
 		tKey := llmTavilyKey
 		llmMu.RUnlock()
 		if tKey != "" {
-			tr, ok := tavilySearchDomain(tKey, req.Query+" youtube music", 5, "music.youtube.com")
+			tr, ok := tavilySearchDomain(tKey, query+" youtube music", 5, "music.youtube.com")
 			if ok {
 				json200(w, map[string]any{
 					"success": true, "source": "search_fallback",
@@ -131,7 +131,7 @@ func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	searchURL := fmt.Sprintf("https://music.youtube.com/search?q=%s",
-		strings.ReplaceAll(req.Query, " ", "+"))
+		strings.ReplaceAll(query, " ", "+"))
 
 	var titles, artists, links []string
 	crawlErr := chromedp.Run(ctx,
@@ -158,7 +158,7 @@ func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
 		tKey := llmTavilyKey
 		llmMu.RUnlock()
 		if tKey != "" {
-			tr, ok := tavilySearchDomain(tKey, req.Query+" youtube music", 5, "music.youtube.com")
+			tr, ok := tavilySearchDomain(tKey, query+" youtube music", 5, "music.youtube.com")
 			if ok {
 				json200(w, map[string]any{
 					"success": true, "source": "search_fallback",
@@ -191,8 +191,8 @@ func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"songs":   songs,
 		"count":   len(songs),
-		"query":   req.Query,
-		"message": fmt.Sprintf("YouTube Music '%s' 검색 결과 %d개", req.Query, len(songs)),
+		"query":   query,
+		"message": fmt.Sprintf("YouTube Music '%s' 검색 결과 %d개", query, len(songs)),
 	})
 }
 

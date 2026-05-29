@@ -27,56 +27,9 @@ type TikTokItem struct {
 	Shares   string `json:"shares"`
 }
 
-// POST /api/tiktok/search
-// body: { "query": "...", "limit": 10 }
+// POST /api/tiktok/search  — Python yt-dlp 우선, chromedp → Tavily fallback
 func handleTikTokSearch(w http.ResponseWriter, r *http.Request) {
-	lang := getLang(r)
-	var req struct {
-		Query string `json:"query"`
-		Limit int    `json:"limit"`
-	}
-	json.NewDecoder(r.Body).Decode(&req)
-	if req.Query == "" {
-		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
-		return
-	}
-	if req.Limit == 0 || req.Limit > 20 {
-		req.Limit = 10
-	}
-
-	items, err := crawlTikTokSearch(req.Query, req.Limit)
-	if err != nil || len(items) == 0 {
-		// Tavily fallback
-		llmMu.RLock()
-		tKey := llmTavilyKey
-		llmMu.RUnlock()
-		if tKey != "" {
-			if tr, ok := tavilySearchDomain(tKey, req.Query, req.Limit, "tiktok.com"); ok && len(tr.Items) > 0 {
-				json200(w, map[string]any{
-					"success": true,
-					"source":  "search_fallback",
-					"items":   tr.Items,
-					"count":   len(tr.Items),
-					"message": fmt.Sprintf("🎵 TikTok \"%s\" 검색 결과 %d개 (검색 기반)", req.Query, len(tr.Items)),
-				})
-				return
-			}
-		}
-		msg := "TikTok 크롤링 실패"
-		if err != nil {
-			msg += ": " + err.Error()
-		}
-		writeJSON(w, 200, map[string]any{"success": false, "message": msg})
-		return
-	}
-
-	json200(w, map[string]any{
-		"success": true,
-		"source":  "browser",
-		"items":   items,
-		"count":   len(items),
-		"message": fmt.Sprintf("🎵 TikTok \"%s\" 검색 결과 %d개", req.Query, len(items)),
-	})
+	handleTikTokSearchWithPython(w, r)
 }
 
 // GET /api/tiktok/trending
