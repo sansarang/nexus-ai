@@ -137,6 +137,26 @@ func handleReportGenerate(w http.ResponseWriter, r *http.Request) {
 
 	if len(issues) == 0 {
 		issues = append(issues, ReportIssue{"info", "PC 상태 양호", "모든 항목이 정상 범위 내에 있어요 ✅"})
+	}
+
+	// Groq AI로 맞춤형 개선 제안 생성
+	issueDesc := ""
+	for _, iss := range issues {
+		issueDesc += fmt.Sprintf("- [%s] %s: %s\n", iss.Level, iss.Title, iss.Detail)
+	}
+	rawData := fmt.Sprintf("PC 건강 점수: %d\nCPU: %.0f%%\n메모리: %.0f%%\n온도: %.0f°C\n문제 항목:\n%s", score, stats["cpu"].(float64), stats["mem"].(float64), temp, issueDesc)
+	aiSuggestions, _, aiErr := callGroqWithFallback([]groqMsg{
+		{Role: "system", Content: "당신은 PC 전문가 AI입니다. 아래 PC 상태 분석 결과를 보고 사용자에게 구체적이고 실용적인 개선 방법을 한국어로 2~3가지 제안하세요. 각 제안은 한 문장으로, 번호나 bullet 없이 작성하세요."},
+		{Role: "user", Content: rawData},
+	}, 250, false)
+	if aiErr == nil && aiSuggestions != "" {
+		for _, line := range strings.Split(aiSuggestions, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				suggestions = append(suggestions, line)
+			}
+		}
+	} else {
 		suggestions = append(suggestions, "주간 자동 정리를 설정해두면 더욱 쾌적하게 사용할 수 있어요")
 	}
 

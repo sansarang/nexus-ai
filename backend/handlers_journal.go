@@ -214,29 +214,47 @@ func handleJournalToday(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildJournalSummary(date string, apps []ActivityEntry, files []ActivityEntry, hours float64) string {
-	var topApp, topFile string
-	if len(apps) > 0 {
-		topApp = apps[0].Name
-	}
-	if len(files) > 0 {
-		topFile = files[0].Name
-	}
-
 	d, _ := time.Parse("2006-01-02", date)
 	dayName := []string{"일", "월", "화", "수", "목", "금", "토"}[d.Weekday()]
 
-	lines := []string{
-		fmt.Sprintf("📅 %s (%s요일) 업무 요약", date, dayName),
-		fmt.Sprintf("⏱️ 추정 업무 시간: %.1f시간", hours),
+	// 앱/파일 목록 요약
+	appNames := make([]string, 0, len(apps))
+	for i, a := range apps {
+		if i >= 5 {
+			break
+		}
+		appNames = append(appNames, fmt.Sprintf("%s(%.0f분)", a.Name, a.Duration))
 	}
-	if topApp != "" {
-		lines = append(lines, fmt.Sprintf("💻 가장 많이 사용한 앱: %s", topApp))
+	fileNames := make([]string, 0, len(files))
+	for i, f := range files {
+		if i >= 5 {
+			break
+		}
+		fileNames = append(fileNames, f.Name)
 	}
-	if topFile != "" {
-		lines = append(lines, fmt.Sprintf("📄 최근 작업 파일: %s", topFile))
+
+	rawData := fmt.Sprintf(
+		"날짜: %s(%s요일)\n추정 업무 시간: %.1f시간\n사용 앱: %s\n작업 파일: %s\n파일 수: %d개",
+		date, dayName, hours,
+		strings.Join(appNames, ", "),
+		strings.Join(fileNames, ", "),
+		len(files),
+	)
+
+	summary, _, err := callGroqWithFallback([]groqMsg{
+		{Role: "system", Content: "당신은 업무 비서입니다. 아래 오늘의 PC 활동 데이터를 바탕으로 자연스럽고 따뜻한 한국어 업무 일지 요약을 3~4문장으로 작성해주세요. 생산성 평가와 내일을 위한 한 줄 제안을 포함하세요. 마크다운 없이 plain text로."},
+		{Role: "user", Content: rawData},
+	}, 300, false)
+	if err == nil && summary != "" {
+		return summary
 	}
-	lines = append(lines, fmt.Sprintf("📂 열어본 파일 수: %d개", len(files)))
-	return strings.Join(lines, "\n")
+
+	// LLM 실패 시 기본 요약
+	fallback := fmt.Sprintf("📅 %s(%s요일) — %.1f시간 업무", date, dayName, hours)
+	if len(appNames) > 0 {
+		fallback += "\n💻 " + strings.Join(appNames, ", ")
+	}
+	return fallback
 }
 
 // ──────────────────────────────────────────

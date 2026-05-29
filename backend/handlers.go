@@ -664,24 +664,39 @@ func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	score := 100
-	recs := []string{}
-	if firstRun {
-		recs = append(recs, "오늘 처음 실행됐습니다. 10분마다 데이터를 수집합니다.")
-	}
 	if cpu > 80 {
 		score -= 15
-		recs = append(recs, "CPU 사용률이 높습니다. 백그라운드 프로세스를 확인하세요.")
 	}
 	if mem > 80 {
 		score -= 10
-		recs = append(recs, "메모리 사용량이 많습니다. 불필요한 프로그램을 종료하세요.")
 	}
 	if diskFreeGB > 0 && diskFreeGB < 10 {
 		score -= 20
-		recs = append(recs, "디스크 여유 공간이 부족합니다. PC 정리를 실행하세요.")
 	}
-	if !firstRun && score >= 90 {
-		recs = append(recs, fmt.Sprintf("%s PC 상태가 양호합니다. ✅", now.Format("01월 02일")))
+
+	// Groq AI 분석으로 동적 추천 생성
+	recs := []string{}
+	dataDesc := fmt.Sprintf("날짜: %s\nCPU: %.0f%%\n메모리: %.0f%%\n디스크 여유: %.1fGB\nPC 점수: %d\n데이터 포인트: %d개(10분 간격)", today, cpu, mem, diskFreeGB, score, len(entries))
+	if firstRun {
+		dataDesc += "\n참고: 오늘 처음 실행됨, 현재 스냅샷 기준"
+	}
+	aiRecs, _, err := callGroqWithFallback([]groqMsg{
+		{Role: "system", Content: "당신은 PC 관리 AI 비서입니다. 아래 오늘의 PC 상태 데이터를 분석해서 구체적이고 실용적인 한국어 추천사항을 2~3개 생성하세요. 각 항목은 한 줄로, bullet 없이, 자연스러운 문장으로 작성하세요."},
+		{Role: "user", Content: dataDesc},
+	}, 200, false)
+	if err == nil && aiRecs != "" {
+		for _, line := range strings.Split(aiRecs, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				recs = append(recs, line)
+			}
+		}
+	} else {
+		if firstRun {
+			recs = append(recs, "오늘 처음 실행됐어요. 10분마다 데이터를 수집하고 있어요.")
+		} else if score >= 90 {
+			recs = append(recs, fmt.Sprintf("%s PC 상태가 양호합니다. ✅", now.Format("01월 02일")))
+		}
 	}
 
 	cpuTrend := "stable"
