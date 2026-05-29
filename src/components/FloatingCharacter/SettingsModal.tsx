@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import { openCheckout, openBillingPortal } from '../../lib/paddle'
@@ -34,8 +34,43 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
   const [customInstructions,  setCustomInstructions]  = useState(localStorage.getItem('nexus-custom-instructions') ?? '')
   const [saved,               setSaved]               = useState(false)
   const [tab, setTab] = useState<'account' | 'ai' | 'email' | 'about'>('account')
+  const [appVersion,     setAppVersion]     = useState('...')
+  const [updateChecking, setUpdateChecking] = useState(false)
+  const [updateStatus,   setUpdateStatus]   = useState<'idle' | 'latest' | 'available' | 'error'>('idle')
+
+  useEffect(() => {
+    import('@tauri-apps/api/app').then(m => m.getVersion()).then(v => setAppVersion(v)).catch(() => {})
+  }, [])
 
   const isEn = userLang === 'en'
+
+  const checkUpdate = async () => {
+    setUpdateChecking(true)
+    setUpdateStatus('idle')
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater')
+      const update = await check()
+      if (update?.available) {
+        setUpdateStatus('available')
+        const yes = window.confirm(
+          isEn
+            ? `New version ${update.version} available. Update now?`
+            : `새 버전 ${update.version}이 출시되었습니다. 지금 업데이트할까요?`
+        )
+        if (yes) {
+          await update.downloadAndInstall()
+          const { relaunch } = await import('@tauri-apps/plugin-process')
+          await relaunch()
+        }
+      } else {
+        setUpdateStatus('latest')
+      }
+    } catch {
+      setUpdateStatus('error')
+    } finally {
+      setUpdateChecking(false)
+    }
+  }
 
   const subLabel = {
     active:  { text: isEn ? 'Active'          : '구독 중',          color: '#4ade80' },
@@ -599,8 +634,8 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                   <div style={{ fontSize: 16, fontWeight: 800, color: '#e2e8f0', marginTop: 4 }}>
                     {isEn ? 'Nexus AI Assistant' : 'Nexus AI 비서'}
                   </div>
-                  <div style={{ fontSize: 12, color: claudeKey.trim().startsWith('sk-ant-') ? '#f6ad55' : '#718096' }}>
-                    v2.5.0 — {claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6' : 'Perplexity'} {isEn ? 'engine' : '엔진'}
+                  <div style={{ fontSize: 12, color: '#718096' }}>
+                    v{appVersion}
                   </div>
                 </div>
                 {(isEn ? [
@@ -623,6 +658,36 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                     <span style={{ color: '#e2e8f0' }}>{v}</span>
                   </div>
                 ))}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={checkUpdate}
+                  disabled={updateChecking}
+                  style={{
+                    marginTop: 8,
+                    padding: '10px',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: updateStatus === 'latest'
+                      ? 'linear-gradient(135deg,#34d399,#10b981)'
+                      : updateStatus === 'error'
+                        ? 'linear-gradient(135deg,#f87171,#ef4444)'
+                        : `linear-gradient(135deg,${primaryColor},${primaryColor}cc)`,
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: updateChecking ? 'default' : 'pointer',
+                    opacity: updateChecking ? 0.7 : 1,
+                    width: '100%',
+                  }}
+                >
+                  {updateChecking
+                    ? (isEn ? '⏳ Checking...' : '⏳ 확인 중...')
+                    : updateStatus === 'latest'
+                      ? (isEn ? '✓ Up to date' : '✓ 최신 버전입니다')
+                      : updateStatus === 'error'
+                        ? (isEn ? '⚠ Check failed — retry' : '⚠ 확인 실패 — 재시도')
+                        : (isEn ? '🔄 Check for Updates' : '🔄 업데이트 확인')}
+                </motion.button>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: 8 }}>
                   Perplexity API · https://www.perplexity.ai/settings/api
                 </div>

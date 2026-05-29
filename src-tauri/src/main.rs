@@ -525,6 +525,10 @@ async fn main() {
                 let _ = win.set_focus();
                 let _ = win.unminimize();
             }
+            if let Some(win) = app.get_webview_window("character") {
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
