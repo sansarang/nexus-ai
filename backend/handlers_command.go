@@ -748,6 +748,17 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ── AI 요청 사용량 체크 (플랜별 한도 적용) ─────────────────────
+	uid, _ := resolveUserID(req.UserEmail)
+	if allowed, used, lim := checkUsageLimit(uid, "ai_request"); !allowed {
+		dur := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
+		resp := upgradeRequiredResponse("ai_request", used, lim)
+		resp.Duration = dur
+		json200(w, resp)
+		return
+	}
+	incrementUsage(uid, "ai_request")
+
 	llmMu.RLock()
 	gKey := llmPerplexityKey; if gKey == "" { gKey = llmGroqKey }
 	llmMu.RUnlock()
@@ -1150,7 +1161,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 
 	// ── 복합 워크플로: 2단계 이상 작업 ──────────────────────
 	case "workflow_run":
-		if uid := getMachineID(); true {
+		if uid, _ := resolveUserID(""); true {
 			if allowed, used, lim := checkUsageLimit(uid, "workflow_run"); !allowed {
 				r := upgradeRequiredResponse("workflow_run", used, lim)
 				return r, r.Message
@@ -1177,7 +1188,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	// ── 💼 Pro Persona 전용 액션 ────────────────────────────
 
 	case "stock_analysis":
-		if uid := getMachineID(); true {
+		if uid, _ := resolveUserID(""); true {
 			if allowed, used, lim := checkUsageLimit(uid, "stock_analysis"); !allowed {
 				r := upgradeRequiredResponse("stock_analysis", used, lim)
 				return r, r.Message
@@ -1198,7 +1209,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		return stockAnalysisLogic(ticker, query, lang)
 
 	case "medical_search":
-		if uid := getMachineID(); true {
+		if uid, _ := resolveUserID(""); true {
 			if allowed, used, lim := checkUsageLimit(uid, "medical_search"); !allowed {
 				r := upgradeRequiredResponse("medical_search", used, lim)
 				return r, r.Message
@@ -1215,7 +1226,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		return medicalSearchLogic(query, str("type"), lang)
 
 	case "contract_review":
-		if uid := getMachineID(); true {
+		if uid, _ := resolveUserID(""); true {
 			if allowed, used, lim := checkUsageLimit(uid, "contract_review"); !allowed {
 				r := upgradeRequiredResponse("contract_review", used, lim)
 				return r, r.Message
@@ -1228,7 +1239,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		return contractReviewLogic(str("file_path"), str("content"), str("focus"), lang)
 
 	case "legal_search":
-		if uid := getMachineID(); true {
+		if uid, _ := resolveUserID(""); true {
 			if allowed, used, lim := checkUsageLimit(uid, "legal_search"); !allowed {
 				r := upgradeRequiredResponse("legal_search", used, lim)
 				return r, r.Message
@@ -1245,7 +1256,7 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		return legalSearchLogic(query, str("type"), lang)
 
 	case "content_script":
-		if uid := getMachineID(); true {
+		if uid, _ := resolveUserID(""); true {
 			if allowed, used, lim := checkUsageLimit(uid, "content_script"); !allowed {
 				r := upgradeRequiredResponse("content_script", used, lim)
 				return r, r.Message

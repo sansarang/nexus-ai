@@ -135,27 +135,43 @@ func DecideModelTier(action string) ModelTier {
 
 // ── HTTP 핸들러: 사용량 조회 ──────────────────────────────────
 func handleUsageStatus(w http.ResponseWriter, r *http.Request) {
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		userID = r.RemoteAddr // 미로그인 시 IP로 식별
+	jwt := getJWT()
+	plan := getPlanFromJWT(jwt)
+	uid, _ := resolveUserID(r.URL.Query().Get("user_id"))
+
+	limits, ok := planLimits[plan]
+	if !ok {
+		limits = planLimits["free"]
 	}
 
-	freeUsed, premiumUsed, freeLeft, premiumLeft := globalUsage.GetStatus(userID)
+	_, aiUsed, aiLimit := checkUsageLimit(uid, "ai_request")
+	reset := time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour)
+
+	featureStatus := map[string]any{}
+	for feature, lim := range limits {
+		_, used, _ := checkUsageLimit(uid, feature)
+		featureStatus[feature] = map[string]any{
+			"used": used, "limit": lim, "left": max(lim-used, 0),
+		}
+	}
+
 	json200(w, map[string]any{
-		"user_id":       userID,
-		"date":          time.Now().Format("2006-01-02"),
-		"free": map[string]any{
-			"used":  freeUsed,
-			"left":  freeLeft,
-			"limit": dailyFreeLimit,
+		"user_id":  uid,
+		"plan":     plan,
+		"date":     time.Now().Format("2006-01-02"),
+		"reset_at": reset.Format(time.RFC3339),
+		"ai_request": map[string]any{
+			"used": aiUsed, "limit": aiLimit, "left": max(aiLimit-aiUsed, 0),
 		},
-		"premium": map[string]any{
-			"used":  premiumUsed,
-			"left":  premiumLeft,
-			"limit": dailyPremiumLimit,
-		},
-		"reset_at": time.Now().Truncate(24*time.Hour).Add(24*time.Hour).Format(time.RFC3339),
+		"features": featureStatus,
 	})
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // ── 사용량 초과 응답 생성 ────────────────────────────────────
@@ -184,19 +200,40 @@ func usageLimitResponse(tier ModelTier, freeLeft, premiumLeft int) CommandRespon
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  Feature-based daily usage limits (Pro paywall)
+//  Feature-based daily usage limits — per plan
+//  free: 가입 없이 사용 가능한 기본 한도
+//  pro:  월 구독 사용자 (API 비용을 요금제로 충당)
+//  team: 팀 요금제 사용자
 // ══════════════════════════════════════════════════════════════════
 
-// featureLimits defines free-tier daily limits per feature.
-// -1 means unlimited (pro/team users always get -1).
-var featureLimits = map[string]int{
-	"ai_request":      15, // free 티어 하루 15회
-	"stock_analysis":  3,
-	"medical_search":  3,
-	"contract_review": 1,
-	"legal_search":    3,
-	"content_script":  5,
-	"workflow_run":    10,
+var planLimits = map[string]map[string]int{
+	"free": {
+		"ai_request":      15,
+		"stock_analysis":  3,
+		"medical_search":  3,
+		"contract_review": 1,
+		"legal_search":    3,
+		"content_script":  5,
+		"workflow_run":    10,
+	},
+	"pro": {
+		"ai_request":      200,
+		"stock_analysis":  50,
+		"medical_search":  50,
+		"contract_review": 20,
+		"legal_search":    50,
+		"content_script":  100,
+		"workflow_run":    200,
+	},
+	"team": {
+		"ai_request":      1000,
+		"stock_analysis":  200,
+		"medical_search":  200,
+		"contract_review": 100,
+		"legal_search":    200,
+		"content_script":  500,
+		"workflow_run":    1000,
+	},
 }
 
 // featureUsageFile returns path like ~/.nexus/usage_20260521.json
@@ -297,14 +334,15 @@ func resolveUserID(fallback string) (subID string, isAuth bool) {
 // and the current used/limit counts.
 // Supabase가 연결되어 있으면 서버 카운트 우선, 오프라인이면 로컬 폴백.
 func checkUsageLimit(userID, feature string) (allowed bool, used int, limit int) {
-	limit, known := featureLimits[feature]
-	if !known {
-		return true, 0, -1
-	}
-
 	jwt := getJWT()
 	plan := getPlanFromJWT(jwt)
-	if plan == "pro" || plan == "team" {
+
+	limits, planKnown := planLimits[plan]
+	if !planKnown {
+		limits = planLimits["free"]
+	}
+	limit, known := limits[feature]
+	if !known {
 		return true, 0, -1
 	}
 
@@ -373,12 +411,17 @@ func upgradeRequiredResponse(feature string, used, limit int) CommandResponse {
 	if label == "" {
 		label = feature
 	}
-	var msg string
-	if limit == 0 {
-		msg = fmt.Sprintf("오늘 %s 사용량을 모두 소진했습니다. Pro로 업그레이드하면 하루 2,000회 사용할 수 있어요.", label)
-	} else {
-		msg = fmt.Sprintf("%s은(는) 오늘 %d/%d회 사용했습니다. Pro로 업그레이드하면 무제한으로 사용할 수 있어요.", label, used, limit)
-	}
+	proLimit := planLimits["pro"][feature]
+	teamLimit := planLimits["team"][feature]
+	msg := fmt.Sprintf(
+		"오늘 %s을(를) %d/%d회 사용했어요.\n\n"+
+			"• Free  : %d회/일\n"+
+			"• Pro   : %d회/일\n"+
+			"• Team  : %d회/일\n\n"+
+			"업그레이드하면 더 많이 사용할 수 있어요 🚀",
+		label, used, limit,
+		limit, proLimit, teamLimit,
+	)
 	return CommandResponse{
 		Success:         false,
 		Message:         msg,
@@ -403,17 +446,10 @@ func handleUsageAI(w http.ResponseWriter, r *http.Request) {
 
 	plan := getPlanFromJWT(jwt)
 	if r.Method == http.MethodPost {
-		if plan != "pro" && plan != "team" {
-			incrementUsage(userID, "ai_request")
-		}
+		incrementUsage(userID, "ai_request")
 	}
 
 	allowed, used, limit := checkUsageLimit(userID, "ai_request")
-	if plan == "pro" || plan == "team" {
-		allowed = true
-		used = 0
-		limit = -1
-	}
 
 	reset := time.Now().Truncate(24 * time.Hour).Add(24 * time.Hour)
 	json200(w, map[string]any{

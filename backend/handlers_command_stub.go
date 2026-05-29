@@ -566,13 +566,16 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ── 사용량 체크 + 모델 티어 결정 ────────────────────────────
-	tier := DecideModelTier(intent.Action)
-	allowed, freeLeft, premiumLeft := globalUsage.CheckAndIncrement(userID, string(tier))
-	if !allowed {
-		json200(w, usageLimitResponse(tier, freeLeft, premiumLeft))
+	// ── AI 요청 사용량 체크 (플랜별 한도 적용) ──────────────────
+	uid, _ := resolveUserID(userID)
+	if allowed, used, lim := checkUsageLimit(uid, "ai_request"); !allowed {
+		dur := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
+		resp := upgradeRequiredResponse("ai_request", used, lim)
+		resp.Duration = dur
+		json200(w, resp)
 		return
 	}
+	incrementUsage(uid, "ai_request")
 
 	dur := fmt.Sprintf("%.2fs", time.Since(start).Seconds())
 
