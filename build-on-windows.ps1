@@ -82,10 +82,21 @@ go build -ldflags="-s -w" -o "..\src-tauri\binaries\backend-$rustTarget.exe" .
 if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "Go build failed" }
 Pop-Location
 
-# Also copy to backend-bin/ (Tauri resource path in tauri.conf.json)
+# Also copy to backend-bin/ (Tauri resource path in tauri.windows.conf.json)
 New-Item -ItemType Directory -Force -Path "$Root\src-tauri\backend-bin" | Out-Null
 Copy-Item "$Root\src-tauri\binaries\backend-$rustTarget.exe" "$Root\src-tauri\backend-bin\nexus-backend.exe" -Force
 Ok "Go backend done → binaries/ and backend-bin/"
+
+# nexus-python.exe: use pre-built if available, otherwise stub with Go binary
+$pythonExe = "$Root\src-tauri\backend-bin\nexus-python.exe"
+$pythonSrc = "$Root\python-sidecar\dist\nexus-python.exe"
+if (Test-Path $pythonSrc) {
+    Copy-Item $pythonSrc $pythonExe -Force
+    Ok "nexus-python.exe (real)"
+} else {
+    Copy-Item "$Root\src-tauri\backend-bin\nexus-backend.exe" $pythonExe -Force
+    Write-Host "[WARN] nexus-python.exe not built — using stub (Python features will be unavailable)" -ForegroundColor Yellow
+}
 
 # npm install
 Write-Host "`n[3/4] npm install..." -ForegroundColor Cyan
