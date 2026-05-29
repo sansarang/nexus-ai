@@ -16,11 +16,21 @@ import (
 )
 
 // handlers.go stubs
-func handleScan(w http.ResponseWriter, r *http.Request)            {}
-func handleRepair(w http.ResponseWriter, r *http.Request)          {}
-func handleClean(w http.ResponseWriter, r *http.Request)           {}
-func handleLicenseActivate(w http.ResponseWriter, r *http.Request) {}
-func handleLicenseCheck(w http.ResponseWriter, r *http.Request)    {}
+func handleScan(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"score": 100, "issues": []any{}, "message": "PC 스캔 완료 (개발 환경)"})
+}
+func handleRepair(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "freed": 0, "message": "수리 완료 (개발 환경)"})
+}
+func handleClean(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"freed": 0, "message": "정리 완료 (개발 환경)"})
+}
+func handleLicenseActivate(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"valid": true, "message": "오프라인 인증 완료 (개발 환경)"})
+}
+func handleLicenseCheck(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"valid": true, "key": "DEV-MODE"})
+}
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
 	stats := map[string]any{}
@@ -82,25 +92,104 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 	stats["success"] = true
 	json200(w, stats)
 }
-func handleAutoClean(w http.ResponseWriter, r *http.Request)       {}
-func handlePrivacy(w http.ResponseWriter, r *http.Request)         {}
-func handleDailyReport(w http.ResponseWriter, r *http.Request)     {}
-func handleFolderOpen(w http.ResponseWriter, r *http.Request)      {}
+func handleAutoClean(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "freed": 0, "message": "자동 정리 완료 (개발 환경)"})
+}
+func handlePrivacy(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "개인정보 보호 설정은 Windows에서만 사용 가능합니다."})
+}
+func handleDailyReport(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"date": time.Now().Format("2006-01-02"), "pc_score": 85, "cpu_avg": 30.0, "mem_avg": 55.0, "disk_free_gb": 50.0, "recommendations": []string{"개발 환경입니다."}, "predictions": []any{}})
+}
+func handleFolderOpen(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Path string `json:"path"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Path == "" {
+		req.Path = os.Getenv("HOME")
+	}
+	exec.Command("open", req.Path).Start()
+	json200(w, map[string]any{"success": true, "path": req.Path, "message": "폴더를 열었어요"})
+}
 
 // handlers_security.go stubs
-func handleRemoteAccess(w http.ResponseWriter, r *http.Request)    {}
-func handleProcessSecurity(w http.ResponseWriter, r *http.Request) {}
-func handleHostsCheck(w http.ResponseWriter, r *http.Request)      {}
-func handleStartupItems(w http.ResponseWriter, r *http.Request)    {}
-func handleDefender(w http.ResponseWriter, r *http.Request)        {}
-func handleAccountCheck(w http.ResponseWriter, r *http.Request)    {}
+func handleRemoteAccess(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"found": false, "tools": []any{}, "rdp_open": false, "score": 100, "message": "원격 접속 도구 없음 (개발 환경)"})
+}
+func handleProcessSecurity(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"suspicious_processes": []any{}, "open_ports": []any{}, "score": 100, "message": "수상한 프로세스 없음 (개발 환경)"})
+}
+func handleHostsCheck(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"score": 100, "modified": false, "entries": 0, "suspicious": []any{}, "message": "hosts 파일 정상 (개발 환경)"})
+}
+func handleStartupItems(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"items": []any{}, "total": 0, "suspicious_count": 0, "message": "시작 항목 없음 (개발 환경)"})
+}
+func handleDefender(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "Windows Defender는 Windows에서만 사용 가능합니다.", "antivirus_enabled": false, "realtime_protection": false, "score": 0, "issues": []string{"Windows 전용 기능"}})
+}
+func handleAccountCheck(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"total": 1, "suspicious": []any{}, "suspicious_count": 0, "score": 100, "message": "계정 정상 (개발 환경)"})
+}
 
 // handlers_system.go stubs
-func handleVolume(w http.ResponseWriter, r *http.Request)          {}
-func handleBrightness(w http.ResponseWriter, r *http.Request)      {}
-func handleWifi(w http.ResponseWriter, r *http.Request)            {}
-func handlePower(w http.ResponseWriter, r *http.Request)           {}
-func handleLaunchApp(w http.ResponseWriter, r *http.Request)       {}
+func handleVolume(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Action string `json:"action"`
+		Value  int    `json:"value"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.Action == "get" {
+		out, _ := exec.Command("osascript", "-e", "output volume of (get volume settings)").Output()
+		vol := strings.TrimSpace(string(out))
+		json200(w, map[string]any{"success": true, "volume": vol, "message": "현재 볼륨: " + vol + "%"})
+		return
+	}
+	val := fmt.Sprintf("%d", req.Value)
+	if req.Action == "mute" {
+		exec.Command("osascript", "-e", "set volume output muted true").Run()
+		json200(w, map[string]any{"success": true, "message": "음소거됐어요 🔇"})
+		return
+	}
+	exec.Command("osascript", "-e", "set volume output volume "+val).Run()
+	json200(w, map[string]any{"success": true, "volume": req.Value, "message": fmt.Sprintf("볼륨을 %d%%로 설정했어요 🔊", req.Value)})
+}
+func handleBrightness(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "밝기 조절은 Windows 노트북에서만 지원됩니다."})
+}
+func handleWifi(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Action string `json:"action"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	out, _ := exec.Command("networksetup", "-getairportnetwork", "en0").Output()
+	status := strings.TrimSpace(string(out))
+	json200(w, map[string]any{"success": true, "status": status, "message": "Wi-Fi 상태: " + status})
+}
+func handlePower(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Action string `json:"action"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	switch req.Action {
+	case "sleep":
+		exec.Command("pmset", "sleepnow").Start()
+		json200(w, map[string]any{"success": true, "message": "절전 모드로 전환합니다 😴"})
+	case "shutdown":
+		json200(w, map[string]any{"success": false, "message": "종료는 안전을 위해 직접 실행해주세요."})
+	default:
+		json200(w, map[string]any{"success": false, "message": "지원하지 않는 전원 명령입니다."})
+	}
+}
+func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
+	var req struct{ App string `json:"app"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	if req.App == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "앱 이름을 입력해주세요"})
+		return
+	}
+	err := exec.Command("open", "-a", req.App).Run()
+	if err != nil {
+		json200(w, map[string]any{"success": false, "message": req.App + " 앱을 찾을 수 없어요"})
+		return
+	}
+	json200(w, map[string]any{"success": true, "message": req.App + " 앱을 실행했어요 🚀"})
+}
 func handleProcessTop(w http.ResponseWriter, r *http.Request) {
 	out, err := exec.Command("sh", "-c", "ps aux --sort=-%cpu 2>/dev/null || ps aux | sort -rk3 | head -10").Output()
 	if err != nil {
@@ -134,17 +223,47 @@ func handleProcessTop(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlers_advanced.go stubs
-func handleDrivers(w http.ResponseWriter, r *http.Request)         {}
-func handleRegistryClean(w http.ResponseWriter, r *http.Request)   {}
-func handlePowerPlans(w http.ResponseWriter, r *http.Request)      {}
-func handleSetPowerPlan(w http.ResponseWriter, r *http.Request)    {}
-func handleNetworkAnalysis(w http.ResponseWriter, r *http.Request) {}
-func handleRestoreCreate(w http.ResponseWriter, r *http.Request)   {}
-func handleDiskCheck(w http.ResponseWriter, r *http.Request)       {}
-func handleBrowserClean(w http.ResponseWriter, r *http.Request)    {}
-func handleProgramsList(w http.ResponseWriter, r *http.Request)    {}
-func handleBootAnalysis(w http.ResponseWriter, r *http.Request)    {}
-func handleFocusMode(w http.ResponseWriter, r *http.Request)       {}
+func handleDrivers(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "드라이버 관리는 Windows에서만 사용 가능합니다.", "drivers": []any{}})
+}
+func handleRegistryClean(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "레지스트리 정리는 Windows에서만 사용 가능합니다.", "freed": 0})
+}
+func handlePowerPlans(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "전원 계획은 Windows에서만 사용 가능합니다.", "plans": []any{}, "active": ""})
+}
+func handleSetPowerPlan(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "전원 계획 설정은 Windows에서만 사용 가능합니다."})
+}
+func handleNetworkAnalysis(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "connected": true, "latency_ms": 0, "download_mbps": 0, "upload_mbps": 0, "message": "네트워크 분석 (개발 환경)"})
+}
+func handleRestoreCreate(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "복원 지점 생성은 Windows에서만 사용 가능합니다."})
+}
+func handleDiskCheck(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "errors": 0, "message": "디스크 검사 완료 (개발 환경)", "health": "good"})
+}
+func handleBrowserClean(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "freed": 0, "message": "브라우저 정리 완료 (개발 환경)"})
+}
+func handleProgramsList(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "programs": []any{}, "total": 0, "message": "프로그램 목록 (개발 환경)"})
+}
+func handleBootAnalysis(w http.ResponseWriter, r *http.Request) {
+	out, _ := exec.Command("sh", "-c", "uptime | awk '{print $3, $4}'").Output()
+	uptime := strings.TrimSpace(string(out))
+	json200(w, map[string]any{"success": true, "boot_time_sec": 0, "uptime": uptime, "slow_items": []any{}, "message": "부팅 분석 (개발 환경)"})
+}
+func handleFocusMode(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Action   string   `json:"action"`
+		Duration int      `json:"duration"`
+		Block    []string `json:"block"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+	json200(w, map[string]any{"success": true, "action": req.Action, "duration": req.Duration, "message": "집중 모드 (개발 환경)"})
+}
 func handleNotes(w http.ResponseWriter, r *http.Request) {
 	notes := loadNotesMac()
 	json200(w, map[string]any{"notes": notes, "success": true})
@@ -199,13 +318,28 @@ func notesPathMac() string {
 }
 
 // handlers_docs.go stubs
-func handleDocCompare(w http.ResponseWriter, r *http.Request)      {}
-func handleDocFind(w http.ResponseWriter, r *http.Request)         {}
+func handleDocCompare(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "문서 비교는 파일 첨부가 필요합니다. (개발 환경)", "differences": []any{}})
+}
+func handleDocFind(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "files": []any{}, "total": 0, "message": "파일 검색 완료 (개발 환경)"})
+}
 
 // handlers_vision.go stubs
-func handleDeepSearch(w http.ResponseWriter, r *http.Request)      {}
-func handleScreenshot(w http.ResponseWriter, r *http.Request)      {}
-func handleActiveWindow(w http.ResponseWriter, r *http.Request)    {}
+func handleDeepSearch(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "results": []any{}, "total": 0, "message": "검색 완료 (개발 환경)"})
+}
+func handleScreenshot(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "스크린샷 캡처는 Windows에서만 사용 가능합니다.", "path": ""})
+}
+func handleActiveWindow(w http.ResponseWriter, r *http.Request) {
+	out, _ := exec.Command("osascript", "-e", "tell application \"System Events\" to get name of first application process whose frontmost is true").Output()
+	title := strings.TrimSpace(string(out))
+	if title == "" {
+		title = "Unknown"
+	}
+	json200(w, map[string]any{"success": true, "title": title, "process": title})
+}
 func handleOCRClipboard(w http.ResponseWriter, r *http.Request) {
 	json200(w, map[string]any{
 		"success": false,
@@ -215,26 +349,88 @@ func handleOCRClipboard(w http.ResponseWriter, r *http.Request) {
 }
 
 // handlers_journal.go stubs
-func handleJournalToday(w http.ResponseWriter, r *http.Request)    {}
-func handleJournalGenerate(w http.ResponseWriter, r *http.Request) {}
-func handleJournalHistory(w http.ResponseWriter, r *http.Request)  {}
+func handleJournalToday(w http.ResponseWriter, r *http.Request) {
+	today := time.Now().Format("2006-01-02")
+	json200(w, map[string]any{
+		"success":    true,
+		"date":       today,
+		"work_hours": 0.0,
+		"file_count": 0,
+		"app_count":  0,
+		"top_app":    "",
+		"summary":    "",
+		"message":    "오늘 일지 (개발 환경)",
+	})
+}
+func handleJournalGenerate(w http.ResponseWriter, r *http.Request) {
+	today := time.Now().Format("2006-01-02")
+	json200(w, map[string]any{
+		"success": true,
+		"date":    today,
+		"summary": "개발 환경에서 생성된 일지입니다.",
+		"message": "일지가 생성됐어요 ✅",
+	})
+}
+func handleJournalHistory(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "history": []any{}, "total": 0, "message": "일지 기록 (개발 환경)"})
+}
 
 // handlers_macro.go stubs
-func handleMacroList(w http.ResponseWriter, r *http.Request)       {}
-func handleMacroCreate(w http.ResponseWriter, r *http.Request)     {}
-func handleMacroRun(w http.ResponseWriter, r *http.Request)        {}
-func handleMacroDelete(w http.ResponseWriter, r *http.Request)     {}
-func handleMacroParse(w http.ResponseWriter, r *http.Request)      {}
+func handleMacroList(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "macros": []any{}, "total": 0})
+}
+func handleMacroCreate(w http.ResponseWriter, r *http.Request) {
+	var req map[string]any
+	json.NewDecoder(r.Body).Decode(&req)
+	name, _ := req["name"].(string)
+	if name == "" {
+		name = "새 매크로"
+	}
+	json200(w, map[string]any{"success": true, "message": name + " 매크로가 생성됐어요 ✅", "id": fmt.Sprintf("%d", time.Now().UnixMilli())})
+}
+func handleMacroRun(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "매크로 실행은 Windows에서만 사용 가능합니다."})
+}
+func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "message": "매크로가 삭제됐어요"})
+}
+func handleMacroParse(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Text string `json:"text"` }
+	json.NewDecoder(r.Body).Decode(&req)
+	json200(w, map[string]any{"success": true, "steps": []any{}, "name": req.Text, "message": "매크로 파싱 완료 (개발 환경)"})
+}
 
 // handlers_report.go stubs
-func handleReportGenerate(w http.ResponseWriter, r *http.Request)  {}
-func handleReportEmail(w http.ResponseWriter, r *http.Request)     {}
-func handleReportSchedule(w http.ResponseWriter, r *http.Request)  {}
-func handleEmailConfig(w http.ResponseWriter, r *http.Request)     {}
+func handleReportGenerate(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	json200(w, map[string]any{
+		"success":    true,
+		"date":       now.Format("2006-01-02"),
+		"pc_score":   85,
+		"cpu_avg":    30.0,
+		"mem_avg":    55.0,
+		"disk_free":  "50 GB",
+		"summary":    "PC 상태가 양호합니다. (개발 환경)",
+		"message":    "보고서가 생성됐어요 📊",
+	})
+}
+func handleReportEmail(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "이메일 전송은 이메일 설정이 필요합니다."})
+}
+func handleReportSchedule(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "message": "보고서 예약이 설정됐어요 📅"})
+}
+func handleEmailConfig(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "smtp_host": "", "smtp_port": 587, "email": "", "configured": false, "message": "이메일 설정을 입력해주세요"})
+}
 
 // handlers_docsummary.go stubs
-func handleDocSummary(w http.ResponseWriter, r *http.Request)      {}
-func handleDocExportReport(w http.ResponseWriter, r *http.Request) {}
+func handleDocSummary(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": true, "summary": "", "key_points": []any{}, "message": "문서 요약 (개발 환경 — 파일 첨부 필요)"})
+}
+func handleDocExportReport(w http.ResponseWriter, r *http.Request) {
+	json200(w, map[string]any{"success": false, "message": "문서 내보내기는 Windows에서만 사용 가능합니다.", "path": ""})
+}
 
 // handlers_proactive.go stubs (SSE alert stream) — Mac 실제 구현
 

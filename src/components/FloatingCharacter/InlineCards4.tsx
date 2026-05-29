@@ -206,6 +206,47 @@ export function JournalTodayCard({ data }: { data: DayJournalData }) {
   )
 }
 
+/* ──────────────────────────────────────────
+   2. 업무 일지 기록 카드
+────────────────────────────────────────── */
+export function JournalHistoryCard({ data }: {
+  data: { history: Array<{ date: string; work_hours: number; file_count: number; app_count: number; top_app: string }> }
+}) {
+  const list = data?.history ?? []
+  return (
+    <div style={card}>
+      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: '#fbd38d' }}>
+        📚 업무 일지 기록 ({list.length}일)
+      </div>
+      {list.length > 0 ? (
+        <div style={{ maxHeight: 210, overflowY: 'auto' }}>
+          {list.slice(0, 14).map((entry, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <span style={{ fontSize: 12, minWidth: 78, color: '#a0aec0' }}>{entry.date}</span>
+              <div style={{ flex: 1 }}>
+                <Gauge value={entry.work_hours ?? 0} max={10} color="#fbd38d" />
+              </div>
+              <span style={{ fontSize: 12, color: '#fbd38d', minWidth: 32, textAlign: 'right' }}>
+                {(entry.work_hours ?? 0).toFixed(1)}h
+              </span>
+              <span style={{ fontSize: 11, color: '#718096' }}>
+                📂{entry.file_count ?? 0} 💻{entry.app_count ?? 0}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: '#718096', textAlign: 'center', padding: '14px 0' }}>
+          아직 저장된 일지가 없어요.<br />오늘 일지를 먼저 생성해보세요!
+        </div>
+      )}
+    </div>
+  )
+}
+
 function fileIcon(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() || ''
   if (['pdf'].includes(ext)) return '📕'
@@ -482,6 +523,7 @@ export function InlineCardRenderer4({
 }) {
   switch (card.type) {
     case 'journal_today':   return <JournalTodayCard data={card.data} />
+    case 'journal_history': return <JournalHistoryCard data={card.data} />
     case 'macro_list':      return <MacroListCard data={card.data} onRun={onMacroRun} />
     case 'macro_created':   return <MacroCreatedCard data={card.data} />
     case 'macro_run':       return <MacroRunCard data={card.data} />

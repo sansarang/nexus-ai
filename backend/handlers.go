@@ -627,21 +627,55 @@ func handlePrivacy(w http.ResponseWriter, r *http.Request) {
 
 func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
-	cpu := rand.Float64()*30 + 15
-	mem := rand.Float64()*25 + 45
-	disk := rand.Float64()*50 + 30
 
+	// 실제 시스템 통계 수집 (PowerShell WMI)
+	stats, _ := getWindowsStats()
+	cpu := 30.0
+	if v, ok := stats["cpu"].(float64); ok {
+		cpu = v
+	}
+	mem := 55.0
+	if v, ok := stats["mem"].(float64); ok {
+		mem = v
+	}
+
+	// 실제 디스크 여유 공간
+	free, total := getDiskSpace()
+	diskFreeGB := 50.0
+	if total > 0 {
+		diskFreeGB = float64(free) / (1 << 30)
+	}
+
+	score := 100
 	recs := []string{}
-	if cpu > 35 {
+	if cpu > 80 {
+		score -= 15
 		recs = append(recs, "CPU 사용률이 높습니다. 백그라운드 프로세스를 확인하세요.")
 	}
-	if mem > 60 {
+	if mem > 80 {
+		score -= 10
 		recs = append(recs, "메모리 사용량이 많습니다. 불필요한 프로그램을 종료하세요.")
 	}
-	if disk < 50 {
+	if diskFreeGB < 10 {
+		score -= 20
 		recs = append(recs, "디스크 여유 공간이 부족합니다. PC 정리를 실행하세요.")
 	}
-	recs = append(recs, fmt.Sprintf("%s 정기 PC 점검을 완료했습니다.", now.Format("01월 02일")))
+	if score >= 90 {
+		recs = append(recs, fmt.Sprintf("%s PC 상태가 양호합니다. ✅", now.Format("01월 02일")))
+	}
+
+	cpuTrend := "stable"
+	if cpu > 70 {
+		cpuTrend = "up"
+	}
+	memTrend := "stable"
+	if mem > 70 {
+		memTrend = "up"
+	}
+	diskTrend := "stable"
+	if diskFreeGB < 20 {
+		diskTrend = "down"
+	}
 
 	type prediction struct {
 		Label string  `json:"label"`
@@ -650,16 +684,16 @@ func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json200(w, map[string]any{
-		"date":     now.Format("2006-01-02"),
-		"pc_score": rand.Intn(30) + 65,
-		"cpu_avg":  cpu,
-		"mem_avg":  mem,
-		"disk_free_gb": disk,
+		"date":            now.Format("2006-01-02"),
+		"pc_score":        score,
+		"cpu_avg":         cpu,
+		"mem_avg":         mem,
+		"disk_free_gb":    diskFreeGB,
 		"recommendations": recs,
 		"predictions": []prediction{
-			{Label: "CPU 사용률", Value: cpu + rand.Float64()*10, Trend: "up"},
-			{Label: "메모리 사용률", Value: mem + rand.Float64()*5, Trend: "stable"},
-			{Label: "디스크 여유", Value: disk - rand.Float64()*5, Trend: "down"},
+			{Label: "CPU 사용률", Value: cpu, Trend: cpuTrend},
+			{Label: "메모리 사용률", Value: mem, Trend: memTrend},
+			{Label: "디스크 여유 (GB)", Value: diskFreeGB, Trend: diskTrend},
 		},
 	})
 }
