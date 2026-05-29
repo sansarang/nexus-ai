@@ -66,6 +66,21 @@ export function DailyView() {
           </div>
         ) : (
           <>
+            {/* 첫 실행 안내 */}
+            {dailyReport.firstRun && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  padding: '10px 16px', borderRadius: 'var(--radius-md)',
+                  background: 'rgba(251,211,141,0.08)', border: '1px solid rgba(251,211,141,0.25)',
+                  marginBottom: 12, fontSize: 12, color: '#fbd38d', display: 'flex', gap: 8, alignItems: 'center',
+                }}
+              >
+                ⏳ 오늘 처음 실행됐어요. 10분마다 데이터를 수집하고 있어요. 하루가 쌓이면 정확한 리포트를 보여드릴게요.
+              </motion.div>
+            )}
+
             {/* PC Score + Metrics */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -79,6 +94,7 @@ export function DailyView() {
                 alignItems: 'center',
                 gap: 24,
                 marginBottom: 16,
+                opacity: dailyReport.firstRun ? 0.6 : 1,
               }}
             >
               <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>

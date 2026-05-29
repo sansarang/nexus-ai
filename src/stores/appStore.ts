@@ -66,6 +66,8 @@ export interface DailyReport {
   diskFree: number
   recommendations: string[]
   predictions: { label: string; value: number; trend: 'up' | 'down' | 'stable' }[]
+  firstRun?: boolean
+  dataPoints?: number
 }
 
 interface AppState {
@@ -482,6 +484,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         date: string; pc_score: number; cpu_avg: number; mem_avg: number
         disk_free_gb: number; recommendations: string[]
         predictions: { label: string; value: number; trend: 'up' | 'down' | 'stable' }[]
+        first_run?: boolean; data_points?: number
       }
       get().setDailyReport({
         date: data.date,
@@ -491,6 +494,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         diskFree: data.disk_free_gb,
         recommendations: data.recommendations,
         predictions: data.predictions,
+        firstRun: data.first_run,
+        dataPoints: data.data_points,
       })
     } catch {
       get().setDailyReport(mockDailyReport())

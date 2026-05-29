@@ -319,8 +319,19 @@ export function DailyReportCard({ data, accentColor }: { data: DailyReport; acce
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{data.date}</span>
       </div>
 
+      {/* 첫 실행 안내 */}
+      {data.first_run && (
+        <div style={{
+          padding: '7px 10px', borderRadius: 8,
+          background: 'rgba(251,211,141,0.07)', border: '1px solid rgba(251,211,141,0.2)',
+          fontSize: 11, color: '#fbd38d',
+        }}>
+          ⏳ 오늘 첫 실행이에요. 10분마다 수집 중 — 하루가 쌓이면 정확한 평균을 보여드릴게요.
+        </div>
+      )}
+
       {/* 점수 + 주요 수치 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, opacity: data.first_run ? 0.6 : 1 }}>
         {[
           { label: 'PC 점수', value: `${data.pc_score}점`, color: scoreColor },
           { label: 'CPU 평균', value: `${data.cpu_avg.toFixed(0)}%`, color: statusColor(data.cpu_avg) },

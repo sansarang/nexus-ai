@@ -113,6 +113,8 @@ export interface DailyReport {
   disk_free_gb: number
   recommendations: string[]
   predictions: Array<{ label: string; value: number; trend: 'up' | 'down' | 'stable' }>
+  first_run?: boolean
+  data_points?: number
 }
 
 export interface CleanResult {
