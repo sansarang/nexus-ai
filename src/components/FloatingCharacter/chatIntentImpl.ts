@@ -1231,18 +1231,47 @@ export async function handleBackendIntentImpl(
         }
 
         case 'persona_switch': {
+          // 한국어/영어 자연어 → 페르소나 ID 매핑 (19종 지원)
+          // 우선순위: 더 구체적인 키워드 먼저 매칭
           const lower = originalText.toLowerCase()
           let id = 'nexus'
+          // 기본 7종
           if (/리서치|연구|research/.test(lower)) id = 'research'
-          else if (/재무|회계|finance|financial|accountant/.test(lower)) id = 'accountant'
+          else if (/재무|회계|finance|financial/.test(lower)) id = 'finance'
           else if (/회의|meeting/.test(lower)) id = 'meeting'
           else if (/크리에이티브|creative|창의/.test(lower)) id = 'creative'
           else if (/보안|security/.test(lower)) id = 'security'
-          else if (/법무|법률|legal|계약/.test(lower)) id = 'legal'
+          else if (/법무|법률|legal|계약(?!서.*검토)/.test(lower)) id = 'legal'
+          // 직업군 12종 (Phase 5)
+          else if (/개발자|코딩|프로그래머|developer|programmer/.test(lower)) id = 'developer'
+          else if (/마케터|마케팅|marketer|marketing/.test(lower)) id = 'marketer'
+          else if (/세일즈|영업|sales/.test(lower)) id = 'sales'
+          else if (/pm|기획자|프로덕트.*매니저|product.*manager/.test(lower)) id = 'pm'
+          else if (/디자이너|디자인|ux|ui|designer/.test(lower)) id = 'designer'
+          else if (/프리랜서|freelancer/.test(lower)) id = 'freelancer'
+          else if (/소상공인|자영업|매장|상점|smallbiz/.test(lower)) id = 'smallbiz'
+          else if (/법인|회사|기업|corporate|corp\b/.test(lower)) id = 'corporate'
+          else if (/의료|의사|임상|약사|medical|doctor|nurse/.test(lower)) id = 'medical'
+          else if (/크리에이터|유튜버|콘텐츠.*제작|creator|youtuber/.test(lower)) id = 'creator'
+          else if (/투자자|투자|주식|트레이더|investor|trader/.test(lower)) id = 'investor'
+          else if (/튜터|선생님|교사|학습|tutor|teacher/.test(lower)) id = 'tutor'
+
           const res = await personaSet(id)
           if (res.ok && res.persona) setActivePersona(res.persona)
+          // 페르소나 전환 시 추천 도구 5개를 detail에 노출 (사용자가 다음에 뭘 할지 명확)
+          let toolsHint = ''
+          if (res.ok) {
+            try {
+              const { getEnrichedPersonaTools } = await import('../../lib/nexus/personaTools')
+              const tools = getEnrichedPersonaTools(id).slice(0, 5)
+              if (tools.length) {
+                toolsHint = '\n\n' + t('💡 이 모드에서 자주 쓰는 명령:', '💡 Quick commands for this mode:', userLang) + '\n' +
+                  tools.map(tool => `${tool.emoji} ${tool.label}`).join('\n')
+              }
+            } catch { /* registry import 실패 — 무시 */ }
+          }
           return {
-            text: res.message,
+            text: res.message + toolsHint,
             card2: { type: 'system_action', icon: res.persona?.emoji ?? '🤖', title: res.persona?.name ?? id, detail: res.persona?.description ?? '', success: res.ok },
             emotion: res.ok ? 'happy' as const : 'concerned' as const,
           }

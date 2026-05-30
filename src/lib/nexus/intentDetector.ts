@@ -857,10 +857,26 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     intent: 'persona_switch',
     patterns: [
       /페르소나.*바꿔|모드.*전환|전문가.*모드|persona.*switch/i,
+      // 기본 7종
       /리서치.*모드|연구.*모드|재무.*모드|회의.*모드|크리에이티브.*모드|보안.*모드/i,
       /research.*nexus|finance.*nexus|meeting.*nexus|creative.*nexus|security.*nexus|legal.*nexus/i,
       /연구.*전문|재무.*전문|회의.*전문|창의.*전문|보안.*전문|법무.*전문/i,
       /법무.*모드|법률.*모드|계약.*모드/i,
+      // 직업군 12종 (Phase 5)
+      /개발자.*모드|개발자.*전문|코딩.*모드|developer.*mode|programmer.*mode/i,
+      /마케터.*모드|마케팅.*모드|마케팅.*전문|marketer.*mode/i,
+      /세일즈.*모드|영업.*모드|영업.*전문|sales.*mode/i,
+      /pm.*모드|기획자.*모드|프로덕트.*모드|product.*manager.*mode/i,
+      /디자이너.*모드|디자인.*모드|ux.*모드|designer.*mode/i,
+      /프리랜서.*모드|freelancer.*mode/i,
+      /소상공인.*모드|자영업.*모드|매장.*모드|smallbiz.*mode/i,
+      /법인.*모드|회사.*모드|기업.*모드|corporate.*mode/i,
+      /의료.*모드|의사.*모드|임상.*모드|medical.*mode|doctor.*mode/i,
+      /크리에이터.*모드|유튜버.*모드|콘텐츠.*모드|creator.*mode/i,
+      /투자자.*모드|투자.*모드|주식.*모드|investor.*mode|trader.*mode/i,
+      /튜터.*모드|선생님.*모드|교사.*모드|학습.*모드|tutor.*mode|teacher.*mode/i,
+      // 일반적인 "X로 행동해" / "X처럼 답해"
+      /(?:개발자|마케터|세일즈|영업|기획자|pm|디자이너|프리랜서|소상공인|법인|의사|크리에이터|투자자|튜터|선생님)(?:으?로|처럼).*(?:행동|답|대화|모드)/i,
     ],
   },
   // ── 🧠 Second Brain ──────────────────────────────────────────
