@@ -278,6 +278,46 @@ export const backendAPI = {
       TIMEOUT_DEEP
     ),
 
+  // ── Office COM (Excel/Word 라이브 조작 - Phase 7) ─────────
+  excelComWorkbooks: () =>
+    request<{ success: boolean; workbooks: Array<{ name: string; path: string; sheet: string; sheets: string[] }> | null; message?: string }>(
+      'GET', '/api/excel/com/workbooks'
+    ),
+  excelComSetCell: (cell: string, value: string | number, opts?: { workbook?: string; sheet?: string }) =>
+    request<{ success: boolean; message: string }>(
+      'POST', '/api/excel/com/set-cell', { cell, value, workbook: opts?.workbook ?? '', sheet: opts?.sheet ?? '' }
+    ),
+  excelComFormula: (cell: string, formula: string, opts?: { workbook?: string; sheet?: string }) =>
+    request<{ success: boolean; result?: string; message: string }>(
+      'POST', '/api/excel/com/formula', { cell, formula, workbook: opts?.workbook ?? '', sheet: opts?.sheet ?? '' }
+    ),
+  excelComReadRange: (range: string, opts?: { workbook?: string; sheet?: string }) =>
+    request<{ success: boolean; data: unknown[][]; range: string }>(
+      'POST', '/api/excel/com/read-range', { range, workbook: opts?.workbook ?? '', sheet: opts?.sheet ?? '' }
+    ),
+  excelComMacro: (macroName: string, args?: string[], workbook?: string) =>
+    request<{ success: boolean; result?: string; message: string }>(
+      'POST', '/api/excel/com/macro', { macro_name: macroName, args: args ?? [], workbook: workbook ?? '' }
+    ),
+  excelComChart: (range: string, chartType: 'bar'|'column'|'line'|'pie'|'area'|'scatter' = 'column', title?: string, opts?: { workbook?: string; sheet?: string }) =>
+    request<{ success: boolean; message: string }>(
+      'POST', '/api/excel/com/chart', { range, chart_type: chartType, title: title ?? '', workbook: opts?.workbook ?? '', sheet: opts?.sheet ?? '' }
+    ),
+  excelComSave: (workbook?: string) =>
+    request<{ success: boolean; message: string }>('POST', '/api/excel/com/save', { workbook: workbook ?? '' }),
+  wordComDocs: () =>
+    request<{ success: boolean; documents: Array<{ name: string; path: string; page_count: number; word_count: number }> | null; message?: string }>(
+      'GET', '/api/word/com/documents'
+    ),
+  wordComReplace: (find: string, replace: string, opts?: { document?: string; all?: boolean }) =>
+    request<{ success: boolean; count?: string; message: string }>(
+      'POST', '/api/word/com/replace', { find, replace, document: opts?.document ?? '', all: opts?.all ?? true }
+    ),
+  wordComInsert: (text: string, where: 'start'|'end'|'cursor' = 'cursor', document?: string) =>
+    request<{ success: boolean; message: string }>(
+      'POST', '/api/word/com/insert', { text, where, document: document ?? '' }
+    ),
+
   // ── Desktop Agent: 마우스·키보드·창 제어 (Windows) ────────
   desktopClick:    (x: number, y: number, button: 'left'|'right'|'double' = 'left') =>
     request<{ success: boolean; message: string }>('POST', '/api/agent/desktop/click', { x, y, button }),

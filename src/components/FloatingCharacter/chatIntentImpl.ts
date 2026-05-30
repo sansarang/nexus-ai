@@ -1738,6 +1738,125 @@ export async function handleBackendIntentImpl(
           }
         }
 
+        /* ── 📊 Excel COM (Phase 7) ── */
+        case 'excel_set_cell': {
+          const cellM = originalText.match(/([A-Za-z]+\d+)/)
+          const valM = originalText.match(/=\s*(.+?)(?:\s+입력|\s+넣어|\s+적어|$)/) ?? originalText.match(/['""](.+?)['""]/) ?? originalText.match(/(\d+(?:\.\d+)?)/)
+          if (!cellM || !valM) {
+            return { text: t('셀과 값을 알려주세요. 예: "A1에 100 입력"', 'Specify cell and value. e.g. "A1 = 100"', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.excelComSetCell(cellM[1], valM[1])
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '🔢', title: `Excel ${cellM[1]} = ${valM[1]}`, detail: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        case 'excel_formula': {
+          const cellM = originalText.match(/([A-Za-z]+\d+)/)
+          const formulaM = originalText.match(/(=\s*\w+\([^)]+\))/) ?? originalText.match(/(SUM|AVERAGE|COUNT|MAX|MIN|VLOOKUP|IF)\s*\(([^)]+)\)/i)
+          if (!cellM) {
+            return { text: t('셀 위치를 알려주세요. 예: "B1에 =SUM(A1:A10)"', 'Specify cell. e.g. "B1 = SUM(A1:A10)"', userLang), emotion: 'neutral' }
+          }
+          let formula = ''
+          if (formulaM) {
+            formula = formulaM[0]
+          } else if (/합계|sum/i.test(originalText)) {
+            const rangeM = originalText.match(/([A-Za-z]+\d+:[A-Za-z]+\d+)/)
+            if (rangeM) formula = `=SUM(${rangeM[1]})`
+          } else if (/평균|average/i.test(originalText)) {
+            const rangeM = originalText.match(/([A-Za-z]+\d+:[A-Za-z]+\d+)/)
+            if (rangeM) formula = `=AVERAGE(${rangeM[1]})`
+          }
+          if (!formula) {
+            return { text: t('수식을 알려주세요. 예: "=SUM(A1:A10)"', 'Specify formula', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.excelComFormula(cellM[1], formula)
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '📐', title: `${cellM[1]} ${formula}`, detail: res.result ? `결과: ${res.result}` : res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        case 'excel_chart': {
+          const rangeM = originalText.match(/([A-Za-z]+\d+:[A-Za-z]+\d+)/)
+          if (!rangeM) {
+            return { text: t('차트로 만들 범위를 알려주세요. 예: "A1:B10으로 막대차트"', 'Specify range. e.g. "bar chart from A1:B10"', userLang), emotion: 'neutral' }
+          }
+          let chartType: 'bar'|'column'|'line'|'pie'|'area'|'scatter' = 'column'
+          if (/막대|bar/i.test(originalText)) chartType = 'bar'
+          else if (/선|line/i.test(originalText)) chartType = 'line'
+          else if (/원|파이|pie/i.test(originalText)) chartType = 'pie'
+          else if (/영역|area/i.test(originalText)) chartType = 'area'
+          else if (/scatter|산점/i.test(originalText)) chartType = 'scatter'
+          else if (/세로|column/i.test(originalText)) chartType = 'column'
+          const titleM = originalText.match(/['""](.+?)['""]/)
+          const res = await backendAPI.excelComChart(rangeM[1], chartType, titleM?.[1])
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '📊', title: `${chartType} 차트 (${rangeM[1]})`, detail: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        case 'excel_macro': {
+          const nameM = originalText.match(/매크로\s*['""]?(\w+)['""]?/) ?? originalText.match(/macro\s*['""]?(\w+)['""]?/i) ?? originalText.match(/['""](\w+)['""]\s*매크로?/)
+          if (!nameM) {
+            return { text: t('매크로 이름을 알려주세요. 예: "Macro1 실행"', 'Specify macro name. e.g. "run Macro1"', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.excelComMacro(nameM[1])
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '⚙️', title: `매크로 실행: ${nameM[1]}`, detail: res.result ?? res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        case 'excel_read': {
+          const rangeM = originalText.match(/([A-Za-z]+\d+(?::[A-Za-z]+\d+)?)/)
+          if (!rangeM) {
+            return { text: t('범위를 알려주세요. 예: "A1:C5 읽어줘"', 'Specify range. e.g. "read A1:C5"', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.excelComReadRange(rangeM[1])
+          const preview = JSON.stringify(res.data).slice(0, 200)
+          return {
+            text: t(`${rangeM[1]} 범위 데이터를 가져왔어요.`, `Read range ${rangeM[1]}.`, userLang),
+            card2: { type: 'system_action', icon: '📖', title: `Excel ${rangeM[1]} (${res.data?.length ?? 0}행)`, detail: preview, success: res.success },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 📝 Word COM (Phase 7) ── */
+        case 'word_replace': {
+          const m = originalText.match(/['""](.+?)['""].*?(?:→|->|으로|로)\s*['""](.+?)['""]/) ??
+                    originalText.match(/['""](.+?)['""].*?['""](.+?)['""].*(?:치환|바꿔)/)
+          if (!m) {
+            return { text: t('찾을 텍스트와 바꿀 텍스트를 알려주세요. 예: \'"A" → "B" 치환\'', 'Specify find/replace. e.g. \'replace "A" with "B"\'', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.wordComReplace(m[1], m[2], { all: true })
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '🔁', title: `${m[1]} → ${m[2]} (${res.count ?? '0'}건)`, detail: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        case 'word_insert': {
+          const textM = originalText.match(/['""](.+?)['""]/)
+          if (!textM) {
+            return { text: t('삽입할 텍스트를 따옴표로 알려주세요. 예: \'Word 끝에 "서명" 추가\'', 'Wrap text in quotes', userLang), emotion: 'neutral' }
+          }
+          const where: 'start'|'end'|'cursor' = /끝|마지막|end/i.test(originalText) ? 'end' : /처음|앞|start/i.test(originalText) ? 'start' : 'cursor'
+          const res = await backendAPI.wordComInsert(textM[1], where)
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '✏️', title: `Word 삽입 (${where})`, detail: textM[1].slice(0, 100), success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
         default:
           return errorReturn(intent, new Error(`Intent '${intent}' is not implemented in handleBackendIntentImpl`), userLang)
       }

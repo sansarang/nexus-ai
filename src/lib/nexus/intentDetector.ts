@@ -158,6 +158,14 @@ export type Intent =
   | 'keyboard_type'    // "Hello 라고 입력해" — 텍스트 자동 입력
   | 'window_control'   // "Chrome 최대화" "메모장 닫아" — 창 제어
   | 'screen_find_click' // "결제 버튼 찾아서 클릭" — OCR 텍스트 검색 후 클릭
+  // ── 📊 Office COM (Phase 7) ────────────────────────────────
+  | 'excel_set_cell'   // "A1에 100 입력"
+  | 'excel_formula'    // "B1에 =SUM(A1:A10)"
+  | 'excel_chart'      // "A1:B10으로 막대차트 만들어"
+  | 'excel_macro'      // "Macro1 실행"
+  | 'excel_read'       // "지금 열린 엑셀 A1:C5 읽어줘"
+  | 'word_replace'     // "Word에서 '구버전'을 '신버전'으로 치환"
+  | 'word_insert'      // "Word 끝에 '서명' 추가"
   | 'none'             // LLM으로 위임
 
 const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
@@ -1120,6 +1128,55 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
       /([A-Za-z가-힣\s]+?).*(?:창)?\s*(?:앞으로|focus|활성화|불러와)/i,
       /([A-Za-z가-힣\s]+?).*?(?:창)?\s*닫아\s*(?:줘|주세요)?/i,
       /maximize|minimize|focus.*window|close.*window/i,
+    ],
+  },
+  // ── 📊 Office COM (Phase 7) ────────────────────────────────
+  {
+    intent: 'excel_formula',
+    patterns: [
+      /(엑셀|excel).*?(?:[A-Za-z]+\d+).*?(=\s*\w+|\bSUM\b|\bAVERAGE\b|\bCOUNT\b|\bMAX\b|\bMIN\b|\bVLOOKUP\b|\bIF\b)/i,
+      /(엑셀|excel).*?(합계|평균|개수|최대|최소).*?(?:[A-Za-z]+\d+)/i,
+    ],
+  },
+  {
+    intent: 'excel_chart',
+    patterns: [
+      /(엑셀|excel).*?(차트|그래프|chart|graph).*(?:만들어|생성|추가|그려)/i,
+      /(?:막대|선|원|파이|영역|bar|line|pie|area|scatter|column).*(차트|chart|graph)/i,
+    ],
+  },
+  {
+    intent: 'excel_macro',
+    patterns: [
+      /(?:엑셀|excel).*매크로.*실행|매크로.*실행/i,
+      /run.*macro/i,
+    ],
+  },
+  {
+    intent: 'excel_set_cell',
+    patterns: [
+      /(엑셀|excel).*?([A-Za-z]+\d+).*?(?:에|=).*(?:입력|넣어|적어|set|put)/i,
+      /([A-Za-z]+\d+)\s*셀.*(?:입력|넣어)/i,
+    ],
+  },
+  {
+    intent: 'excel_read',
+    patterns: [
+      /(엑셀|excel).*?([A-Za-z]+\d+(?::[A-Za-z]+\d+)?).*?(?:읽어|조회|값|확인|보여)/i,
+      /(엑셀|excel).*?(?:범위|range).*?(?:읽어|보여)/i,
+    ],
+  },
+  {
+    intent: 'word_replace',
+    patterns: [
+      /(워드|word).*?(?:치환|바꿔|교체|찾아.*?바꿔)/i,
+      /(워드|word).*?['""].+?['""].*?(?:→|->|으로).*['""].+?['""]/i,
+    ],
+  },
+  {
+    intent: 'word_insert',
+    patterns: [
+      /(워드|word).*?(?:삽입|추가|넣어|입력|insert)/i,
     ],
   },
 ]

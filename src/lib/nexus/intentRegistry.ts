@@ -189,6 +189,15 @@ export const INTENT_REGISTRY = {
   window_control:   { status: 'windows_only', category: 'system_control', emoji: '🪟', labelKo: '창 제어',          labelEn: 'Window Control' },
   screen_find_click:{ status: 'windows_only', category: 'system_control', emoji: '👁️', labelKo: '화면 찾아 클릭',   labelEn: 'Find & Click' },
 
+  // ── 📊 Office COM (Phase 7) ──────────────────────────────
+  excel_set_cell:   { status: 'windows_only', category: 'file',           emoji: '🔢', labelKo: '엑셀 셀 입력',     labelEn: 'Excel Set Cell' },
+  excel_formula:    { status: 'windows_only', category: 'file',           emoji: '📐', labelKo: '엑셀 수식',        labelEn: 'Excel Formula' },
+  excel_chart:      { status: 'windows_only', category: 'file',           emoji: '📊', labelKo: '엑셀 차트 생성',   labelEn: 'Excel Chart' },
+  excel_macro:      { status: 'windows_only', category: 'file',           emoji: '⚙️', labelKo: '엑셀 매크로',      labelEn: 'Excel Macro' },
+  excel_read:       { status: 'windows_only', category: 'file',           emoji: '📖', labelKo: '엑셀 범위 읽기',   labelEn: 'Excel Read Range' },
+  word_replace:     { status: 'windows_only', category: 'file',           emoji: '🔁', labelKo: '워드 치환',        labelEn: 'Word Replace' },
+  word_insert:      { status: 'windows_only', category: 'file',           emoji: '✏️', labelKo: '워드 삽입',        labelEn: 'Word Insert' },
+
   // ── 메타 ──────────────────────────────────────────────
   none:             { status: 'meta',         category: 'meta',           emoji: '💬', labelKo: 'LLM 대화',         labelEn: 'LLM Chat' },
 } as const satisfies Record<Intent, IntentSpec>

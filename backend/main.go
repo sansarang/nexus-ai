@@ -324,6 +324,18 @@ func main() {
 	mux.HandleFunc("POST /api/agent/desktop/approve", handleDesktopApprove)
 	mux.HandleFunc("POST /api/agent/desktop/window", handleDesktopWindow)
 	mux.HandleFunc("GET /api/agent/desktop/windows", handleDesktopWindowList)
+
+	// Office COM (Phase 7) — 열린 Excel/Word 인스턴스 조작
+	mux.HandleFunc("GET /api/excel/com/workbooks", handleExcelComWorkbooks)
+	mux.HandleFunc("POST /api/excel/com/set-cell", handleExcelComSetCell)
+	mux.HandleFunc("POST /api/excel/com/formula", handleExcelComFormula)
+	mux.HandleFunc("POST /api/excel/com/read-range", handleExcelComReadRange)
+	mux.HandleFunc("POST /api/excel/com/macro", handleExcelComMacro)
+	mux.HandleFunc("POST /api/excel/com/chart", handleExcelComChart)
+	mux.HandleFunc("POST /api/excel/com/save", handleExcelComSave)
+	mux.HandleFunc("GET /api/word/com/documents", handleWordComDocs)
+	mux.HandleFunc("POST /api/word/com/replace", handleWordComReplace)
+	mux.HandleFunc("POST /api/word/com/insert", handleWordComInsert)
 	// aliases for frontend
 	mux.HandleFunc("GET /api/desktop/screenshot", handleDesktopScreenshot)
 	mux.HandleFunc("GET /api/desktop/status", handleDesktopStatus)
