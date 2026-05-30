@@ -1,0 +1,821 @@
+{
+  "date": "2026-05-30T11:22:48.556803",
+  "summary": {
+    "pass": 44,
+    "win_only": 15,
+    "fail": 31,
+    "total": 90
+  },
+  "results": [
+    {
+      "no": 1,
+      "label": "PC 현재 상태 분석",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "지금 대화만으로는 사용 중인 PC의 센서 정보(온도, 사용률, 디스크 상태 등)에 직접 접근할 수 없어서, 제가 실시간 상태를 바로 읽어 분석해 줄 수는 없습니다. 대신 아래 순서대로 진행하면, 본인이 확인한 수치를",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 2,
+      "label": "CPU·메모리·디스크 분석",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "CPU, 메모리, 디스크를 “실시간 + 원인까지” 분석하려면 단순 사용률이 아니라 코어·큐·iowait·캐시까지 같이 봐야 합니다.[5]  \n아래는 리눅스 기준으로, 바로 써볼 수 있는 명령어와 해석 포인트를 정리했",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 3,
+      "label": "GPU 온도·사용량",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "GPU **온도**와 **사용량**은 작업 관리자나 모니터링 툴로 확인할 수 있고, 온도가 너무 높으면 냉각이나 팬 설정 문제를 의심해야 합니다.[1][5][6]\n\n- 가장 쉬운 확인 방법은 **Ctrl + Shif",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 4,
+      "label": "부팅 속도 분석",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'boot_optimization' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 5,
+      "label": "드라이버 업데이트 목록",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'check_and_list_updatable_drivers' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 6,
+      "label": "Windows Defender 상태",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'windows_defender_status' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 7,
+      "label": "네트워크 분석·속도 리포트",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "다음 검색 결과를 종합하면, **“네트워크 상태를 분석하고 속도를 측정한 뒤 리포트까지 만드는 것”**은 보통 **속도 테스트 + 상태 진단 + 패킷/세션 분석 + 결과 정리**의 흐름으로 진행합니다.[1]\n\n## ",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 8,
+      "label": "프로세스 TOP 15 분석",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'process_top15_cpu_memory_analysis' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 9,
+      "label": "디스크 폴더 사용량 분석",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "어떤 운영체제(윈도우/리눅스/macOS) 디스크를 분석할까요?",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 10,
+      "label": "시스템 건강 점수 리포트",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 11,
+      "label": "전원 플랜 분석",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'power_plan_analysis' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 12,
+      "label": "업데이트 가능 목록",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'system_update_check_only' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 13,
+      "label": "메모리 누수 프로세스 분석",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "어떤 환경에서 메모리 누수가 의심되는 프로세스를 분석해야 하나요? (예: Windows 서버에서 특정 exe, 리눅스에서 특정 PID, 안드로이드 앱, 웹/크롬 등)",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 14,
+      "label": "PC 예측 케어 진단",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "PC 예측 케어를 하려면 “어디가 먼저 고장 날지”를 확률적으로 보는 구조가 필요합니다. 산업용 설비와 같은 원리로, **센서·로그 기반 상태 모니터링 + 고장 이력 데이터 + 간단한 예측 모델**을 조합하면 됩니다",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 15,
+      "label": "전체 PC 진단 리포트",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 16,
+      "label": "Downloads 자동 정리",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 17,
+      "label": "Excel 샘플 생성·TOP10·차트",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 18,
+      "label": "중복 파일 찾기·삭제",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'중복 파일 정리' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 19,
+      "label": "PDF 3개 병합",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 20,
+      "label": "이미지 OCR → 워드 변환",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 21,
+      "label": "보고서 파일 검색",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 22,
+      "label": "Excel 2개 비교",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 23,
+      "label": "50MB+ 파일 목록",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "Windows에서 **50MB 이상 대용량 파일을 모두 찾아 목록을 만드는 방법**은 크게 두 가지로 정리할 수 있습니다:  \n1) 파일 탐색기(그래픽 화면)로 찾는 방법, 2) 명령 프롬프트로 텍스트 목록을 만드는",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 24,
+      "label": "Excel 피벗·조건부서식",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 25,
+      "label": "이미지 날짜별 분류",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "이미지 파일을 *촬영/생성 날짜 기준*으로 자동으로 날짜별 폴더에 나누는 방법은 크게 두 가지입니다.  \n1) 프로그램 사용, 2) 직접 스크립트(파이썬 등) 쓰기.  \nPC 환경(윈도우/맥)과 난이도에 따라 골라 ",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 26,
+      "label": "PDF 5개 병합·목차 생성",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "다음 검색 결과를 종합하면, **PDF가 5개 미만이거나 부족한 경우에도 더미(가상) PDF를 추가해 병합한 뒤, 목차를 자동 생성하는 방식**으로 처리할 수 있습니다.[1][4][7] 핵심은 **파일을 하나로 합친",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 27,
+      "label": "회의록 AI 통합 요약",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "어느 위치(폴더나 드라이브)에서 \"회의록\"이 들어간 파일을 찾아야 할까요? 예: C:\\Projects 전체, 또는 특정 팀 폴더 등",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 28,
+      "label": "Excel 중복 제거·클린징",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 29,
+      "label": "계약서 2개 비교",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 30,
+      "label": "프로젝트 폴더 문서 요약",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 31,
+      "label": "ZIP 해제·자동 분류",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 32,
+      "label": "draft→final 파일 이름 변경",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "'rename_files_draft_to_final' 기능은 Windows PC에서만 사용 가능합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 33,
+      "label": "Excel 매출 예측 그래프",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "엑셀에 실제 매출 데이터가 없을 때는 **샘플 데이터를 먼저 만들고**, 그 데이터를 바탕으로 **분석 및 다음 분기 예측 그래프(선 차트·예측 시트)를 만드는 흐름**으로 진행하면 된다.[1][3]  \n\n---\n\n",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 34,
+      "label": "세금 파일 압축",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "세금 관련 검색에서 나온 내용 중, **“세금 관련 파일이 없으면 가상으로 만들어 모아서 압축 파일로 만든다”**는 요구는, 이용자 검색 패턴에 맞춰 **가상의 세금 관련 자료를 구성·묶어서 제공하는 개념**으로 이",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 35,
+      "label": "문서 AI 자동 분류",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 36,
+      "label": "쿠팡 에어팟 최저가 비교",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "11st.co.kr에서 \"에어팟 프로 2  찾아서 ·G마켓·랑 실시간 비교해\" 상품 8개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 37,
+      "label": "틱톡 한국 인기 영상 Top8",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "TikTok에서 \"지금 대한민국에서 가장 핫한  Top 8\" 영상 8개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 38,
+      "label": "유튜브 개발자 생산성 영상",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "YouTube에서 \"\"개발자 생산성\" 관련 조회수 100만 이상  10개 추천해\" 영상 4개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 39,
+      "label": "맥북 M4 구매 후기 요약",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 40,
+      "label": "AI 뉴스 3개 요약",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 41,
+      "label": "Amazon 에어팟 관세 계산",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "amazon.com에서 \"Amazon US AirPods Pro 2  + 관세 포함  계산해\" 상품 8개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 42,
+      "label": "TikTok AI 도구 최신 영상",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "TikTok에서 \"\"AI 도구\" 키워드로 TikTok 24시간 내 업로드된  Top 5 찾아\" 영상 8개 검색 결과\n📄 Saved as DOCX: /Users/youngjinjung/Desktop/nexus__AI_",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 43,
+      "label": "쿠팡 에어팟 유사 제품 추천",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "coupang.com에서 \"로켓배송 중 에어팟 프로 2와 가장 비슷한 제품 3개 해\" 상품 8개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 44,
+      "label": "실시간 환율 리포트",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 45,
+      "label": "Spotify 트렌드 플레이리스트",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "현재 KST 기준으로 Spotify에서 2026년 최신 트렌드 음악을 듣고 싶다면, 전 세계 인기곡을 모은 글로벌 차트형 플레이리스트와 ‘트렌딩’ 키워드 플레이리스트를 위주로 보시면 됩니다.\n\n대표적으로 많이 듣는 ",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 46,
+      "label": "넷플릭스 한국 드라마 Top5",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "현재 제공된 검색 결과로는 **2026-05-30(토) 기준 ‘넷플릭스 오늘 대한민국 TOP 10 시리즈’ 최신 순위 표 자체는 확인되지 않습니다.**  \n블로그나 유튜브 결과는 2025년 12월·2026년 2월 등",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 47,
+      "label": "유튜브 Windows AI 자동화",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "YouTube에서 \"\"Windows AI 자동화\" 관련 최신   5개 찾아\" 영상 4개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 48,
+      "label": "아이폰17 프로 직구 최저가",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "아이폰 17 프로 256GB를 미국 애플 공홈 기준으로 무세(택스프리 주) 배대지 이용해 직구하면, 예시 환율 기준 총비용은 대략 **176만~178만 원 선**으로 잡으시면 됩니다.[1][2][3] 국내 출고가 1",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 49,
+      "label": "AI 에이전트 트렌드 분석",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "TikTok에서 \"TikTok + YouTube Shorts에서 \"AI 에이전트\" 실시간 트렌드 분석해\" 영상 8개를 찾았어요!",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 50,
+      "label": "갤럭시 S25 최저가 비교표",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "갤럭시 **S25 울트라 256GB 자급제·통신사·주요 쇼핑몰 기준 실시간(예시) 최저가 비교**를 표로 정리했습니다.  \n(각 금액은 참고 자료 기준 예시이며, 실시간 변동 가능성이 큽니다.)\n\n```markdow",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 51,
+      "label": "중요 메일 5개 AI 요약",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "어느 메일 서비스(예: Gmail, Outlook 등)의 받은메일함에서 중요한 이메일을 고르고 요약할까요?",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 52,
+      "label": "캘린더 빈 시간 미팅 등록",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "✅ 일정 추가됨: 30분 미팅 (2026-05-31)",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 53,
+      "label": "일정 충돌 자동 조정",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "어느 캘린더에 있는 일정을 조정할까요? (예: 회사 구글 캘린더, 네이버 캘린더 등)",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 54,
+      "label": "스마트 답장 초안 3개",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 55,
+      "label": "보고서 메일 통합 요약",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 56,
+      "label": "출장 일정 캘린더 등록",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "다음 주 출장 일정은 **엑셀/CSV로 먼저 정리한 뒤 Google 캘린더에 일괄 가져오기** 방식으로 준비하는 것이 핵심입니다.[1][2][6]  \n즉, 일정 내용을 표로 만든 후 CSV로 저장하고, Google ",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 57,
+      "label": "청구서 메일 초안·PDF 준비",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 58,
+      "label": "미팅 요약·액션아이템",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "- 이 텍스트는 **실제 테스트 가능한 질문**이라는 점을 강조하고 있습니다.  \n- 답변자가 **하드코딩(미리 결과를 고정)** 해서 대충 대답하지 말라고 요구합니다.  \n- 질문 내용대로 **정직하게 실행 과정과",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 59,
+      "label": "읽지 않은 중요 메일 요약",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 60,
+      "label": "주간 업무 리포트 PDF",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 61,
+      "label": "팀 미팅 2주 일정 생성",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "‘팀 미팅’ 일정 2주치를 언제부터 잡을까요? (예: 다음 주 월요일 시작 / 이번 주 월요일 시작 등 한 날짜를 알려주세요)",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 62,
+      "label": "스팸 메일 분류·삭제",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "어떤 메일 서비스(예: 네이버 메일, 지메일 등)에서 스팸 의심 메일을 자동 분류하고 삭제하도록 설정할까요?",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 63,
+      "label": "청구서 초안·메일 발송 준비",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 64,
+      "label": "클라이언트 팔로업 메일 3개",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "## 핵심 요약\n- **클라이언트 3명에게 보내는 맞춤형 팔로업 메일 초안**은 단순 재촉보다, 이전 미팅·대화 내용을 **간단히 요약**하고 **다음 단계(Next Step)** 를 분명히 제시하는 방식이 효과적입",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 65,
+      "label": "서류 목록·리마인더 설정",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "어떤 종류의 서류를 내일까지 제출해야 하나요? (예: 회사 보고서, 학교 과제, 공공기관 제출 서류 등)",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 66,
+      "label": "PC 최적화+쿠팡+Excel",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "coupang.com에서 \"PC 최적화하면서 동시에   비교하고 결과 Excel에 저장해\" 상품 2개 검색 결과\n📄 XLSX 파일로 저장됨: /Users/youngjinjung/Desktop/nexus_PC_최적화하",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 67,
+      "label": "개발자 모드 전환·코드 리뷰",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "💻 개발자 / IT 엔지니어 모드로 전환했습니다. 이제 코드·디버깅·아키텍처·터미널 특화 관점으로 답변합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 68,
+      "label": "프리랜서 모드·청구서 묶음",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "🚀 프리랜서 / 1인 사업자 모드로 전환했습니다. 이제 수익·클라이언트·세금·업무 효율 특화 관점으로 답변합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 69,
+      "label": "PC 느려짐 전체 플로우",
+      "status": "WIN_ONLY",
+      "icon": "🪟",
+      "snippet": "## PC 느려짐 원인 분석\n\n- 컴퓨터 속도 저하의 대표 원인은 **내 PC 사양보다 높은 작업을 동시에 실행하는 것**입니다. 작업 관리자에서 현재 어떤 프로그램이 자원을 많이 쓰는지 확인할 수 있습니다.[1]\n",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 70,
+      "label": "Excel→가격비교→PDF",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 71,
+      "label": "보안 검사 전체 플로우",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 72,
+      "label": "복합: PC최적화+파일+메일+리포트",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 73,
+      "label": "AI 자율 생산성 계획 실행",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "이번 주 생산성을 극대화하기 위한 **전체 실행 워크플로우**를 자동 설계한 뒤, 각 단계가 실제로 수행된 것으로 가정한 **최종 완료 보고서** 형태로 정리하겠습니다. 요청하신 목적은 반복 업무를 AI가 실행 단위",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 74,
+      "label": "모호: 맛집 찾아줘",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 75,
+      "label": "모호: 보고서 만들어",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 76,
+      "label": "모호: 여행 계획",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "1. **날씨 및 준비물 (방콕 2박 3일 가정)**  \n- [ ] **날씨 확인**  \n  - 5/31: **비, 26–33℃**[1]  \n  - 6/1: **비, 28–32℃**[1]  \n  - 5/26 기준: ",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 77,
+      "label": "모호: 옷 추천",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 78,
+      "label": "모호: 최저가 찾아",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 79,
+      "label": "모호: 파일 정리해",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 80,
+      "label": "모호: 미팅 준비해",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "무엇을 도와드릴까요? 조금 더 구체적으로 알려주세요.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 81,
+      "label": "개발자 페르소나: 코드 리뷰",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "💻 개발자 / IT 엔지니어 모드로 전환했습니다. 이제 코드·디버깅·아키텍처·터미널 특화 관점으로 답변합니다.",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 82,
+      "label": "개발자 페르소나: 버그 진단",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 83,
+      "label": "개발자 페르소나: API 설계",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "아래는 **사용자 관리 시스템**(회원가입/로그인/프로필 수정/탈퇴) 기준의 **REST API 설계 가이드**입니다. 요구사항에 맞춰 **RESTful 구조**, **JSON 스키마**, **HTTP 상태코드**,",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 84,
+      "label": "개발자 페르소나: CI/CD 최적화",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "현재 상태(빌드 15분, 테스트 20분)는 최소 2배 이상 줄일 수 있는 수준이다. 아래는 GitHub Actions 중심으로 바로 적용 가능한 최적화 가이드다.\n\n---\n\n## 1. 현재 파이프라인 분석 포인트\n\n",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 85,
+      "label": "프리랜서 페르소나: 청구서 묶음",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 86,
+      "label": "프리랜서 페르소나: 계약서 검토",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 87,
+      "label": "프리랜서 페르소나: 미팅 준비",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "내일 **오후 2시 스타트업 CEO 미팅**용으로 바로 쓸 수 있는 **UX 개선 프로젝트 제안 미팅 자료**를 정리했습니다. 아래 내용은 *의사결정자 설득*에 맞춰 **문제 인식 → 기회 → 제안 → 실행안 → 비",
+      "notes": "",
+      "code": 200
+    },
+    {
+      "no": 88,
+      "label": "마케터 페르소나: 경쟁 분석",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 89,
+      "label": "마케터 페르소나: SNS 콘텐츠",
+      "status": "CONN_ERR",
+      "icon": "🔌",
+      "snippet": "ERROR: timed out",
+      "notes": "",
+      "code": 0
+    },
+    {
+      "no": 90,
+      "label": "마케터 페르소나: 광고 문구 15종",
+      "status": "PASS",
+      "icon": "✅",
+      "snippet": "## 핵심 요약\n- **Meta(페이스북) 광고 A/B 테스트**는 여러 광고 버전 중 어떤 것이 더 성과가 좋은지 **동일 조건에서 비교**하는 방식입니다.[1][3][5]\n- A/B 테스트는 **타겟, 이미지, ",
+      "notes": "",
+      "code": 200
+    }
+  ]
+}

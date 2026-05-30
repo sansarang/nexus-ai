@@ -234,6 +234,15 @@ var planLimits = map[string]map[string]int{
 		"content_script":  500,
 		"workflow_run":    1000,
 	},
+	"admin": {
+		"ai_request":      99999,
+		"stock_analysis":  99999,
+		"medical_search":  99999,
+		"contract_review": 99999,
+		"legal_search":    99999,
+		"content_script":  99999,
+		"workflow_run":    99999,
+	},
 }
 
 // featureUsageFile returns path like ~/.nexus/usage_20260521.json
@@ -298,7 +307,6 @@ func getPlanFromJWT(token string) string {
 		return "free"
 	}
 	payload := parts[1]
-	// add padding
 	switch len(payload) % 4 {
 	case 2:
 		payload += "=="
@@ -313,10 +321,44 @@ func getPlanFromJWT(token string) string {
 	if err := json.Unmarshal(raw, &claims); err != nil {
 		return "free"
 	}
+
+	// 1. 최상위 plan 클레임
 	if p, ok := claims["plan"].(string); ok && p != "" {
-		return p
+		return normalizePlan(p)
+	}
+	// 2. app_metadata.plan (Supabase 관리자 설정)
+	if am, ok := claims["app_metadata"].(map[string]any); ok {
+		if p, ok := am["plan"].(string); ok && p != "" {
+			return normalizePlan(p)
+		}
+	}
+	// 3. user_metadata.plan (사용자 프로필)
+	if um, ok := claims["user_metadata"].(map[string]any); ok {
+		if p, ok := um["plan"].(string); ok && p != "" {
+			return normalizePlan(p)
+		}
+	}
+	// 4. role 클레임 (service_role / admin)
+	if role, ok := claims["role"].(string); ok {
+		if role == "service_role" || role == "admin" {
+			return "admin"
+		}
 	}
 	return "free"
+}
+
+// normalizePlan maps variant spellings to canonical plan names.
+func normalizePlan(p string) string {
+	switch strings.ToLower(strings.TrimSpace(p)) {
+	case "admin", "administrator", "superadmin", "super_admin":
+		return "admin"
+	case "team", "business", "enterprise":
+		return "team"
+	case "pro", "premium", "professional":
+		return "pro"
+	default:
+		return p
+	}
 }
 
 // resolveUserID: JWT sub 우선, 없으면 machine ID 폴백

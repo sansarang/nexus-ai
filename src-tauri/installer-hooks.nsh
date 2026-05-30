@@ -7,16 +7,37 @@
 
 ; ── 파일 복사 전 프로세스 종료 (가장 먼저 실행) ─────────────────
 !macro customInit
-  ; taskkill로 프로세스 강제 종료
-  nsExec::Exec 'taskkill /F /IM Nexus.exe /T'
-  nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
-  nsExec::Exec 'taskkill /F /IM nexus-python.exe /T'
-  Sleep 3000
-  ; 잠긴 파일 직접 삭제
-  Delete "$LOCALAPPDATA\Nexus\nexus-backend.exe"
-  Delete "$LOCALAPPDATA\Nexus\nexus-python.exe"
-  Delete "$LOCALAPPDATA\Nexus\Nexus.exe"
-  Sleep 1000
+  ; ── 1. PowerShell로 nexus* 프로세스 전체 강제 종료 + 파일 삭제까지 한 번에
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command "\
+    Stop-Process -Name nexus-backend,nexus-python,Nexus -Force -ErrorAction SilentlyContinue;\
+    Start-Sleep -Seconds 2;\
+    $files = @(\
+      \"$env:LOCALAPPDATA\Nexus\nexus-backend.exe\",\
+      \"$env:LOCALAPPDATA\Nexus\nexus-python.exe\",\
+      \"$env:LOCALAPPDATA\Nexus\Nexus.exe\"\
+    );\
+    foreach ($f in $files) {\
+      if (Test-Path $f) {\
+        try { Remove-Item $f -Force -ErrorAction Stop }\
+        catch { try { Rename-Item $f ($f + \".old\") -Force -ErrorAction SilentlyContinue } catch {} }\
+      }\
+    };\
+    exit 0"'
+  Pop $0
+
+  ; ── 2. 혹시 재시작된 프로세스 한 번 더 종료
+  nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T 2>nul'
+  nsExec::Exec 'taskkill /F /IM nexus-python.exe /T 2>nul'
+  nsExec::Exec 'taskkill /F /IM Nexus.exe /T 2>nul'
+  Sleep 2000
+
+  ; ── 3. 자동 재시작 레지스트리 항목 임시 비활성화
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "\
+    Remove-ItemProperty -Path ''HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'' -Name ''Nexus'' -ErrorAction SilentlyContinue;\
+    Remove-ItemProperty -Path ''HKLM:\Software\Microsoft\Windows\CurrentVersion\Run'' -Name ''Nexus'' -ErrorAction SilentlyContinue;\
+    exit 0"'
+  Pop $0
+  Sleep 500
 !macroend
 
 !macro customInstall
