@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
-import type { StatsData, ScanResult, ScanIssue, DailyReport, CleanResult, RepairResult } from '../../lib/nexus/backendAPI'
+import type { StatsData, ScanResult, ScanIssue, DailyReport, CleanResult, RepairResult, BackendErrorCode } from '../../lib/nexus/backendAPI'
 
 /* ── 공통 유틸 ── */
 function statusColor(pct: number, reverse = false): string {
@@ -608,6 +608,7 @@ export type InlineCardData =
   | { type: 'folder_open'; success: boolean; path?: string; message: string }
   | { type: 'agent_thinking'; steps: string[] }
   | { type: 'preview_confirm'; items: Array<{ title: string; url: string }>; onPreview: (url: string, title: string) => void }
+  | { type: 'error'; intent: string; code: BackendErrorCode | 'not_implemented' | 'renderer_missing'; title: string; detail?: string; hint?: string; path?: string }
 
 interface InlineCardRendererProps {
   card: InlineCardData
@@ -640,7 +641,74 @@ export function InlineCardRenderer({ card, accentColor, onRepair }: InlineCardRe
       return <AgentThinkingCard steps={card.steps} accentColor={accentColor} />
     case 'preview_confirm':
       return <PreviewConfirmCard items={card.items} accentColor={accentColor} onPreview={card.onPreview} />
+    case 'error':
+      return <ErrorCard intent={card.intent} code={card.code} title={card.title} detail={card.detail} hint={card.hint} path={card.path} />
+    default: {
+      const _exhaustive: never = card
+      void _exhaustive
+      return <ErrorCard intent="unknown" code="renderer_missing" title="알 수 없는 카드 타입" />
+    }
   }
+}
+
+/* ── ErrorCard: 백엔드 실패·미구현 등 모든 에러의 통일된 표시 ── */
+function ErrorCard({
+  intent, code, title, detail, hint, path,
+}: { intent: string; code: string; title: string; detail?: string; hint?: string; path?: string }) {
+  const lang = (typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko'
+  const ko = lang === 'ko'
+  const codeLabels: Record<string, { ko: string; en: string; icon: string; color: string }> = {
+    no_backend:       { ko: '백엔드 연결 안 됨',   en: 'Backend not connected',  icon: '🔌', color: '#ef4444' },
+    timeout:          { ko: '응답 시간 초과',     en: 'Request timeout',         icon: '⏱️', color: '#f59e0b' },
+    no_api_key:       { ko: 'API 키 없음/오류',   en: 'API key missing/invalid', icon: '🔑', color: '#f59e0b' },
+    forbidden:        { ko: '권한 부족',          en: 'Permission denied',       icon: '🚫', color: '#f59e0b' },
+    not_implemented:  { ko: '아직 준비 중',       en: 'Not implemented yet',     icon: '🚧', color: '#94a3b8' },
+    windows_only:     { ko: 'Windows 전용 기능', en: 'Windows-only feature',    icon: '🪟', color: '#3b82f6' },
+    rate_limited:     { ko: '호출 한도 초과',     en: 'Rate limited',            icon: '🛑', color: '#f59e0b' },
+    server_error:     { ko: '백엔드 내부 오류',   en: 'Backend error',           icon: '💥', color: '#ef4444' },
+    bad_request:      { ko: '잘못된 요청',        en: 'Bad request',             icon: '⚠️', color: '#f59e0b' },
+    renderer_missing: { ko: '카드 렌더러 누락',   en: 'Card renderer missing',   icon: '🧩', color: '#94a3b8' },
+    unknown:          { ko: '알 수 없는 오류',    en: 'Unknown error',           icon: '❓', color: '#ef4444' },
+  }
+  const meta = codeLabels[code] ?? codeLabels.unknown
+  const label = ko ? meta.ko : meta.en
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: `1px solid ${meta.color}55`,
+        borderLeft: `3px solid ${meta.color}`,
+        borderRadius: 10, padding: '10px 12px', marginTop: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 16 }}>{meta.icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>{label}</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {title}
+          </div>
+        </div>
+      </div>
+      {detail && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginBottom: hint ? 4 : 0, lineHeight: 1.4 }}>
+          {detail}
+        </div>
+      )}
+      {hint && (
+        <div style={{ fontSize: 10, color: `${meta.color}cc`, lineHeight: 1.4 }}>
+          💡 {hint}
+        </div>
+      )}
+      {(intent || path) && (
+        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 6, fontFamily: 'ui-monospace, monospace' }}>
+          {intent}{path ? ` · ${path}` : ''}
+        </div>
+      )}
+    </motion.div>
+  )
 }
 
 function PreviewConfirmCard({

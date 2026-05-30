@@ -1,21 +1,52 @@
 /**
  * Go 백엔드 API 클라이언트 (port 17891)
  * ──────────────────────────────────────────────────────────────
- * [프로덕션 — 판매된 .exe]
- *   Go 백엔드가 항상 함께 실행됨.
- *   모든 응답은 실제 Windows API / PowerShell / WMI 결과.
- *   Mock 데이터 절대 사용 금지.
- *
- * [개발 환경 — Mac / 브라우저]
- *   Go 백엔드 미실행 → fetch 실패.
- *   safeCall() 래퍼가 mock 데이터로 fallback 허용.
- *   UI 개발/테스트 전용.
+ * 실패 시 BackendError 를 throw — 호출부에서 errorReturn() 으로 사용자에게 정확한 원인 표시.
+ * Mock 데이터 폴백 절대 금지 (가짜 결과로 실패 은폐 방지).
  * ──────────────────────────────────────────────────────────────
  */
 const BASE = 'http://127.0.0.1:17891'
 const TIMEOUT = 15000        // 기본 15초 (딥서치·PowerShell 고려)
 const TIMEOUT_FAST = 8000    // 빠른 응답 기대 엔드포인트 (상태 조회 등)
 const TIMEOUT_DEEP = 45000   // 딥서치·파일 분석·병렬 브라우저 크롤링
+
+export type BackendErrorCode =
+  | 'no_backend'        // 백엔드 프로세스 미실행 / 포트 닫힘
+  | 'timeout'           // 응답 시간 초과
+  | 'no_api_key'        // 401 — API 키 없음/잘못됨
+  | 'forbidden'         // 403 — 권한 부족
+  | 'not_implemented'   // 404 — 엔드포인트 미구현
+  | 'windows_only'      // 503 — Windows 전용 기능
+  | 'rate_limited'      // 429 — 호출 한도 초과
+  | 'server_error'      // 5xx — 백엔드 내부 오류
+  | 'bad_request'       // 400 — 잘못된 요청
+  | 'unknown'           // 그 외
+
+export class BackendError extends Error {
+  code: BackendErrorCode
+  status?: number
+  path: string
+  detail?: string
+  constructor(code: BackendErrorCode, path: string, opts?: { status?: number; detail?: string; message?: string }) {
+    super(opts?.message ?? `[${code}] ${path}${opts?.status ? ` (HTTP ${opts.status})` : ''}`)
+    this.name = 'BackendError'
+    this.code = code
+    this.status = opts?.status
+    this.path = path
+    this.detail = opts?.detail
+  }
+}
+
+function classifyHttpStatus(status: number, path: string, detail?: string): BackendError {
+  if (status === 400) return new BackendError('bad_request',     path, { status, detail })
+  if (status === 401) return new BackendError('no_api_key',      path, { status, detail })
+  if (status === 403) return new BackendError('forbidden',       path, { status, detail })
+  if (status === 404) return new BackendError('not_implemented', path, { status, detail })
+  if (status === 429) return new BackendError('rate_limited',    path, { status, detail })
+  if (status === 503) return new BackendError('windows_only',    path, { status, detail })
+  if (status >= 500)  return new BackendError('server_error',    path, { status, detail })
+  return new BackendError('unknown', path, { status, detail })
+}
 
 // Supabase 세션 JWT를 가져와 Go 백엔드로 전달 (Edge Function 프록시 라우팅용)
 export async function getAuthHeader(): Promise<Record<string, string>> {
@@ -36,17 +67,37 @@ async function request<T>(method: string, path: string, body?: unknown, timeout 
   try {
     const authHeader = await getAuthHeader()
     const lang = localStorage.getItem('nexus-lang') ?? 'ko'
-    const res = await fetch(`${BASE}${path}`, {
-      method,
-      headers: {
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
-        ...authHeader,
-        'X-Lang': lang,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: ctrl.signal,
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    let res: Response
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        method,
+        headers: {
+          ...(body ? { 'Content-Type': 'application/json' } : {}),
+          ...authHeader,
+          'X-Lang': lang,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: ctrl.signal,
+      })
+    } catch (e) {
+      // fetch 자체 실패 — 네트워크/abort 분류
+      if ((e as Error).name === 'AbortError') {
+        throw new BackendError('timeout', path, { detail: `${timeout}ms 초과` })
+      }
+      throw new BackendError('no_backend', path, { detail: (e as Error).message })
+    }
+    if (!res.ok) {
+      // 본문에서 상세 메시지 추출 (있으면)
+      let detail: string | undefined
+      try {
+        const txt = await res.text()
+        if (txt) {
+          try { detail = (JSON.parse(txt) as { message?: string; error?: string }).message ?? (JSON.parse(txt) as { error?: string }).error ?? txt.slice(0, 200) }
+          catch { detail = txt.slice(0, 200) }
+        }
+      } catch { /* 본문 읽기 실패는 무시 */ }
+      throw classifyHttpStatus(res.status, path, detail)
+    }
     return res.json() as Promise<T>
   } finally {
     clearTimeout(timer)

@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction, MutableRefObject } from 'react'
-import { backendAPI, mockStats, mockScan, mockDailyReport, sendCommand,
+import { backendAPI, sendCommand,
   calendarToday, calendarWeek, calendarAdd, calendarFindSlot, calendarSmartAdd,
   emailInbox, emailSend, emailSummarize, emailClassify, emailDraftReply,
   virusTotalCheck, historyStats, historyAnomalies,
@@ -40,6 +40,7 @@ import type { InlineCard3Data } from './InlineCards3'
 import type { InlineCard4Data } from './InlineCards4'
 import type { Intent } from '../../lib/nexus/intentDetector'
 import type { NexusEmotion } from '../../types/nexus'
+import { errorReturn } from './chatIntentShared'
 import { callGemini, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems } from '../../lib/nexus/gemini_engine'
 import { appendHistory } from './ChatBubble'
 import type { ChatMessage } from './ChatBubble'
@@ -565,7 +566,7 @@ export async function handleBackendIntentImpl(
     try {
       switch (intent) {
         case 'pc_status': {
-          const data = await backendAPI.stats().catch(() => mockStats())
+          const data = await backendAPI.stats()
           return {
             text: intentResponseText('pc_status', userLang, assistantName),
             card: { type: 'pc_status', data },
@@ -574,7 +575,7 @@ export async function handleBackendIntentImpl(
         }
         case 'security_scan':
         case 'full_scan': {
-          const data = await backendAPI.scan().catch(() => mockScan())
+          const data = await backendAPI.scan()
           const em: CharacterEmotion = data.score < 70 ? 'alert' : data.score < 85 ? 'concerned' : 'happy'
           return {
             text: intentResponseText(intent, userLang, assistantName),
@@ -584,7 +585,7 @@ export async function handleBackendIntentImpl(
         }
         case 'clean': {
           const results = await backendAPI.autoClean(['temp', 'browser']).catch(async () => {
-            const r = await backendAPI.clean(['temp']).catch(() => ({ freed: 0, message: '정리 완료' }))
+            const r = await backendAPI.clean(['temp'])
             return r as { freed: number; message: string }
           })
           return {
@@ -594,7 +595,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'daily_report': {
-          const data = await backendAPI.dailyReport().catch(() => mockDailyReport())
+          const data = await backendAPI.dailyReport()
           return {
             text: intentResponseText('daily_report', userLang, assistantName),
             card: { type: 'daily_report', data },
@@ -602,9 +603,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'repair': {
-          const data = await backendAPI.repair(['temp-files']).catch(() => ({
-            success: true, message: '수리 완료', freed: 0,
-          }))
+          const data = await backendAPI.repair(['temp-files'])
           return {
             text: intentResponseText('repair', userLang, assistantName),
             card: { type: 'repair_result', data },
@@ -619,9 +618,7 @@ export async function handleBackendIntentImpl(
               : 'Which folder would you like to open?'
             return { text: ask, emotion: 'neutral' }
           }
-          const res = await backendAPI.openFolder(folderName).catch(() => ({
-            success: false, path: '', message: t('백엔드 미연결 상태입니다.', 'Backend not connected.', userLang),
-          }))
+          const res = await backendAPI.openFolder(folderName)
           return {
             text: res.success ? t(`${folderName} 폴더를 열었어요.`, `Opened folder: ${folderName}`, userLang) : res.message,
             card: { type: 'folder_open', success: res.success, path: res.path, message: res.message },
@@ -631,33 +628,33 @@ export async function handleBackendIntentImpl(
 
         /* ── 보안 상세 ── */
         case 'remote_access': {
-          const data = await backendAPI.securityRemote().catch(() => ({ found: false, tools: [], rdp_open: false, score: 100 }))
+          const data = await backendAPI.securityRemote()
           return { text: data.found ? t(`⚠️ 실행 중인 원격 접속 도구 발견! 점수: ${data.score}`, `⚠️ Remote access tool detected! Score: ${data.score}`, userLang) : t('✅ 원격 접속 도구 없음, 안전합니다.', '✅ No remote access tools found. You\'re safe.', userLang),
             card2: { type: 'remote_access', data }, emotion: data.found ? 'alert' : 'happy' }
         }
         case 'process_security': {
-          const data = await backendAPI.securityProcs().catch(() => ({ suspicious_processes: [], open_ports: [], score: 100 }))
+          const data = await backendAPI.securityProcs()
           return { text: data.score < 80 ? t(`⚠️ 수상한 프로세스/포트 발견 (보안 점수: ${data.score})`, `⚠️ Suspicious processes/ports found (score: ${data.score})`, userLang) : t('✅ 수상한 프로세스 없음.', '✅ No suspicious processes found.', userLang),
             card2: { type: 'process_security', data }, emotion: data.score < 80 ? 'alert' : 'happy' }
         }
         case 'hosts_check': {
-          const data = await backendAPI.securityHosts().catch(() => ({ score: 100, modified: false, entries: 0, suspicious: [] }))
+          const data = await backendAPI.securityHosts()
           return { text: data.modified ? t(`⚠️ hosts 파일 변조 의심! 수상한 항목 ${data.suspicious.length}개`, `⚠️ Hosts file may be tampered! ${data.suspicious.length} suspicious entries`, userLang) : t('✅ hosts 파일 정상', '✅ Hosts file is clean', userLang),
             card2: { type: 'system_action', icon: data.modified ? '⚠️' : '✅', title: data.modified ? t('Hosts 파일 변조 감지', 'Hosts file tampered', userLang) : t('Hosts 파일 정상', 'Hosts file clean', userLang), detail: t(`총 ${data.entries}개 항목`, `${data.entries} entries total`, userLang), success: !data.modified },
             emotion: data.modified ? 'alert' : 'happy' }
         }
         case 'startup_items': {
-          const data = await backendAPI.securityStartup().catch(() => ({ items: [], total: 0, suspicious_count: 0 }))
+          const data = await backendAPI.securityStartup()
           return { text: t(`시작 프로그램 ${data.total}개, 수상한 항목 ${data.suspicious_count}개`, `${data.total} startup items, ${data.suspicious_count} suspicious`, userLang),
             card2: { type: 'startup_items', data }, emotion: data.suspicious_count > 0 ? 'concerned' : 'happy' }
         }
         case 'defender_status': {
-          const data = await backendAPI.securityDefender().catch(() => ({ antivirus_enabled: true, realtime_protection: true, quick_scan_age: 0, full_scan_age: 0, score: 100, issues: [] }))
+          const data = await backendAPI.securityDefender()
           return { text: data.score >= 80 ? t('🛡️ Windows Defender 정상 작동 중', '🛡️ Windows Defender is running normally', userLang) : t(`⚠️ 보안 점수 ${data.score} — ${data.issues[0] ?? ''}`, `⚠️ Security score ${data.score} — ${data.issues[0] ?? ''}`, userLang),
             card2: { type: 'defender', data }, emotion: data.score >= 80 ? 'happy' : 'alert' }
         }
         case 'account_check': {
-          const data = await backendAPI.securityAccounts().catch(() => ({ total: 0, suspicious: [], suspicious_count: 0, score: 100 }))
+          const data = await backendAPI.securityAccounts()
           return { text: data.suspicious_count ? t(`⚠️ 이상 계정 ${data.suspicious_count}개 감지됨`, `⚠️ ${data.suspicious_count} suspicious account(s) detected`, userLang) : t(`✅ 계정 정상 (${data.total}개)`, `✅ Accounts look normal (${data.total} total)`, userLang),
             card2: { type: 'system_action', icon: data.suspicious_count ? '⚠️' : '✅', title: data.suspicious_count ? t(`이상 계정 ${data.suspicious_count}개`, `${data.suspicious_count} suspicious accounts`, userLang) : t('계정 정상', 'Accounts normal', userLang), success: !data.suspicious_count },
             emotion: data.suspicious_count ? 'alert' : 'happy' }
@@ -666,21 +663,21 @@ export async function handleBackendIntentImpl(
         /* ── 시스템 제어 ── */
         case 'volume_control': {
           const { action, value } = extractVolume(originalText)
-          const res = await backendAPI.volume(action, value).catch(() => ({ message: '볼륨 조절에 실패했어요' }))
+          const res = await backendAPI.volume(action, value)
           return { text: res.message,
             card2: { type: 'system_action', icon: action === 'mute' ? '🔇' : '🔊', title: res.message, success: true },
             emotion: 'happy' }
         }
         case 'brightness': {
           const { action, value } = extractBrightness(originalText)
-          const res = await backendAPI.brightness(action, value).catch(() => ({ message: '밝기 조절에 실패했어요 (노트북 전용)' }))
+          const res = await backendAPI.brightness(action, value)
           return { text: res.message,
             card2: { type: 'system_action', icon: '☀️', title: res.message, success: true },
             emotion: 'happy' }
         }
         case 'wifi_toggle': {
           const wifiAction = extractWifiAction(originalText)
-          const res = await backendAPI.wifi(wifiAction).catch(() => ({ message: 'Wi-Fi 제어 실패' }))
+          const res = await backendAPI.wifi(wifiAction)
           return { text: (res as { message?: string }).message ?? 'Wi-Fi 상태 확인됨',
             card2: { type: 'system_action', icon: '📶', title: (res as { message?: string }).message ?? '', success: true },
             emotion: 'happy' }
@@ -688,7 +685,7 @@ export async function handleBackendIntentImpl(
         case 'power_action': {
           const powerAct = extractPowerAction(originalText)
           const icons: Record<string, string> = { lock: '🔒', sleep: '😴', restart: '🔄', shutdown: '⏻' }
-          const res = await backendAPI.power(powerAct).catch(() => ({ success: false, message: '전원 제어 실패' }))
+          const res = await backendAPI.power(powerAct)
           return { text: res.message,
             card2: { type: 'system_action', icon: icons[powerAct] ?? '⚡', title: res.message, success: res.success },
             emotion: res.success ? 'happy' : 'concerned' }
@@ -696,24 +693,24 @@ export async function handleBackendIntentImpl(
         case 'launch_app': {
           const appName = extractAppName(originalText)
           if (!appName) return { text: t('어떤 앱을 실행할까요?', 'Which app would you like to launch?', userLang), emotion: 'neutral' }
-          const res = await backendAPI.launchApp(appName).catch(() => ({ success: false, message: `${appName} 실행 실패` }))
+          const res = await backendAPI.launchApp(appName)
           return { text: res.message,
             card2: { type: 'system_action', icon: '🚀', title: res.message, success: res.success },
             emotion: res.success ? 'happy' : 'concerned' }
         }
         case 'process_top': {
-          const data = await backendAPI.processTop().catch(() => ({ by_cpu: [], by_mem: [] }))
+          const data = await backendAPI.processTop()
           return { text: t('CPU·메모리 상위 프로세스예요 📊', 'Top processes by CPU & memory 📊', userLang),
             card2: { type: 'process_top', data }, emotion: 'neutral' }
         }
 
         /* ── 고급 기능 ── */
         case 'driver_check': {
-          const data = await backendAPI.drivers().catch(() => ({ total: 0, problematic: [], problem_count: 0, score: 100, message: '드라이버 정보를 가져올 수 없어요' }))
+          const data = await backendAPI.drivers()
           return { text: data.message, card2: { type: 'drivers', data }, emotion: data.problem_count > 0 ? 'concerned' : 'happy' }
         }
         case 'registry_clean': {
-          const data = await backendAPI.registryClean().catch(() => ({ success: false, cleaned_keys: 0, message: '레지스트리 정리 실패' }))
+          const data = await backendAPI.registryClean()
           return { text: data.message,
             card2: { type: 'system_action', icon: '🗂️', title: data.message, success: data.success },
             emotion: data.success ? 'happy' : 'concerned' }
@@ -725,61 +722,61 @@ export async function handleBackendIntentImpl(
           for (const [k, v] of Object.entries(plans)) {
             if (lowerText.includes(k)) { planName = v; break }
           }
-          const res = await backendAPI.setPowerPlan(planName).catch(() => ({ success: false, message: '전원 계획 변경 실패' }))
+          const res = await backendAPI.setPowerPlan(planName)
           return { text: res.message,
             card2: { type: 'system_action', icon: '⚡', title: res.message, success: res.success },
             emotion: res.success ? 'happy' : 'concerned' }
         }
         case 'network_analysis': {
-          const data = await backendAPI.networkAnalysis().catch(() => ({ adapters: [], dns_servers: '', public_ip: '', ping_ms: '', connected: false }))
+          const data = await backendAPI.networkAnalysis()
           return { text: data.connected ? t(`🌐 인터넷 연결됨 · 공개 IP: ${data.public_ip || '알 수 없음'}`, `🌐 Internet connected · Public IP: ${data.public_ip || 'Unknown'}`, userLang) : t('📵 인터넷 연결 없음', '📵 No internet connection', userLang),
             card2: { type: 'network', data }, emotion: data.connected ? 'happy' : 'concerned' }
         }
         case 'restore_create': {
-          const res = await backendAPI.restoreCreate().catch(() => ({ success: false, message: '복구 포인트 생성 실패' }))
+          const res = await backendAPI.restoreCreate()
           return { text: res.message,
             card2: { type: 'system_action', icon: '💾', title: res.message, success: res.success },
             emotion: res.success ? 'happy' : 'concerned' }
         }
         case 'disk_check': {
-          const res = await backendAPI.diskCheck().catch(() => ({ success: false, message: '디스크 검사 시작 실패' }))
+          const res = await backendAPI.diskCheck()
           return { text: res.message,
             card2: { type: 'system_action', icon: '💿', title: res.message, success: res.success },
             emotion: res.success ? 'happy' : 'concerned' }
         }
         case 'browser_clean': {
-          const res = await backendAPI.browserClean().catch(() => ({ results: [], total_mb: 0, total_freed: '0B', message: '브라우저 정리 실패' }))
+          const res = await backendAPI.browserClean()
           return { text: res.message,
             card2: { type: 'system_action', icon: '🌐', title: res.message, detail: `${res.total_freed} 확보`, success: true },
             emotion: 'happy' }
         }
         case 'programs_list': {
-          const data = await backendAPI.programsList().catch(() => ({ programs: [], total: 0 }))
+          const data = await backendAPI.programsList()
           return { text: t(`설치된 프로그램 ${data.total}개 확인했어요 📦`, `Found ${data.total} installed programs 📦`, userLang),
             card2: { type: 'programs_list', data }, emotion: 'neutral' }
         }
         case 'boot_analysis': {
-          const data = await backendAPI.bootAnalysis().catch(() => ({ uptime_minutes: '0', startup_count: '?', recent_boots: [], message: '부팅 분석 실패' }))
+          const data = await backendAPI.bootAnalysis()
           return { text: data.message, card2: { type: 'boot_analysis', data }, emotion: 'neutral' }
         }
 
         /* ── 파일 관리 ── */
         case 'file_search': {
           const query = originalText.replace(/파일.*찾아|찾아줘.*파일|어디/g, '').trim()
-          const data = await backendAPI.filesSearch(query).catch(() => ({ results: [], total: 0, message: '파일 검색 실패' }))
+          const data = await backendAPI.filesSearch(query)
           return { text: data.message, card2: { type: 'file_search', data }, emotion: 'neutral' }
         }
         case 'file_organize': {
           const isDesktop = /바탕화면|desktop/.test(originalText)
           const isDownloads = /다운로드|download/.test(originalText)
           const folderTarget = isDesktop ? 'desktop' : isDownloads ? 'downloads' : undefined
-          const res = await backendAPI.filesOrganize(folderTarget).catch(() => ({ success: false, moved: 0, message: '폴더 정리 실패' }))
+          const res = await backendAPI.filesOrganize(folderTarget)
           return { text: res.message,
             card2: { type: 'system_action', icon: '📁', title: res.message, success: res.success },
             emotion: res.success ? 'happy' : 'concerned' }
         }
         case 'file_duplicates': {
-          const data = await backendAPI.filesDuplicates().catch(() => ({ groups: [], total_groups: 0, waste_mb: 0, waste: '0B', message: '중복 검사 실패' }))
+          const data = await backendAPI.filesDuplicates()
           return { text: data.message, card2: { type: 'duplicates', data }, emotion: data.total_groups > 0 ? 'concerned' : 'happy' }
         }
 
@@ -788,7 +785,7 @@ export async function handleBackendIntentImpl(
           const isOff = /해제|off|끄|disable|stop/.test(originalText)
           const durMatch = originalText.match(/(\d+)\s*(?:분|min(?:ute)?s?)/)
           const duration = durMatch ? parseInt(durMatch[1]) : 25
-          const res = await backendAPI.focusMode(isOff ? 'off' : 'on', duration).catch(() => ({ success: false, active: !isOff, message: isOff ? '집중 모드 해제됨' : `집중 모드 시작! ${duration}분 동안 알림이 차단돼요 🎯` }))
+          const res = await backendAPI.focusMode(isOff ? 'off' : 'on', duration)
           if (res.active) {
             setFocusModeEnd(duration)
             setFocusEndMs(Date.now() + duration * 60_000)
@@ -801,7 +798,7 @@ export async function handleBackendIntentImpl(
             emotion: res.active ? 'happy' : 'neutral' }
         }
         case 'clipboard': {
-          const data = await backendAPI.clipboard().catch(() => ({ current: '', tip: t('Windows + V 로 클립보드를 확인해보세요', 'Press Windows + V to view clipboard history', userLang) }))
+          const data = await backendAPI.clipboard()
           return { text: data.current ? t(`클립보드: "${data.current.slice(0, 50)}..."`, `Clipboard: "${data.current.slice(0, 50)}..."`, userLang) : data.tip,
             card2: { type: 'system_action', icon: '📋', title: data.current ? t('클립보드 내용 확인', 'Clipboard content', userLang) : t('클립보드 비어있음', 'Clipboard is empty', userLang), detail: data.current?.slice(0, 60) },
             emotion: 'neutral' }
@@ -811,13 +808,13 @@ export async function handleBackendIntentImpl(
           if (isNew) {
             const content = extractNoteContent(originalText)
             if (content.length > 3) {
-              const res = await backendAPI.saveNote(content).catch(() => ({ success: false, note: { id: '', content, created: '' }, message: '메모 저장 실패' }))
+              const res = await backendAPI.saveNote(content)
               return { text: res.message,
                 card2: { type: 'system_action', icon: '📝', title: res.message, success: res.success },
                 emotion: res.success ? 'happy' : 'concerned' }
             }
           }
-          const data = await backendAPI.notes().catch(() => ({ notes: [], total: 0 }))
+          const data = await backendAPI.notes()
           return { text: t(`메모 ${data.total}개를 가져왔어요 📝`, `Fetched ${data.total} notes 📝`, userLang),
             card2: { type: 'notes', data }, emotion: 'neutral' }
         }
@@ -907,7 +904,7 @@ export async function handleBackendIntentImpl(
         case 'vision_screen': {
           const question = extractVisionQuestion(originalText)
           // 스크린샷 캡처 (OCR 포함)
-          const ss = await backendAPI.screenshot(true).catch(() => ({ success: false, base64: '', width: 0, height: 0, mime: 'image/png', captured: '' }))
+          const ss = await backendAPI.screenshot(true)
           if (!ss.success || !ss.base64) {
             return { text: t('화면 캡처에 실패했어요. Tauri 앱 환경에서 실행해주세요.', 'Screen capture failed. Please run in Tauri app environment.', userLang), emotion: 'concerned' }
           }
@@ -1046,9 +1043,7 @@ export async function handleBackendIntentImpl(
           const isDesktop = /바탕화면|desktop/.test(originalText)
           const isDownloads = /다운로드|download/.test(originalText)
           const target = isDesktop ? 'desktop' : isDownloads ? 'downloads' : ''
-          const res = await backendAPI.filesOrganize(target || undefined, 'type').catch(() => ({
-            success: false, moved: 0, message: t('파일 정리 실패', 'File organization failed', userLang),
-          }))
+          const res = await backendAPI.filesOrganize(target || undefined, 'type')
           const targetLabel = isDesktop ? t('바탕화면', 'Desktop', userLang) : isDownloads ? t('다운로드', 'Downloads', userLang) : t('다운로드', 'Downloads', userLang)
           return {
             text: res.success ? t(`${targetLabel} 정리 완료!`, `${targetLabel} organized!`, userLang) : res.message,
@@ -1059,7 +1054,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📅 캘린더 ── */
         case 'calendar_today': {
-          const data = await calendarToday().catch(() => ({ success: false, events: [], total: 0, message: 'Outlook이 설치되어 있어야 합니다.' }))
+          const data = await calendarToday()
           return {
             text: data.message,
             card2: { type: 'system_action', icon: '📅', title: `오늘 일정 ${data.total}개`, detail: data.events.slice(0,3).map(e => `${e.start.slice(11,16)} ${e.subject}`).join('\n'), success: data.success },
@@ -1067,7 +1062,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'calendar_week': {
-          const data = await calendarWeek().catch(() => ({ success: false, events: [], total: 0, message: 'Outlook이 설치되어 있어야 합니다.' }))
+          const data = await calendarWeek()
           return {
             text: data.message,
             card2: { type: 'system_action', icon: '📆', title: `이번 주 일정 ${data.total}개`, detail: data.events.slice(0,5).map(e => `${e.start.slice(5,10)} ${e.subject}`).join('\n'), success: data.success },
@@ -1077,7 +1072,7 @@ export async function handleBackendIntentImpl(
         case 'calendar_add': {
           const subjectMatch = originalText.match(/[""]([^""]+)[""]/) ?? originalText.match(/일정.*등록\s+(.+)/)
           const subject = (subjectMatch?.[1] ?? originalText.replace(/일정.*추가|일정.*등록|일정.*넣어/g, '').trim()) || '새 일정'
-          const res = await calendarAdd(subject).catch(() => ({ success: false, message: '일정 추가 실패' }))
+          const res = await calendarAdd(subject)
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '📅', title: res.message, success: res.success },
@@ -1087,7 +1082,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📧 이메일 ── */
         case 'email_inbox': {
-          const data = await emailInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
+          const data = await emailInbox(10)
           if ((data as any).action === 'outlook_setup_required') {
             d.openEmailSetup?.()
             return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
@@ -1104,7 +1099,7 @@ export async function handleBackendIntentImpl(
           if (!to) return { text: t('받는 사람 이메일 주소를 알려주세요. 예: "user@gmail.com에게 메일 보내줘"', 'Please provide the recipient email. e.g. "send email to user@gmail.com"', userLang), emotion: 'neutral' }
           const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? originalText.match(/subject[:\s]+(.+)/i)?.[1] ?? t('Nexus에서 보낸 메일', 'Mail from Nexus', userLang)
           const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? originalText.match(/(?:body|message|content)[:\s]+(.+)/i)?.[1] ?? ''
-          const res = await emailSend(to, subject, body).catch(() => ({ success: false, message: '메일 전송 실패' }))
+          const res = await emailSend(to, subject, body)
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '📤', title: res.message, success: res.success },
@@ -1112,7 +1107,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'email_summarize': {
-          const data = await emailSummarize().catch(() => ({ success: false, emails: [], summary: '', message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
+          const data = await emailSummarize()
           if ((data as any).action === 'outlook_setup_required') {
             d.openEmailSetup?.()
             return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
@@ -1130,7 +1125,7 @@ export async function handleBackendIntentImpl(
           const filePath = filePathMatch?.[0]?.replace(/['"]/g, '') ?? ''
           if (!filePath) return { text: t('검사할 파일 경로를 알려주세요. 예: "C:\\Users\\file.exe 바이러스 확인해줘"', 'Please provide a file path to scan. e.g. "check C:\\Users\\file.exe for virus"', userLang), emotion: 'neutral' }
           const apiKey = localStorage.getItem('nexus-virustotal-key') ?? ''
-          const data = await virusTotalCheck(filePath, apiKey).catch(() => ({ success: false, file_path: filePath, file_hash: '', malicious: 0, suspicious: 0, clean: 0, total_scans: 0, permalink: '', safe_score: 0, verdict: 'error', message: 'VirusTotal 연결 실패' }))
+          const data = await virusTotalCheck(filePath, apiKey)
           const em: CharacterEmotion = data.verdict === 'malicious' ? 'alert' : data.verdict === 'suspicious' ? 'concerned' : 'happy'
           return {
             text: data.message,
@@ -1143,7 +1138,7 @@ export async function handleBackendIntentImpl(
         case 'perf_history': {
           const daysMatch = originalText.match(/(\d+)\s*일/)
           const days = daysMatch ? parseInt(daysMatch[1]) : 7
-          const data = await historyStats(days).catch(() => ({ success: false, days, total_samples: 0, snapshots: [], daily_summary: [], avg_cpu: 0, avg_mem: 0, cpu_trend: 'stable', message: '성능 이력이 없어요. 앱을 더 오래 실행하면 데이터가 쌓여요.' }))
+          const data = await historyStats(days)
           return {
             text: data.message,
             card2: { type: 'system_action', icon: '📊', title: `${days}일 성능 이력`, detail: `평균 CPU ${data.avg_cpu.toFixed(0)}% · 메모리 ${data.avg_mem.toFixed(0)}% · 트렌드: ${data.cpu_trend === 'up' ? '↑ 증가' : data.cpu_trend === 'down' ? '↓ 감소' : '→ 안정'}`, success: data.success },
@@ -1151,7 +1146,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'perf_anomaly': {
-          const data = await historyAnomalies().catch(() => ({ success: false, anomalies: [], avg_cpu: 0, avg_mem: 0, message: '데이터 부족' }))
+          const data = await historyAnomalies()
           return {
             text: data.message,
             card2: { type: 'system_action', icon: data.anomalies.length > 0 ? '⚠️' : '✅', title: `이상 탐지: ${data.anomalies.length}건`, detail: data.anomalies.slice(0,3).map(a => a.message).join('\n'), success: data.anomalies.length === 0 },
@@ -1162,7 +1157,7 @@ export async function handleBackendIntentImpl(
         /* ── 🛍️ 가격 비교 ── */
         case 'price_compare': {
           const query = originalText.replace(/가격|비교|얼마|검색|찾아줘|price|compare|search|how much|buy/gi, '').trim() || originalText
-          const data = await priceCompare(query).catch(() => ({ success: false, query, results: [], total: 0, summary: '가격 비교 실패' }))
+          const data = await priceCompare(query)
           if (data.results && data.results.length > 0) {
             setFloatingPreview(data.results.slice(0, 8).map(r => ({ title: `${r.price} — ${r.name}`, url: r.link })))
           }
@@ -1176,7 +1171,7 @@ export async function handleBackendIntentImpl(
         /* ── 🌐 뉴스 검색 ── */
         case 'news_search': {
           const query = originalText.replace(/뉴스|검색|최신|오늘|찾아줘|news|search|latest|today|find/gi, '').trim() || t('오늘 주요 뉴스', 'top news today', userLang)
-          const data = await newsSearch(query).catch(() => ({ success: false, query, articles: [], items: [], total: 0, summary: '뉴스 검색 실패' })) as any
+          const data = await newsSearch(query) as any
           const articles = data.articles ?? data.items ?? []
           if (articles.length > 0) {
             setPreviewType('news')
@@ -1197,8 +1192,8 @@ export async function handleBackendIntentImpl(
           const query = originalText.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘|영상|search|find|show me|video/gi, '').trim() || originalText
           const isTiktok = /틱톡|tiktok/i.test(originalText)
           const data = isTiktok
-            ? await tiktokSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
-            : await youtubeSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
+            ? await tiktokSearch(query)
+            : await youtubeSearch(query)
           const platform = isTiktok ? t('틱톡', 'TikTok', userLang) : t('유튜브', 'YouTube', userLang)
           const icon = isTiktok ? '🎵' : '🎬'
           const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
@@ -1216,8 +1211,8 @@ export async function handleBackendIntentImpl(
           const query = originalText.replace(/영상|비디오|video|search|찾아줘|검색해줘|보여줘|유튜브|youtube|틱톡|tiktok/gi, '').trim() || originalText
           const isTiktok = /틱톡|tiktok/i.test(originalText)
           const data = isTiktok
-            ? await tiktokSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
-            : await youtubeSearch(query).catch(() => ({ success: false, query, articles: [], total: 0, summary: '' }))
+            ? await tiktokSearch(query)
+            : await youtubeSearch(query)
           const platform = isTiktok ? t('틱톡', 'TikTok', userLang) : t('유튜브', 'YouTube', userLang)
           const icon = isTiktok ? '🎵' : '🎬'
           const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
@@ -1241,8 +1236,8 @@ export async function handleBackendIntentImpl(
             .trim() || (isTrending ? '' : originalText)
 
           const data = isTrending && !query
-            ? await redditTrending(subreddit || 'all').catch(() => ({ success: false, source: '', posts: [], count: 0, message: 'Reddit 수집 실패' }))
-            : await redditSearch(query, subreddit).catch(() => ({ success: false, source: '', posts: [], count: 0, message: 'Reddit 수집 실패' }))
+            ? await redditTrending(subreddit || 'all')
+            : await redditSearch(query, subreddit)
 
           const posts = data.posts ?? []
           if (posts.length > 0) {
@@ -1277,9 +1272,7 @@ export async function handleBackendIntentImpl(
           }
           const qualityMatch = originalText.match(/720p|480p|1080p|4k/)
           const quality = qualityMatch?.[0] ?? 'best'
-          const data = await videoDownload(url, quality).catch(() => ({
-            success: false, url, save_path: '', message: 'yt-dlp 다운로드 실패', install_url: 'https://github.com/yt-dlp/yt-dlp/releases/latest',
-          }))
+          const data = await videoDownload(url, quality)
           return {
             text: data.message,
             card2: {
@@ -1310,7 +1303,7 @@ export async function handleBackendIntentImpl(
             }
           }
           const lang = userLang ?? 'ko'
-          const data = await videoTranscript(url, lang).catch(() => ({ success: false, transcript: '', message: t('영상 분석 실패', 'Video analysis failed', userLang) }))
+          const data = await videoTranscript(url, lang)
           return {
             text: data.message ?? (data.success ? t('영상 요약 완료', 'Video summary done', userLang) : t('영상 분석 실패', 'Video analysis failed', userLang)),
             card2: data.success ? { type: 'system_action', icon: '🎬', title: t('영상 요약', 'Video Summary', userLang), detail: (data.transcript ?? data.message ?? '').slice(0, 200), success: true } : undefined,
@@ -1320,7 +1313,7 @@ export async function handleBackendIntentImpl(
 
         /* ── ⏰ 스케줄러 ── */
         case 'schedule_list': {
-          const data = await schedulerList().catch(() => ({ success: false, tasks: [], total: 0 }))
+          const data = await schedulerList()
           return {
             text: data.total === 0 ? t('등록된 자동화 스케줄이 없어요. "매일 오전 9시에 PC 진단해줘" 처럼 말해보세요!', 'No schedules yet. Try "run PC scan every day at 9am"!', userLang) : t(`스케줄 ${data.total}개가 등록돼 있어요.`, `${data.total} schedules registered.`, userLang),
             card2: { type: 'system_action', icon: '⏰', title: `스케줄 ${data.total}개`, detail: (data.tasks as Array<{name: string; next_run: string}>).slice(0,3).map(t => `${t.name} — ${t.next_run}`).join('\n'), success: true },
@@ -1328,7 +1321,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'schedule_add': {
-          const res = await schedulerAdd(originalText).catch(() => ({ success: false, task: null, next_run_kr: '', message: '스케줄 추가 실패' }))
+          const res = await schedulerAdd(originalText)
           return {
             text: (res as { message: string }).message,
             card2: { type: 'system_action', icon: '⏰', title: (res as { message: string }).message, success: (res as { success: boolean }).success },
@@ -1338,7 +1331,7 @@ export async function handleBackendIntentImpl(
         case 'schedule_delete': {
           const idMatch = originalText.match(/\b([a-f0-9-]{10,})\b/)
           if (!idMatch) return { text: t('삭제할 스케줄 ID를 알려주세요. 먼저 "스케줄 목록" 으로 확인해보세요.', 'Please provide the schedule ID to delete. Say "show schedules" first.', userLang), emotion: 'neutral' }
-          const res = await schedulerDelete(idMatch[1]).catch(() => ({ success: false, message: '삭제 실패' }))
+          const res = await schedulerDelete(idMatch[1])
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '🗑️', title: res.message, success: res.success },
@@ -1353,7 +1346,7 @@ export async function handleBackendIntentImpl(
           if (!pidMatch && !nameMatch) return { text: t('종료할 프로세스 이름이나 PID를 알려주세요.', 'Please provide the process name or PID to terminate.', userLang), emotion: 'neutral' }
           const pid = pidMatch ? parseInt(pidMatch[1]) : undefined
           const name = pid ? undefined : nameMatch
-          const res = await processKill(pid, name).catch(() => ({ success: false, name: name ?? '', message: '종료 실패' }))
+          const res = await processKill(pid, name)
           return {
             text: res.message,
             card2: { type: 'system_action', icon: res.success ? '✅' : '⚠️', title: res.message, success: res.success },
@@ -1364,7 +1357,7 @@ export async function handleBackendIntentImpl(
         /* ── 🔑 앱 권한 감사 ── */
         case 'app_permissions': {
           const appMatch = originalText.match(/["']?([가-힣a-zA-Z]+)["']?\s*(?:앱|프로그램|이)?\s*권한/)?.[1]
-          const data = await appPermissions(appMatch).catch(() => ({ success: false, permissions: {}, message: '권한 정보 조회 실패' }))
+          const data = await appPermissions(appMatch)
           return {
             text: data.message,
             card2: { type: 'system_action', icon: '🔑', title: '앱 권한 현황', detail: JSON.stringify(data.permissions).slice(0, 100), success: data.success },
@@ -1374,7 +1367,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 🔄 Windows 업데이트 ── */
         case 'windows_updates': {
-          const data = await windowsUpdates().catch(() => ({ success: false, count: 0, updates: [], message: 'Windows Update 확인 실패' }))
+          const data = await windowsUpdates()
           return {
             text: data.message,
             card2: { type: 'system_action', icon: data.count > 0 ? '🔄' : '✅', title: `업데이트 ${data.count}개`, detail: data.updates.slice(0,3).map(u => `• ${u.title}`).join('\n'), success: data.success },
@@ -1389,7 +1382,7 @@ export async function handleBackendIntentImpl(
             ?? originalText.match(/(?:in|for|at)\s+([a-zA-Z가-힣]+)\s+weather/i)
           const cityIsDefault = !cityMatch
           const city = cityMatch?.[1] ?? (userLang === 'en' ? 'Seoul' : '서울')
-          const data = await weatherGet(city).catch(() => ({ success: false, city, temp_c: 0, feels_like: 0, condition: '알 수 없음', humidity: 0, wind_kmh: 0, forecast: [], message: '' }))
+          const data = await weatherGet(city)
           if (!data.success) {
             // 백엔드 없음 → Groq로 동적 응답
             const apiKey = localStorage.getItem('nexus-pplx-key') ?? ''
@@ -1424,7 +1417,7 @@ export async function handleBackendIntentImpl(
           const rawDest = parts?.[2]?.trim() ?? ''
           const destination = rawDest.replace(/\s*(가는|까지|이동|교통|방법|버스|기차|KTX|알려줘|어떻게).*$/i, '').trim()
           if (!origin || !destination) return { text: t('"어디에서 어디까지 얼마나 걸려?" 형식으로 말해주세요.', 'Please say "how long from [origin] to [destination]?"', userLang), emotion: 'neutral' }
-          const data = await travelTime(origin, destination).catch(() => ({ success: false, origin, destination, distance_km: 0, duration_min: 0, departure_time: '', arrival_time: '', message: '경로를 찾지 못했어요.' }))
+          const data = await travelTime(origin, destination)
           return {
             text: data.message || `${origin} → ${destination}: 약 ${data.duration_min}분`,
             card2: {
@@ -1445,7 +1438,7 @@ export async function handleBackendIntentImpl(
             : /중국어로|to chinese/i.test(originalText) ? '中文'
             : userLang === 'en' ? '한국어' : 'English'
           // 클립보드 내용 가져와서 번역
-          const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
+          const clip = await backendAPI.clipboard()
           const textToTranslate = clip.current || originalText.replace(/번역.*해줘|번역해|이거.*영어로|translate.*to|translate/gi, '').trim()
           if (!textToTranslate) return { text: t('번역할 내용이 없어요. 텍스트를 먼저 복사해주세요.', 'Nothing to translate. Please copy some text first.', userLang), emotion: 'neutral' }
 
@@ -1476,7 +1469,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📋 클립보드 AI ── */
         case 'clipboard_ai': {
-          const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
+          const clip = await backendAPI.clipboard()
           if (!clip.current) return { text: t('클립보드가 비어있어요. 먼저 텍스트를 복사해주세요.', 'Clipboard is empty. Please copy some text first.', userLang), emotion: 'neutral' }
 
           const action = /요약/.test(originalText) ? '3줄로 요약해줘'
@@ -1514,7 +1507,7 @@ export async function handleBackendIntentImpl(
             await clipboardHistoryClear().catch(() => null)
             return { text: t('클립보드 히스토리를 모두 지웠어요!', 'Clipboard history cleared!', userLang), emotion: 'happy' }
           }
-          const res = await clipboardHistory().catch(() => ({ success: false, history: [], total: 0 }))
+          const res = await clipboardHistory()
           const history = res.history ?? []
           if (history.length === 0) {
             return { text: t('클립보드 히스토리가 없어요. 텍스트를 복사하면 자동으로 저장돼요.', 'No clipboard history yet. Text you copy will be tracked automatically.', userLang), emotion: 'neutral' }
@@ -1545,11 +1538,11 @@ export async function handleBackendIntentImpl(
           const eventTitle = content.slice(0, 50)
 
           // 메모 저장
-          const noteRes = await backendAPI.saveNote(content).catch(() => ({ success: false, note: { id: '', content, created: '' }, message: '메모 저장 실패' }))
+          const noteRes = await backendAPI.saveNote(content)
           // 캘린더 등록 (날짜 있으면)
           let calMsg = ''
           if (dateStr) {
-            const calRes = await calendarAdd(`[할일] ${eventTitle}`, dateStr + ' ' + timeStr).catch(() => ({ success: false, message: '' }))
+            const calRes = await calendarAdd(`[할일] ${eventTitle}`, dateStr + ' ' + timeStr)
             calMsg = calRes.success ? ` + 캘린더에도 등록했어요 📅` : ''
           }
           return {
@@ -1566,7 +1559,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 🖥️ Windows Recall ── */
         case 'recall_capture': {
-          const data = await recallCapture().catch(() => ({ success: false, timestamp: '', ocr_text: '', message: '화면 캡처 실패' }))
+          const data = await recallCapture()
           return {
             text: data.success ? t(`화면을 기억했어요 🖥️ "${data.ocr_text.slice(0, 40)}..."`, `Screen saved to memory 🖥️ "${data.ocr_text.slice(0, 40)}..."`, userLang) : data.message,
             card2: { type: 'system_action', icon: '🖥️', title: t('화면 기억 저장', 'Screen memory saved', userLang), detail: data.ocr_text.slice(0, 100), success: data.success },
@@ -1575,7 +1568,7 @@ export async function handleBackendIntentImpl(
         }
         case 'recall_search': {
           const query = originalText.replace(/기억.*찾아|화면.*기억|언제.*봤던|어제.*봤던|전에.*봤던|화면.*검색|recall/gi, '').trim() || originalText
-          const data = await recallSearch(query).catch(() => ({ success: false, results: [], total: 0, message: '검색 실패 — 먼저 화면을 기억시켜주세요.' }))
+          const data = await recallSearch(query)
           return {
             text: data.total > 0 ? t(`"${query}" 관련 화면 ${data.total}개 찾았어요!`, `Found ${data.total} screen memory match(es) for "${query}"!`, userLang) : t(`"${query}" 관련 기억이 없어요.`, `No screen memories found for "${query}".`, userLang),
             card2: {
@@ -1590,7 +1583,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 🎙️ 회의 어시스턴트 ── */
         case 'meeting_start': {
-          const res = await meetingStart().catch(() => ({ success: false, file_path: '', message: '녹음 시작 실패' }))
+          const res = await meetingStart()
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '🔴', title: res.success ? t('녹음 중...', 'Recording...', userLang) : t('녹음 실패', 'Recording failed', userLang), detail: res.file_path, success: res.success },
@@ -1598,7 +1591,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'meeting_stop': {
-          const res = await meetingStop().catch(() => ({ success: false, file_path: '', duration_sec: 0, message: '녹음 종료 실패' }))
+          const res = await meetingStop()
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '⏹️', title: t(`녹음 완료 (${Math.round(res.duration_sec / 60)}분)`, `Recording done (${Math.round(res.duration_sec / 60)}min)`, userLang), detail: res.file_path, success: res.success },
@@ -1606,7 +1599,7 @@ export async function handleBackendIntentImpl(
           }
         }
         case 'meeting_list': {
-          const data = await meetingList().catch(() => ({ success: false, meetings: [], total: 0 }))
+          const data = await meetingList()
           return {
             text: data.total > 0 ? t(`회의 녹음 ${data.total}개가 있어요 🎙️`, `${data.total} meeting recording(s) found 🎙️`, userLang) : t('저장된 회의 녹음이 없어요.', 'No meeting recordings saved.', userLang),
             card2: {
@@ -1620,12 +1613,12 @@ export async function handleBackendIntentImpl(
         }
         case 'meeting_summary': {
           // 가장 최근 녹음 파일 가져와서 전사 + 요약
-          const list = await meetingList().catch(() => ({ success: false, meetings: [], total: 0 }))
+          const list = await meetingList()
           if (!list.total) return { text: t('요약할 회의 녹음이 없어요. 먼저 "회의 시작"으로 녹음해주세요.', 'No meeting recordings found. Say "start meeting" to begin recording.', userLang), emotion: 'neutral' }
           const latest = list.meetings[0]
-          const transcribed = await meetingTranscribe(latest.file).catch(() => ({ success: false, text: '', duration_sec: 0, message: '전사 실패' }))
+          const transcribed = await meetingTranscribe(latest.file)
           if (!transcribed.success || !transcribed.text) return { text: t('회의 전사 실패. Perplexity API 키를 확인해주세요.', 'Transcription failed. Please check your Perplexity API key.', userLang), emotion: 'concerned' }
-          const summary = await meetingSummarize(transcribed.text).catch(() => ({ success: false, summary: '', action_items: [], decisions: [], message: '요약 실패' }))
+          const summary = await meetingSummarize(transcribed.text)
           return {
             text: summary.success ? t(`회의 요약 완료! 액션 아이템 ${summary.action_items.length}개`, `Meeting summary done! ${summary.action_items.length} action item(s)`, userLang) : t('회의 요약에 실패했어요.', 'Meeting summary failed.', userLang),
             card2: {
@@ -1644,7 +1637,7 @@ export async function handleBackendIntentImpl(
             .replace(/받아쓰기|dictation|타이핑.*해줘|입력.*해줘|써줘.*지금|적어줘.*지금|대신.*타이핑|대신.*입력|대신.*써줘|자동.*입력/gi, '')
             .trim()
           if (!textToDictate) return { text: t('입력할 내용을 말해주세요. 예: "받아쓰기 안녕하세요 오늘 날씨가 맑네요"', 'Please say what you want me to type. e.g. "dictate Hello, how are you today"', userLang), emotion: 'neutral' }
-          const res = await dictationType(textToDictate).catch(() => ({ success: false, typed_chars: 0, message: '받아쓰기 실패' }))
+          const res = await dictationType(textToDictate)
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '⌨️', title: `${res.typed_chars}글자 입력 완료`, detail: textToDictate.slice(0, 80), success: res.success },
@@ -1654,7 +1647,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 🎭 AI 멀티 페르소나 ── */
         case 'persona_list': {
-          const data = await personaList().catch(() => ({ personas: [], current: 'nexus' }))
+          const data = await personaList()
           const lines = data.personas.map((p) => `${p.emoji} **${p.name}** — ${p.description}`).join('\n')
           return {
             text: t(`현재 페르소나: **${data.current}**\n\n사용 가능한 AI 팀:\n${lines}\n\n"리서치 모드로 바꿔줘" 처럼 말하면 전환해요!`, `Current persona: **${data.current}**\n\nAvailable AI team:\n${lines}\n\nSay "switch to research mode" to change!`, userLang),
@@ -1671,7 +1664,7 @@ export async function handleBackendIntentImpl(
           else if (/크리에이티브|creative|창의/.test(lower)) id = 'creative'
           else if (/보안|security/.test(lower)) id = 'security'
           else if (/법무|법률|legal|계약/.test(lower)) id = 'legal'
-          const res = await personaSet(id).catch(() => ({ ok: false, persona: null as unknown as PersonaDef, message: '전환 실패' }))
+          const res = await personaSet(id)
           if (res.ok && res.persona) setActivePersona(res.persona)
           return {
             text: res.message,
@@ -1683,7 +1676,7 @@ export async function handleBackendIntentImpl(
         /* ── 🧠 Second Brain ── */
         case 'brain_search': {
           const query = originalText.replace(/second.*brain|세컨드.*브레인|기억.*검색|장기.*기억.*찾아|내가.*했던|작년에.*내가|과거에/gi, '').trim() || originalText
-          const data = await brainSearch(query, 8).catch(() => ({ results: [], total: 0, summary: '', query, message: '' }))
+          const data = await brainSearch(query, 8)
           const anyData = data as { results: Array<{ entry: { source: string; title: string } }>; summary?: string; message?: string }
           const items = anyData.results.slice(0, 5).map((r) => `[${r.entry.source}] ${r.entry.title}`)
           const displayText = anyData.summary
@@ -1697,7 +1690,7 @@ export async function handleBackendIntentImpl(
         }
 
         case 'brain_stats': {
-          const data = await brainStats().catch(() => ({ total: 0, by_source: {} as Record<string, number>, updated_at: '' }))
+          const data = await brainStats()
           const src = Object.entries(data.by_source).map(([k, v]) => `${k}: ${v}개`).join(', ')
           return {
             text: t(`🧠 Second Brain 현황\n총 ${data.total}개 기억 저장됨\n${src}\n마지막 업데이트: ${data.updated_at.slice(0, 10) || '없음'}`, `🧠 Second Brain Status\n${data.total} memories stored\n${src}\nLast updated: ${data.updated_at.slice(0, 10) || 'N/A'}`, userLang),
@@ -1708,7 +1701,7 @@ export async function handleBackendIntentImpl(
         /* ── ⚡ Auto Workflow ── */
         case 'workflow_plan': {
           const goal = originalText.replace(/워크플로.*계획|어떻게.*자동화|단계.*알려줘|자동화.*방법|순서.*알려줘/gi, '').trim() || originalText
-          const plan = await workflowPlan(goal).catch(() => ({ goal, steps: [], summary: '계획 생성 실패', ok: false }))
+          const plan = await workflowPlan(goal)
           const stepLines = plan.steps.map((s) => `${s.step}. ${s.description} → \`${s.api_endpoint}\``).join('\n')
           return {
             text: t(`**워크플로 계획**: ${plan.goal}\n\n${stepLines}\n\n실행하려면 "자동으로 실행해줘"라고 하세요.`, `**Workflow Plan**: ${plan.goal}\n\n${stepLines}\n\nSay "run it automatically" to execute.`, userLang),
@@ -1718,7 +1711,7 @@ export async function handleBackendIntentImpl(
 
         case 'workflow_run': {
           const goal = originalText.replace(/자동.*해줘|한.*번에.*다|워크플로.*실행|만들어서.*보내줘|요약하고.*이메일|찾아서.*정리/gi, '').trim() || originalText
-          const result = await workflowRun(goal).catch(() => ({ goal, steps: [], summary: '워크플로 실행 실패', ok: false }))
+          const result = await workflowRun(goal)
           const doneSteps = result.steps.filter((s) => s.status === 'done').length
           const totalSteps = result.steps.length
           return {
@@ -1733,7 +1726,7 @@ export async function handleBackendIntentImpl(
           const langMatch = originalText.match(/영어|일본어|중국어|스페인어|프랑스어|korean|english|japanese|chinese/)
           const langMap: Record<string, string> = { 영어: 'en', 일본어: 'ja', 중국어: 'zh', 스페인어: 'es', 프랑스어: 'fr', english: 'en', japanese: 'ja', chinese: 'zh' }
           const lang = langMap[langMatch?.[0]?.toLowerCase() ?? ''] ?? 'ko'
-          const res = await captionStart(lang).catch(() => ({ ok: false, message: '자막 시작 실패' }))
+          const res = await captionStart(lang)
           if (res.ok) setCaptionRunning(true)
           return {
             text: res.message,
@@ -1743,7 +1736,7 @@ export async function handleBackendIntentImpl(
         }
 
         case 'caption_stop': {
-          const res = await captionStop().catch(() => ({ ok: false, message: '자막 종료 실패', entries: 0 }))
+          const res = await captionStop()
           if (res.ok) setCaptionRunning(false)
           return {
             text: t(`${res.message} (총 ${res.entries}개 자막)`, `${res.message} (${res.entries} captions total)`, userLang),
@@ -1754,7 +1747,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📧 이메일 분류 ── */
         case 'email_classify': {
-          const data = await emailClassify(20).catch(() => ({ success: false, classified: [], counts: {}, message: 'Outlook이 필요합니다.', action: 'outlook_setup_required' }))
+          const data = await emailClassify(20)
           if ((data as any).action === 'outlook_setup_required') {
             d.openEmailSetup?.()
             return { text: t('이메일 기능을 사용하려면 Gmail/Outlook 연동이 필요해요.\n설정 → 이메일 탭에서 계정을 추가해주세요 📧', 'Email setup required.\nGo to Settings → Email tab to connect your account 📧', userLang), emotion: 'neutral' }
@@ -1769,11 +1762,11 @@ export async function handleBackendIntentImpl(
 
         /* ── 📧 이메일 답장 초안 ── */
         case 'email_draft': {
-          const inbox = await emailInbox(1).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: '' }))
+          const inbox = await emailInbox(1)
           const latest = inbox.emails?.[0]
           if (!latest) return { text: t('답장할 메일이 없어요. 먼저 받은 메일함을 확인해주세요.', 'No emails to reply to. Please check your inbox first.', userLang), emotion: 'neutral' }
           const tone = /격식|formal|정중/.test(originalText) ? 'formal' : 'casual'
-          const data = await emailDraftReply(latest.subject, latest.sender, latest.body, tone).catch(() => ({ success: false, draft: '', message: '초안 작성 실패' }))
+          const data = await emailDraftReply(latest.subject, latest.sender, latest.body, tone)
           return {
             text: data.message || '답장 초안이 완성됐어요!',
             card2: { type: 'system_action', icon: '✉️', title: `"${latest.subject}" 답장 초안`, detail: data.draft?.slice(0, 150) ?? '', success: data.success },
@@ -1786,7 +1779,7 @@ export async function handleBackendIntentImpl(
           const durMatch = originalText.match(/(\d+)\s*시간/)
           const duration = durMatch ? parseInt(durMatch[1]) * 60 : 60
           const prefer = /오후|afternoon/.test(originalText) ? 'afternoon' : /저녁|evening/.test(originalText) ? 'evening' : 'morning'
-          const data = await calendarFindSlot(duration, prefer, 7).catch(() => ({ success: false, slots: [], message: 'Outlook이 필요합니다.' }))
+          const data = await calendarFindSlot(duration, prefer, 7)
           const slotStr = (data.slots as Array<{start: string; end: string}>).slice(0, 3).map(s => `${s.start} ~ ${s.end}`).join('\n')
           return {
             text: data.message || `가능한 시간 ${data.slots.length}개를 찾았어요!`,
@@ -1797,7 +1790,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📅 자연어 일정 추가 ── */
         case 'calendar_smart_add': {
-          const data = await calendarSmartAdd(originalText).catch(() => ({ success: false, event: null, message: '일정 추가 실패', confirm_needed: false }))
+          const data = await calendarSmartAdd(originalText)
           return {
             text: data.message,
             card2: { type: 'system_action', icon: '📅', title: data.message, success: data.success },
@@ -1807,7 +1800,7 @@ export async function handleBackendIntentImpl(
 
         /* ── ⚡ 워크플로 목록 ── */
         case 'workflow_list': {
-          const data = await workflowList().catch(() => ({ workflows: [], count: 0 }))
+          const data = await workflowList()
           const wfs = (data.workflows as Array<{name?: string; id: string}>)
           return {
             text: wfs.length === 0 ? t('저장된 워크플로가 없어요. "워크플로 만들어줘"로 생성해보세요!', 'No workflows saved. Say "create a workflow" to get started!', userLang) : t(`워크플로 ${wfs.length}개가 있어요.`, `${wfs.length} workflow(s) found.`, userLang),
@@ -1819,7 +1812,7 @@ export async function handleBackendIntentImpl(
         /* ── ⚡ 워크플로 생성 (자연어) ── */
         case 'workflow_create': {
           const text = originalText.replace(/워크플로.*만들어|새.*자동화.*생성|텍스트로.*자동화/gi, '').trim() || originalText
-          const data = await workflowFromText(text).catch(() => ({ success: false, workflow: null, message: '워크플로 생성 실패' }))
+          const data = await workflowFromText(text)
           return {
             text: data.message || '워크플로가 생성됐어요!',
             card2: { type: 'system_action', icon: '⚡', title: data.message, success: data.success },
@@ -1829,7 +1822,7 @@ export async function handleBackendIntentImpl(
 
         /* ── ⚡ 워크플로 템플릿 ── */
         case 'workflow_templates': {
-          const data = await workflowTemplates().catch(() => ({ templates: [], count: 0 }))
+          const data = await workflowTemplates()
           const tpls = (data.templates as Array<{name?: string; description?: string}>)
           return {
             text: t(`워크플로 템플릿 ${tpls.length}개를 찾았어요!`, `Found ${tpls.length} workflow template(s)!`, userLang),
@@ -1840,7 +1833,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📨 IMAP 받은 메일 ── */
         case 'imap_inbox': {
-          const data = await imapInbox(10).catch(() => ({ success: false, emails: [], total: 0, unread: 0, message: 'IMAP 계정이 설정되어 있지 않아요. 설정에서 IMAP 계정을 추가해주세요.' }))
+          const data = await imapInbox(10)
           return {
             text: data.message || `받은 메일 ${data.total}개 (읽지 않음 ${data.unread ?? 0}개)`,
             card2: { type: 'system_action', icon: '📨', title: `IMAP 메일 ${data.total}개`, detail: (data.emails as Array<{subject: string; from: string; read: boolean}>).slice(0, 3).map(e => `${e.read ? '📨' : '📩'} ${e.subject} — ${e.from}`).join('\n'), success: data.success },
@@ -1855,7 +1848,7 @@ export async function handleBackendIntentImpl(
           if (!to) return { text: t('받는 사람 이메일을 알려주세요.', 'Please provide the recipient email address.', userLang), emotion: 'neutral' }
           const subject = originalText.match(/제목[:\s]+(.+)/)?.[1] ?? originalText.match(/subject[:\s]+(.+)/i)?.[1] ?? t('NEXUS에서 보낸 메일', 'Mail from NEXUS', userLang)
           const body = originalText.match(/내용[:\s]+(.+)/)?.[1] ?? ''
-          const res = await imapSend(to, subject, body).catch(() => ({ success: false, message: '전송 실패' }))
+          const res = await imapSend(to, subject, body)
           return {
             text: res.message,
             card2: { type: 'system_action', icon: '📤', title: res.message, success: res.success },
@@ -1866,7 +1859,7 @@ export async function handleBackendIntentImpl(
         /* ── 🤖 멀티 에이전트 ── */
         case 'multi_agent': {
           const goal = originalText.replace(/멀티.*에이전트|여러.*ai.*동시|multi.*agent|에이전트.*팀/gi, '').trim() || originalText
-          const data = await multiAgentRun(goal).catch(() => ({ success: false, task_id: '', message: '멀티 에이전트 실행 실패' }))
+          const data = await multiAgentRun(goal)
           const combinedResult = (data as { combined_result?: string }).combined_result
           const agentCount = (data as { agents?: unknown[] }).agents?.length ?? 0
           return {
@@ -1925,7 +1918,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 📢 브리핑 ── */
         case 'briefing_now': {
-          const data = await briefingNow().catch(() => ({ success: false, task_id: '', message: '브리핑 시작 실패' }))
+          const data = await briefingNow()
           const briefingContent = (data as { briefing?: string }).briefing || data.message || t('모닝 브리핑 준비 중이에요...', 'Preparing morning briefing...', userLang)
           return {
             text: briefingContent,
@@ -1936,10 +1929,10 @@ export async function handleBackendIntentImpl(
 
         /* ── ❌ 작업 취소 ── */
         case 'task_cancel': {
-          const tasks = await taskList().catch(() => ({ tasks: [], count: 0 }))
+          const tasks = await taskList()
           if (!tasks.count) return { text: t('취소할 실행 중 작업이 없어요.', 'No running tasks to cancel.', userLang), emotion: 'neutral' }
           const first = (tasks.tasks as Array<{id: string; name?: string}>)[0]
-          const res = await taskCancel(first.id).catch(() => ({ success: false, message: '취소 실패' }))
+          const res = await taskCancel(first.id)
           return {
             text: res.message || t(`작업 "${first.name ?? first.id}"을 취소했어요.`, `Task "${first.name ?? first.id}" cancelled.`, userLang),
             card2: { type: 'system_action', icon: '❌', title: res.message, success: res.success },
@@ -1950,7 +1943,7 @@ export async function handleBackendIntentImpl(
         /* ── 🔍 검색+PDF 보고서 ── */
         case 'search_pdf': {
           const query = originalText.replace(/검색.*pdf|pdf.*보고서|웹.*검색.*pdf|조사.*보고서|search.*pdf/gi, '').trim() || originalText
-          const data = await searchAndPDF(query, 8, '', true).catch(() => ({ success: false, pdf_path: '', html_path: '', query, item_count: 0, summary: '생성 실패', duration: '' }))
+          const data = await searchAndPDF(query, 8, '', true)
           return {
             text: data.success ? t(`PDF 보고서 생성 완료! ${data.item_count}개 항목 수집, ${data.duration} 소요.`, `PDF report generated! ${data.item_count} items collected in ${data.duration}.`, userLang) : data.summary,
             card2: { type: 'system_action', icon: '📄', title: t(`PDF 보고서: ${query.slice(0, 30)}`, `PDF Report: ${query.slice(0, 30)}`, userLang), detail: t(`경로: ${data.pdf_path || '생성 실패'}\n${data.summary?.slice(0, 100) ?? ''}`, `Path: ${data.pdf_path || 'Failed'}\n${data.summary?.slice(0, 100) ?? ''}`, userLang), success: data.success },
@@ -1960,7 +1953,7 @@ export async function handleBackendIntentImpl(
 
         /* ── 🎮 GPU 모니터링 ── */
         case 'gpu_stats': {
-          const data = await gpuStats().catch(() => ({ success: false, gpus: [], message: 'GPU 정보 조회 실패' }))
+          const data = await gpuStats()
           const gpu = data.gpus?.[0]
           return {
             text: data.message,
@@ -1972,7 +1965,7 @@ export async function handleBackendIntentImpl(
         /* ── 📋 멀티 액션 (검색 + 저장) ── */
         case 'multi_action': {
           const query = originalText.replace(/그리고|동시에|저장|파일로|한꺼번에/gi, '').trim() || originalText
-          const data = await backendAPI.llmDeepSearchWeb(query, 5).catch(() => ({ query, summary: '', items: [] as Array<{title: string; url: string}> }))
+          const data = await backendAPI.llmDeepSearchWeb(query, 5)
           const items = (data as { items?: Array<{title: string; url: string}> }).items ?? []
           const detail = items.slice(0, 5).map(i => `• ${i.title}`).join('\n')
           if (items.length > 0) setFloatingPreview(items.slice(0, 5).map(i => ({ title: i.title, url: i.url })))
@@ -1987,7 +1980,7 @@ export async function handleBackendIntentImpl(
         case 'stock_analysis': {
           const tickerMatch = originalText.match(/[A-Z]{2,5}|\d{5,6}/)
           const ticker = tickerMatch?.[0] ?? originalText.replace(/주식|분석|종목|투자|시세/gi, '').trim()
-          const data = await stockAnalysis(ticker, originalText).catch(() => ({ success: false, ticker, analysis: '', message: '주식 분석 실패' }))
+          const data = await stockAnalysis(ticker, originalText)
           return {
             text: data.message || `${ticker} 분석 완료`,
             card2: { type: 'system_action', icon: '📈', title: `${ticker} 주식 분석`, detail: data.analysis?.slice(0, 200) ?? '', success: data.success },
@@ -1998,7 +1991,7 @@ export async function handleBackendIntentImpl(
         /* ── 🩺 의료·임상 검색 (medical 페르소나) ── */
         case 'medical_search': {
           const query = originalText.replace(/의료|의학|진단|임상|처방|약|치료|질병|증상/gi, '').trim() || originalText
-          const data = await medicalSearch(query).catch(() => ({ success: false, query, results: [], summary: '', message: '의료 검색 실패' }))
+          const data = await medicalSearch(query)
           const detail = data.summary || (data.results as Array<{title: string}>).slice(0, 3).map(r => `• ${r.title}`).join('\n')
           return {
             text: data.message || `"${query}" 의료 검색 완료`,
@@ -2010,7 +2003,7 @@ export async function handleBackendIntentImpl(
         /* ── ⚖️ 법무·법률 검색 (legal 페르소나) ── */
         case 'legal_search': {
           const query = originalText.replace(/법률|법무|판례|계약|조항|법|규정/gi, '').trim() || originalText
-          const data = await legalSearch(query).catch(() => ({ success: false, query, results: [], summary: '', message: '법률 검색 실패' }))
+          const data = await legalSearch(query)
           const detail = data.summary || (data.results as Array<{title: string}>).slice(0, 3).map(r => `• ${r.title}`).join('\n')
           return {
             text: data.message || `"${query}" 법률 검색 완료`,
@@ -2021,10 +2014,10 @@ export async function handleBackendIntentImpl(
 
         /* ── 📄 계약서 검토 (legal 페르소나) ── */
         case 'contract_review': {
-          const clip = await backendAPI.clipboard().catch(() => ({ current: '', tip: '' }))
+          const clip = await backendAPI.clipboard()
           const text = clip.current || originalText
           if (!text || text === originalText) return { text: t('검토할 계약서 내용을 클립보드에 복사해주세요.', 'Please copy the contract text to clipboard.', userLang), emotion: 'neutral' }
-          const data = await contractReview(text).catch(() => ({ success: false, risks: [], clauses: [], summary: '', message: '계약서 검토 실패' }))
+          const data = await contractReview(text)
           const detail = data.summary || (data.risks as string[]).slice(0, 3).map(r => `⚠️ ${r}`).join('\n')
           return {
             text: data.message || '계약서 검토 완료',
@@ -2037,7 +2030,7 @@ export async function handleBackendIntentImpl(
         case 'content_script': {
           const topic = originalText.replace(/스크립트|콘텐츠|유튜브|틱톡|만들어|작성해|생성/gi, '').trim() || originalText
           const platform = /틱톡|tiktok/i.test(originalText) ? 'tiktok' : /인스타|instagram/i.test(originalText) ? 'instagram' : 'youtube'
-          const data = await contentScript(topic, platform).catch(() => ({ success: false, script: '', title: '', tags: [], message: '스크립트 생성 실패' }))
+          const data = await contentScript(topic, platform)
           return {
             text: data.message || '스크립트 생성 완료!',
             card2: { type: 'system_action', icon: '🎬', title: `${platform.toUpperCase()} 스크립트: ${topic.slice(0, 30)}`, detail: data.script?.slice(0, 200) ?? data.title, success: data.success },
@@ -2046,14 +2039,12 @@ export async function handleBackendIntentImpl(
         }
 
         default:
-          return { text: '', emotion: 'neutral' }
+          return errorReturn(intent, new Error(`Intent '${intent}' is not implemented in handleBackendIntentImpl`), userLang)
       }
-    } catch {
-      return {
-        text: userLang === 'ko'
-          ? '백엔드 연결에 실패했어요. 앱이 설치된 환경에서 실행해주세요.'
-          : 'Backend not available. Please run in the installed app.',
-        emotion: 'concerned',
-      }
+    } catch (err) {
+      // 모든 실행 실패는 errorReturn 으로 통일 — mock 데이터 폴백 절대 금지
+      // (BackendError 면 code/path/hint 포함된 정확한 에러 카드, 그 외는 unknown 으로 표시)
+      console.error('[handleBackendIntentImpl]', intent, err)
+      return errorReturn(intent, err, userLang)
     }
 }

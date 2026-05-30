@@ -78,17 +78,10 @@ function TypingBar({ primaryColor, steps, lang }: { primaryColor: string; steps?
     </div>
   )
 }
-import { InlineCardRenderer } from './InlineCards'
-import type { InlineCardData } from './InlineCards'
-import { InlineCardRenderer2 } from './InlineCards2'
-import type { InlineCardData2 } from './InlineCards2'
-import { InlineCardRenderer3 } from './InlineCards3'
-import type { InlineCard3Data } from './InlineCards3'
-import { InlineCardRenderer4 } from './InlineCards4'
-import type { InlineCard4Data } from './InlineCards4'
-import { InlineCard5Renderer } from './InlineCards5'
-import type { InlineCard5Data } from './InlineCards5'
-import { CardWrapper } from './CardWrapper'
+import { CardSlots } from './cards'
+import type {
+  InlineCardData, InlineCardData2, InlineCard3Data, InlineCard4Data, InlineCard5Data,
+} from './cards'
 
 interface ChatMessage {
   id: string
@@ -935,11 +928,17 @@ export function ChatBubble({
                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 3, paddingLeft: 2 }}>
                       {msg.id.replace(/-res$/, '')}
                     </div>
-                    {msg.inlineCard && <InlineCardRenderer card={msg.inlineCard} accentColor={primaryColor} onRepair={onRepair} />}
-                    {msg.inlineCard2 && <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} onPersonaSelect={onPersonaSelect} />}
-                    {msg.inlineCard3 && <InlineCardRenderer3 card={msg.inlineCard3} />}
-                    {msg.inlineCard4 && <InlineCardRenderer4 card={msg.inlineCard4} onMacroRun={msg.onMacroRun} />}
-                    {msg.inlineCard5 && <InlineCard5Renderer card={msg.inlineCard5} accentColor={primaryColor} />}
+                    <CardSlots
+                      inlineCard={msg.inlineCard}
+                      inlineCard2={msg.inlineCard2}
+                      inlineCard3={msg.inlineCard3}
+                      inlineCard4={msg.inlineCard4}
+                      inlineCard5={msg.inlineCard5}
+                      accentColor={primaryColor}
+                      onRepair={onRepair}
+                      onMacroRun={msg.onMacroRun}
+                      onPersonaSelect={onPersonaSelect}
+                    />
                   </div>
                 ))}
               </div>
@@ -951,19 +950,18 @@ export function ChatBubble({
         <AnimatePresence>
           {liveCards.map(msg => (
             <div key={msg.id} style={{ width: '100%', overflow: 'hidden' }}>
-              {msg.inlineCard && (
-                <CardWrapper variant="dark" accentColor={primaryColor} animate={false}>
-                  <InlineCardRenderer card={msg.inlineCard} accentColor={primaryColor} onRepair={onRepair} />
-                </CardWrapper>
-              )}
-              {msg.inlineCard2 && (
-                <CardWrapper variant="default" accentColor={primaryColor} animate={false}>
-                  <InlineCardRenderer2 card={msg.inlineCard2} accentColor={primaryColor} onPersonaSelect={onPersonaSelect} />
-                </CardWrapper>
-              )}
-              {msg.inlineCard3 && <InlineCardRenderer3 card={msg.inlineCard3} />}
-              {msg.inlineCard4 && <InlineCardRenderer4 card={msg.inlineCard4} onMacroRun={msg.onMacroRun} />}
-              {msg.inlineCard5 && <InlineCard5Renderer card={msg.inlineCard5} accentColor={primaryColor} />}
+              <CardSlots
+                inlineCard={msg.inlineCard}
+                inlineCard2={msg.inlineCard2}
+                inlineCard3={msg.inlineCard3}
+                inlineCard4={msg.inlineCard4}
+                inlineCard5={msg.inlineCard5}
+                accentColor={primaryColor}
+                onRepair={onRepair}
+                onMacroRun={msg.onMacroRun}
+                onPersonaSelect={onPersonaSelect}
+                wrap
+              />
             </div>
           ))}
         </AnimatePresence>
