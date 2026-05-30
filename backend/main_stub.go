@@ -57,6 +57,37 @@ func main() {
 
 	// ── 사용량 관리 ──────────────────────────────────────────
 	mux.HandleFunc("GET /api/usage", handleUsageStatus)
+	mux.HandleFunc("GET /api/usage/ai", handleUsageAI)
+	mux.HandleFunc("POST /api/usage/ai", handleUsageAI)
+
+	// ── Windows-only 엔드포인트 호환 shim (Mac 개발환경) ─────
+	mux.HandleFunc("GET /api/daily-report", func(w http.ResponseWriter, r *http.Request) {
+		json200(w, map[string]any{"available": false, "platform": "mac-dev", "message": "일일 리포트는 Windows 환경에서만 지원됩니다."})
+	})
+	mux.HandleFunc("GET /api/network/analysis", func(w http.ResponseWriter, r *http.Request) {
+		json200(w, map[string]any{"available": false, "platform": "mac-dev", "message": "네트워크 분석은 Windows 환경에서만 지원됩니다."})
+	})
+	// 편의 alias: /api/calendar → /api/calendar/today
+	mux.HandleFunc("GET /api/calendar", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api/calendar/today", http.StatusFound)
+	})
+	// /api/weather/current → /api/weather
+	mux.HandleFunc("GET /api/weather/current", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api/weather", http.StatusFound)
+	})
+	// /api/news shim
+	mux.HandleFunc("GET /api/news", func(w http.ResponseWriter, r *http.Request) {
+		json200(w, map[string]any{"items": []any{}, "message": "뉴스는 /api/command 채팅으로 검색하세요."})
+	})
+	// /api/stock shim (올바른 경로: /api/stock/quote)
+	mux.HandleFunc("GET /api/stock", func(w http.ResponseWriter, r *http.Request) {
+		sym := r.URL.Query().Get("symbol")
+		if sym == "" {
+			json200(w, map[string]any{"error": "symbol required"})
+			return
+		}
+		http.Redirect(w, r, "/api/stock/quote?symbol="+sym, http.StatusFound)
+	})
 
 	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
 	mux.HandleFunc("POST /api/site-search", handleSiteSearch)

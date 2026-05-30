@@ -208,15 +208,19 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	// ── 채팅 페르소나 전환 감지 ────────────────────────────────────
 	if preRoutedAction == "" && req.PendingIntent == "" {
 		personaSwitchMap := map[string]string{
-			"개발자": "developer", "개발자모드": "developer", "개발 모드": "developer", "it 모드": "developer", "코딩 모드": "developer",
-			"마케터": "marketer", "마케팅 모드": "marketer", "마케팅모드": "marketer", "디지털 마케터": "marketer",
-			"영업": "sales", "세일즈": "sales", "영업 모드": "sales", "세일즈 모드": "sales",
-			"pm": "pm", "기획자": "pm", "pm 모드": "pm", "기획 모드": "pm", "프로덕트": "pm",
+			"개발자": "developer", "개발자모드": "developer", "개발 모드": "developer", "it 모드": "developer", "코딩 모드": "developer", "엔지니어": "developer",
+			"마케터": "marketer", "마케팅 모드": "marketer", "마케팅모드": "marketer", "디지털 마케터": "marketer", "마케팅 전문가": "marketer",
+			"영업": "sales", "세일즈": "sales", "영업 모드": "sales", "세일즈 모드": "sales", "영업 전문가": "sales",
+			"pm": "pm", "기획자": "pm", "pm 모드": "pm", "기획 모드": "pm", "프로덕트": "pm", "기획 전문가": "pm",
 			"디자이너": "designer", "크리에이터": "designer", "디자인 모드": "designer", "크리에이티브 모드": "designer",
+			"투자자": "investor", "투자 전문가": "investor", "트레이더": "investor", "투자 모드": "investor", "재테크": "investor",
+			"의사": "medical", "의료진": "medical", "의료 전문가": "medical", "의학 전문가": "medical",
+			"변호사": "legal", "법무": "legal", "법률 전문가": "legal", "법 전문가": "legal",
+			"유튜버": "creator", "인플루언서": "creator", "크리에이터 모드": "creator", "콘텐츠 전문가": "creator",
 			"프리랜서": "freelancer", "1인 사업자": "freelancer", "프리랜서 모드": "freelancer", "사업자 모드": "freelancer",
 			"기본": "developer", "기본 모드": "developer",
 		}
-		switchTriggers := []string{"모드로 바꿔", "모드 바꿔", "모드로 전환", "모드 전환", "페르소나", "으로 바꿔", "로 바꿔줘", "로 전환해"}
+		switchTriggers := []string{"모드로 바꿔", "모드 바꿔", "모드로 전환", "모드 전환", "페르소나", "으로 바꿔", "로 바꿔줘", "로 전환해", "로 행동해", "행동해줘", "전문가로", "로 바꿔줘", "역할 바꿔"}
 		hasTrigger := false
 		for _, t := range switchTriggers {
 			if strings.Contains(msgLower, t) {
@@ -243,6 +247,19 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
+			}
+		}
+	}
+
+	// ── 이메일 전송 pre-routing ───────────────────────────────────
+	if preRoutedAction == "" && req.PendingIntent == "" {
+		emailTriggers := []string{"이메일 보내", "메일 보내", "이메일 발송", "메일 발송", "이메일 써줘", "메일 써줘",
+			"이메일 작성", "메일 작성", "send email", "이메일 전송"}
+		for _, kw := range emailTriggers {
+			if strings.Contains(msgLower, kw) {
+				preRoutedAction = "email"
+				preRoutedParams = map[string]any{"message": req.Message}
+				break
 			}
 		}
 	}

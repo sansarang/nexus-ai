@@ -186,6 +186,22 @@ func cmdPersonaSwitch(cx cmdCtx) {
 		if cx.params != nil {
 			id, _ = cx.params["id"].(string)
 		}
+		// 자연어 → ID 매핑 (LLM이 한국어 이름을 반환할 때 폴백)
+		naturalLangMap := map[string]string{
+			"개발자": "developer", "엔지니어": "developer", "코더": "developer",
+			"마케터": "marketer", "마케팅": "marketer",
+			"영업": "sales", "세일즈": "sales",
+			"기획자": "pm", "pm": "pm",
+			"디자이너": "designer", "크리에이터": "creator",
+			"투자자": "investor", "투자전문가": "investor", "투자 전문가": "investor", "트레이더": "investor",
+			"의사": "medical", "의료": "medical",
+			"변호사": "legal", "법무": "legal",
+			"유튜버": "creator", "인플루언서": "creator",
+			"프리랜서": "freelancer",
+		}
+		if mapped, ok := naturalLangMap[strings.ToLower(strings.TrimSpace(id))]; ok {
+			id = mapped
+		}
 		for _, p := range builtinPersonas {
 			if p.ID == id {
 				personaMu.Lock()
@@ -201,7 +217,7 @@ func cmdPersonaSwitch(cx cmdCtx) {
 				return
 			}
 		}
-		json200(cx.w, CommandResponse{Success: false, Message: "알 수 없는 페르소나입니다.", Action: "persona_switch"})
+		json200(cx.w, CommandResponse{Success: false, Message: "알 수 없는 페르소나입니다. 사용 가능: developer, marketer, sales, pm, designer, investor, medical, legal, creator, freelancer", Action: "persona_switch"})
 
 }
 
