@@ -153,6 +153,11 @@ export type Intent =
   | 'legal_search'     // 법률·판례 검색 (legal 페르소나)
   | 'contract_review'  // 계약서 검토 (legal 페르소나)
   | 'content_script'   // 콘텐츠 스크립트 생성 (creator 페르소나)
+  // ── 🖱️ 데스크톱 제어 (Phase 6) ────────────────────────────
+  | 'mouse_click'      // "여기 클릭" "확인 버튼 눌러" — 화면 OCR + 좌표
+  | 'keyboard_type'    // "Hello 라고 입력해" — 텍스트 자동 입력
+  | 'window_control'   // "Chrome 최대화" "메모장 닫아" — 창 제어
+  | 'screen_find_click' // "결제 버튼 찾아서 클릭" — OCR 텍스트 검색 후 클릭
   | 'none'             // LLM으로 위임
 
 const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
@@ -1076,6 +1081,45 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     patterns: [
       /스크립트.*만들어|콘텐츠.*대본|유튜브.*스크립트|script.*generate/i,
       /영상.*대본|유튜브.*대본|틱톡.*스크립트|콘텐츠.*글.*써줘/i,
+    ],
+  },
+  // ── 🖱️ 데스크톱 제어 (Phase 6) ────────────────────────────
+  {
+    // 화면 좌표 직접 지정 클릭 — 좌표는 메시지에서 추출
+    intent: 'mouse_click',
+    patterns: [
+      /\d+\s*,\s*\d+\s*(?:좌표|위치|에서)?\s*(?:왼쪽|오른쪽|더블)?\s*클릭/i,
+      /좌표\s*\(?\s*\d+\s*,\s*\d+/i,
+      /click\s+at\s+\d+\s*,\s*\d+/i,
+    ],
+  },
+  {
+    // OCR + 좌표 — "결제 버튼 찾아서 클릭", "여기 클릭", "취소 눌러"
+    intent: 'screen_find_click',
+    patterns: [
+      /(?:화면에서|화면\s*위)?\s*['""].+['""]?\s*(?:버튼|항목|메뉴|링크)?\s*(?:찾아서?\s*)?(?:클릭|눌러|선택)/i,
+      /(?:확인|취소|닫기|저장|전송|로그인|회원가입|결제|구매|다음|이전|뒤로|새로고침)\s*(?:버튼)?\s*(?:클릭|눌러|선택|press)/i,
+      /find.*and.*click|click.*the.*\w+\s*button/i,
+    ],
+  },
+  {
+    intent: 'keyboard_type',
+    patterns: [
+      /['""](.+?)['""].*?(?:타이핑|입력|쳐줘|쳐서|type)/i,
+      /(?:키보드|자판)(?:로|으로).*입력/i,
+      /자동.*(?:타이핑|입력)/i,
+      /type\s+['""].+['""]/i,
+    ],
+  },
+  {
+    intent: 'window_control',
+    patterns: [
+      /(?:창|window).*?(?:최대화|최소화|닫아|복원|숨겨|보여줘|focus|포커스)/i,
+      /([A-Za-z가-힣\s]+?).*(?:창)?\s*(?:최대화|maximize|maxmize|꽉 채워)/i,
+      /([A-Za-z가-힣\s]+?).*(?:창)?\s*(?:최소화|minimize|trei|작게)/i,
+      /([A-Za-z가-힣\s]+?).*(?:창)?\s*(?:앞으로|focus|활성화|불러와)/i,
+      /([A-Za-z가-힣\s]+?).*?(?:창)?\s*닫아\s*(?:줘|주세요)?/i,
+      /maximize|minimize|focus.*window|close.*window/i,
     ],
   },
 ]

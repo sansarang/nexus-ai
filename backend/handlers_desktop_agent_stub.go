@@ -20,3 +20,9 @@ func handleDesktopScreenshot(w http.ResponseWriter, r *http.Request)   { proxyTo
 func handleDesktopStatus(w http.ResponseWriter, r *http.Request)       { proxyToPythonGET(w, r, "/desktop/status") }
 func handleDesktopApprove(w http.ResponseWriter, r *http.Request)      { proxyToPython(w, r, "/desktop/approve") }
 func handleDesktopAgentCancel(w http.ResponseWriter, r *http.Request)  { proxyToPython(w, r, "/desktop/agent/cancel") }
+func handleDesktopWindow(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 503, map[string]any{"success": false, "code": "windows_only", "message": "Windows-only: window control"})
+}
+func handleDesktopWindowList(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 503, map[string]any{"success": false, "code": "windows_only", "message": "Windows-only: window list", "windows": []any{}})
+}

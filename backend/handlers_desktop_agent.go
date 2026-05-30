@@ -741,6 +741,105 @@ func handleDesktopStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// POST /api/agent/desktop/window — 창 제어 (focus/maximize/minimize/restore/close/hide/show)
+// {title: "Chrome", action: "maximize"} — title 부분일치 / action 7종
+func handleDesktopWindow(w http.ResponseWriter, r *http.Request) {
+	lang := getLang(r)
+	var req struct {
+		Title  string `json:"title"`   // 창 제목 부분일치
+		Action string `json:"action"`  // focus|maximize|minimize|restore|close|hide|show
+	}
+	tryDecodeBody(r, &req)
+	if req.Title == "" {
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("title 필요", "title required", lang)})
+		return
+	}
+
+	// SW_ 상수
+	const (
+		SW_HIDE      = 0
+		SW_SHOWNORMAL = 1
+		SW_MINIMIZE  = 6
+		SW_MAXIMIZE  = 3
+		SW_RESTORE   = 9
+		SW_SHOW      = 5
+	)
+
+	// FindWindowW(NULL, lpWindowName) — 정확한 매칭만 됨 — 부분일치는 EnumWindows 필요
+	// 우선 PowerShell로 부분일치 + 핸들 가져오기
+	psScript := fmt.Sprintf(`
+$ErrorActionPreference = 'SilentlyContinue'
+$proc = Get-Process | Where-Object { $_.MainWindowTitle -like "*%s*" -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+if ($null -eq $proc) { Write-Output "0"; exit }
+Write-Output $proc.MainWindowHandle.ToInt64()
+`, strings.ReplaceAll(req.Title, `"`, `'`))
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command", psScript).Output()
+	if err != nil {
+		json200(w, map[string]any{"success": false, "message": fmt.Sprintf("창 검색 실패: %v", err)})
+		return
+	}
+	hwndStr := strings.TrimSpace(string(out))
+	if hwndStr == "" || hwndStr == "0" {
+		json200(w, map[string]any{"success": false, "message": msgT(fmt.Sprintf("'%s' 창을 찾을 수 없어요", req.Title), fmt.Sprintf("Window '%s' not found", req.Title), lang)})
+		return
+	}
+	// 핸들 정수 파싱
+	var hwnd int64
+	fmt.Sscanf(hwndStr, "%d", &hwnd)
+	if hwnd == 0 {
+		json200(w, map[string]any{"success": false, "message": msgT("창 핸들 파싱 실패", "Window handle parse failed", lang)})
+		return
+	}
+
+	var swCmd int
+	switch req.Action {
+	case "focus":     swCmd = SW_SHOW
+	case "maximize":  swCmd = SW_MAXIMIZE
+	case "minimize":  swCmd = SW_MINIMIZE
+	case "restore":   swCmd = SW_RESTORE
+	case "hide":      swCmd = SW_HIDE
+	case "show":      swCmd = SW_SHOWNORMAL
+	case "close":
+		// WM_CLOSE 전송
+		const WM_CLOSE = 0x0010
+		procPostMessage := user32dll.NewProc("PostMessageW")
+		procPostMessage.Call(uintptr(hwnd), uintptr(WM_CLOSE), 0, 0)
+		json200(w, map[string]any{"success": true, "message": msgT(fmt.Sprintf("'%s' 창을 닫았어요", req.Title), fmt.Sprintf("Closed '%s'", req.Title), lang)})
+		return
+	default:
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("action: focus|maximize|minimize|restore|close|hide|show", "action: focus|maximize|minimize|restore|close|hide|show", lang)})
+		return
+	}
+
+	procShowWindow.Call(uintptr(hwnd), uintptr(swCmd))
+	// focus 액션은 ShowWindow + SetForegroundWindow 둘 다
+	if req.Action == "focus" || req.Action == "maximize" || req.Action == "restore" {
+		procSetForeground.Call(uintptr(hwnd))
+	}
+	json200(w, map[string]any{
+		"success": true,
+		"message": msgT(fmt.Sprintf("'%s' 창 %s 완료", req.Title, req.Action), fmt.Sprintf("Window '%s' %s done", req.Title, req.Action), lang),
+		"hwnd":    hwnd,
+	})
+}
+
+// GET /api/agent/desktop/windows — 열린 창 목록
+func handleDesktopWindowList(w http.ResponseWriter, r *http.Request) {
+	psScript := `
+Get-Process | Where-Object { $_.MainWindowTitle -ne "" -and $_.MainWindowHandle -ne 0 } |
+  Select-Object @{N='title';E={$_.MainWindowTitle}}, @{N='process';E={$_.ProcessName}}, @{N='pid';E={$_.Id}} |
+  ConvertTo-Json -Compress
+`
+	out, err := newHiddenCmd("powershell", "-NoProfile", "-Command", psScript).Output()
+	if err != nil {
+		json200(w, map[string]any{"success": false, "message": err.Error(), "windows": []any{}})
+		return
+	}
+	var windows any
+	json.Unmarshal(out, &windows)
+	json200(w, map[string]any{"success": true, "windows": windows})
+}
+
 // POST /api/desktop/agent/cancel — 실행 중인 Desktop Agent 취소
 func handleDesktopAgentCancel(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)

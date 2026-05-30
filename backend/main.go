@@ -322,6 +322,8 @@ func main() {
 	mux.HandleFunc("GET /api/agent/desktop/screenshot", handleDesktopScreenshot)
 	mux.HandleFunc("GET /api/agent/desktop/status", handleDesktopStatus)
 	mux.HandleFunc("POST /api/agent/desktop/approve", handleDesktopApprove)
+	mux.HandleFunc("POST /api/agent/desktop/window", handleDesktopWindow)
+	mux.HandleFunc("GET /api/agent/desktop/windows", handleDesktopWindowList)
 	// aliases for frontend
 	mux.HandleFunc("GET /api/desktop/screenshot", handleDesktopScreenshot)
 	mux.HandleFunc("GET /api/desktop/status", handleDesktopStatus)

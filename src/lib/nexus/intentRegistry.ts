@@ -183,6 +183,12 @@ export const INTENT_REGISTRY = {
   travel_time:      { status: 'live',         category: 'weather_travel', emoji: '🚗', labelKo: '소요 시간',        labelEn: 'Travel Time' },
   translate:        { status: 'live',         category: 'weather_travel', emoji: '🌍', labelKo: '번역',             labelEn: 'Translate' },
 
+  // ── 🖱️ 데스크톱 제어 (Phase 6) ───────────────────────────
+  mouse_click:      { status: 'windows_only', category: 'system_control', emoji: '🖱️', labelKo: '좌표 클릭',        labelEn: 'Mouse Click' },
+  keyboard_type:    { status: 'windows_only', category: 'system_control', emoji: '⌨️', labelKo: '자동 타이핑',      labelEn: 'Auto Type' },
+  window_control:   { status: 'windows_only', category: 'system_control', emoji: '🪟', labelKo: '창 제어',          labelEn: 'Window Control' },
+  screen_find_click:{ status: 'windows_only', category: 'system_control', emoji: '👁️', labelKo: '화면 찾아 클릭',   labelEn: 'Find & Click' },
+
   // ── 메타 ──────────────────────────────────────────────
   none:             { status: 'meta',         category: 'meta',           emoji: '💬', labelKo: 'LLM 대화',         labelEn: 'LLM Chat' },
 } as const satisfies Record<Intent, IntentSpec>

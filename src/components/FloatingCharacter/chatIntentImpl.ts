@@ -1642,6 +1642,102 @@ export async function handleBackendIntentImpl(
           }
         }
 
+        /* ── 🖱️ 데스크톱 제어 — 좌표 클릭 (Phase 6) ── */
+        case 'mouse_click': {
+          // 좌표 추출: "123, 456 클릭" / "좌표 (300, 200)"
+          const m = originalText.match(/(\d{2,4})\s*,\s*(\d{2,4})/)
+          if (!m) {
+            return { text: t('좌표를 알려주세요. 예: "300, 200 클릭"', 'Please specify coordinates. e.g. "click 300, 200"', userLang), emotion: 'neutral' }
+          }
+          const [x, y] = [parseInt(m[1]), parseInt(m[2])]
+          const button: 'left' | 'right' | 'double' =
+            /더블|double/i.test(originalText) ? 'double' :
+            /오른쪽|우클릭|right/i.test(originalText) ? 'right' : 'left'
+          const res = await backendAPI.desktopClick(x, y, button)
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '🖱️', title: `${button === 'double' ? '더블클릭' : button === 'right' ? '우클릭' : '클릭'} (${x}, ${y})`, detail: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── ⌨️ 자동 타이핑 (Phase 6) ── */
+        case 'keyboard_type': {
+          // 따옴표 안의 텍스트 추출
+          const m = originalText.match(/['""](.+?)['""]/) ??
+                    originalText.match(/[「『](.+?)[」』]/) ??
+                    originalText.match(/입력해[줘:]?\s*(.+)/)
+          const text = m ? m[1].trim() : ''
+          if (!text) {
+            return { text: t('입력할 텍스트를 따옴표로 감싸주세요. 예: "Hello 라고 입력해"', 'Wrap text in quotes. e.g. "type \"Hello\""', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.desktopType(text)
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '⌨️', title: `자동 입력: ${text.slice(0, 30)}${text.length > 30 ? '...' : ''}`, detail: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 🪟 창 제어 (Phase 6) ── */
+        case 'window_control': {
+          // action 추출
+          let action: 'focus' | 'maximize' | 'minimize' | 'restore' | 'close' | 'hide' | 'show' = 'focus'
+          if (/최대화|maximize|꽉/.test(originalText)) action = 'maximize'
+          else if (/최소화|minimize|작게/.test(originalText)) action = 'minimize'
+          else if (/복원|restore/.test(originalText)) action = 'restore'
+          else if (/닫아|close/.test(originalText)) action = 'close'
+          else if (/숨겨|hide/.test(originalText)) action = 'hide'
+          else if (/보여|show/.test(originalText)) action = 'show'
+          // 창 제목 추출: "Chrome 최대화" / "메모장 닫아"
+          // 액션 키워드 제거 후 남은 단어가 제목
+          const title = originalText
+            .replace(/창|window|최대화|최소화|복원|닫아|숨겨|보여|focus|포커스|maximize|minimize|restore|close|hide|show|줘|주세요|해주세요|꽉|채워|작게/gi, '')
+            .replace(/[을를이가에는]\s*$/, '')
+            .trim()
+          if (!title) {
+            return { text: t('어떤 창을 제어할까요? 예: "Chrome 최대화"', 'Which window? e.g. "maximize Chrome"', userLang), emotion: 'neutral' }
+          }
+          const res = await backendAPI.desktopWindow(title, action)
+          return {
+            text: res.message,
+            card2: { type: 'system_action', icon: '🪟', title: `${title} - ${action}`, detail: res.message, success: res.success },
+            emotion: res.success ? 'happy' : 'concerned',
+          }
+        }
+
+        /* ── 👁️ 화면 OCR 후 찾아 클릭 (Phase 6) ── */
+        case 'screen_find_click': {
+          // 스크린샷 + OCR
+          const ss = await backendAPI.screenshot(true)
+          if (!ss.success || !ss.ocr_text) {
+            return { text: t('화면 캡처에 실패했어요.', 'Screen capture failed.', userLang), emotion: 'concerned' }
+          }
+          // 찾을 텍스트 추출 — "결제 버튼 클릭" → "결제"
+          const m = originalText.match(/['""](.+?)['""]/) ??
+                    originalText.match(/(\S+?)\s*(?:버튼|항목|메뉴|링크)?\s*(?:찾아서?\s*)?(?:클릭|눌러|선택)/)
+          const target = (m?.[1] ?? '').trim()
+          if (!target) {
+            return { text: t('어떤 항목을 클릭할까요? 예: "결제 버튼 클릭"', 'What to click? e.g. "click Pay button"', userLang), emotion: 'neutral' }
+          }
+          // OCR 결과에 target 단어 포함 여부 확인
+          // (실제 좌표 정밀도는 OCR 엔진별로 다름 — 여기선 단순 가시성 확인만)
+          if (!ss.ocr_text.includes(target)) {
+            return {
+              text: t(`화면에서 "${target}" 을(를) 찾지 못했어요. 좌표를 직접 지정해주세요.`, `Couldn't find "${target}" on screen. Specify coordinates.`, userLang),
+              card2: { type: 'system_action', icon: '👁️', title: `검색 실패: ${target}`, detail: `OCR 추출 미리보기:\n${ss.ocr_text.slice(0, 200)}`, success: false },
+              emotion: 'concerned',
+            }
+          }
+          // TODO: OCR 좌표 매핑 (현재는 가시성만 확인)
+          return {
+            text: t(`화면에서 "${target}" 을 찾았어요. 정확한 좌표 매핑은 곧 지원될 예정이에요. 지금은 "300, 200 클릭" 같이 좌표를 직접 알려주세요.`,
+                    `Found "${target}" on screen. Pixel-precise click coming soon. For now, use "click 300, 200".`, userLang),
+            card2: { type: 'system_action', icon: '👁️', title: `${target} 발견`, detail: `화면 OCR로 텍스트 확인됨. 좌표 매핑 개발 중.`, success: true },
+            emotion: 'happy',
+          }
+        }
+
         default:
           return errorReturn(intent, new Error(`Intent '${intent}' is not implemented in handleBackendIntentImpl`), userLang)
       }

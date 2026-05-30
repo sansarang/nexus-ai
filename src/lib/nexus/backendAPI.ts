@@ -278,6 +278,30 @@ export const backendAPI = {
       TIMEOUT_DEEP
     ),
 
+  // ── Desktop Agent: 마우스·키보드·창 제어 (Windows) ────────
+  desktopClick:    (x: number, y: number, button: 'left'|'right'|'double' = 'left') =>
+    request<{ success: boolean; message: string }>('POST', '/api/agent/desktop/click', { x, y, button }),
+  desktopType:     (text: string) =>
+    request<{ success: boolean; message: string }>('POST', '/api/agent/desktop/type', { text }),
+  desktopKey:      (key: string) =>
+    request<{ success: boolean; message: string }>('POST', '/api/agent/desktop/key', { key }),
+  desktopScroll:   (x: number, y: number, direction: 'up'|'down' = 'down', amount = 3) =>
+    request<{ success: boolean }>('POST', '/api/agent/desktop/scroll', { x, y, direction, amount }),
+  desktopDrag:     (fromX: number, fromY: number, toX: number, toY: number) =>
+    request<{ success: boolean }>('POST', '/api/agent/desktop/drag', { from_x: fromX, from_y: fromY, to_x: toX, to_y: toY }),
+  desktopWindow:   (title: string, action: 'focus'|'maximize'|'minimize'|'restore'|'close'|'hide'|'show') =>
+    request<{ success: boolean; message: string; hwnd?: number }>('POST', '/api/agent/desktop/window', { title, action }),
+  desktopWindowList: () =>
+    request<{ success: boolean; windows: Array<{ title: string; process: string; pid: number }> | { title: string; process: string; pid: number } | null }>(
+      'GET', '/api/agent/desktop/windows'
+    ),
+  desktopStatus:   () =>
+    request<{ success: boolean; active_title: string; cursor_x: number; cursor_y: number; screen_w: number; screen_h: number }>(
+      'GET', '/api/agent/desktop/status'
+    ),
+  desktopApprove:  (taskId: string, approved: boolean) =>
+    request<{ success: boolean; approved: boolean }>('POST', '/api/agent/desktop/approve', { task_id: taskId, approved }),
+
   // ── Vision & OCR ─────────────────────────────────────────
   screenshot:     (withOCR?: boolean) =>
     request<{ success: boolean; base64: string; width: number; height: number; mime: string; ocr_text?: string; captured: string }>(
