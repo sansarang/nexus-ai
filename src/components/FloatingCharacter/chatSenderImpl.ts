@@ -955,13 +955,41 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     }
 
     if (!response) {
-      if (apiKey) {
-        // API 키 있음 → 직접 호출
+      // ★ 1순위: Dynamic LLM — Block[] 스키마 활용 (Phase 14)
+      //   복합 질문/분석/비교/구조화된 답변 → 동적 카드 자동 생성
+      try {
+        const { callDynamicLLM } = await import('../../lib/nexus/dynamicLLM')
+        const auth = await getAuthHeader()
+        const dyn = await callDynamicLLM({
+          userMessage: trimmed,
+          history: historyRef.current as Array<{ role: 'user'|'model'; parts: Array<{ text: string }> }>,
+          lang: detectedLang === 'en' ? 'en' : 'ko',
+          assistantName,
+          authHeader: auth,
+        })
+        if (dyn) {
+          if (dyn.format === 'blocks') {
+            // Dynamic 카드 형태로 응답 — 즉시 반환
+            response = {
+              text: dyn.text,
+              emotion: dyn.emotion ?? 'neutral',
+              steps: [],
+              // chatSenderImpl 의 setMessages 직후 inlineCard 로 주입하기 위한 임시 채널
+              dynamicBlocks: dyn.blocks,
+            } as typeof response & { dynamicBlocks: typeof dyn.blocks }
+          } else {
+            response = { text: dyn.text, emotion: dyn.emotion ?? 'neutral', steps: [] }
+          }
+        }
+      } catch (e) { console.warn('[dynamicLLM] failed:', e) }
+
+      // 2순위: 기존 Gemini 직접 호출 (Dynamic 실패 시 폴백)
+      if (!response && apiKey) {
         try { response = await callGemini(apiKey, trimmed, historyRef.current) }
         catch (e) { console.warn('[LLM] 직접 호출 실패:', e) }
       }
+      // 3순위: 백엔드 프록시 (마지막 폴백)
       if (!response) {
-        // API 키 없음 or 실패 → 백엔드 프록시 경유 (로그인 JWT 사용)
         try {
           const auth = await getAuthHeader()
           const messages = [
@@ -1025,8 +1053,16 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       success: true,
     } : undefined
 
+    // ★ Dynamic LLM 이 Block[] 반환했으면 inlineCard 로 렌더 (Phase 14)
+    const dynBlocks = (response as { dynamicBlocks?: unknown }).dynamicBlocks
+    const dynamicCard = Array.isArray(dynBlocks) && dynBlocks.length > 0
+      ? { type: 'dynamic' as const, blocks: dynBlocks as import('./InlineCards').InlineCardData extends { type: 'dynamic'; blocks: infer B } ? B : never }
+      : undefined
+
     setMessages(prev => [...prev, {
-      id: `${msgId}-res`, role: 'nexus', text: response!.text, inlineCard2: llmCard2,
+      id: `${msgId}-res`, role: 'nexus', text: response!.text,
+      inlineCard: dynamicCard,
+      inlineCard2: llmCard2,
       action: previewItems.length > 0 ? 'web_search' : 'chat',
     }])
     pushModelHistory(trimmed, response.text)
