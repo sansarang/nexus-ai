@@ -262,6 +262,8 @@ interface ChatBubbleProps {
   onRetry?: (intent: string) => void
   /** 에러 카드의 "API 키 설정" — Settings 모달 열기 */
   onOpenSettings?: () => void
+  /** Dynamic 카드의 action 블록 클릭 — sendText 호출 */
+  onAction?: (command: string) => void
   embedded?: boolean
 }
 
@@ -287,6 +289,7 @@ export function ChatBubble({
   onPersonaSelect,
   onRetry,
   onOpenSettings,
+  onAction,
   embedded = false,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -946,6 +949,7 @@ export function ChatBubble({
                       onPersonaSelect={onPersonaSelect}
                       onRetry={onRetry}
                       onOpenSettings={onOpenSettings}
+                      onAction={onAction}
                     />
                   </div>
                 ))}
@@ -970,6 +974,7 @@ export function ChatBubble({
                 onPersonaSelect={onPersonaSelect}
                 onRetry={onRetry}
                 onOpenSettings={onOpenSettings}
+                onAction={onAction}
                 wrap
               />
             </div>

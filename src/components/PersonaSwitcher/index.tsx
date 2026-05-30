@@ -11,15 +11,30 @@ interface PersonaDef {
   color: string
 }
 
+// Phase 5+13-D: 백엔드 등록된 19개 페르소나 전체 반영
 const PERSONAS: PersonaDef[] = [
-  { id: 'developer',  name: '개발자 / IT 엔지니어',  emoji: '💻', description: '코드·디버깅·아키텍처·터미널',   color: '#6366f1' },
-  { id: 'marketer',   name: '마케터 / 디지털 마케터', emoji: '📊', description: '트렌드·SNS·경쟁사·콘텐츠',     color: '#f59e0b' },
-  { id: 'sales',      name: '영업 / 세일즈',          emoji: '🤝', description: '이메일 초안·미팅·고객 설득',   color: '#10b981' },
-  { id: 'pm',         name: 'PM / 기획자',            emoji: '📋', description: '문서 요약·로드맵·의사결정',    color: '#0ea5e9' },
-  { id: 'designer',   name: '디자이너 / 크리에이터',  emoji: '🎨', description: '레퍼런스·파일 정리·콘텐츠',   color: '#ec4899' },
-  { id: 'freelancer', name: '프리랜서 / 1인 사업자',  emoji: '🚀', description: '견적·클라이언트·세금·효율',   color: '#8b5cf6' },
-  { id: 'smallbiz',  name: '소상공인 / 자영업자',    emoji: '🏪', description: '배달앱·카드수수료·지원정책',   color: '#f97316' },
-  { id: 'corporate', name: '기업 / 법인',            emoji: '🏢', description: '법인세·4대보험·세금계산서',    color: '#0ea5e9' },
+  // 기본
+  { id: 'nexus',      name: 'Nexus (기본)',          emoji: '🤖', description: 'PC 관리 만능 AI',              color: '#6366f1' },
+  // 기본 7종 (전문 분야)
+  { id: 'research',   name: '리서치 Nexus',          emoji: '🔬', description: '경쟁·시장·논문 조사',          color: '#0ea5e9' },
+  { id: 'finance',    name: '재무 Nexus',            emoji: '💰', description: '예산·투자·재무 보고서',        color: '#10b981' },
+  { id: 'meeting',    name: '회의 Nexus',            emoji: '🎯', description: '회의 진행·요약·액션 추적',     color: '#f59e0b' },
+  { id: 'creative',   name: '크리에이티브 Nexus',    emoji: '🎨', description: '카피·아이디어·콘텐츠 기획',    color: '#ec4899' },
+  { id: 'security',   name: '보안 Nexus',            emoji: '🛡️', description: '사이버 보안·취약점 분석',     color: '#ef4444' },
+  { id: 'legal',      name: '법무 Nexus',            emoji: '⚖️', description: '계약서·법률·규정 준수',       color: '#7c3aed' },
+  // 직업군 12종 (Phase 5)
+  { id: 'developer',  name: '개발자 Nexus',          emoji: '💻', description: '코드 리뷰·디버깅·아키텍처',    color: '#22c55e' },
+  { id: 'marketer',   name: '마케터 Nexus',          emoji: '📊', description: '콘텐츠·SNS·캠페인 분석',       color: '#f97316' },
+  { id: 'sales',      name: '세일즈 Nexus',          emoji: '🤝', description: '제안서·콜드메일·협상',         color: '#06b6d4' },
+  { id: 'pm',         name: 'PM Nexus',              emoji: '📋', description: 'PRD·로드맵·스프린트',          color: '#3b82f6' },
+  { id: 'designer',   name: '디자이너 Nexus',        emoji: '🎨', description: 'UI/UX·디자인 시스템',          color: '#ec4899' },
+  { id: 'freelancer', name: '프리랜서 Nexus',        emoji: '🚀', description: '견적·계약·세금·일정',          color: '#8b5cf6' },
+  { id: 'smallbiz',   name: '소상공인 Nexus',        emoji: '🏪', description: '배달앱·정부지원·매장 운영',    color: '#f59e0b' },
+  { id: 'corporate',  name: '법인 Nexus',            emoji: '🏢', description: '법인세·4대보험·인사관리',      color: '#0891b2' },
+  { id: 'medical',    name: '의료 Nexus',            emoji: '🩺', description: '임상·약물·논문 검색',          color: '#dc2626' },
+  { id: 'creator',    name: '크리에이터 Nexus',      emoji: '🎬', description: '유튜브·썸네일·편집',           color: '#e11d48' },
+  { id: 'investor',   name: '투자자 Nexus',          emoji: '📈', description: '주식·ETF·재무제표 분석',       color: '#16a34a' },
+  { id: 'tutor',      name: '튜터 Nexus',            emoji: '📚', description: '학습 설계·문제 풀이',          color: '#7c3aed' },
 ]
 
 interface Props {

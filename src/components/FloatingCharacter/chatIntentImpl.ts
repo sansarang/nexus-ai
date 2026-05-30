@@ -151,6 +151,15 @@ export async function handleBackendIntentImpl(
             const r = await backendAPI.clean(['temp'])
             return r as { freed: number; message: string }
           })
+          // 활동 로그 — 디스크 정리는 되돌릴 수 없음 (백업 안 함)
+          const { logActivity } = await import('../../lib/nexus/activityLog')
+          const freedTotal = Array.isArray(results)
+            ? results.reduce((s: number, r: { freed_bytes?: number }) => s + (r.freed_bytes ?? 0), 0)
+            : (results as { freed: number }).freed
+          logActivity({
+            intent, status: 'success',
+            label: t(`디스크 정리 (${Math.round(freedTotal / 1024 / 1024)}MB 회복)`, `Disk cleanup (${Math.round(freedTotal / 1024 / 1024)}MB freed)`, userLang),
+          })
           return {
             text: intentResponseText('clean', userLang, assistantName),
             card: { type: 'clean_result', results },
@@ -608,6 +617,15 @@ export async function handleBackendIntentImpl(
           const target = isDesktop ? 'desktop' : isDownloads ? 'downloads' : ''
           const res = await backendAPI.filesOrganize(target || undefined, 'type')
           const targetLabel = isDesktop ? t('바탕화면', 'Desktop', userLang) : isDownloads ? t('다운로드', 'Downloads', userLang) : t('다운로드', 'Downloads', userLang)
+          // 활동 로그 — 정리 가능 (실제 undo는 backup 필요 — 향후 기능 안내만)
+          if (res.success) {
+            const { logActivity } = await import('../../lib/nexus/activityLog')
+            logActivity({
+              intent, status: 'success',
+              label: t(`${targetLabel} 파일 ${res.moved}개 정리`, `Organized ${res.moved} files in ${targetLabel}`, userLang),
+              detail: res.message,
+            })
+          }
           return {
             text: res.success ? t(`${targetLabel} 정리 완료!`, `${targetLabel} organized!`, userLang) : res.message,
             card3: { type: 'smart_organize', data: { moved: res.moved, folders: [], message: res.message } },
@@ -1258,21 +1276,20 @@ export async function handleBackendIntentImpl(
 
           const res = await personaSet(id)
           if (res.ok && res.persona) setActivePersona(res.persona)
-          // 페르소나 전환 시 추천 도구 5개를 detail에 노출 (사용자가 다음에 뭘 할지 명확)
-          let toolsHint = ''
-          if (res.ok) {
-            try {
-              const { getEnrichedPersonaTools } = await import('../../lib/nexus/personaTools')
-              const tools = getEnrichedPersonaTools(id).slice(0, 5)
-              if (tools.length) {
-                toolsHint = '\n\n' + t('💡 이 모드에서 자주 쓰는 명령:', '💡 Quick commands for this mode:', userLang) + '\n' +
-                  tools.map(tool => `${tool.emoji} ${tool.label}`).join('\n')
-              }
-            } catch { /* registry import 실패 — 무시 */ }
+          // 페르소나 전환 → Dynamic Block 카드로 추천 명령을 클릭 가능 액션 칩으로
+          const { getEnrichedPersonaTools } = await import('../../lib/nexus/personaTools')
+          const tools = res.ok ? getEnrichedPersonaTools(id).slice(0, 5) : []
+          const blocks: import('./cards/DynamicBlocks').Block[] = []
+          if (tools.length > 0) {
+            blocks.push({ type: 'heading', level: 3, icon: '💡', text: t('이 모드에서 자주 쓰는 명령', 'Quick commands for this mode', userLang) })
+            tools.forEach(tool => {
+              blocks.push({ type: 'action', label: tool.label, command: tool.label, icon: tool.emoji, variant: 'default' })
+            })
           }
           return {
-            text: res.message + toolsHint,
+            text: res.message,
             card2: { type: 'system_action', icon: res.persona?.emoji ?? '🤖', title: res.persona?.name ?? id, detail: res.persona?.description ?? '', success: res.ok },
+            card: blocks.length > 0 ? { type: 'dynamic', blocks } : undefined,
             emotion: res.ok ? 'happy' as const : 'concerned' as const,
           }
         }
@@ -1906,12 +1923,12 @@ export async function handleBackendIntentImpl(
           }
         }
 
-        /* ── ❓ 도움말 (Phase 11) ── */
+        /* ── ❓ 도움말 (Phase 11) — Dynamic Block 으로 시각 그리드 ── */
         case 'help': {
           const { INTENT_REGISTRY } = await import('../../lib/nexus/intentRegistry')
           const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
           const { getEnrichedPersonaTools } = await import('../../lib/nexus/personaTools')
-          const personaTools = getEnrichedPersonaTools(personaId).slice(0, 5)
+          const personaTools = getEnrichedPersonaTools(personaId).slice(0, 6)
 
           // 카테고리별 라이브 인텐트 카운트
           const liveByCategory: Record<string, number> = {}
@@ -1920,27 +1937,44 @@ export async function handleBackendIntentImpl(
               liveByCategory[spec.category] = (liveByCategory[spec.category] ?? 0) + 1
             }
           }
-          const catLabel: Record<string, string> = {
-            system: '🖥️ 시스템 모니터링', security: '🔒 보안',
-            system_control: '⚙️ PC 제어', file: '📁 파일·문서',
-            web: '🌐 웹·검색', productivity: '⚡ 생산성',
-            media: '🎬 미디어·OCR', email_calendar: '📧 메일·캘린더',
-            ai: '🤖 AI 에이전트', pro: '⭐ Pro 전용',
-            weather_travel: '🌤️ 날씨·번역', meta: '💬 채팅',
+          const catLabel: Record<string, { ko: string; en: string }> = {
+            system:         { ko: '🖥️ 시스템 모니터링',  en: '🖥️ System Monitor' },
+            security:       { ko: '🔒 보안',              en: '🔒 Security' },
+            system_control: { ko: '⚙️ PC 제어',           en: '⚙️ PC Control' },
+            file:           { ko: '📁 파일·문서',         en: '📁 Files·Docs' },
+            web:            { ko: '🌐 웹·검색',           en: '🌐 Web·Search' },
+            productivity:   { ko: '⚡ 생산성',             en: '⚡ Productivity' },
+            media:          { ko: '🎬 미디어·OCR',        en: '🎬 Media·OCR' },
+            email_calendar: { ko: '📧 메일·캘린더',       en: '📧 Mail·Calendar' },
+            ai:             { ko: '🤖 AI 에이전트',       en: '🤖 AI Agents' },
+            pro:            { ko: '⭐ Pro 전용',           en: '⭐ Pro Only' },
+            weather_travel: { ko: '🌤️ 날씨·번역',        en: '🌤️ Weather·Translate' },
+            meta:           { ko: '💬 채팅',              en: '💬 Chat' },
           }
 
-          const personaToolsText = personaTools.map(t => `  ${t.emoji} "${t.label}"`).join('\n')
-          const categoriesText = Object.entries(liveByCategory)
+          const blocks: import('./cards/DynamicBlocks').Block[] = [
+            { type: 'heading', level: 1, icon: '🚀', text: t('Nexus AI 사용 가이드', 'Nexus AI Guide', userLang) },
+            { type: 'text', tone: 'muted', content: t('한국어로 자연스럽게 말씀하시면 돼요. 예: "오늘 날씨", "PC 상태", "엑셀 A1에 100"', 'Just speak naturally. e.g. "today\'s weather", "PC status"', userLang) },
+            { type: 'divider' },
+            { type: 'heading', level: 3, icon: '💡', text: t(`지금 모드 (${personaId}) 추천 명령`, `Recommended for current mode (${personaId})`, userLang) },
+          ]
+          personaTools.forEach(tool => {
+            blocks.push({ type: 'action', label: tool.label, command: tool.label, icon: tool.emoji, variant: 'primary' })
+          })
+          blocks.push({ type: 'divider' })
+          blocks.push({ type: 'heading', level: 3, icon: '📚', text: t('카테고리별 사용 가능 기능', 'Available categories', userLang) })
+          // KeyValue로 카테고리 시각화
+          const catPairs = Object.entries(liveByCategory)
             .sort((a, b) => b[1] - a[1])
-            .map(([cat, n]) => `  ${catLabel[cat] ?? cat} (${n}개)`)
-            .join('\n')
+            .map(([cat, n]) => ({
+              label: catLabel[cat]?.[userLang] ?? cat,
+              value: `${n}${t('개', '', userLang)}`,
+            }))
+          blocks.push({ type: 'keyvalue', pairs: catPairs })
 
           return {
-            text: t(
-              `🚀 **Nexus AI 사용법**\n\n💡 지금 모드에서 자주 쓰는 명령:\n${personaToolsText}\n\n📚 카테고리별 기능:\n${categoriesText}\n\n💬 그냥 자연스럽게 한국어로 말씀하시면 돼요! 예: "오늘 날씨", "PC 상태", "엑셀 A1에 100 입력"`,
-              `🚀 **Nexus AI Help**\n\n💡 Quick commands for current mode:\n${personaToolsText}\n\n📚 Available categories:\n${categoriesText}\n\n💬 Just speak naturally! e.g. "today's weather", "PC status"`,
-              userLang,
-            ),
+            text: t('Nexus AI 사용법이에요. 추천 명령을 클릭하거나 직접 입력해보세요!', 'Click a recommended command or type your own.', userLang),
+            card: { type: 'dynamic', blocks },
             emotion: 'happy',
           }
         }

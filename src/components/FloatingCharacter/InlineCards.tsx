@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import type { StatsData, ScanResult, ScanIssue, DailyReport, CleanResult, RepairResult, BackendErrorCode } from '../../lib/nexus/backendAPI'
 import { InsightLine, insightForPcStatus, insightForScan } from './cards/InsightLine'
+import { DynamicCardRenderer, type Block } from './cards/DynamicBlocks'
 
 /* ── 공통 유틸 ── */
 function statusColor(pct: number, reverse = false): string {
@@ -627,6 +628,8 @@ export type InlineCardData =
   | { type: 'agent_thinking'; steps: string[] }
   | { type: 'preview_confirm'; items: Array<{ title: string; url: string }>; onPreview: (url: string, title: string) => void }
   | { type: 'error'; intent: string; code: BackendErrorCode | 'not_implemented' | 'renderer_missing'; title: string; detail?: string; hint?: string; path?: string }
+  // ── Dynamic UI (Phase 12) — LLM 이 조립한 어떤 결과든 렌더링 ──
+  | { type: 'dynamic'; title?: string; intent?: string; blocks: Block[] }
 
 interface InlineCardRendererProps {
   card: InlineCardData
@@ -636,9 +639,11 @@ interface InlineCardRendererProps {
   onRetry?: (intent: string) => void
   /** 설정 모달 열기 (no_api_key 에러 시) */
   onOpenSettings?: () => void
+  /** Dynamic 카드의 action 블록 클릭 시 (보통 sendText 호출) */
+  onAction?: (command: string) => void
 }
 
-export function InlineCardRenderer({ card, accentColor, onRepair, onRetry, onOpenSettings }: InlineCardRendererProps) {
+export function InlineCardRenderer({ card, accentColor, onRepair, onRetry, onOpenSettings, onAction }: InlineCardRendererProps) {
   switch (card.type) {
     case 'pc_status':
       return <PCStatusCard data={card.data} accentColor={accentColor} />
@@ -671,6 +676,25 @@ export function InlineCardRenderer({ card, accentColor, onRepair, onRetry, onOpe
         onRetry={onRetry}
         onOpenSettings={onOpenSettings}
       />
+    case 'dynamic':
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: `1px solid ${accentColor}33`,
+            borderRadius: 10, padding: '10px 12px', marginTop: 6,
+            display: 'flex', flexDirection: 'column', gap: 6,
+          }}
+        >
+          {card.title && (
+            <div style={{ fontSize: 11, fontWeight: 700, color: accentColor, marginBottom: 2 }}>
+              {card.title}
+            </div>
+          )}
+          <DynamicCardRenderer blocks={card.blocks} accentColor={accentColor} onAction={onAction} />
+        </motion.div>
+      )
     default: {
       const _exhaustive: never = card
       void _exhaustive

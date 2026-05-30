@@ -17,6 +17,8 @@ import type { InlineCard5Data } from './InlineCards5'
 import { OnboardingFlow, LoginScreen } from './OnboardingFlow'
 import type { AvatarConfig } from './OnboardingFlow'
 import { PaywallModal } from '../PaywallModal'
+import { ApprovalDialog } from './cards/ApprovalDialog'
+import { hasChosenMode, needsApproval, isDangerousCommand } from '../../lib/nexus/approvalMode'
 import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
 import { getDailyUsage, getMonthlyUsage } from '../../lib/nexus/usageTracker'
@@ -1072,7 +1074,64 @@ export function FloatingCharacter() {
     clarifyPendingQuestion, handleBackendIntent, renderCommandResult, resetClarify, speakText,
     userLang, isActive, floatingPreview, ttsVoice, setDynamicResult])
 
-  const handleSend = useCallback((text: string) => void sendText(text), [sendText])
+  // 데스크톱 제어 인텐트 패턴 (mouse_click/keyboard_type/window_control/screen_find_click/excel_macro)
+  const DESKTOP_CONTROL_PATTERNS = [
+    /\d+\s*,\s*\d+.*클릭/i,
+    /['""].+?['""].*?(?:타이핑|입력)/i,
+    /(?:창|window).*?(?:최대화|최소화|닫아)/i,
+    /(?:확인|취소|닫기|결제|구매).*(?:버튼)?\s*(?:클릭|눌러)/i,
+    /매크로.*실행/i,
+  ]
+  const isDesktopControlCommand = useCallback((text: string): boolean => {
+    return DESKTOP_CONTROL_PATTERNS.some(p => p.test(text))
+  }, [])
+
+  // 승인 다이얼로그 상태 (Phase 13-A)
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false)
+  const pendingDesktopCommandRef = useRef<string | null>(null)
+
+  const handleSend = useCallback((text: string) => {
+    // 데스크톱 제어 명령이면 승인 모드 확인
+    if (isDesktopControlCommand(text)) {
+      const dangerous = isDangerousCommand(text)
+      // 모드 첫 선택 안 했으면 → 다이얼로그
+      if (!hasChosenMode()) {
+        pendingDesktopCommandRef.current = text
+        setApprovalDialogOpen(true)
+        return
+      }
+      // 모드는 골랐는데 승인 필요 (always 모드, 또는 위험 작업)
+      if (needsApproval(dangerous)) {
+        // confirm 다이얼로그로 즉시 묻기 (브라우저 native)
+        const ok = window.confirm(
+          (userLang === 'en'
+            ? `Nexus will execute the following PC command. Continue?\n\n→ ${text}`
+            : `Nexus가 다음 PC 명령을 실행합니다. 계속할까요?\n\n→ ${text}`)
+        )
+        if (!ok) {
+          setMessages(prev => [...prev, {
+            id: `cancel-${Date.now()}`, role: 'nexus',
+            text: userLang === 'en' ? '⏸️ Action cancelled by user.' : '⏸️ 사용자가 작업을 취소했어요.',
+          }])
+          return
+        }
+      }
+    }
+    void sendText(text)
+  }, [sendText, isDesktopControlCommand, userLang])
+
+  /** ApprovalDialog 모드 선택 후 콜백 */
+  const handleApprovalChoose = useCallback(() => {
+    setApprovalDialogOpen(false)
+    const cmd = pendingDesktopCommandRef.current
+    pendingDesktopCommandRef.current = null
+    if (cmd) void sendText(cmd)
+  }, [sendText])
+
+  const handleApprovalCancel = useCallback(() => {
+    setApprovalDialogOpen(false)
+    pendingDesktopCommandRef.current = null
+  }, [])
 
   /** ErrorCard "재시도" 버튼 — 가장 최근 사용자 입력을 다시 전송 (인텐트 재탐지 + 재실행) */
   const handleRetry = useCallback((intent: string) => {
@@ -1089,6 +1148,11 @@ export function FloatingCharacter() {
   const handleOpenSettings = useCallback(() => {
     setSettingsOpen(true)
   }, [])
+
+  /** Dynamic 카드의 action 블록 클릭 — 동일 명령 자동 전송 (Phase 12) */
+  const handleDynamicAction = useCallback((command: string) => {
+    void sendText(command)
+  }, [sendText])
 
   const handleSendWithFileImpl = useCallback(async (text: string, file: { name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: 'image' | 'document' | 'spreadsheet' | 'video' | 'other' }, extraFiles?: Array<{ name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: string }>) => {
     setTyping(true)
@@ -1840,6 +1904,7 @@ export function FloatingCharacter() {
             onPersonaSelect={handlePersonaSelect}
             onRetry={handleRetry}
             onOpenSettings={handleOpenSettings}
+            onAction={handleDynamicAction}
             embedded={true}
           />
         </div>
@@ -2243,6 +2308,15 @@ export function FloatingCharacter() {
         onClose={() => setPaywallFeature(null)}
       />
     )}
+
+    {/* 데스크톱 제어 첫 사용 시 승인 모드 선택 (Phase 13-A) */}
+    <ApprovalDialog
+      open={approvalDialogOpen}
+      pendingAction={pendingDesktopCommandRef.current ?? undefined}
+      onChoose={handleApprovalChoose}
+      onCancel={handleApprovalCancel}
+      lang={userLang}
+    />
     </>
   )
 }

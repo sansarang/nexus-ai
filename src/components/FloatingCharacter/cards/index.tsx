@@ -32,6 +32,8 @@ export interface CardCallbacks {
   onRetry?: (intent: string) => void
   /** 에러 카드의 "API 키 설정" — Settings 모달 열기 */
   onOpenSettings?: () => void
+  /** Dynamic 카드의 action 블록 클릭 — sendText 호출 */
+  onAction?: (command: string) => void
 }
 
 export interface CardSlotData {
@@ -54,7 +56,7 @@ interface CardSlotsProps extends CardSlotData, CardCallbacks {
  */
 export function CardSlots({
   inlineCard, inlineCard2, inlineCard3, inlineCard4, inlineCard5,
-  accentColor, onRepair, onMacroRun, onPersonaSelect, onRetry, onOpenSettings,
+  accentColor, onRepair, onMacroRun, onPersonaSelect, onRetry, onOpenSettings, onAction,
   wrap = false,
 }: CardSlotsProps) {
   return (
@@ -62,9 +64,9 @@ export function CardSlots({
       {inlineCard && (
         wrap
           ? <CardWrapper variant="dark" accentColor={accentColor} animate={false}>
-              <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} />
+              <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} onAction={onAction} />
             </CardWrapper>
-          : <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} />
+          : <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} onAction={onAction} />
       )}
       {inlineCard2 && (
         wrap
