@@ -126,3 +126,206 @@ export function insightForScan(d: ScanLike, lang: 'ko' | 'en' = 'ko'): { text: s
   }
   return null
 }
+
+/* ── 중복 파일 ────────────────────────────────────────── */
+export interface DuplicatesLike { total_groups: number; waste_mb: number }
+export function insightForDuplicates(d: DuplicatesLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (d.waste_mb >= 1000) {
+    return { text: lang === 'en'
+        ? `${(d.waste_mb/1024).toFixed(1)} GB wasted across ${d.total_groups} duplicate sets — significant cleanup opportunity.`
+        : `${d.total_groups}개 중복 그룹에서 ${(d.waste_mb/1024).toFixed(1)} GB 낭비 중 — 정리하면 큰 공간 확보!`,
+      level: 'warning' }
+  }
+  if (d.waste_mb >= 100) {
+    return { text: lang === 'en'
+        ? `~${d.waste_mb} MB recoverable. Worth a cleanup.`
+        : `${d.waste_mb} MB 회복 가능 — 정리 권장.`,
+      level: 'tip' }
+  }
+  if (d.total_groups === 0) {
+    return { text: lang === 'en' ? 'No duplicates found — disk is tidy.' : '중복 파일 없음 — 디스크 정리 상태 양호!', level: 'success' }
+  }
+  return null
+}
+
+/* ── 프로세스 TOP ─────────────────────────────────────── */
+export interface ProcessTopLike { by_cpu: Array<{ name: string; cpu: number; mem_mb: number }> }
+export function insightForProcessTop(d: ProcessTopLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (!d.by_cpu || d.by_cpu.length === 0) return null
+  const top = d.by_cpu[0]
+  if (top.cpu >= 80) {
+    return { text: lang === 'en'
+        ? `${top.name} is using ${top.cpu.toFixed(0)}% CPU — consider closing if not needed.`
+        : `${top.name}가 CPU ${top.cpu.toFixed(0)}% 사용 중 — 필요 없으면 종료해주세요.`,
+      level: 'warning' }
+  }
+  if (top.mem_mb >= 2048) {
+    return { text: lang === 'en'
+        ? `${top.name} consumes ${(top.mem_mb/1024).toFixed(1)} GB memory — heaviest app right now.`
+        : `${top.name}가 메모리 ${(top.mem_mb/1024).toFixed(1)} GB 사용 — 현재 가장 무거운 앱.`,
+      level: 'tip' }
+  }
+  return null
+}
+
+/* ── 네트워크 분석 ────────────────────────────────────── */
+export interface NetworkLike { connected: boolean; ping_ms: string; public_ip: string }
+export function insightForNetwork(d: NetworkLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (!d.connected) {
+    return { text: lang === 'en' ? 'No internet connection detected.' : '인터넷 연결 안 됨 — Wi-Fi/유선 확인 필요.', level: 'critical' }
+  }
+  const ping = parseInt(d.ping_ms) || 0
+  if (ping >= 200) {
+    return { text: lang === 'en'
+        ? `Ping ${ping}ms — slow. Check Wi-Fi signal or router.`
+        : `핑 ${ping}ms 으로 느림 — Wi-Fi 신호나 라우터 확인 권장.`,
+      level: 'warning' }
+  }
+  if (ping > 0 && ping < 30) {
+    return { text: lang === 'en' ? `Excellent connection (${ping}ms).` : `네트워크 양호 (${ping}ms).`, level: 'success' }
+  }
+  return null
+}
+
+/* ── 드라이버 점검 ────────────────────────────────────── */
+export interface DriversLike { total: number; problem_count: number; score: number }
+export function insightForDrivers(d: DriversLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (d.problem_count >= 3) {
+    return { text: lang === 'en'
+        ? `${d.problem_count} drivers need attention — system instability likely.`
+        : `드라이버 ${d.problem_count}개 문제 — 시스템 불안정 원인 가능성.`,
+      level: 'critical' }
+  }
+  if (d.problem_count >= 1) {
+    return { text: lang === 'en'
+        ? `${d.problem_count} driver(s) flagged — check Device Manager.`
+        : `드라이버 ${d.problem_count}개 주의 — 장치관리자에서 확인 권장.`,
+      level: 'warning' }
+  }
+  if (d.score >= 95) {
+    return { text: lang === 'en' ? `All ${d.total} drivers healthy.` : `드라이버 ${d.total}개 모두 정상.`, level: 'success' }
+  }
+  return null
+}
+
+/* ── 날씨 ─────────────────────────────────────────────── */
+export interface WeatherLike { temp_c: number; condition: string; humidity?: number }
+export function insightForWeather(d: WeatherLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (d.temp_c >= 33) {
+    return { text: lang === 'en' ? 'Very hot today — stay hydrated, limit outdoor time.' : '폭염 — 외출 자제, 충분한 수분 섭취 권장.', level: 'warning' }
+  }
+  if (d.temp_c <= -5) {
+    return { text: lang === 'en' ? 'Freezing — bundle up, watch for icy roads.' : '강추위 — 보온 철저, 빙판 주의.', level: 'warning' }
+  }
+  if (/비|rain/i.test(d.condition)) {
+    return { text: lang === 'en' ? 'Rainy — grab an umbrella.' : '비 예보 — 우산 챙기세요.', level: 'tip' }
+  }
+  if (/눈|snow/i.test(d.condition)) {
+    return { text: lang === 'en' ? 'Snow — drive carefully and dress warmly.' : '눈 예보 — 운전 주의, 보온 챙기세요.', level: 'tip' }
+  }
+  if (d.temp_c >= 18 && d.temp_c <= 26 && !/비|눈|폭염|rain|snow/i.test(d.condition)) {
+    return { text: lang === 'en' ? 'Beautiful weather — perfect for outdoor activities.' : '쾌적한 날씨 — 야외 활동하기 좋아요!', level: 'success' }
+  }
+  return null
+}
+
+/* ── VirusTotal ───────────────────────────────────────── */
+export interface VirusLike { malicious: number; suspicious: number; clean: number; total_scans: number; verdict?: string }
+export function insightForVirus(d: VirusLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (d.malicious >= 1) {
+    return { text: lang === 'en'
+        ? `🦠 ${d.malicious} engines flagged as malware — DO NOT EXECUTE this file.`
+        : `🦠 ${d.malicious}개 엔진이 악성코드로 판정 — 이 파일을 실행하지 마세요!`,
+      level: 'critical' }
+  }
+  if (d.suspicious >= 2) {
+    return { text: lang === 'en'
+        ? `${d.suspicious} engines marked suspicious — investigate before opening.`
+        : `${d.suspicious}개 엔진이 의심 판정 — 신중히 확인 후 실행하세요.`,
+      level: 'warning' }
+  }
+  if (d.malicious === 0 && d.suspicious === 0 && d.total_scans > 0) {
+    return { text: lang === 'en'
+        ? `Clean — ${d.total_scans} engines reported no threats.`
+        : `안전 — ${d.total_scans}개 엔진 모두 위협 없음.`,
+      level: 'success' }
+  }
+  return null
+}
+
+/* ── 성능 이력 / 이상 감지 ───────────────────────────── */
+export interface PerfHistoryLike { avg_cpu: number; avg_mem: number; cpu_trend?: string; total_samples?: number }
+export function insightForPerfHistory(d: PerfHistoryLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if ((d.total_samples ?? 0) < 10) {
+    return { text: lang === 'en' ? 'Not enough data yet — keep using the app to build history.' : '아직 데이터 부족 — 앱을 더 사용하면 패턴이 보여요.', level: 'info' }
+  }
+  if (d.cpu_trend === 'up' && d.avg_cpu > 60) {
+    return { text: lang === 'en' ? 'CPU usage trending up — something is gradually using more resources.' : 'CPU 사용량 증가 추세 — 무언가 점점 더 많이 쓰고 있어요.', level: 'warning' }
+  }
+  if (d.avg_cpu < 40 && d.avg_mem < 60) {
+    return { text: lang === 'en' ? 'Healthy long-term usage pattern.' : '장기 사용 패턴 양호.', level: 'success' }
+  }
+  return null
+}
+
+/* ── 부팅 분석 ────────────────────────────────────────── */
+export interface BootLike { uptime_minutes: string; startup_count: string }
+export function insightForBoot(d: BootLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  const startups = parseInt(d.startup_count) || 0
+  if (startups >= 20) {
+    return { text: lang === 'en'
+        ? `${startups} startup items — disable unnecessary ones to boot faster.`
+        : `시작 프로그램 ${startups}개 — 필요 없는 것 끄면 부팅 속도 개선.`,
+      level: 'warning' }
+  }
+  const uptime = parseInt(d.uptime_minutes) || 0
+  if (uptime > 60 * 24 * 7) {
+    return { text: lang === 'en'
+        ? `Uptime > 7 days — consider rebooting for memory cleanup.`
+        : `7일 넘게 켜둔 상태 — 한 번 재부팅으로 메모리 정리 권장.`,
+      level: 'tip' }
+  }
+  return null
+}
+
+/* ── 이메일 받은편지함 ────────────────────────────────── */
+export interface EmailInboxLike { total: number; unread: number }
+export function insightForEmailInbox(d: EmailInboxLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  if (d.unread >= 50) {
+    return { text: lang === 'en'
+        ? `${d.unread} unread — try filtering by sender or use Classify Email.`
+        : `안읽음 ${d.unread}개 — 발신자별 필터링이나 메일 분류 기능 추천.`,
+      level: 'warning' }
+  }
+  if (d.unread === 0 && d.total > 0) {
+    return { text: lang === 'en' ? 'Inbox zero — well done!' : '받은편지함 비어있음 — 축하해요! 🎉', level: 'success' }
+  }
+  return null
+}
+
+/* ── 가격 비교 ────────────────────────────────────────── */
+export interface PriceCompareLike { results: Array<{ price: string; site: string; blocked?: boolean }> }
+export function insightForPriceCompare(d: PriceCompareLike, lang: 'ko' | 'en' = 'ko'): { text: string; level: InsightLevel } | null {
+  const valid = d.results.filter(r => !r.blocked && r.price)
+  if (valid.length < 2) return null
+  const prices = valid
+    .map(r => parseInt(r.price.replace(/[^0-9]/g, '')) || 0)
+    .filter(p => p > 0)
+    .sort((a, b) => a - b)
+  if (prices.length < 2) return null
+  const min = prices[0], max = prices[prices.length - 1]
+  const diffPct = Math.round(((max - min) / max) * 100)
+  if (diffPct >= 30) {
+    return { text: lang === 'en'
+        ? `Best price ${diffPct}% cheaper than highest — significant savings available.`
+        : `최저가가 최고가보다 ${diffPct}% 저렴 — 큰 절약 가능!`,
+      level: 'success' }
+  }
+  if (diffPct >= 10) {
+    return { text: lang === 'en'
+        ? `${diffPct}% spread between sites.`
+        : `사이트 간 ${diffPct}% 가격 차이.`,
+      level: 'tip' }
+  }
+  return null
+}

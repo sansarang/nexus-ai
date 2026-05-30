@@ -4,6 +4,8 @@
 import React, { useState, useCallback } from 'react'
 import type { DocCompareResult, DocFindResult, DeepSearchResult, DiffLine, NumberMismatch } from '../../lib/nexus/backendAPI'
 import { CardWrapper } from './CardWrapper'
+import { CardHeader } from './cards/CardHeader'
+import { InsightLine } from './cards/InsightLine'
 
 /* ──────────────────────────────────────────
    타입 정의
@@ -215,9 +217,11 @@ export function DocFindCard({ data }: { data: { results: DocFindResult[]; total:
 
   return (
     <div style={card}>
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#90cdf4' }}>
-        🔍 문서 검색 결과 ({data.total}건)
-      </div>
+      <CardHeader
+        intent="doc_find"
+        status={data.results.length > 0 ? 'success' : 'info'}
+        statusLabel={data.results.length > 0 ? `${data.total}건` : '0건'}
+      />
       {data.results.length === 0 ? (
         <div style={{ color: '#a0aec0', fontSize: 12 }}>해당하는 문서를 찾지 못했어요.</div>
       ) : (
@@ -270,9 +274,12 @@ export function DeepSearchCard({ data }: { data: { results: DeepSearchResult[]; 
 
   return (
     <div style={card}>
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#b794f4' }}>
-        🔬 심층 검색: "{data.query}" ({data.total}건)
-      </div>
+      <CardHeader
+        intent="deep_search"
+        title={`심층 검색: "${data.query}"`}
+        status={data.results.length > 0 ? 'success' : 'info'}
+        statusLabel={`${data.total}건`}
+      />
       {data.results.length === 0 ? (
         <div style={{ color: '#a0aec0', fontSize: 12 }}>관련 파일을 찾지 못했어요.</div>
       ) : (
@@ -403,17 +410,14 @@ export function VisionOCRCard({ data }: { data: { text: string; message: string 
    6. 스마트 정리 결과 카드
 ────────────────────────────────────────── */
 export function SmartOrganizeCard({ data }: { data: { moved: number; folders: Array<{ name: string; count: number }>; message: string } }) {
+  const lang = ((typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko') as 'ko' | 'en'
   return (
     <div style={card}>
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#68d391' }}>
-        🗂️ 스마트 정리 완료
-      </div>
-      <div style={{
-        background: 'rgba(72,187,120,0.1)', borderRadius: 8, padding: '8px 10px',
-        fontSize: 13, color: '#c6f6d5', marginBottom: 8,
-      }}>
-        총 {data.moved}개 파일 정리 완료
-      </div>
+      <CardHeader
+        intent="smart_organize"
+        status="success"
+        statusLabel={lang === 'en' ? `${data.moved} moved` : `${data.moved}개 정리됨`}
+      />
       {data.folders.length > 0 && (
         <div>
           {data.folders.map((f, i) => (
@@ -424,7 +428,12 @@ export function SmartOrganizeCard({ data }: { data: { moved: number; folders: Ar
           ))}
         </div>
       )}
-      <div style={{ color: '#718096', fontSize: 11, marginTop: 8 }}>{data.message}</div>
+      <InsightLine
+        text={lang === 'en'
+          ? `${data.moved} files organized across ${data.folders.length} categories.`
+          : `총 ${data.moved}개 파일이 ${data.folders.length}개 카테고리로 정리됐어요.`}
+        level="success"
+      />
     </div>
   )
 }

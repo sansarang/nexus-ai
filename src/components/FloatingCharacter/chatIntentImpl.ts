@@ -690,9 +690,21 @@ export async function handleBackendIntentImpl(
           const apiKey = localStorage.getItem('nexus-virustotal-key') ?? ''
           const data = await virusTotalCheck(filePath, apiKey)
           const em: CharacterEmotion = data.verdict === 'malicious' ? 'alert' : data.verdict === 'suspicious' ? 'concerned' : 'happy'
+          const { insightForVirus } = await import('./cards/InsightLine')
+          const insight = insightForVirus({
+            malicious: data.malicious, suspicious: data.suspicious, clean: data.clean,
+            total_scans: data.total_scans, verdict: data.verdict,
+          }, userLang)
           return {
             text: data.message,
-            card2: { type: 'system_action', icon: data.verdict === 'malicious' ? '🚨' : data.verdict === 'suspicious' ? '⚠️' : '✅', title: `VirusTotal 결과: ${data.verdict}`, detail: `탐지 ${data.malicious}개 / 전체 ${data.total_scans}개 검사`, success: data.verdict === 'safe' || data.verdict === 'unknown' },
+            card2: {
+              type: 'system_action',
+              icon: data.verdict === 'malicious' ? '🚨' : data.verdict === 'suspicious' ? '⚠️' : '✅',
+              title: `VirusTotal 결과: ${data.verdict}`,
+              detail: `탐지 ${data.malicious}개 / 전체 ${data.total_scans}개 검사`,
+              success: data.verdict === 'safe' || data.verdict === 'unknown',
+              insight: insight ?? undefined,
+            },
             emotion: em,
           }
         }

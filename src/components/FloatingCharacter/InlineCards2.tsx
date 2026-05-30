@@ -7,6 +7,16 @@ import type {
   StartupItem, ProcItem, NetworkAdapter, DriverItem, ProgramItem,
   FileResult, DupGroup, NoteItem, PriceItem,
 } from '../../lib/nexus/backendAPI'
+import {
+  InsightLine,
+  insightForProcessTop, insightForNetwork, insightForDrivers,
+  insightForDuplicates, insightForBoot, insightForWeather,
+  insightForEmailInbox, insightForPriceCompare,
+} from './cards/InsightLine'
+
+function detectLang(): 'ko' | 'en' {
+  return ((typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko') as 'ko' | 'en'
+}
 
 /* ─────────────────────────────────────────────────────────── */
 /* 공통 유틸                                                    */
@@ -252,6 +262,7 @@ export function ProcessTopCard({ data, accentColor }: {
 }) {
   const cpuList = data.by_cpu?.slice(0, 5) ?? []
   const memList = data.by_mem?.slice(0, 5) ?? []
+  const insight = insightForProcessTop({ by_cpu: data.by_cpu ?? [] }, detectLang())
 
   return (
     <CardWrap accent={accentColor}>
@@ -275,6 +286,7 @@ export function ProcessTopCard({ data, accentColor }: {
           ))}
         </div>
       </div>
+      {insight && <InsightLine text={insight.text} level={insight.level} />}
     </CardWrap>
   )
 }
@@ -283,8 +295,10 @@ export function ProcessTopCard({ data, accentColor }: {
 /* 시스템 제어 결과 카드 (볼륨·밝기·WiFi·전원·앱 실행)         */
 /* ─────────────────────────────────────────────────────────── */
 
-export function SystemActionCard({ icon, title, detail, success = true, accentColor }: {
+export function SystemActionCard({ icon, title, detail, success = true, accentColor, insight }: {
   icon: string; title: string; detail?: string; success?: boolean; accentColor: string
+  /** 선택적 AI 인사이트 — VirusTotal, 가격비교 등 결과 해석이 필요한 경우 */
+  insight?: { text: string; level: 'info' | 'tip' | 'warning' | 'critical' | 'success' }
 }) {
   return (
     <motion.div
@@ -294,34 +308,37 @@ export function SystemActionCard({ icon, title, detail, success = true, accentCo
         background: 'rgba(10,12,28,0.97)',
         border: `1px solid ${success ? accentColor : '#ef4444'}33`,
         borderRadius: 12, padding: '10px 14px',
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', flexDirection: 'column', gap: 8,
       }}
     >
-      <span style={{ fontSize: 28 }}>{icon}</span>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 800, color: success ? accentColor : '#ef4444' }}>{title}</div>
-        {detail && (
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-            {detail.split('\n').map((line, i) => {
-              const urlMatch = line.match(/(https?:\/\/[^\s]+)/)
-              if (urlMatch) {
-                const url = urlMatch[1]
-                const label = line.replace(url, '').trim() || url
-                return (
-                  <div key={i}>
-                    <a href={url} target="_blank" rel="noopener noreferrer"
-                      style={{ color: accentColor, textDecoration: 'underline', cursor: 'pointer' }}
-                      onClick={e => { e.preventDefault(); window.open(url, '_blank') }}>
-                      {label || url}
-                    </a>
-                  </div>
-                )
-              }
-              return <div key={i}>{line}</div>
-            })}
-          </div>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 28 }}>{icon}</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: success ? accentColor : '#ef4444' }}>{title}</div>
+          {detail && (
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+              {detail.split('\n').map((line, i) => {
+                const urlMatch = line.match(/(https?:\/\/[^\s]+)/)
+                if (urlMatch) {
+                  const url = urlMatch[1]
+                  const label = line.replace(url, '').trim() || url
+                  return (
+                    <div key={i}>
+                      <a href={url} target="_blank" rel="noopener noreferrer"
+                        style={{ color: accentColor, textDecoration: 'underline', cursor: 'pointer' }}
+                        onClick={e => { e.preventDefault(); window.open(url, '_blank') }}>
+                        {label || url}
+                      </a>
+                    </div>
+                  )
+                }
+                return <div key={i}>{line}</div>
+              })}
+            </div>
+          )}
+        </div>
       </div>
+      {insight && <InsightLine text={insight.text} level={insight.level} />}
     </motion.div>
   )
 }
@@ -363,6 +380,10 @@ export function NetworkAnalysisCard({ data, accentColor }: {
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>{a.speed_mbps}Mbps</span>
         </div>
       ))}
+      {(() => {
+        const insight = insightForNetwork({ connected: data.connected, ping_ms: data.ping_ms, public_ip: data.public_ip }, detectLang())
+        return insight && <InsightLine text={insight.text} level={insight.level} />
+      })()}
     </CardWrap>
   )
 }
@@ -375,6 +396,7 @@ export function DriverCard({ data, accentColor }: {
   data: { total: number; problematic: DriverItem[]; problem_count: number; score: number; message: string }
   accentColor: string
 }) {
+  const insight = insightForDrivers({ total: data.total, problem_count: data.problem_count, score: data.score }, detectLang())
   return (
     <CardWrap accent={accentColor}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -399,6 +421,7 @@ export function DriverCard({ data, accentColor }: {
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{d.status} · {d.class}</div>
         </div>
       ))}
+      {insight && <InsightLine text={insight.text} level={insight.level} />}
     </CardWrap>
   )
 }
@@ -479,6 +502,7 @@ export function DuplicatesCard({ data, accentColor }: {
   data: { groups: DupGroup[]; total_groups: number; waste_mb: number; waste: string; message: string }
   accentColor: string
 }) {
+  const insight = insightForDuplicates({ total_groups: data.total_groups, waste_mb: data.waste_mb }, detectLang())
   return (
     <CardWrap accent={accentColor}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -504,6 +528,7 @@ export function DuplicatesCard({ data, accentColor }: {
           </div>
         </div>
       ))}
+      {insight && <InsightLine text={insight.text} level={insight.level} />}
     </CardWrap>
   )
 }
@@ -551,6 +576,7 @@ export function BootAnalysisCard({ data, accentColor }: {
   const uptime = parseFloat(data.uptime_minutes ?? '0')
   const uptimeH = Math.floor(uptime / 60)
   const uptimeM = Math.floor(uptime % 60)
+  const insight = insightForBoot({ uptime_minutes: data.uptime_minutes, startup_count: data.startup_count }, detectLang())
 
   return (
     <CardWrap accent={accentColor}>
@@ -567,9 +593,10 @@ export function BootAnalysisCard({ data, accentColor }: {
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>시작 프로그램</div>
         </div>
       </div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
-        시작 프로그램이 많을수록 부팅이 느려져요
-      </div>
+      {insight
+        ? <InsightLine text={insight.text} level={insight.level} />
+        : <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>시작 프로그램이 많을수록 부팅이 느려져요</div>
+      }
     </CardWrap>
   )
 }
@@ -639,6 +666,10 @@ export function EmailListCard({ data, accentColor }: {
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>{m.from} · {m.date}</div>
         </div>
       ))}
+      {(() => {
+        const insight = insightForEmailInbox({ total: data.count ?? list.length, unread: data.unread ?? 0 }, detectLang())
+        return insight && <InsightLine text={insight.text} level={insight.level} />
+      })()}
     </CardWrap>
   )
 }
@@ -983,6 +1014,11 @@ export function WeatherCard({ data, accentColor }: {
         </div>
       ))}
       {data.summary && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>{data.summary}</div>}
+      {(() => {
+        if (data.temp_c === undefined || !data.condition) return null
+        const insight = insightForWeather({ temp_c: data.temp_c, condition: data.condition, humidity: data.humidity }, detectLang())
+        return insight && <InsightLine text={insight.text} level={insight.level} />
+      })()}
     </CardWrap>
   )
 }
@@ -998,7 +1034,7 @@ export type InlineCardData2 =
   | { type: 'defender'; data: DefenderStatus }
   | { type: 'startup_items'; data: { items: StartupItem[]; total: number; suspicious_count: number } }
   | { type: 'process_top'; data: { by_cpu: ProcItem[]; by_mem: ProcItem[] } }
-  | { type: 'system_action'; icon: string; title: string; detail?: string; success?: boolean }
+  | { type: 'system_action'; icon: string; title: string; detail?: string; success?: boolean; insight?: { text: string; level: 'info' | 'tip' | 'warning' | 'critical' | 'success' } }
   | { type: 'network'; data: { adapters: NetworkAdapter[]; dns_servers: string; public_ip: string; ping_ms: string; connected: boolean } }
   | { type: 'drivers'; data: { total: number; problematic: DriverItem[]; problem_count: number; score: number; message: string } }
   | { type: 'programs_list'; data: { programs: ProgramItem[]; total: number } }
@@ -1033,7 +1069,7 @@ export function InlineCardRenderer2({
     case 'defender':         return <DefenderCard        data={card.data} accentColor={accentColor} />
     case 'startup_items':    return <StartupItemsCard    data={card.data} accentColor={accentColor} />
     case 'process_top':      return <ProcessTopCard      data={card.data} accentColor={accentColor} />
-    case 'system_action':    return <SystemActionCard    icon={card.icon} title={card.title} detail={card.detail} success={card.success} accentColor={accentColor} />
+    case 'system_action':    return <SystemActionCard    icon={card.icon} title={card.title} detail={card.detail} success={card.success} accentColor={accentColor} insight={card.insight} />
     case 'network':          return <NetworkAnalysisCard data={card.data} accentColor={accentColor} />
     case 'drivers':          return <DriverCard          data={card.data} accentColor={accentColor} />
     case 'programs_list':    return <ProgramsListCard    data={card.data} accentColor={accentColor} />
@@ -1153,6 +1189,10 @@ function PriceCompareCard({ data, accentColor }: { data: { query: string; result
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
         총 {data.total}개 결과 · 클릭하면 구매 페이지로 이동
       </div>
+      {(() => {
+        const insight = insightForPriceCompare({ results: data.results }, detectLang())
+        return insight && <InsightLine text={insight.text} level={insight.level} />
+      })()}
     </CardWrap>
   )
 }
