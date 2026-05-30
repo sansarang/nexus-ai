@@ -239,7 +239,39 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
   } = d
 
     const trimmed = text.trim()
-    if (!trimmed || typingRef.current) return
+    if (!trimmed) return
+
+    // Emergency-A: typing 중에 새 메시지 → 이전 typing 강제 종료 (입력 잠금 해제)
+    if (typingRef.current) {
+      typingRef.current = false
+      setTyping(false)
+      setTypingSteps([])
+      // 0.1s 대기 후 새 메시지 진행 (race 방지)
+      await new Promise(r => setTimeout(r, 100))
+    }
+
+    // Emergency-D: 인사말/단순 응답 패턴 — LLM 호출 안 함 (0.1초 즉답)
+    const SIMPLE_GREETINGS: Array<{ re: RegExp; reply_ko: string; reply_en: string; emotion: 'happy'|'neutral' }> = [
+      { re: /^(안녕|hi|hello|헬로|반가워|hey)[\s!.?]*$/i, reply_ko: `안녕하세요 주인님! 무엇을 도와드릴까요? 💡 "도움말" 이라고 말씀하시면 사용법을 알려드려요.`, reply_en: `Hello! How can I help? Type "help" to see what I can do.`, emotion: 'happy' },
+      { re: /^(고마워|감사|땡큐|thanks|thank you|thx)[\s!.?]*$/i, reply_ko: `천만에요! 언제든 도와드릴게요 😊`, reply_en: `You're welcome! Anytime 😊`, emotion: 'happy' },
+      { re: /^(잘했어|좋아|굿|최고|👍|good|great|nice|awesome)[\s!.?]*$/i, reply_ko: `감사합니다! 더 좋아지도록 노력할게요 ✨`, reply_en: `Thanks! I'll keep improving ✨`, emotion: 'happy' },
+      { re: /^(잘자|굿나잇|good ?night|bye|안녕히|수고)[\s!.?]*$/i, reply_ko: `좋은 하루 보내세요! 필요하시면 언제든 불러주세요 👋`, reply_en: `Have a great day! Call me anytime 👋`, emotion: 'happy' },
+      { re: /^(테스트|test|핑|ping)[\s!.?]*$/i, reply_ko: `Nexus 정상 작동 중! ✅`, reply_en: `Nexus operational! ✅`, emotion: 'neutral' },
+    ]
+    const greetingMatch = SIMPLE_GREETINGS.find(g => g.re.test(trimmed))
+    if (greetingMatch) {
+      const replyText = userLang === 'en' ? greetingMatch.reply_en : greetingMatch.reply_ko
+      const msgId = String(Date.now())
+      setMessages(prev => [
+        ...prev,
+        { id: msgId, role: 'user' as const, text: trimmed },
+        { id: `${msgId}-res`, role: 'nexus' as const, text: replyText },
+      ])
+      setEmotion(greetingMatch.emotion)
+      pushModelHistory(trimmed, replyText)
+      speakText(replyText)
+      return
+    }
 
     // 새 질문 시작 → 이전 음성 즉시 중지 (말풍선·미리보기는 새 답변 올 때 교체)
     stopSpeaking()
@@ -955,9 +987,18 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     }
 
     if (!response) {
+      // Emergency-C: API 키 없으면 Dynamic LLM 스킵 (8초 대기 낭비 방지)
+      //   apiKey 변수는 위에서 'nexus-pplx-key' or 'nexus-groq-key' 등 체크함
+      const hasAnyKey = !!apiKey ||
+        !!localStorage.getItem('nexus-pplx-key') ||
+        !!localStorage.getItem('nexus-groq-key') ||
+        !!localStorage.getItem('nexus-openai-key') ||
+        subscriptionStatus === 'active' || subscriptionStatus === 'trial' // Pro 는 백엔드 번들 키 사용
+
       // ★ 1순위: Dynamic LLM — Block[] 스키마 활용 (Phase 14)
       //   복합 질문/분석/비교/구조화된 답변 → 동적 카드 자동 생성
-      try {
+      //   API 키 있을 때만 시도 (없으면 8초 낭비 X)
+      if (hasAnyKey) try {
         const { callDynamicLLM } = await import('../../lib/nexus/dynamicLLM')
         const auth = await getAuthHeader()
         const dyn = await callDynamicLLM({

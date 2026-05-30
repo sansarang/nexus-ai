@@ -775,9 +775,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     key={p.id}
                     onClick={async () => {
                       if (jobSelected) return
+                      // Phase 13-Q4 디버그: 클릭한 직업 ID 콘솔 로깅 (직업 유실 추적용)
+                      console.log('[Onboarding] Job clicked:', p.id, p.name)
+                      // 1) 선택 즉시 표시 (다음 단계로 안 가고 잠시 머무름)
                       setSelectedJobId(p.id)
                       setJobSelected(true)
-                      await sleep(800)
+                      // 2) 1.2초 대기 — 사용자가 "선택됨 ✓" 보고 시각 확인
+                      //    이전엔 800ms로 너무 빨라서 클릭 직후 데모로 이동 → 다른 직업으로 보이는 혼란
+                      await sleep(1200)
                       setJobSelected(false)
                       setDemoStarted(false)
                       setDemoResult('')
@@ -785,6 +790,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       setDemoThinkStep('')
                       setDemoInputTyping('')
                       setDemoRunning(false)
+                      // 3) 최종 한 번 더 selectedJobId 확정 (race condition 방어)
+                      setSelectedJobId(p.id)
                       setStep(2)
                     }}
                     style={{
@@ -1036,7 +1043,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 const isTeam = plan === 'team'
                 const planColor = isPro ? '#a855f7' : isTeam ? '#0ea5e9' : '#6b7280'
                 const planLabel = isPro ? (isEn ? '✨ PRO' : '✨ PRO') : isTeam ? (isEn ? 'TEAM' : 'TEAM') : (isEn ? 'FREE' : 'FREE')
-                const planPrice = isPro ? '$19/mo' : isTeam ? '$49/mo' : (isEn ? 'Free' : '무료')
+                // 가격 통일: 한국어 → ₩, 영어 → $ (5단계 "14,900원" 과 일치)
+                const planPrice = isPro
+                  ? (isEn ? '$19/mo' : '월 14,900원')
+                  : isTeam
+                  ? (isEn ? '$49/mo' : '월 39,000원')
+                  : (isEn ? 'Free' : '무료')
                 const planFeats = isPro
                   ? (isEn
                     ? ['2,000 AI requests/day', 'GPT-4o · Web search · Screen analysis', 'OpenAI TTS natural voice', 'Email assist · All Free features']

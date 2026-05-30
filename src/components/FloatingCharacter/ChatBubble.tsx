@@ -264,6 +264,8 @@ interface ChatBubbleProps {
   onOpenSettings?: () => void
   /** Dynamic 카드의 action 블록 클릭 — sendText 호출 */
   onAction?: (command: string) => void
+  /** 진행 중 요청 취소 — typing 중에만 표시 (Emergency-A) */
+  onCancelTyping?: () => void
   embedded?: boolean
 }
 
@@ -290,6 +292,7 @@ export function ChatBubble({
   onRetry,
   onOpenSettings,
   onAction,
+  onCancelTyping,
   embedded = false,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -316,6 +319,28 @@ export function ChatBubble({
   const setAttachedFile = (f: AttachedFile | null) => setAttachedFiles(f ? [f] : [])
   const [fileLoading, setFileLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /* UI-9: 회전 placeholder — 3초마다 예시 교체 (입력 안 한 동안) */
+  const PLACEHOLDER_EXAMPLES_KO = [
+    '예: 오늘 날씨', '예: PC 상태 알려줘', '예: 도움말',
+    '예: 개발자 모드로', '예: 보안 점검', '예: 엑셀 A1에 100 입력',
+    '예: 최신 AI 뉴스', '예: 아이폰 vs 갤럭시 비교',
+  ]
+  const PLACEHOLDER_EXAMPLES_EN = [
+    'e.g. today\'s weather', 'e.g. show PC status', 'e.g. help',
+    'e.g. switch to developer mode', 'e.g. security scan', 'e.g. set A1 to 100',
+    'e.g. latest AI news', 'e.g. compare iPhone vs Galaxy',
+  ]
+  const [phIdx, setPhIdx] = useState(0)
+  useEffect(() => {
+    if (input || attachedFile) return  // 입력 중일 땐 회전 X
+    const tid = setInterval(() => setPhIdx(i => (i + 1) % (lang === 'en' ? PLACEHOLDER_EXAMPLES_EN.length : PLACEHOLDER_EXAMPLES_KO.length)), 3500)
+    return () => clearInterval(tid)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, attachedFile, lang])
+  const rotatingPlaceholder = lang === 'en'
+    ? PLACEHOLDER_EXAMPLES_EN[phIdx % PLACEHOLDER_EXAMPLES_EN.length]
+    : PLACEHOLDER_EXAMPLES_KO[phIdx % PLACEHOLDER_EXAMPLES_KO.length]
 
   const detectFileType = (mime: string, name: string): AttachedFile['fileType'] => {
     if (mime.startsWith('image/')) return 'image'
@@ -534,7 +559,10 @@ export function ChatBubble({
           flexShrink: 0,
         }} />
         <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.92)', fontWeight: 700, letterSpacing: '0.04em', flex: 1 }}>
-          {isEn ? 'Chat History' : '대화 이력'}
+          {/* UI-10: 빈 이력일 때 텍스트 변경 */}
+          {history.length === 0
+            ? (isEn ? 'Welcome to Nexus' : 'Nexus 에 오신 걸 환영해요')
+            : (isEn ? 'Chat History' : '대화 이력')}
         </span>
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)', fontWeight: 500 }}>
           {history.length > 0 ? `${history.length}개` : ''}
@@ -752,28 +780,30 @@ export function ChatBubble({
             </div>
             {g.items.map(entry => (
               <div key={entry.id} style={{ marginBottom: 10 }}>
-                {/* 사용자 질문 버블 */}
+                {/* 사용자 질문 버블 — 카톡 노랑 */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                   <div style={{
                     maxWidth: '86%', padding: '8px 12px',
                     borderRadius: '14px 14px 4px 14px',
-                    background: `${primaryColor}55`,
-                    border: `1px solid ${primaryColor}88`,
-                    fontSize: 12, color: 'rgba(255,255,255,0.95)',
+                    background: 'linear-gradient(135deg, #fde047, #fbbf24)',
+                    border: '1px solid rgba(251,191,36,0.6)',
+                    fontSize: 12, color: '#1f2937', fontWeight: 600,
                     lineHeight: 1.6, wordBreak: 'break-word',
+                    boxShadow: '0 2px 8px rgba(251,191,36,0.25)',
                   }}>
                     {entry.q}
                   </div>
                 </div>
-                {/* AI 응답 버블 */}
+                {/* AI 응답 버블 — 흰색 톤 */}
                 <div style={{ display: 'flex', justifyContent: 'flex-start', position: 'relative' }}>
                   <div style={{
                     maxWidth: '86%', padding: '8px 12px',
                     borderRadius: '4px 14px 14px 14px',
-                    background: 'rgba(255,255,255,0.09)',
-                    border: '1px solid rgba(255,255,255,0.13)',
-                    fontSize: 12, color: 'rgba(255,255,255,0.9)',
+                    background: 'rgba(248,250,252,0.9)',
+                    border: '1px solid rgba(226,232,240,0.35)',
+                    fontSize: 12, color: '#0f172a', fontWeight: 500,
                     lineHeight: 1.65, wordBreak: 'break-word',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
                   }}>
                     {renderMarkdown(entry.a)}
                   </div>
@@ -827,14 +857,21 @@ export function ChatBubble({
                       maxWidth: '86%',
                       padding: '8px 12px',
                       borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-                      background: isUser ? `${primaryColor}66` : 'rgba(255,255,255,0.11)',
-                      border: `1px solid ${isUser ? primaryColor + '99' : 'rgba(255,255,255,0.15)'}`,
+                      // Phase A: 카톡 따뜻함 — 사용자 노랑 그라데이션, AI 흰색 톤
+                      background: isUser
+                        ? 'linear-gradient(135deg, #fde047, #fbbf24)'  // 카톡 노랑 톤
+                        : 'rgba(248,250,252,0.94)',                     // 흰색 톤 (slate-50)
+                      border: `1px solid ${isUser ? 'rgba(251,191,36,0.6)' : 'rgba(226,232,240,0.4)'}`,
                       fontSize: 12,
-                      color: 'rgba(255,255,255,0.97)',
+                      // 사용자/AI 둘 다 어두운 텍스트 (카톡 스타일)
+                      color: isUser ? '#1f2937' : '#0f172a',
+                      fontWeight: isUser ? 600 : 500,
                       lineHeight: 1.65,
                       whiteSpace: isUser ? 'pre-wrap' : 'normal',
                       wordBreak: 'break-word',
-                      boxShadow: isUser ? `0 2px 10px ${primaryColor}33` : '0 2px 8px rgba(0,0,0,0.3)',
+                      boxShadow: isUser
+                        ? '0 2px 12px rgba(251,191,36,0.35)'
+                        : '0 2px 10px rgba(0,0,0,0.4)',
                     }}>
                       {isUser ? displayText : renderMarkdown(displayText)}
                       {isLong && (
@@ -1017,10 +1054,30 @@ export function ChatBubble({
           )
         })()}
 
-        {/* 타이핑 인디케이터 */}
+        {/* 타이핑 인디케이터 + 취소 버튼 (Emergency-A) */}
         {typing && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 8 }}>
-            <TypingBar primaryColor={primaryColor} steps={typingSteps} lang={lang} />
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <TypingBar primaryColor={primaryColor} steps={typingSteps} lang={lang} />
+            </div>
+            {onCancelTyping && (
+              <button
+                onClick={onCancelTyping}
+                title={lang === 'en' ? 'Cancel current request' : '현재 요청 취소'}
+                style={{
+                  padding: '4px 10px', borderRadius: 8,
+                  background: 'rgba(239,68,68,0.15)',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  color: '#fca5a5', fontSize: 10, fontWeight: 700,
+                  cursor: 'pointer', flexShrink: 0,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.3)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)' }}
+              >
+                ⛔ {lang === 'en' ? 'Cancel' : '취소'}
+              </button>
+            )}
           </motion.div>
         )}
         <div ref={bottomRef} />
@@ -1107,11 +1164,13 @@ export function ChatBubble({
           onChange={e => { if (e.target.files && e.target.files.length > 0) handleFileSelect(e.target.files) }}
         />
 
-        {/* 📎 첨부 버튼 */}
+        {/* 📎 첨부 버튼 (UI-11: 파일 종류 안내 강화) */}
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={fileLoading}
-          title="파일 첨부 (이미지·문서·스프레드시트)"
+          title={lang === 'en'
+            ? 'Attach file (max 3): images · PDF · Word · Excel · CSV · TXT · video'
+            : '파일 첨부 (최대 3개)\n• 이미지 (JPG/PNG/GIF/WebP)\n• 문서 (PDF/Word/TXT/MD)\n• 표 (Excel/CSV)\n• 동영상 (MP4)'}
           style={{
             width: 32, height: 32, borderRadius: '50%', border: 'none',
             background: attachedFiles.length > 0 ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
@@ -1139,10 +1198,10 @@ export function ChatBubble({
           }}
           placeholder={
             attachedFile
-              ? '파일에 대해 질문하거나 Enter로 바로 분석...'
+              ? (lang === 'en' ? 'Ask about this file or press Enter to analyze...' : '파일에 대해 질문하거나 Enter로 바로 분석...')
               : clarifyPending
-                ? '답변을 입력하세요...'
-                : lang === 'ko' ? `${assistantName}에게...` : `Ask ${assistantName}...`
+                ? (lang === 'en' ? 'Type your answer...' : '답변을 입력하세요...')
+                : rotatingPlaceholder  // UI-9: 회전 placeholder (3초마다 예시 교체)
           }
           style={{
             flex: 1, background: clarifyPending ? `${primaryColor}18` : 'rgba(255,255,255,0.07)',

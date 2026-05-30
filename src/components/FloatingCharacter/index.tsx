@@ -19,6 +19,9 @@ import type { AvatarConfig } from './OnboardingFlow'
 import { PaywallModal } from '../PaywallModal'
 import { ApprovalDialog } from './cards/ApprovalDialog'
 import { hasChosenMode, needsApproval, isDangerousCommand } from '../../lib/nexus/approvalMode'
+import { ExpandedResultView } from './cards/ExpandedResultView'
+import { shouldExpand, expandTitle } from './cards/shouldExpand'
+import type { Block } from './cards/DynamicBlocks'
 import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
 import { getDailyUsage, getMonthlyUsage } from '../../lib/nexus/usageTracker'
@@ -302,14 +305,19 @@ export function FloatingCharacter() {
     }
   }, [setAssistantName, setUserName, setPrimaryColor, setAccentColor, setOnboarded, setTtsVoice, setLoggedIn])
 
-  /* 첫 인사 — 텍스트 + TTS (1회만 재생) */
+  /* 첫 인사 — bubbleText + TTS 만 (chat history 에는 넣지 않음)
+   * 이전엔 setMessages 로 chat 에 넣어서:
+   *   - 사용자 메시지로 보이는 버그
+   *   - 3중 중복 (bubble + chat + 우측 패널)
+   *   - 빈 상태 추천 명령 칩이 안 나타남 (messages.length > 0)
+   * 수정 후엔 bubbleText 만 — chat 은 비워둠 → 추천 칩 자동 노출 */
   const hasGreetedRef = useRef(false)
   useEffect(() => {
-    const greeting = getGreeting(assistantName, userName, userLang)
-    setMessages([{ id: '0', role: 'nexus', text: greeting }])
+    // chat history 초기화 — 이전 setMessages 호출 제거
     historyRef.current = []
     if (isOnboarded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
+      const greeting = getGreeting(assistantName, userName, userLang)
       const tid = setTimeout(() => {
         const preview = greeting.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
         setBubbleText(preview + (greeting.length > 60 ? '...' : ''))
@@ -1154,6 +1162,35 @@ export function FloatingCharacter() {
     void sendText(command)
   }, [sendText])
 
+  /** Emergency-A: 분석 중 사용자 취소 — typing 강제 해제 */
+  const handleCancelTyping = useCallback(() => {
+    typingRef.current = false
+    setTyping(false)
+    setTypingSteps([])
+    setMessages(prev => [...prev, {
+      id: `cancel-${Date.now()}`, role: 'nexus',
+      text: userLang === 'en' ? '⏸️ Request cancelled by user.' : '⏸️ 요청을 취소했어요.',
+    }])
+    setEmotion('neutral')
+  }, [userLang])
+
+  /** Phase B: Adaptive UI — Dynamic 카드의 wide 블록 자동 확장 (table/chart/KPI 등) */
+  const [expandedBlocks, setExpandedBlocks] = useState<{ title: string; blocks: Block[] } | null>(null)
+  // 새 메시지 도착 → inlineCard 가 dynamic 타입이고 wide 블록이면 자동 확장
+  useEffect(() => {
+    if (messages.length === 0) return
+    const last = messages[messages.length - 1]
+    if (last.role !== 'nexus') return
+    const card = last.inlineCard
+    if (!card || card.type !== 'dynamic') return
+    if (!shouldExpand(card.blocks)) return
+    // 이미 동일 메시지로 확장 중이면 스킵
+    setExpandedBlocks({
+      title: card.title || expandTitle(card.blocks),
+      blocks: card.blocks,
+    })
+  }, [messages])
+
   const handleSendWithFileImpl = useCallback(async (text: string, file: { name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: 'image' | 'document' | 'spreadsheet' | 'video' | 'other' }, extraFiles?: Array<{ name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: string }>) => {
     setTyping(true)
     const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
@@ -1653,19 +1690,34 @@ export function FloatingCharacter() {
         >
           <motion.div
             animate={speaking
-              ? { scale: [1, 1.08, 1], boxShadow: [`0 0 14px ${primaryColor}88`, `0 0 28px ${primaryColor}dd`, `0 0 14px ${primaryColor}88`] }
-              : { scale: [1, 1.03, 1], boxShadow: [`0 0 12px ${primaryColor}66`, `0 0 20px ${primaryColor}99`, `0 0 12px ${primaryColor}66`] }
+              ? { scale: [1, 1.12, 1], boxShadow: [`0 0 18px ${(activePersona?.color ?? primaryColor)}99`, `0 0 36px ${(activePersona?.color ?? primaryColor)}ee`, `0 0 18px ${(activePersona?.color ?? primaryColor)}99`] }
+              : { scale: [1, 1.04, 1], boxShadow: [`0 0 14px ${(activePersona?.color ?? primaryColor)}77`, `0 0 24px ${(activePersona?.color ?? primaryColor)}aa`, `0 0 14px ${(activePersona?.color ?? primaryColor)}77`] }
             }
             transition={{ duration: speaking ? 0.5 : 3.5, repeat: Infinity, ease: 'easeInOut' }}
             style={{
-              width: 46, height: 46, borderRadius: '50%',
-              background: `radial-gradient(circle at 38% 32%, ${accentColor}ee, ${primaryColor}cc 40%, ${primaryColor}88 68%, ${primaryColor}44)`,
+              // UI-6: 캐릭터 키우기 46 → 56px
+              width: 56, height: 56, borderRadius: '50%',
+              // UI-13: 페르소나 색 우선 사용
+              background: `radial-gradient(circle at 38% 32%, ${(activePersona?.color ?? accentColor)}ee, ${(activePersona?.color ?? primaryColor)}cc 40%, ${(activePersona?.color ?? primaryColor)}88 68%, ${(activePersona?.color ?? primaryColor)}44)`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
+              fontSize: 22,
               opacity: isActive ? 1 : 0.55,
             }}
           >
             {!isActive && '😴'}
+            {/* UI-12: 활성 페르소나 아이콘을 캐릭터 위에 미니 뱃지로 */}
+            {isActive && activePersona && (
+              <span style={{
+                position: 'absolute', bottom: -2, right: -2,
+                fontSize: 14, background: '#0a0a14',
+                borderRadius: '50%', width: 22, height: 22,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `2px solid ${activePersona.color}`,
+                boxShadow: `0 0 8px ${activePersona.color}66`,
+              }}>
+                {activePersona.emoji}
+              </span>
+            )}
           </motion.div>
           {speaking && (
             <div style={{
@@ -1680,7 +1732,7 @@ export function FloatingCharacter() {
         {/* ─ 상태 정보 ─ */}
         <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            {activePersona && <span style={{ fontSize: 12 }}>{activePersona.emoji}</span>}
+            {activePersona && <span style={{ fontSize: 14 }}>{activePersona.emoji}</span>}
             <span style={{
               fontSize: 12, fontWeight: 700,
               color: activePersona ? activePersona.color : primaryColor,
@@ -1688,21 +1740,56 @@ export function FloatingCharacter() {
             }}>
               {activePersona?.name ?? (userLang === 'en' ? 'General Mode' : '일반 모드')}
             </span>
+            {/* UI-12: 페르소나 미선택 시 안내 칩 */}
+            {!activePersona && (
+              <span
+                onClick={() => sendText('도움말')}
+                style={{
+                  fontSize: 8.5, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.06)', padding: '2px 5px', borderRadius: 4,
+                  marginLeft: 4,
+                }}
+                title={userLang === 'en' ? 'Switch to a job-specific persona' : '직업별 모드로 전환'}
+              >
+                {userLang === 'en' ? 'Switch mode' : '모드 전환'}
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
-            {userLang === 'en'
-              ? `${dailyUsedCount} / 15 today`
-              : `오늘 ${dailyUsedCount} / 15회`}
-          </div>
+          {/* UI-7: 사용 한도 시각 강화 — 색상으로 위급도 표시 */}
+          {(() => {
+            const limit = subscriptionStatus === 'active' || subscriptionStatus === 'trial' ? 200 : 15
+            const pct = (dailyUsedCount / limit) * 100
+            const limitColor = pct >= 90 ? '#ef4444' : pct >= 60 ? '#f59e0b' : 'rgba(255,255,255,0.45)'
+            return (
+              <div style={{ fontSize: 9.5, color: limitColor, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontWeight: pct >= 60 ? 700 : 500 }}>
+                  {userLang === 'en'
+                    ? `${dailyUsedCount} / ${limit} today`
+                    : `오늘 ${dailyUsedCount} / ${limit}회`}
+                </span>
+                {pct >= 80 && (
+                  <span
+                    onClick={() => import('../../lib/paddle').then(m => m.openCheckout(userEmail)).catch(() => {})}
+                    style={{ cursor: 'pointer', color: '#fbbf24', fontSize: 9, fontWeight: 800, marginLeft: 2 }}
+                    title={userLang === 'en' ? 'Upgrade to Pro for 200/day' : 'Pro 업그레이드 (하루 200회)'}
+                  >
+                    ↑PRO
+                  </span>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* ─ 컨트롤 버튼 ─ */}
         <div style={{ display: 'flex', gap: 4, zIndex: 1 }}>
-          {/* 빛줄기 토글 */}
+          {/* 빛줄기 토글 (UI-8: 사용자가 의미 알기 쉽게) */}
           <motion.button
             whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }}
             onClick={() => setBeamEnabled(p => { const next = !p; localStorage.setItem('nexus-beam', next ? 'on' : 'off'); return next })}
-            title={beamEnabled ? '빛줄기 끄기' : '빛줄기 켜기'}
+            title={userLang === 'en'
+              ? (beamEnabled ? '✦ Glow effect: ON (click to disable)' : '✦ Glow effect: OFF (click to enable)')
+              : (beamEnabled ? '✦ 캐릭터 빛 효과: 켜짐 (클릭하면 끔)' : '✦ 캐릭터 빛 효과: 꺼짐 (클릭하면 켬)')}
             style={{
               width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
               background: beamEnabled ? `${primaryColor}28` : 'rgba(255,255,255,0.08)',
@@ -1905,47 +1992,43 @@ export function FloatingCharacter() {
             onRetry={handleRetry}
             onOpenSettings={handleOpenSettings}
             onAction={handleDynamicAction}
+            onCancelTyping={handleCancelTyping}
             embedded={true}
           />
         </div>
 
-        {/* ── 우: 기본 결과창 (항상 표시) ── */}
-        <div style={{
-          width: 172, flexShrink: 0,
-          display: 'flex', flexDirection: 'column',
-          background: 'rgba(0,0,0,0.18)',
-          overflow: 'hidden',
-        }}>
-          <div style={{ padding: '8px 10px 4px', borderBottom: `1px solid ${primaryColor}22`, flexShrink: 0 }}>
-            <span style={{ fontSize: 9.5, fontWeight: 800, color: `${primaryColor}99`, letterSpacing: '0.06em' }}>
-              📋 {userLang === 'en' ? 'LAST RESULT' : '최근 결과'}
-            </span>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px', scrollbarWidth: 'none' }}>
-            {(() => {
-              const lastMsg = messages.filter(m => m.role === 'nexus' && m.text).slice(-1)[0]
-              if (!lastMsg) return (
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 8, textAlign: 'center', lineHeight: 1.7 }}>
-                  {userLang === 'en' ? 'Results appear\nhere after tasks' : '작업 완료 후\n결과 요약이\n여기 표시됩니다'}
-                </div>
-              )
-              const lines = lastMsg.text.split('\n').filter(l => l.trim()).slice(0, 5)
-              return lines.map((line, i) => (
-                <div key={i} style={{ fontSize: 10, color: i === 0 ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.55)', marginBottom: 4, lineHeight: 1.5, wordBreak: 'break-all' }}>
-                  {i === 0 ? <span style={{ fontWeight: 700 }}>{line.slice(0, 40)}{line.length > 40 ? '…' : ''}</span> : `• ${line.slice(0, 32)}${line.length > 32 ? '…' : ''}`}
-                </div>
-              ))
-            })()}
-          </div>
-          {/* 기본 결과창 하단 — 마지막 액션 시간 */}
-          {messages.filter(m => m.role === 'nexus').length > 0 && (
-            <div style={{ padding: '4px 10px 6px', borderTop: `1px solid ${primaryColor}18`, flexShrink: 0 }}>
-              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>
-                {new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
+        {/* ── 우: 최근 결과 패널 — 결과 있을 때만 표시 (이전엔 항상 172px 점유)── */}
+        {(() => {
+          const lastMsg = messages.filter(m => m.role === 'nexus' && m.text).slice(-1)[0]
+          if (!lastMsg) return null  // 빈 상태에선 패널 자체 숨김 → 채팅 영역 100% 사용
+          const lines = lastMsg.text.split('\n').filter(l => l.trim()).slice(0, 5)
+          return (
+            <div style={{
+              width: 172, flexShrink: 0,
+              display: 'flex', flexDirection: 'column',
+              background: 'rgba(0,0,0,0.18)',
+              overflow: 'hidden',
+            }}>
+              <div style={{ padding: '8px 10px 4px', borderBottom: `1px solid ${primaryColor}22`, flexShrink: 0 }}>
+                <span style={{ fontSize: 9.5, fontWeight: 800, color: `${primaryColor}99`, letterSpacing: '0.06em' }}>
+                  📋 {userLang === 'en' ? 'LAST RESULT' : '최근 결과'}
+                </span>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px', scrollbarWidth: 'none' }}>
+                {lines.map((line, i) => (
+                  <div key={i} style={{ fontSize: 10, color: i === 0 ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.55)', marginBottom: 4, lineHeight: 1.5, wordBreak: 'break-all' }}>
+                    {i === 0 ? <span style={{ fontWeight: 700 }}>{line.slice(0, 40)}{line.length > 40 ? '…' : ''}</span> : `• ${line.slice(0, 32)}${line.length > 32 ? '…' : ''}`}
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '4px 10px 6px', borderTop: `1px solid ${primaryColor}18`, flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>
+                  {new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
+          )
+        })()}
       </div>
 
       {/* ── 동적 결과창 (결과 완료 시만 슬라이드인) ── */}
@@ -2315,6 +2398,17 @@ export function FloatingCharacter() {
       pendingAction={pendingDesktopCommandRef.current ?? undefined}
       onChoose={handleApprovalChoose}
       onCancel={handleApprovalCancel}
+      lang={userLang}
+    />
+
+    {/* Phase B: Adaptive UI — wide block 자동 확장 (Jarvis 스타일 대시보드) */}
+    <ExpandedResultView
+      open={!!expandedBlocks}
+      title={expandedBlocks?.title}
+      blocks={expandedBlocks?.blocks ?? []}
+      accentColor={activePersona?.color ?? primaryColor}
+      onClose={() => setExpandedBlocks(null)}
+      onAction={handleDynamicAction}
       lang={userLang}
     />
     </>

@@ -12,7 +12,7 @@ function AppLoader() {
   return (
     <div style={{
       width: '100vw', height: '100vh',
-      background: '#09090f',
+      background: '#14142a',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
@@ -34,7 +34,7 @@ export default function App() {
         height: '100vh',
         overflow: 'visible',
         position: 'relative',
-        background: '#09090f',
+        background: '#14142a',
       }}
     >
       <Suspense fallback={<AppLoader />}>

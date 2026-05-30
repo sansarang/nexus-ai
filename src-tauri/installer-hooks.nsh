@@ -6,37 +6,69 @@
 !include "FileFunc.nsh"
 
 ; ── 파일 복사 전 프로세스 종료 (가장 먼저 실행) ─────────────────
+; v2.7.1+ 강화: 3회 retry + WebView2 자식 + 파일 잠금 검증 + 명확한 사용자 안내
 !macro customInit
-  ; ── 1. PowerShell로 nexus* 프로세스 전체 강제 종료 + 파일 삭제까지 한 번에
+  DetailPrint "Stopping existing Nexus instances..."
+
+  ; ── 1. PowerShell: 3회 retry + WebView2 자식 + 파일 강제 삭제
   nsExec::ExecToStack 'powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command "\
-    Stop-Process -Name nexus-backend,nexus-python,Nexus -Force -ErrorAction SilentlyContinue;\
-    Start-Sleep -Seconds 2;\
+    $names = @(''nexus'', ''Nexus'', ''nexus-backend'', ''nexus-python'', ''nexus_backend'', ''nexus_python'');\
+    for ($i = 0; $i -lt 3; $i++) {\
+      foreach ($n in $names) {\
+        Get-Process -Name $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue;\
+      }\
+      Get-CimInstance Win32_Process -Filter \"Name=''msedgewebview2.exe''\" -ErrorAction SilentlyContinue |\
+        Where-Object { $_.CommandLine -like ''*Nexus*'' -or $_.CommandLine -like ''*com.nexus.ai*'' } |\
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue };\
+      Start-Sleep -Milliseconds 800;\
+    }\
+    Start-Sleep -Seconds 1;\
     $files = @(\
+      \"$env:LOCALAPPDATA\Nexus\nexus.exe\",\
+      \"$env:LOCALAPPDATA\Nexus\Nexus.exe\",\
       \"$env:LOCALAPPDATA\Nexus\nexus-backend.exe\",\
-      \"$env:LOCALAPPDATA\Nexus\nexus-python.exe\",\
-      \"$env:LOCALAPPDATA\Nexus\Nexus.exe\"\
+      \"$env:LOCALAPPDATA\Nexus\nexus-python.exe\"\
     );\
     foreach ($f in $files) {\
       if (Test-Path $f) {\
-        try { Remove-Item $f -Force -ErrorAction Stop }\
-        catch { try { Rename-Item $f ($f + \".old\") -Force -ErrorAction SilentlyContinue } catch {} }\
+        for ($r = 0; $r -lt 3; $r++) {\
+          try { Remove-Item $f -Force -ErrorAction Stop; break }\
+          catch { Start-Sleep -Milliseconds 500 }\
+        }\
+        if (Test-Path $f) {\
+          $bak = $f + \".old_\" + (Get-Date -UFormat %s);\
+          try { Rename-Item $f $bak -Force -ErrorAction SilentlyContinue } catch {}\
+        }\
       }\
     };\
     exit 0"'
   Pop $0
 
-  ; ── 2. 혹시 재시작된 프로세스 한 번 더 종료
+  ; ── 2. 추가 taskkill (PowerShell 실패 대비)
+  nsExec::Exec 'taskkill /F /IM nexus.exe /T 2>nul'
+  nsExec::Exec 'taskkill /F /IM Nexus.exe /T 2>nul'
   nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T 2>nul'
   nsExec::Exec 'taskkill /F /IM nexus-python.exe /T 2>nul'
-  nsExec::Exec 'taskkill /F /IM Nexus.exe /T 2>nul'
-  Sleep 2000
+  Sleep 1500
 
-  ; ── 3. 자동 재시작 레지스트리 항목 임시 비활성화
+  ; ── 3. 자동 시작 레지스트리 임시 제거
   nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "\
     Remove-ItemProperty -Path ''HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'' -Name ''Nexus'' -ErrorAction SilentlyContinue;\
     Remove-ItemProperty -Path ''HKLM:\Software\Microsoft\Windows\CurrentVersion\Run'' -Name ''Nexus'' -ErrorAction SilentlyContinue;\
+    Remove-ItemProperty -Path ''HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'' -Name ''com.nexus.ai'' -ErrorAction SilentlyContinue;\
     exit 0"'
   Pop $0
+
+  ; ── 4. 최종 검증: 아직 살아있으면 명확한 안내
+  nsExec::ExecToStack 'powershell -WindowStyle Hidden -Command "if (Get-Process -Name nexus,Nexus,nexus-backend -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }"'
+  Pop $0
+  StrCmp $0 "0" InitOk 0
+    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION \
+      "Nexus가 아직 실행 중입니다.$\n$\n작업 관리자에서 Nexus 관련 모든 프로세스를 종료하고$\n[확인]을 누르거나, [취소]로 설치를 중단하세요.$\n$\n또는 PC를 재시작한 후 다시 설치해주세요." \
+      IDOK InitOk IDCANCEL InitAbort
+    InitAbort:
+      Abort
+  InitOk:
   Sleep 500
 !macroend
 

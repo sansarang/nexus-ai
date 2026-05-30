@@ -223,7 +223,8 @@ export async function callDynamicLLM(opts: CallDynamicLLMOptions): Promise<Dynam
         max_tokens: 1500,
         json_mode: true, // 백엔드가 지원하면 JSON-only 강제
       }),
-      signal: AbortSignal.timeout(20000),
+      // Emergency-B: 20s → 8s (UX 개선, 폴백 더 빨리)
+      signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
       console.warn('[dynamicLLM] HTTP', res.status)
