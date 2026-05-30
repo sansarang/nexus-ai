@@ -166,6 +166,10 @@ export type Intent =
   | 'excel_read'       // "지금 열린 엑셀 A1:C5 읽어줘"
   | 'word_replace'     // "Word에서 '구버전'을 '신버전'으로 치환"
   | 'word_insert'      // "Word 끝에 '서명' 추가"
+  // ── ↩️ 안전망 / 발견 (Phase 10·11) ──────────────────────────
+  | 'undo_last'        // "방금 작업 취소" — 최근 destructive 작업 되돌리기
+  | 'activity_log'     // "최근 작업 보여줘" — 활동 이력
+  | 'help'             // "도움말" / "뭐 할 수 있어?" — 가능한 명령 소개
   | 'none'             // LLM으로 위임
 
 const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
@@ -1177,6 +1181,32 @@ const PATTERNS: { intent: Intent; patterns: RegExp[] }[] = [
     intent: 'word_insert',
     patterns: [
       /(워드|word).*?(?:삽입|추가|넣어|입력|insert)/i,
+    ],
+  },
+  // ── ↩️ 안전망 (Phase 10) ────────────────────────────────────
+  {
+    intent: 'undo_last',
+    patterns: [
+      /(?:방금|마지막|아까).*?(?:취소|되돌려|돌려|복구|undo)/i,
+      /(?:취소|되돌려).*(?:해줘|줘)|undo.*last/i,
+      /(?:잘못|실수).*했|이전.*상태/i,
+    ],
+  },
+  {
+    intent: 'activity_log',
+    patterns: [
+      /(?:최근|오늘).*?(?:작업|활동|기록|history|log)/i,
+      /무슨.*(?:작업|일).*했어|뭐.*했어/i,
+      /activity.*log|recent.*actions/i,
+    ],
+  },
+  // ── 📖 발견성 (Phase 11) ────────────────────────────────────
+  {
+    intent: 'help',
+    patterns: [
+      /도움말|help|뭐.*(?:할 수 있어|가능해|할 수 있나)|기능.*(?:뭐|목록|보여)/i,
+      /how.*to|what.*can.*you.*do|사용법|매뉴얼|manual/i,
+      /^\?+$|^도움말?$|^help$/i,
     ],
   },
 ]

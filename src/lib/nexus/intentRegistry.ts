@@ -198,6 +198,11 @@ export const INTENT_REGISTRY = {
   word_replace:     { status: 'windows_only', category: 'file',           emoji: '🔁', labelKo: '워드 치환',        labelEn: 'Word Replace' },
   word_insert:      { status: 'windows_only', category: 'file',           emoji: '✏️', labelKo: '워드 삽입',        labelEn: 'Word Insert' },
 
+  // ── ↩️ 안전망 + 발견 (Phase 10·11) ─────────────────────────
+  undo_last:        { status: 'live',         category: 'productivity',   emoji: '↩️', labelKo: '작업 되돌리기',    labelEn: 'Undo Last' },
+  activity_log:     { status: 'live',         category: 'productivity',   emoji: '📜', labelKo: '활동 기록',        labelEn: 'Activity Log' },
+  help:             { status: 'live',         category: 'ai',             emoji: '❓', labelKo: '도움말',           labelEn: 'Help' },
+
   // ── 메타 ──────────────────────────────────────────────
   none:             { status: 'meta',         category: 'meta',           emoji: '💬', labelKo: 'LLM 대화',         labelEn: 'LLM Chat' },
 } as const satisfies Record<Intent, IntentSpec>

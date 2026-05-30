@@ -1857,6 +1857,94 @@ export async function handleBackendIntentImpl(
           }
         }
 
+        /* ── ↩️ 작업 되돌리기 (Phase 10) ── */
+        case 'undo_last': {
+          const { lastUndoable, markUndone } = await import('../../lib/nexus/activityLog')
+          const entry = lastUndoable()
+          if (!entry || !entry.undo) {
+            return {
+              text: t('되돌릴 수 있는 작업이 없어요.', 'No undoable action found.', userLang),
+              card2: { type: 'system_action', icon: '↩️', title: t('되돌릴 작업 없음', 'Nothing to undo', userLang), success: false },
+              emotion: 'neutral',
+            }
+          }
+          // 명확화 옵션으로 사용자 확인
+          const undoCmd = entry.undo.command
+          markUndone(entry.id) // 이력에서 undo 표시 (재실행 방지)
+          // 되돌리기 명령을 실행 (sendText 패턴 — 동일 명령 흐름)
+          return {
+            text: t(
+              `방금 '${entry.label}' 을(를) 되돌리기 위해 다음 명령을 실행합니다:\n→ ${undoCmd}`,
+              `To undo '${entry.label}', running:\n→ ${undoCmd}`,
+              userLang,
+            ),
+            card2: { type: 'system_action', icon: '↩️', title: t('되돌리기 중...', 'Undoing...', userLang), detail: undoCmd, success: true,
+              insight: { text: t('다음 메시지로 되돌리기 명령을 직접 보내주세요.', 'Send the undo command as next message.', userLang), level: 'tip' } },
+            emotion: 'happy',
+          }
+        }
+
+        /* ── 📜 활동 기록 (Phase 10) ── */
+        case 'activity_log': {
+          const { loadActivityLog } = await import('../../lib/nexus/activityLog')
+          const log = loadActivityLog().slice(0, 8)
+          if (log.length === 0) {
+            return {
+              text: t('아직 기록된 활동이 없어요.', 'No activity recorded yet.', userLang),
+              emotion: 'neutral',
+            }
+          }
+          const lines = log.map(e => {
+            const icon = e.status === 'success' ? '✅' : e.status === 'failure' ? '❌' : '⏸️'
+            const time = new Date(e.ts).toLocaleTimeString(userLang === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit' })
+            return `${icon} [${time}] ${e.label}${e.undo ? ' ↩️' : ''}`
+          }).join('\n')
+          return {
+            text: t(`최근 작업 ${log.length}건:\n${lines}\n\n${log.some(e => e.undo) ? '↩️ 표시된 작업은 "방금 작업 취소" 로 되돌릴 수 있어요.' : ''}`,
+                    `Recent ${log.length} actions:\n${lines}`, userLang),
+            emotion: 'neutral',
+          }
+        }
+
+        /* ── ❓ 도움말 (Phase 11) ── */
+        case 'help': {
+          const { INTENT_REGISTRY } = await import('../../lib/nexus/intentRegistry')
+          const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
+          const { getEnrichedPersonaTools } = await import('../../lib/nexus/personaTools')
+          const personaTools = getEnrichedPersonaTools(personaId).slice(0, 5)
+
+          // 카테고리별 라이브 인텐트 카운트
+          const liveByCategory: Record<string, number> = {}
+          for (const spec of Object.values(INTENT_REGISTRY)) {
+            if (spec.status === 'live' || spec.status === 'windows_only') {
+              liveByCategory[spec.category] = (liveByCategory[spec.category] ?? 0) + 1
+            }
+          }
+          const catLabel: Record<string, string> = {
+            system: '🖥️ 시스템 모니터링', security: '🔒 보안',
+            system_control: '⚙️ PC 제어', file: '📁 파일·문서',
+            web: '🌐 웹·검색', productivity: '⚡ 생산성',
+            media: '🎬 미디어·OCR', email_calendar: '📧 메일·캘린더',
+            ai: '🤖 AI 에이전트', pro: '⭐ Pro 전용',
+            weather_travel: '🌤️ 날씨·번역', meta: '💬 채팅',
+          }
+
+          const personaToolsText = personaTools.map(t => `  ${t.emoji} "${t.label}"`).join('\n')
+          const categoriesText = Object.entries(liveByCategory)
+            .sort((a, b) => b[1] - a[1])
+            .map(([cat, n]) => `  ${catLabel[cat] ?? cat} (${n}개)`)
+            .join('\n')
+
+          return {
+            text: t(
+              `🚀 **Nexus AI 사용법**\n\n💡 지금 모드에서 자주 쓰는 명령:\n${personaToolsText}\n\n📚 카테고리별 기능:\n${categoriesText}\n\n💬 그냥 자연스럽게 한국어로 말씀하시면 돼요! 예: "오늘 날씨", "PC 상태", "엑셀 A1에 100 입력"`,
+              `🚀 **Nexus AI Help**\n\n💡 Quick commands for current mode:\n${personaToolsText}\n\n📚 Available categories:\n${categoriesText}\n\n💬 Just speak naturally! e.g. "today's weather", "PC status"`,
+              userLang,
+            ),
+            emotion: 'happy',
+          }
+        }
+
         default:
           return errorReturn(intent, new Error(`Intent '${intent}' is not implemented in handleBackendIntentImpl`), userLang)
       }
