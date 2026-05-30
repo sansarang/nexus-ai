@@ -1,215 +1,75 @@
-name: Build & Release Windows EXE
+name: Build Windows Installer
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  build-windows:
-    name: Build Windows Installer
+  build:
     runs-on: windows-latest
-    timeout-minutes: 90
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'   # go.mod의 go 1.26 요구사항에 맞게 최신 stable 사용
-          cache: true
-          cache-dependency-path: backend/go.sum
-
-      - name: Setup Rust (MSVC)
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          prefix-key: "v3-rust"
+      - name: Install LLVM
+        run: choco install llvm -y
 
-      - name: Remove stale cargo config
-        shell: pwsh
+      - name: Set LLVM PATH
         run: |
-          $cfg = "$env:USERPROFILE\.cargo\config.toml"
-          if (Test-Path $cfg) { Remove-Item $cfg -Force; Write-Host "Removed stale config.toml" }
+          echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Find MSVC link.exe
-        shell: pwsh
+      - name: Build Go backend
         run: |
-          $searchRoots = @(
-            "C:\Program Files\Microsoft Visual Studio",
-            "C:\Program Files (x86)\Microsoft Visual Studio"
-          )
-          $found = $null
-          foreach ($root in $searchRoots) {
-            if (Test-Path $root) {
-              $found = Get-ChildItem $root -Recurse -Filter "link.exe" -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -match "Hostx64\\x64" } |
-                Select-Object -First 1
-              if ($found) { break }
-            }
-          }
-          if ($found) {
-            $escaped = $found.FullName
-            echo "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$escaped" >> $env:GITHUB_ENV
-            echo "$($found.DirectoryName)" >> $env:GITHUB_PATH
-          } else {
-            Write-Error "link.exe NOT found"; exit 1
-          }
+          New-Item -ItemType Directory -Force -Path src-tauri\binaries | Out-Null
+          New-Item -ItemType Directory -Force -Path src-tauri\backend-bin | Out-Null
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          $env:CGO_ENABLED = "0"
+          cd backend
+          go mod tidy
+          go build -tags windows -ldflags="-s -w" -o "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" .
+          cd ..
+          Copy-Item "src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" "src-tauri\backend-bin\nexus-backend.exe"
+          Copy-Item "src-tauri\backend-bin\nexus-backend.exe" "src-tauri\backend-bin\nexus-python.exe"
 
       - name: Install npm dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Install garble (AV obfuscation)
-        working-directory: backend
-        shell: pwsh
-        run: |
-          go install mvdan.cc/garble@latest
-          $goBin = "$(go env GOPATH)\bin"
-          echo $goBin >> $env:GITHUB_PATH
-          Write-Host "garble installed: $goBin\garble.exe"
+      - name: Build Tauri app
+        run: npx tauri build --target x86_64-pc-windows-msvc
 
-      - name: Build Go backend (Windows x64, garbled)
-        working-directory: backend
-        shell: pwsh
-        env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: '0'
-          GROQ_KEY: ${{ secrets.GROQ_KEY }}
-          TAVILY_KEY: ${{ secrets.TAVILY_KEY }}
-        run: |
-          New-Item -ItemType Directory -Force -Path "..\src-tauri\backend-bin"
-          $ldflags = "-s -w -H windowsgui -X main.bundledGroqKey=$env:GROQ_KEY -X main.bundledTavilyKey=$env:TAVILY_KEY"
-          garble build "-ldflags=$ldflags" -o "..\src-tauri\backend-bin\nexus-backend.exe" .
-          Get-Item "..\src-tauri\backend-bin\nexus-backend.exe" | Select-Object Name, Length
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Build Python sidecar (nexus-python.exe)
-        working-directory: backend/nexus_python
-        shell: pwsh
-        run: |
-          pip install pyinstaller --quiet
-          pip install -r requirements.txt --quiet
-          pyinstaller `
-            --onefile `
-            --name nexus-python `
-            --distpath "..\..\src-tauri\backend-bin" `
-            --workpath "$env:TEMP\nexus_python_build" `
-            --hidden-import "uvicorn.logging" `
-            --hidden-import "uvicorn.loops.auto" `
-            --hidden-import "uvicorn.protocols.http.auto" `
-            --hidden-import "uvicorn.protocols.websockets.auto" `
-            --hidden-import "uvicorn.lifespan.on" `
-            --hidden-import "fastapi" `
-            --hidden-import "yt_dlp" `
-            --hidden-import "ytmusicapi" `
-            --hidden-import "easyocr" `
-            --hidden-import "fitz" `
-            --hidden-import "pandas" `
-            --hidden-import "yfinance" `
-            --hidden-import "sentence_transformers" `
-            --hidden-import "pyautogui" `
-            --hidden-import "pygetwindow" `
-            --hidden-import "groq" `
-            --collect-all "yt_dlp" `
-            --collect-all "ytmusicapi" `
-            --noconfirm `
-            main.py
-          Get-Item "..\..\src-tauri\backend-bin\nexus-python.exe" | Select-Object Name, @{N='MB';E={[math]::Round($_.Length/1MB,1)}}
-
-      - name: Build Tauri app (npm)
-        shell: pwsh
-        env:
-          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: ${{ env.CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER }}
-          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
-          VITE_ADMIN_PASSWORD: ${{ secrets.VITE_ADMIN_PASSWORD }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_PADDLE_CLIENT_TOKEN: ${{ secrets.VITE_PADDLE_CLIENT_TOKEN }}
-          VITE_PADDLE_PRICE_ID: ${{ secrets.VITE_PADDLE_PRICE_ID }}
-        run: npm run tauri build -- --target x86_64-pc-windows-msvc
-
-      - name: Find built installer
-        id: find_exe
-        shell: pwsh
-        run: |
-          $paths = @(
-            "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis",
-            "src-tauri/target/release/bundle/nsis"
-          )
-          $exePath = $null
-          foreach ($p in $paths) {
-            $exe = Get-ChildItem $p -Filter "*setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($exe) {
-              $exePath = $exe.FullName
-              echo "EXE_PATH=$exePath" >> $env:GITHUB_ENV
-              echo "EXE_NAME=$($exe.Name)" >> $env:GITHUB_ENV
-              Write-Host "Found: $exePath"
-              break
-            }
-          }
-          if (-not $exePath) { Write-Error "No setup.exe found!"; exit 1 }
-
-      - name: Publish release to nexus-ai-releases (Public repo)
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          $version = $env:TAG
-          $exePath = $env:EXE_PATH
-          $exeName = "Nexus_x64-setup.exe"
-
-          # 파일명을 고정 이름으로 복사 (PowerShell에서 # 구문이 동작하지 않는 문제 우회)
-          $destPath = Join-Path (Split-Path $exePath) $exeName
-          Copy-Item $exePath $destPath -Force
-
-          gh release create $version $destPath `
-            --repo sansarang/nexus-ai-releases `
-            --title "Nexus AI $version" `
-            --notes "## Nexus AI $version
-
-          ### 설치 방법
-          1. 아래 ``Nexus_x64-setup.exe`` 다운로드
-          2. 더블클릭 -> 다음 -> 설치 완료
-          3. Google 계정으로 로그인 후 시작
-
-          ### 시스템 요구사항
-          - Windows 10/11 64-bit
-          - 인터넷 연결 필요
-
-          [전체 기능 보기 -> nexusai.ai.kr](https://nexusai.ai.kr)" `
-            --latest
-
-      - name: Upload artifact (workflow_dispatch용)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Nexus-Windows-Installer
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: warn
-          retention-days: 14
+          name: Nexus-Windows-x64-Setup
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.7.1-build${{ github.run_number }}
+          name: "NEXUS AI v2.7.1 (build ${{ github.run_number }})"
+          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          body: |
+            - admin 플랜 무제한(99999회/일)
+            - JWT app_metadata 파싱 추가
+            - 설치 파일 잠금 수정
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
