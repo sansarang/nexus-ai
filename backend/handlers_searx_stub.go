@@ -45,7 +45,7 @@ func handleAnonymousSearch(w http.ResponseWriter, r *http.Request) {
 		Limit  int    `json:"limit"`
 		UseTor bool   `json:"use_tor"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return

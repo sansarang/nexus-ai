@@ -168,7 +168,7 @@ func handleRecallSearch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		json200(w, map[string]interface{}{"success": false, "message": msgT("query가 필요해요", "query is required", lang)})
 		return

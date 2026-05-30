@@ -219,7 +219,7 @@ func handleEnterpriseCreateKey(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 		Plan string `json:"plan"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
+	tryDecodeBody(r, &body)
 	if body.Name == "" || body.Plan == "" {
 		http.Error(w, `{"ok":false,"error":"name and plan required"}`, 400)
 		return
@@ -314,8 +314,7 @@ func handleV1Chat(w http.ResponseWriter, r *http.Request) {
 		APIKey  string `json:"api_key"`
 		Lang    string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
-
+	tryDecodeBody(r, &body)
 	key := body.APIKey
 	if key == "" {
 		key = r.Header.Get("X-API-Key")
@@ -348,8 +347,7 @@ func handleV1Search(w http.ResponseWriter, r *http.Request) {
 		Query  string `json:"query"`
 		APIKey string `json:"api_key"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
-
+	tryDecodeBody(r, &body)
 	key := body.APIKey
 	if key == "" {
 		key = r.Header.Get("X-API-Key")
@@ -378,8 +376,7 @@ func handleV1Stock(w http.ResponseWriter, r *http.Request) {
 		APIKey string `json:"api_key"`
 		Lang   string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
-
+	tryDecodeBody(r, &body)
 	key := body.APIKey
 	if key == "" {
 		key = r.Header.Get("X-API-Key")
@@ -408,8 +405,7 @@ func handleV1Legal(w http.ResponseWriter, r *http.Request) {
 		APIKey     string `json:"api_key"`
 		Lang       string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
-
+	tryDecodeBody(r, &body)
 	key := body.APIKey
 	if key == "" {
 		key = r.Header.Get("X-API-Key")
@@ -441,8 +437,7 @@ func handleV1Medical(w http.ResponseWriter, r *http.Request) {
 		APIKey     string `json:"api_key"`
 		Lang       string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&body)
-
+	tryDecodeBody(r, &body)
 	key := body.APIKey
 	if key == "" {
 		key = r.Header.Get("X-API-Key")

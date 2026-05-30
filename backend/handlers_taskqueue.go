@@ -261,7 +261,7 @@ func handleTaskList(w http.ResponseWriter, r *http.Request) {
 func handleTaskCancel(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ ID string `json:"id"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	task, ok := globalTaskQueue.GetTask(req.ID)
 	if !ok {
 		json200(w, map[string]any{"success": false, "message": msgT("태스크를 찾을 수 없어요", "Task not found", lang)})

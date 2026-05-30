@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -173,8 +172,7 @@ func handleExcelSave(w http.ResponseWriter, r *http.Request) {
 		Filename string     `json:"filename"`   // 파일명 (확장자 없이)
 		SavePath string     `json:"save_path"`  // 저장 경로 (비어있으면 바탕화면)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if len(req.Data) == 0 {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("data 필요", "data is required", lang)})
 		return

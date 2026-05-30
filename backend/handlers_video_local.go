@@ -110,7 +110,7 @@ func handleVideoAnalyzeFile(w http.ResponseWriter, r *http.Request) {
 		Lang     string `json:"lang"`
 		Query    string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.FileData == "" || req.FileName == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("file_data와 file_name이 필요합니다", "file_data and file_name are required", lang)})
 		return

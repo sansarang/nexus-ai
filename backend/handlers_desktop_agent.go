@@ -443,8 +443,7 @@ func handleDesktopApprove(w http.ResponseWriter, r *http.Request) {
 		TaskID   string `json:"task_id"`
 		Approved bool   `json:"approved"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	approvalMu.Lock()
 	ch, ok := pendingApprovals[req.TaskID]
 	approvalMu.Unlock()
@@ -573,8 +572,7 @@ func handleDesktopAgentRun(w http.ResponseWriter, r *http.Request) {
 		RequireApproval bool   `json:"require_approval"`
 		MaxSteps        int    `json:"max_steps"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Goal == "" {
 		json200(w, map[string]any{"success": false, "message": msgT("goal이 필요해요", "goal is required", lang)})
 		return
@@ -612,8 +610,7 @@ func handleDesktopClick(w http.ResponseWriter, r *http.Request) {
 		Y      int    `json:"y"`
 		Button string `json:"button"` // left|right|double
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	var err error
 	switch req.Button {
 	case "right":
@@ -635,8 +632,7 @@ func handleDesktopClick(w http.ResponseWriter, r *http.Request) {
 func handleDesktopType(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ Text string `json:"text"` }
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if err := typeText(req.Text); err != nil {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
@@ -648,8 +644,7 @@ func handleDesktopType(w http.ResponseWriter, r *http.Request) {
 func handleDesktopKey(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ Key string `json:"key"` }
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if err := pressKey(req.Key); err != nil {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
@@ -665,7 +660,7 @@ func handleDesktopScroll(w http.ResponseWriter, r *http.Request) {
 		Direction string `json:"direction"` // up|down
 		Amount    int    `json:"amount"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Amount == 0 {
 		req.Amount = 3
 	}
@@ -688,7 +683,7 @@ func handleDesktopDrag(w http.ResponseWriter, r *http.Request) {
 		ToX   int `json:"to_x"`
 		ToY   int `json:"to_y"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if err := dragTo(req.FromX, req.FromY, req.ToX, req.ToY); err != nil {
 		json200(w, map[string]any{"success": false, "message": err.Error()})
 		return
@@ -752,8 +747,7 @@ func handleDesktopAgentCancel(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		TaskID string `json:"task_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.TaskID == "" {
 		json200(w, map[string]any{"success": false, "message": msgT("task_id가 필요합니다", "task_id is required", lang)})
 		return

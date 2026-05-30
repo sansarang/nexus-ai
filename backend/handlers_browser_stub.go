@@ -106,7 +106,7 @@ func handleBrowserNavigate(w http.ResponseWriter, r *http.Request) {
 		URL    string `json:"url"`
 		WaitFor string `json:"wait_for"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return
@@ -138,7 +138,7 @@ func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
 		Selector string `json:"selector"`
 		Mode     string `json:"mode"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "url required"})
 		return
@@ -178,7 +178,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 		Command    string `json:"command"`
 		MaxResults int    `json:"max_results"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -194,7 +194,7 @@ func handleBrowserCollectPrice(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ProductQuery string `json:"product_query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -206,7 +206,7 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -224,7 +224,7 @@ func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
 		Query    string `json:"query"`
 		MaxItems int    `json:"max_items"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -363,7 +363,7 @@ func handleMemoryStats(w http.ResponseWriter, r *http.Request)  { json200(w, map
 func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ ID string `json:"id"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	schedulerTasksMu.RLock()
 	tasksCopy := make([]ScheduledTask, len(scheduledTasks))
 	copy(tasksCopy, scheduledTasks)
@@ -380,7 +380,7 @@ func handleSchedulerRunNow(w http.ResponseWriter, r *http.Request) {
 func handleSchedulerParse(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ Text string `json:"text"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Text == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("text 필요", "text required", lang)})
 		return

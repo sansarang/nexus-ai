@@ -211,7 +211,7 @@ func handleBrowserExtract(w http.ResponseWriter, r *http.Request) {
 		Mode     string `json:"mode"`     // "text" | "html" | "links" | "table"
 		URL      string `json:"url"`      // 먼저 이동 후 추출 (optional)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Selector == "" {
 		req.Selector = "body"
 	}
@@ -293,8 +293,7 @@ func handleBrowserClick(w http.ResponseWriter, r *http.Request) {
 		Text     string `json:"text"`     // 텍스트로 찾기 (selector 없을 때)
 		WaitMs   int    `json:"wait_ms"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	ctx, cancel, err := withBrowserTimeout(20 * time.Second)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
@@ -346,7 +345,7 @@ func handleBrowserFill(w http.ResponseWriter, r *http.Request) {
 		Value    string `json:"value"`
 		Submit   bool   `json:"submit"` // Enter 키 전송
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Selector == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("selector 필요", "selector is required", lang)})
 		return
@@ -385,8 +384,7 @@ func handleBrowserScreenshot(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Selector string `json:"selector"` // 특정 요소만 캡처 (optional)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	ctx, cancel, err := withBrowserTimeout(15 * time.Second)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
@@ -434,7 +432,7 @@ func handleBrowserAgent(w http.ResponseWriter, r *http.Request) {
 		Command string `json:"command"` // "쿠팡에서 노트북 최저가 찾아줘"
 		MaxSteps int   `json:"max_steps"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Command == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command is required", lang)})
 		return

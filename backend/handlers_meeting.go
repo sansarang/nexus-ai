@@ -105,8 +105,7 @@ func handleMeetingTranscribe(w http.ResponseWriter, r *http.Request) {
 		FilePath  string `json:"file_path"`  // 직접 경로 지정 시
 		Lang      string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	// Groq API 키 확인
 	llmMu.RLock()
 	groqKey := llmGroqKey
@@ -214,8 +213,7 @@ func handleMeetingSummarize(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text string `json:"text"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Text == "" {
 		json200(w, map[string]interface{}{"success": false, "message": msgT("text가 필요해요", "text is required", lang)})
 		return

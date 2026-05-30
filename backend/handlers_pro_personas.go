@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -27,7 +26,7 @@ func handleStockAnalysis(w http.ResponseWriter, r *http.Request) {
 		Query  string `json:"query"`
 		Lang   string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	lang := req.Lang
 	if lang == "" {
 		lang = getLang(r)
@@ -49,7 +48,7 @@ func handleMedicalSearch(w http.ResponseWriter, r *http.Request) {
 		Type  string `json:"type"`
 		Lang  string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	lang := req.Lang
 	if lang == "" {
 		lang = getLang(r)
@@ -72,7 +71,7 @@ func handleContractReview(w http.ResponseWriter, r *http.Request) {
 		Focus    string `json:"focus"`
 		Lang     string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	lang := req.Lang
 	if lang == "" {
 		lang = getLang(r)
@@ -91,7 +90,7 @@ func handleContentScript(w http.ResponseWriter, r *http.Request) {
 		Style    string `json:"style"`
 		Lang     string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	lang := req.Lang
 	if lang == "" {
 		lang = getLang(r)
@@ -405,7 +404,7 @@ func handleLegalSearch(w http.ResponseWriter, r *http.Request) {
 		Type  string `json:"type"`
 		Lang  string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	lang := req.Lang
 	if lang == "" {
 		lang = getLang(r)

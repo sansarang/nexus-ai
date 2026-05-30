@@ -44,8 +44,7 @@ type SearchPDFResult struct {
 func handleBrowserSearchAndPDF(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req SearchPDFRequest
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요 (예: '에어팟 프로 최신')", "query required (e.g. 'AirPods Pro latest')", lang)})
 		return

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +17,7 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		Query      string `json:"query"`
 		MaxResults int    `json:"max_results"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return

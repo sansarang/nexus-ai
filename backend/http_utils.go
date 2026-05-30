@@ -15,9 +15,24 @@ import (
 const maxRequestBody = 32 * 1024 * 1024 // 32MB 요청 상한
 
 // decodeJSON: r.Body를 v에 JSON 디코딩. 실패 시 400 응답 후 false 반환.
+// 본문이 필수인 엔드포인트에서 사용.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "요청 형식 오류: " + err.Error()})
+		return false
+	}
+	return true
+}
+
+// tryDecodeBody: r.Body 를 v 에 디코딩. 실패해도 핸들러는 계속 진행 (빈 구조체 / 기본값 사용).
+// 본문이 선택적인 엔드포인트(파라미터 모두 optional) 에서 사용.
+// 디코딩 실패는 stderr 에 한 줄 로깅 → 운영 중 silent fail 추적 가능.
+func tryDecodeBody(r *http.Request, v any) bool {
+	if r.Body == nil || r.ContentLength == 0 {
+		return false
+	}
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		log.Printf("[decode] %s body decode failed (continuing): %v", r.URL.Path, err)
 		return false
 	}
 	return true

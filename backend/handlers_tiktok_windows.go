@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -78,7 +77,7 @@ func handleTikTokProfile(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Limit    int    `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Username == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("username 필요", "username required", lang)})
 		return

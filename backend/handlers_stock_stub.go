@@ -194,7 +194,7 @@ func handleStockWatchlist(w http.ResponseWriter, r *http.Request) {
 // POST /api/stock/watchlist  {"symbol":"TSLA","name":"테슬라"}
 func handleStockWatchlistAdd(w http.ResponseWriter, r *http.Request) {
 	var req map[string]string
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	symbol := strings.ToUpper(strings.TrimSpace(req["symbol"]))
 	name := req["name"]
 	if symbol == "" {

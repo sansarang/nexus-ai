@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,8 +20,7 @@ func handleDictationType(w http.ResponseWriter, r *http.Request) {
 		Text string `json:"text"`
 		App  string `json:"app,omitempty"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Text == "" {
 		json200(w, map[string]interface{}{"success": false, "message": msgT("text가 필요해요", "text is required", lang)})
 		return
@@ -61,8 +59,7 @@ func handleDictationPaste(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text string `json:"text"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Text == "" {
 		json200(w, map[string]interface{}{"success": false, "message": msgT("text가 필요해요", "text is required", lang)})
 		return

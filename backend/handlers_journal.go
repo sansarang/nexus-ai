@@ -266,7 +266,7 @@ func handleJournalGenerate(w http.ResponseWriter, r *http.Request) {
 		Date   string `json:"date"`
 		Format string `json:"format"` // txt | html
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Date == "" {
 		req.Date = time.Now().Format("2006-01-02")
 	}

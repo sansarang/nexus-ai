@@ -128,8 +128,7 @@ func handleExchangeRate(w http.ResponseWriter, r *http.Request) {
 		Amount  float64 `json:"amount"`
 		Message string  `json:"message"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	from, to := req.From, req.To
 	if from == "" || to == "" {
 		from, to = detectCurrencies(req.Message)

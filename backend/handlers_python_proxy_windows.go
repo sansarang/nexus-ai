@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -16,7 +15,7 @@ func handleTikTokSearchWithPython(w http.ResponseWriter, r *http.Request) {
 		Query string `json:"query"`
 		Limit int    `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
@@ -73,7 +72,7 @@ func handleYTMusicSearchWithPython(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return

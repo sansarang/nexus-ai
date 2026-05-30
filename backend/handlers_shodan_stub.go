@@ -48,8 +48,7 @@ func handleShodanAudit(w http.ResponseWriter, r *http.Request) {
 		Target   string `json:"target"`    // IP or domain
 		ShodanKey string `json:"shodan_key"` // 옵셔널 — 없으면 무료 API 사용
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Target == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("target(IP 또는 도메인) 필요", "target (IP or domain) required", lang)})
 		return

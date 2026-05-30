@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,7 +30,7 @@ func handleFilesSearch(w http.ResponseWriter, r *http.Request) {
 		Type    string `json:"type"`
 		MaxDays int    `json:"max_days"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Path == "" {
 		home, _ := os.UserHomeDir()
 		req.Path = home
@@ -103,7 +102,7 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 		Path string `json:"path"`
 		Mode string `json:"mode"` // type | date
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	home, _ := os.UserHomeDir()
 	switch req.Path {
 	case "desktop":
@@ -160,7 +159,7 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Path string `json:"path"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Path == "" {
 		home, _ := os.UserHomeDir()
 		req.Path = filepath.Join(home, "Downloads")
@@ -223,8 +222,7 @@ func handleFileMove(w http.ResponseWriter, r *http.Request) {
 		Dst  string `json:"dst"`  // 대상 경로 또는 폴더
 		Name string `json:"name"` // (선택) 이동 후 파일명
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Src == "" || req.Dst == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("src, dst 필요", "src and dst required", lang)})
 		return
@@ -280,8 +278,7 @@ func handleFilesMetadata(w http.ResponseWriter, r *http.Request) {
 		Path      string `json:"path"`
 		Recursive bool   `json:"recursive"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	home, _ := os.UserHomeDir()
 	if req.Path == "" { req.Path = filepath.Join(home, "Desktop") }
 

@@ -517,7 +517,7 @@ func handleSchedulerAdd(w http.ResponseWriter, r *http.Request) {
 		Command    string `json:"command"`       // 자연어 명령
 		UseWindows bool   `json:"use_windows"`   // Windows Task Scheduler 연동 여부
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Command == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command is required", lang)})
 		return
@@ -649,7 +649,7 @@ func handleSchedulerParse(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Command string `json:"command"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Command == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command is required", lang)})
 		return

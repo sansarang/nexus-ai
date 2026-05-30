@@ -513,8 +513,7 @@ func handleDocFind(w http.ResponseWriter, r *http.Request) {
 		Folder   string `json:"folder"`
 		MaxItems int    `json:"max_items"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("검색어를 입력해주세요", "Please enter a search query", lang)})
 		return

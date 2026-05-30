@@ -111,7 +111,7 @@ func handleYTMusicSearch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
@@ -196,7 +196,7 @@ func handleYTMusicPlaylistAdd(w http.ResponseWriter, r *http.Request) {
 		SongURL    string `json:"song_url"`
 		PlaylistName string `json:"playlist_name"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.SongTitle == "" && req.SongURL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "song_title 또는 song_url 필요"})
 		return
@@ -280,7 +280,7 @@ func handleTikTokSongsToYTMusic(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Max int `json:"max"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Max == 0 {
 		req.Max = 10
 	}

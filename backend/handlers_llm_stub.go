@@ -161,7 +161,7 @@ func handleSettingsLang(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Lang string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Lang != "en" && req.Lang != "ko" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "lang must be 'en' or 'ko'"})
 		return
@@ -717,7 +717,7 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 		TavilyKey     string `json:"tavily_key"`
 		GroqKey       string `json:"groq_key"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.PerplexityKey == "" && req.ApiKey != "" {
 		req.PerplexityKey = req.ApiKey
 	}
@@ -763,7 +763,7 @@ func handleLLMDeepSearch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return
@@ -787,7 +787,7 @@ func handleTranslateRealtime(w http.ResponseWriter, r *http.Request) {
 		From string `json:"from"` // "ko" | "en" | "auto"
 		To   string `json:"to"`   // "ko" | "en"
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if strings.TrimSpace(req.Text) == "" {
 		json200(w, map[string]any{"success": true, "translation": ""})
 		return
@@ -842,7 +842,7 @@ func handleLLMDocSummary(w http.ResponseWriter, r *http.Request) {
 		FilePath string `json:"file_path"`
 		Question string `json:"question"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.FilePath == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "file_path required"})
 		return
@@ -879,7 +879,7 @@ func handleLLMDocCompare(w http.ResponseWriter, r *http.Request) {
 		FileB string `json:"file_b"`
 		Focus string `json:"focus"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.FileA == "" || req.FileB == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "file_a and file_b required"})
 		return

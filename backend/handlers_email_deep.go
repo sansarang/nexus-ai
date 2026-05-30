@@ -35,7 +35,7 @@ func handleEmailClassify(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Limit int `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Limit == 0 {
 		req.Limit = 20
 	}
@@ -163,8 +163,7 @@ func handleEmailDraftReply(w http.ResponseWriter, r *http.Request) {
 		Body    string `json:"body"`
 		Tone    string `json:"tone"` // formal|casual|brief
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Subject == "" && req.Body == "" {
 		json200(w, map[string]any{"success": false, "message": msgT("이메일 내용이 필요합니다", "Email content is required", lang)})
 		return
@@ -224,8 +223,7 @@ func handleEmailExtractEvents(w http.ResponseWriter, r *http.Request) {
 		Body    string `json:"body"`
 		Sender  string `json:"sender"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -285,7 +283,7 @@ func handleCalendarFindSlot(w http.ResponseWriter, r *http.Request) {
 		PreferTime  string `json:"prefer_time"`  // morning|afternoon|evening
 		WithinDays  int    `json:"within_days"`  // 며칠 내
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.DurationMin == 0 {
 		req.DurationMin = 60
 	}
@@ -359,8 +357,7 @@ func handleCalendarSmartAdd(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text string `json:"text"` // "다음주 화요일 오후 3시 팀 미팅"
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Text == "" {
 		json200(w, map[string]any{"success": false, "message": msgT("일정 내용을 입력해주세요", "Please enter event details", lang)})
 		return

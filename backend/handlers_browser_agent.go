@@ -51,7 +51,7 @@ func handleBrowserSmartAgent(w http.ResponseWriter, r *http.Request) {
 		SaveExcel  bool   `json:"save_excel"`
 		SessionKey string `json:"session_key"` // 쿠키 세션 키
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Command == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("command 필요", "command required", lang)})
 		return
@@ -484,8 +484,7 @@ func handleBrowserCollectPrice(w http.ResponseWriter, r *http.Request) {
 		MaxPerSite   int      `json:"max_per_site"`
 		SaveExcel    bool     `json:"save_excel"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.ProductQuery == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("product_query 필요", "product_query required", lang)})
 		return
@@ -602,8 +601,7 @@ func handleBrowserNewsCollect(w http.ResponseWriter, r *http.Request) {
 		Site      string `json:"site"`   // "finance.naver.com"
 		MaxItems  int    `json:"max_items"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query required", lang)})
 		return
@@ -718,8 +716,7 @@ func handleBrowserLoginSession(w http.ResponseWriter, r *http.Request) {
 		SessionKey   string `json:"session_key"`
 		SuccessCheck string `json:"success_check"` // 로그인 성공 확인 셀렉터
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.URL == "" || req.Username == "" || req.Password == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url, username, password 필요", "url, username, password required", lang)})
 		return
@@ -820,8 +817,7 @@ func handleVideoDownload(w http.ResponseWriter, r *http.Request) {
 		Quality  string `json:"quality"`   // "best", "720p", "480p"
 		SavePath string `json:"save_path"` // 저장 경로 (기본: Downloads)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return

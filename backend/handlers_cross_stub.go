@@ -60,7 +60,7 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 		Origin      string `json:"origin"`
 		Destination string `json:"destination"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -338,7 +338,7 @@ func handlePersonaSet(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID string `json:"id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	for _, p := range builtinPersonas {
 		if p.ID == req.ID {
 			personaMu.Lock()
@@ -379,7 +379,7 @@ func handleBrainSearch(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Query string `json:"query"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	brainMu.RLock()
 	results := []map[string]string{}
 	for _, item := range brainIndex {
@@ -458,7 +458,7 @@ func handleWorkflowPlan(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Goal string `json:"goal"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	llmMu.RLock()
 	gKey := llmPerplexityKey
 	llmMu.RUnlock()
@@ -479,7 +479,7 @@ func handleWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Goal string `json:"goal"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Goal == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "goal 필드가 필요합니다"})
 		return

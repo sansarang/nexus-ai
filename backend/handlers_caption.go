@@ -53,7 +53,7 @@ func handleCaptionStart(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Lang string `json:"lang"` // 번역 대상 언어 (ko, en, ja ...)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Lang != "" {
 		captionLang = req.Lang
 	}

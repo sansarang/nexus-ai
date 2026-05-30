@@ -23,7 +23,7 @@ func handleVideoSearchEnhanced(w http.ResponseWriter, r *http.Request) {
 		Platforms []string `json:"platforms"`
 		Limit     int      `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return
@@ -82,8 +82,7 @@ func handleVideoDownloadCookie(w http.ResponseWriter, r *http.Request) {
 		OutputDir  string `json:"output_dir"`
 		Format     string `json:"format"` // mp4, mp3, best
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
 		return
@@ -143,7 +142,7 @@ func handleVideoSetCookie(w http.ResponseWriter, r *http.Request) {
 		Platform string `json:"platform"` // twitter, tiktok, youtube
 		Cookie   string `json:"cookie"`   // Netscape cookie 내용 (텍스트)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Platform == "" || req.Cookie == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "platform, cookie 필요"})
 		return
@@ -359,7 +358,7 @@ func handleVideoInfo(w http.ResponseWriter, r *http.Request) {
 		URL      string `json:"url"`
 		Platform string `json:"platform"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "url 필요"})
 		return

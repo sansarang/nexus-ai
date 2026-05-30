@@ -334,8 +334,7 @@ func handleWorkflowDelete(w http.ResponseWriter, r *http.Request) {
 func handleWorkflowRunNow(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ ID string `json:"id"` }
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	workflows := loadAllWorkflows()
 	var target *VisualWorkflow
 	for i, wf := range workflows {
@@ -367,8 +366,7 @@ func handleWorkflowRunNow(w http.ResponseWriter, r *http.Request) {
 func handleWorkflowFromText(w http.ResponseWriter, r *http.Request) {
 	lang := getLang(r)
 	var req struct{ Text string `json:"text"` }
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Text == "" {
 		json200(w, map[string]any{"success": false, "message": msgT("텍스트가 필요합니다", "text is required", lang)})
 		return

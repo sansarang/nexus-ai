@@ -769,8 +769,7 @@ func handleIMAPClassify(w http.ResponseWriter, r *http.Request) {
 		AccountID string `json:"account_id"`
 		Limit     int    `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	// 단일 메일 분류
 	if req.Subject != "" || req.Body != "" {
 		result := imapClassifyEmail(req.Subject, req.Body)

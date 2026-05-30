@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -34,7 +33,7 @@ func handleVerticalWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		VerticalID string `json:"vertical_id"`
 		Lang       string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.VerticalID == "" {
 		cfg := loadVerticalConfig()
 		req.VerticalID = cfg.ID

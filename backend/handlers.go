@@ -94,8 +94,7 @@ func handleRepair(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Items []string `json:"items"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	var freed int64
 	for _, item := range req.Items {
 		if item == "temp-files" {
@@ -117,8 +116,7 @@ func handleClean(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Targets []string `json:"targets"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	var freed int64
 	for _, t := range req.Targets {
 		switch t {
@@ -498,8 +496,7 @@ func handleAutoClean(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Items []string `json:"items"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	results := []autoCleanResult{}
 	for _, item := range req.Items {
 		res := autoCleanResult{Item: item}
@@ -676,7 +673,7 @@ func handlePrivacy(w http.ResponseWriter, r *http.Request) {
 		Feature string `json:"feature"`
 		Enabled bool   `json:"enabled"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	// Registry modifications require golang.org/x/sys on Windows.
 	// Inline stub — real implementation in internal/privacy package.
 	json200(w, map[string]any{"success": true, "feature": req.Feature, "enabled": req.Enabled})

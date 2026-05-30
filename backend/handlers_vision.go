@@ -4,7 +4,6 @@ package main
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -127,8 +126,7 @@ func handleScreenshot(w http.ResponseWriter, r *http.Request) {
 		Region  string `json:"region"`  // full | active_window
 		WithOCR bool   `json:"with_ocr"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	b64, width, height, err := captureScreenPowerShell()
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
@@ -250,8 +248,7 @@ func handleDeepSearch(w http.ResponseWriter, r *http.Request) {
 		FileType   string `json:"file_type"`
 		MaxResults int    `json:"max_results"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("검색어를 입력해주세요", "Please enter a search term", lang)})
 		return

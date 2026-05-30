@@ -164,9 +164,12 @@ export async function routeWithLLM(
     { role: 'user', content: userMessage },
   ]
 
+  const attempts: Array<{ provider: string; reason: string }> = []
+
   // 1순위: Perplexity sonar (빠름, 저비용)
   const pplxKey = PPLX_API_KEY || localStorage.getItem('nexus-pplx-key') || ''
-  if (pplxKey) {
+  if (!pplxKey) attempts.push({ provider: 'perplexity', reason: 'no_api_key' })
+  else {
     try {
       const res = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
@@ -178,13 +181,17 @@ export async function routeWithLLM(
         const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
         const parsed = parseToolCall(data.choices?.[0]?.message?.content?.trim() ?? '')
         if (parsed) return parsed
+        attempts.push({ provider: 'perplexity', reason: 'parse_failed' })
+      } else {
+        attempts.push({ provider: 'perplexity', reason: `http_${res.status}` })
       }
-    } catch { /* 폴백 */ }
+    } catch (e) { attempts.push({ provider: 'perplexity', reason: (e as Error).name || 'network' }) }
   }
 
   // 2순위: OpenAI gpt-4o-mini
   const openaiKey = OPENAI_API_KEY || localStorage.getItem('nexus-openai-key') || ''
-  if (openaiKey) {
+  if (!openaiKey) attempts.push({ provider: 'openai', reason: 'no_api_key' })
+  else {
     try {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -196,13 +203,17 @@ export async function routeWithLLM(
         const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
         const parsed = parseToolCall(data.choices?.[0]?.message?.content?.trim() ?? '')
         if (parsed) return parsed
+        attempts.push({ provider: 'openai', reason: 'parse_failed' })
+      } else {
+        attempts.push({ provider: 'openai', reason: `http_${res.status}` })
       }
-    } catch { /* 폴백 */ }
+    } catch (e) { attempts.push({ provider: 'openai', reason: (e as Error).name || 'network' }) }
   }
 
   // 3순위: Groq llama (무료, 매우 빠름)
   const groqKey = localStorage.getItem('nexus-groq-key') || ''
-  if (groqKey) {
+  if (!groqKey) attempts.push({ provider: 'groq', reason: 'no_api_key' })
+  else {
     try {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -214,8 +225,11 @@ export async function routeWithLLM(
         const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
         const parsed = parseToolCall(data.choices?.[0]?.message?.content?.trim() ?? '')
         if (parsed) return parsed
+        attempts.push({ provider: 'groq', reason: 'parse_failed' })
+      } else {
+        attempts.push({ provider: 'groq', reason: `http_${res.status}` })
       }
-    } catch { /* 폴백 */ }
+    } catch (e) { attempts.push({ provider: 'groq', reason: (e as Error).name || 'network' }) }
   }
 
   // 4순위: 백엔드 번들 Groq 키 (API 키 없이도 작동, 번들 키 사용)
@@ -231,10 +245,18 @@ export async function routeWithLLM(
       if (data.success && data.tool_call) {
         const parsed = parseToolCall(data.tool_call)
         if (parsed) return parsed
+        attempts.push({ provider: 'backend_bundled', reason: 'parse_failed' })
+      } else {
+        attempts.push({ provider: 'backend_bundled', reason: 'no_tool_call' })
       }
+    } else {
+      attempts.push({ provider: 'backend_bundled', reason: `http_${res.status}` })
     }
-  } catch { /* 폴백 */ }
+  } catch (e) { attempts.push({ provider: 'backend_bundled', reason: (e as Error).name || 'network' }) }
 
+  // 모든 LLM 라우팅 실패 → 키워드 기반 폴백.
+  // 진단용 로그: 어떤 provider가 왜 실패했는지 console에서 확인 가능.
+  console.warn('[llmRouter] All LLM routes failed, falling back to keyword routing. Attempts:', attempts)
   return fallbackRoute(userMessage, recentHistory)
 }
 

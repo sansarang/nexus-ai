@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -26,7 +25,7 @@ func handleVideoTranscript(w http.ResponseWriter, r *http.Request) {
 		Lang      string `json:"lang"`       // "ko", "en" — 자막 언어 우선순위
 		Summarize bool   `json:"summarize"`  // true면 AI 요약 포함
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return
@@ -133,7 +132,7 @@ func handleVideoTranscriptBatch(w http.ResponseWriter, r *http.Request) {
 		Lang  string   `json:"lang"`
 		Topic string   `json:"topic"` // 리포트 주제 (선택)
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if len(req.URLs) == 0 {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("urls 필요", "urls required", lang)})
 		return

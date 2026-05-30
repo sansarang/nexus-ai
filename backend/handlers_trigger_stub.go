@@ -281,8 +281,7 @@ func handleTriggerAdd(w http.ResponseWriter, r *http.Request) {
 		Condition TriggerCondition `json:"condition"`
 		NL        string           `json:"nl"` // 자연어 입력
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	var t *AlertTrigger
 	if req.NL != "" {
 		t = parseTriggerFromNL(req.NL)

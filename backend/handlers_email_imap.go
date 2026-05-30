@@ -856,8 +856,7 @@ func handleIMAPClassify(w http.ResponseWriter, r *http.Request) {
 		Subject string `json:"subject"`
 		Body    string `json:"body"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	result := imapClassifyEmail(req.Subject, req.Body)
 	json200(w, map[string]any{
 		"success":    true,

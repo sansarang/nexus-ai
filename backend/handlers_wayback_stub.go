@@ -34,8 +34,7 @@ func handleWaybackSnapshots(w http.ResponseWriter, r *http.Request) {
 		ToYear   int    `json:"to_year"`
 		Limit    int    `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.URL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("url 필요", "url required", lang)})
 		return

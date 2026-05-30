@@ -20,7 +20,7 @@ func handleDirections(w http.ResponseWriter, r *http.Request) {
 		To    string `json:"to"`
 		Mode  string `json:"mode"` // transit|car|walk
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" && req.From == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query required / query 필요"})
 		return
@@ -142,8 +142,7 @@ func handlePlaceView(w http.ResponseWriter, r *http.Request) {
 		Query string `json:"query"`
 		Place string `json:"place"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	place := req.Place
 	if place == "" {
 		place = extractPlaceName(req.Query)

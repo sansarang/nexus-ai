@@ -103,7 +103,7 @@ func handleDailyReport(w http.ResponseWriter, r *http.Request) {
 }
 func handleFolderOpen(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Path string `json:"path"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Path == "" {
 		req.Path = os.Getenv("HOME")
 	}
@@ -137,7 +137,7 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 		Action string `json:"action"`
 		Value  int    `json:"value"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Action == "get" {
 		out, _ := exec.Command("osascript", "-e", "output volume of (get volume settings)").Output()
 		vol := strings.TrimSpace(string(out))
@@ -158,14 +158,14 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 }
 func handleWifi(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Action string `json:"action"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	out, _ := exec.Command("networksetup", "-getairportnetwork", "en0").Output()
 	status := strings.TrimSpace(string(out))
 	json200(w, map[string]any{"success": true, "status": status, "message": "Wi-Fi 상태: " + status})
 }
 func handlePower(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Action string `json:"action"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	switch req.Action {
 	case "sleep":
 		exec.Command("pmset", "sleepnow").Start()
@@ -178,7 +178,7 @@ func handlePower(w http.ResponseWriter, r *http.Request) {
 }
 func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
 	var req struct{ App string `json:"app"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.App == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "앱 이름을 입력해주세요"})
 		return
@@ -273,7 +273,7 @@ func handleFocusMode(w http.ResponseWriter, r *http.Request) {
 		Duration int      `json:"duration"`
 		Block    []string `json:"block"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	json200(w, map[string]any{"success": true, "action": req.Action, "duration": req.Duration, "message": "집중 모드 (개발 환경)"})
 }
 func handleNotes(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +286,7 @@ func handleSaveNote(w http.ResponseWriter, r *http.Request) {
 		Title   string `json:"title"`
 		Content string `json:"content"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Content == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "content 필요"})
 		return
@@ -393,7 +393,7 @@ func handleMacroList(w http.ResponseWriter, r *http.Request) {
 }
 func handleMacroCreate(w http.ResponseWriter, r *http.Request) {
 	var req map[string]any
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	name, _ := req["name"].(string)
 	if name == "" {
 		name = "새 매크로"
@@ -408,7 +408,7 @@ func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
 }
 func handleMacroParse(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Text string `json:"text"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	json200(w, map[string]any{"success": true, "steps": []any{}, "name": req.Text, "message": "매크로 파싱 완료 (개발 환경)"})
 }
 

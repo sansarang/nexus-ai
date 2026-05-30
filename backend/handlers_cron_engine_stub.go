@@ -276,7 +276,7 @@ func handleCronAdd(w http.ResponseWriter, r *http.Request) {
 		CronExpr string `json:"cron_expr"`
 		Action   string `json:"action"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Command == "" && req.CronExpr == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "command, cron_expr 필요"})
 		return

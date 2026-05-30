@@ -84,141 +84,6 @@ function isEnglishQuery(q: string): boolean {
   return ascii / chars.length > 0.6
 }
 
-/* 에이전트 사고 단계 생성 */
-function buildAgentSteps(intent: Intent): string[] {
-  switch (intent) {
-    case 'pc_status':
-      return ['PC 상태 데이터 요청 중...', 'CPU·메모리·디스크 수집', '시각 카드 생성 중']
-    case 'security_scan':
-      return ['보안 스캔 시작...', '원격 접속 흔적 확인', '수상한 프로세스 검사', '결과 분석 중']
-    case 'full_scan':
-      return ['전체 진단 시작...', '시스템 이슈 탐색', '심각도 분류', '리포트 생성 중']
-    case 'clean':
-      return ['정리 대상 파악...', '임시 파일·캐시 확인', '안전 정리 실행 중']
-    case 'daily_report':
-      return ['일일 데이터 수집...', '통계 분석 중', '예측 모델 실행', '리포트 완성']
-    case 'open_folder':
-      return ['폴더 이름 파악 중...', '경로 확인', '탐색기 실행 중']
-    case 'remote_access': return ['원격 접속 도구 검색 중...', 'RDP 포트 확인', '프로세스 대조 중']
-    case 'process_security': return ['프로세스 목록 수집...', '위험 패턴 대조', '포트 스캔 중']
-    case 'startup_items': return ['시작 항목 조회 중...', '수상 키워드 분석']
-    case 'defender_status': return ['Windows Defender 상태 확인...']
-    case 'account_check': return ['로컬 계정 목록 조회...', '이상 계정 분석']
-    case 'volume_control': return ['볼륨 조절 중...']
-    case 'brightness': return ['밝기 조절 중...']
-    case 'wifi_toggle': return ['Wi-Fi 상태 확인...', '설정 변경 중']
-    case 'power_action': return ['전원 명령 실행 중...']
-    case 'launch_app': return ['앱 경로 확인 중...', '실행 중']
-    case 'process_top': return ['프로세스 목록 수집...', 'CPU·메모리 정렬 중']
-    case 'driver_check': return ['드라이버 목록 조회...', '문제 항목 필터링']
-    case 'network_analysis': return ['네트워크 어댑터 확인...', 'DNS·IP 조회 중', 'Ping 측정 중']
-    case 'programs_list': return ['설치 프로그램 조회 중...']
-    case 'boot_analysis': return ['부팅 이벤트 로그 분석...', '시작 항목 집계 중']
-    case 'file_search': return ['파일 검색 시작...', '결과 수집 중']
-    case 'file_organize': return ['파일 분류 중...', '폴더 이동 중']
-    case 'file_duplicates': return ['파일 목록 수집...', '중복 분석 중']
-    case 'browser_clean': return ['브라우저 캐시 위치 확인...', '데이터 정리 중']
-    case 'registry_clean': return ['레지스트리 항목 스캔...', '무효 항목 정리 중']
-    case 'restore_create': return ['복구 포인트 생성 중...']
-    case 'focus_mode': return ['집중 모드 설정 중...']
-    case 'notes': return ['메모 불러오는 중...']
-    case 'doc_compare': return ['파일 열기...', '텍스트 추출 중', 'Diff 알고리즘 실행', '숫자 불일치 검사', '결과 정리 중']
-    case 'doc_find': return ['파일 탐색 시작...', '이름·내용 대조 중', '결과 정렬 중']
-    case 'deep_search': return ['파일 목록 수집...', '내용 인덱싱 중', '관련도 계산 중', '결과 정렬 중']
-    case 'vision_screen': return ['화면 캡처 중...', 'AI에게 분석 요청', '답변 생성 중']
-    case 'vision_ocr': return ['클립보드 이미지 확인...', 'Windows OCR 실행 중', '텍스트 추출 중']
-    case 'smart_organize':   return ['파일 목록 수집...', '파일 유형 분류 중', '폴더 이동 중', '정리 완료']
-    case 'journal_today':    return ['최근 파일 기록 수집...', '앱 사용 분석 중', '업무 시간 추정', '일지 생성 중']
-    case 'journal_generate': return ['일지 데이터 수집...', '포맷 생성 중', '파일 저장 중']
-    case 'journal_history':  return ['과거 일지 조회 중...']
-    case 'macro_list':       return ['매크로 목록 조회 중...']
-    case 'macro_create':     return ['명령 파싱 중...', '액션 구성 중', '스케줄 등록 중']
-    case 'macro_run':        return ['매크로 실행 중...', '액션 순서 처리 중', '완료 확인']
-    case 'pc_report':        return ['시스템 상태 수집...', '보안 점검 중', '리포트 생성 중', 'HTML 저장 중']
-    case 'report_email':     return ['리포트 생성 중...', 'SMTP 연결 중', '이메일 전송 중']
-    case 'doc_summary':      return ['파일 열기...', '텍스트 추출 중', '핵심 분석 중', '요약 생성 중']
-    case 'calendar_today':   return ['Outlook 연결 중...', '오늘 일정 불러오는 중']
-    case 'calendar_week':    return ['Outlook 연결 중...', '이번 주 일정 불러오는 중']
-    case 'calendar_add':     return ['일정 생성 중...', 'Outlook에 저장 중']
-    case 'email_inbox':      return ['Outlook 연결 중...', '받은 편지함 확인 중']
-    case 'email_send':       return ['메일 작성 중...', 'SMTP 전송 중']
-    case 'email_summarize':  return ['받은 메일 가져오는 중...', 'AI 요약 생성 중']
-    case 'virus_check':      return ['파일 해시 계산 중...', 'VirusTotal 조회 중', '결과 분석 중']
-    case 'perf_history':     return ['성능 이력 불러오는 중...', '트렌드 분석 중']
-    case 'perf_anomaly':     return ['이력 데이터 분석 중...', '이상 패턴 탐지 중']
-    case 'price_compare':    return ['검색 시작...', '쿠팡 확인 중', '네이버 확인 중', '가격 비교 중']
-    case 'multi_action':     return ['멀티 액션 시작...', '검색 중', '결과 정리 중', '파일 저장 중']
-    case 'news_search':      return ['뉴스 검색 중...', '최신 기사 수집 중']
-    case 'schedule_list':    return ['스케줄 목록 불러오는 중...']
-    case 'schedule_add':     return ['명령 파싱 중...', '스케줄 등록 중']
-    case 'schedule_delete':  return ['스케줄 삭제 중...']
-    case 'process_kill':     return ['프로세스 찾는 중...', '강제 종료 중']
-    case 'app_permissions':  return ['레지스트리 확인 중...', '권한 목록 수집 중']
-    case 'windows_updates':  return ['Windows Update 서비스 연결 중...', '업데이트 목록 확인 중']
-    case 'gpu_stats':        return ['GPU 정보 수집 중...', 'nvidia-smi 확인 중']
-    // ── 10가지 신규 기능 ──
-    case 'recall_search':    return ['화면 기억 데이터 검색 중...', '매칭 결과 정렬 중']
-    case 'recall_capture':   return ['화면 캡처 중...', 'OCR 텍스트 추출 중', '기억 저장 중']
-    case 'meeting_start':    return ['마이크 확인 중...', '녹음 시작 중']
-    case 'meeting_stop':     return ['녹음 종료 중...', '파일 저장 중']
-    case 'meeting_summary':  return ['녹음 파일 확인 중...', 'Whisper 전사 중...', 'AI 요약 생성 중']
-    case 'meeting_list':     return ['회의 목록 불러오는 중...']
-    case 'dictation_start':  return ['텍스트 분석 중...', '현재 앱에 입력 중']
-    case 'weather':          return ['날씨 데이터 수집 중...', '예보 분석 중']
-    case 'travel_time':      return ['출발지·목적지 좌표 조회 중...', '경로 계산 중']
-    case 'translate':        return ['클립보드 내용 확인 중...', '번역 중...']
-    case 'clipboard_ai':     return ['클립보드 내용 가져오는 중...', 'AI 처리 중']
-    case 'voice_todo':       return ['내용 분석 중...', '메모 저장 중', '캘린더 등록 중']
-    case 'persona_list':     return ['페르소나 목록 불러오는 중...']
-    case 'persona_switch':   return ['페르소나 전환 중...']
-    case 'brain_search':     return ['🧠 Second Brain 검색 중...', '관련 기억 분석 중']
-    case 'brain_stats':      return ['인덱스 통계 조회 중...']
-    case 'workflow_run':     return ['⚡ 워크플로 계획 생성 중...', '단계별 실행 중...', '결과 정리 중...']
-    case 'workflow_plan':    return ['⚡ 워크플로 계획 생성 중...']
-    case 'caption_start':    return ['🎬 오디오 캡처 초기화 중...', '실시간 자막 시작']
-    case 'caption_stop':     return ['자막 종료 중...']
-    case 'video_download':    return ['영상 URL 확인 중...', 'yt-dlp로 다운로드 중...', '파일 저장 중']
-    case 'email_classify':    return ['받은 메일 가져오는 중...', 'AI 분류 중...', '우선순위 정리 중']
-    case 'email_draft':       return ['메일 내용 분석 중...', 'AI 답장 초안 작성 중']
-    case 'calendar_find_slot': return ['캘린더 확인 중...', '빈 시간 탐색 중', '가능한 슬롯 정리 중']
-    case 'calendar_smart_add': return ['자연어 파싱 중...', '일정 생성 중', 'Outlook 저장 중']
-    case 'workflow_list':     return ['저장된 워크플로 조회 중...']
-    case 'workflow_create':   return ['자연어 파싱 중...', '워크플로 생성 중', '저장 중']
-    case 'workflow_templates': return ['워크플로 템플릿 불러오는 중...']
-    case 'imap_inbox':        return ['IMAP 서버 연결 중...', '받은 메일 불러오는 중']
-    case 'imap_send':         return ['IMAP 서버 연결 중...', '메일 전송 중']
-    case 'multi_agent':       return ['멀티 에이전트 준비 중...', '에이전트 팀 배치 중', '병렬 실행 중']
-    case 'briefing_now':      return ['날씨 확인 중...', '일정 수집 중...', '이메일 확인 중...', '브리핑 생성 중']
-    case 'task_cancel':       return ['실행 중 작업 확인...', '취소 신호 전송 중']
-    case 'search_pdf':        return ['웹 검색 중...', '결과 수집 중', 'PDF 보고서 생성 중', '파일 저장 중']
-    default:
-      return ['요청 분석 중...']
-  }
-}
-
-/* 인텐트별 응답 텍스트 */
-function intentResponseText(intent: Intent, lang: 'ko' | 'en', assistantName: string): string {
-  if (lang === 'en') {
-    switch (intent) {
-      case 'pc_status': return `Here's your real-time PC status, ${assistantName} is watching over it!`
-      case 'security_scan': return `Security scan complete. Here are the results:`
-      case 'full_scan': return `Full PC diagnostic done! Here's what I found:`
-      case 'clean': return `Cleanup complete! I freed up some disk space for you.`
-      case 'daily_report': return `Here's today's PC report summary:`
-      case 'repair': return `Repair operation finished!`
-      default: return ''
-    }
-  }
-  switch (intent) {
-    case 'pc_status': return `실시간 PC 상태를 가져왔어요! 📊`
-    case 'security_scan': return `보안 스캔 완료! 결과를 확인해보세요 🔒`
-    case 'full_scan': return `전체 진단 완료! 발견된 항목을 정리했어요 🔍`
-    case 'clean': return `정리 완료! 디스크 공간을 확보했어요 🧹`
-    case 'daily_report': return `오늘의 PC 리포트예요 📊`
-    case 'repair': return `수리 작업을 완료했어요 🔧`
-    default: return ''
-  }
-}
 
 export function FloatingCharacter() {
   const {
@@ -260,7 +125,6 @@ export function FloatingCharacter() {
   const setShowWorkflowBuilder = (val: boolean) => storeSetShowWorkflowBuilder(val)
   const [showEmailSetup, setShowEmailSetup] = useState(false)
   const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
-  const alertESRef = useRef<EventSource | null>(null)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
   const [isActive, setIsActive]           = useState(true)
   const [beamEnabled, setBeamEnabled]     = useState(() => localStorage.getItem('nexus-beam') !== 'off')
@@ -595,23 +459,19 @@ export function FloatingCharacter() {
   }, [])
 
   /* ── SSE 연결: Proactive 알림 + Task Queue 실시간 수신 ── */
+  // nexusSSE 가 /api/alerts/stream 구독을 단독 관리 (onerror + 5초 재연결 내장).
+  // 별도 EventSource를 만들지 않음 — 이전에는 중복 구독이라 에러 핸들러 누락 시 영구 silence.
   useEffect(() => {
     nexusSSE.connect()
 
-    // 백엔드 Proactive SSE 구독 (실시간 알림 → 토스트)
-    const backendSSE = new EventSource('http://127.0.0.1:17891/api/alerts/stream')
-    alertESRef.current = backendSSE
-    backendSSE.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data.type === 'connected' || !data.title) return
-        const toast = { id: data.id || String(Date.now()), title: data.title, message: data.message, level: data.level || 'info' }
+    const unsubAlert = nexusSSE.onAlert((alert) => {
+      // 토스트 알림 (단순 정보성)
+      if (alert.title && !alert.action?.startsWith('approve:')) {
+        const toast = { id: alert.id || String(Date.now()), title: alert.title, message: alert.message, level: alert.level || 'info' }
         setToastAlerts(prev => [...prev.slice(-4), toast])
         setTimeout(() => setToastAlerts(prev => prev.filter(t => t.id !== toast.id)), 7000)
-      } catch { /* ignore */ }
-    }
+      }
 
-    const unsubAlert = nexusSSE.onAlert((alert) => {
       // 승인 요청 알림 처리
       if (alert.action?.startsWith('approve:')) {
         const taskId = alert.action.replace('approve:', '')
@@ -652,7 +512,6 @@ export function FloatingCharacter() {
       unsubAlert()
       unsubTask()
       nexusSSE.disconnect()
-      if (alertESRef.current) { alertESRef.current.close(); alertESRef.current = null }
     }
   }, [])
 

@@ -132,8 +132,7 @@ func handleMacroRun(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID string `json:"id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	macros := loadMacros()
 	var target *Macro
 	for i := range macros {
@@ -341,8 +340,7 @@ func handleMacroDelete(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID string `json:"id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	macros := loadMacros()
 	var updated []Macro
 	found := false
@@ -373,8 +371,7 @@ func handleMacroParse(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text string `json:"text"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	text := req.Text
 	lower := strings.ToLower(text)
 

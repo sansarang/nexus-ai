@@ -129,7 +129,7 @@ func handleYouTubePlaylistAdd(w http.ResponseWriter, r *http.Request) {
 		VideoURL string `json:"video_url"`
 		Playlist string `json:"playlist"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.VideoURL == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("video_url 필요", "video_url required", lang)})
 		return
@@ -185,7 +185,7 @@ func handleYouTubePlaylistBatch(w http.ResponseWriter, r *http.Request) {
 		URLs     []string `json:"urls"`
 		Playlist string   `json:"playlist"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if len(req.URLs) == 0 {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("urls 필요", "urls required", lang)})
 		return

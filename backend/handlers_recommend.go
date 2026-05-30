@@ -30,7 +30,7 @@ func handleContentRecommend(w http.ResponseWriter, r *http.Request) {
 		Platforms []string `json:"platforms"`
 		Max       int      `json:"max"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Max == 0 {
 		req.Max = 5
 	}
@@ -320,7 +320,7 @@ func handleContentWishlist(w http.ResponseWriter, r *http.Request) {
 // POST /api/wishlist/content
 func handleContentWishlistAdd(w http.ResponseWriter, r *http.Request) {
 	var req ContentItem
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Title == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "title 필요"})
 		return

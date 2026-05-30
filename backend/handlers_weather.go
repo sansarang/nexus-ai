@@ -144,8 +144,7 @@ func handleTravelTime(w http.ResponseWriter, r *http.Request) {
 		Destination   string `json:"destination"`
 		DepartureTime string `json:"departure_time,omitempty"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	tEng := isEnglishQuery(req.Origin + " " + req.Destination)
 	if req.Origin == "" || req.Destination == "" {
 		msg := "origin과 destination이 필요해요"

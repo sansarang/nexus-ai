@@ -23,8 +23,7 @@ func handleVolume(w http.ResponseWriter, r *http.Request) {
 		Action string `json:"action"` // set | get | mute | unmute
 		Value  int    `json:"value"`  // 0-100
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	switch req.Action {
 	case "get":
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
@@ -86,8 +85,7 @@ func handleBrightness(w http.ResponseWriter, r *http.Request) {
 		Action string `json:"action"` // set | get
 		Value  int    `json:"value"`  // 0-100
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Action == "get" {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		defer cancel()
@@ -126,8 +124,7 @@ func handleWifi(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string `json:"action"` // on | off | status
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Action == "status" {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		defer cancel()
@@ -160,8 +157,7 @@ func handlePower(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string `json:"action"` // lock | sleep | restart | shutdown
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	var cmd *exec.Cmd
 	var msg string
 
@@ -217,8 +213,7 @@ func handleLaunchApp(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		App string `json:"app"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	appLow := strings.ToLower(strings.TrimSpace(req.App))
 	target, ok := appAliases[appLow]
 	if !ok {

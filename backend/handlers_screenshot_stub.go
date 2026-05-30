@@ -147,7 +147,7 @@ func handleScreenshotAnalyze(w http.ResponseWriter, r *http.Request) {
 		Lang     string `json:"lang"`
 		Provider string `json:"provider"` // "groq" | "claude" | "auto"
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Lang == "" { req.Lang = GetUserLang() }
 
 	b64, err := captureScreen()
@@ -177,7 +177,7 @@ func handleScreenshotTranslate(w http.ResponseWriter, r *http.Request) {
 		TargetLang string `json:"target_lang"`
 		Lang       string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Lang == "" { req.Lang = GetUserLang() }
 	if req.TargetLang == "" {
 		if req.Lang == "en" { req.TargetLang = "ko" } else { req.TargetLang = "en" }

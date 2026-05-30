@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -37,7 +36,7 @@ func handleRedditSearch(w http.ResponseWriter, r *http.Request) {
 		Limit     int    `json:"limit"`
 		Sort      string `json:"sort"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("query 필요", "query is required", lang)})
 		return

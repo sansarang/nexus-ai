@@ -254,7 +254,7 @@ func handleAuditLog(w http.ResponseWriter, r *http.Request) {
 // POST /api/security/check-path — 경로 안전성 확인
 func handleCheckPath(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Path string `json:"path"` }
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	safe := isSafePath(req.Path)
 	json200(w, map[string]any{"safe": safe, "path": req.Path})
 }
@@ -270,7 +270,7 @@ func handleOllamaConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req OllamaConfig
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	ollamaMu.Lock()
 	if req.URL != "" {
 		ollamaCfg.URL = req.URL

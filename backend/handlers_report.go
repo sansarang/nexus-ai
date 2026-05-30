@@ -298,8 +298,7 @@ func handleReportEmail(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ToEmail string `json:"to_email"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	cfg := loadEmailConfig()
 	if req.ToEmail != "" {
 		cfg.ToEmail = req.ToEmail
@@ -394,8 +393,7 @@ func handleReportSchedule(w http.ResponseWriter, r *http.Request) {
 		DayOfWeek int    `json:"day_of_week"` // 0=일~6=토
 		Time      string `json:"time"`        // "09:00"
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	cfg := loadEmailConfig()
 	if req.ToEmail != "" {
 		cfg.ToEmail = req.ToEmail

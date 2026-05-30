@@ -197,7 +197,7 @@ func handleMemorySearch(w http.ResponseWriter, r *http.Request) {
 		Type    string `json:"type"`
 		Limit   int    `json:"limit"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Limit == 0 {
 		req.Limit = 10
 	}

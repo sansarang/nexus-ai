@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -23,7 +22,7 @@ func handleFilesSearch(w http.ResponseWriter, r *http.Request) {
 		Type    string `json:"type"`
 		MaxDays int    `json:"max_days"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Path == "" {
 		home, _ := os.UserHomeDir()
 		req.Path = home
@@ -106,7 +105,7 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 		Path string `json:"path"`
 		Mode string `json:"mode"` // type | date
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Path == "" {
 		home, _ := os.UserHomeDir()
 		req.Path = filepath.Join(home, "Downloads")
@@ -162,7 +161,7 @@ func handleFilesDuplicates(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Path string `json:"path"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Path == "" {
 		home, _ := os.UserHomeDir()
 		req.Path = filepath.Join(home, "Downloads")

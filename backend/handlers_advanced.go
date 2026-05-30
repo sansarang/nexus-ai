@@ -140,8 +140,7 @@ func handleSetPowerPlan(w http.ResponseWriter, r *http.Request) {
 		GUID string `json:"guid"`
 		Name string `json:"name"` // balanced | performance | powersaver
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	guid := req.GUID
 	if guid == "" {
 		switch strings.ToLower(req.Name) {
@@ -224,7 +223,7 @@ func handleRestoreCreate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Description string `json:"description"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Description == "" {
 		req.Description = fmt.Sprintf("Nexus 자동 복구 포인트 %s", time.Now().Format("2006-01-02 15:04"))
 	}
@@ -249,7 +248,7 @@ func handleDiskCheck(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Drive string `json:"drive"` // default "C:"
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Drive == "" {
 		req.Drive = "C:"
 	}
@@ -270,8 +269,7 @@ func handleBrowserClean(w http.ResponseWriter, r *http.Request) {
 		Browsers []string `json:"browsers"` // chrome | edge | firefox | all
 		Targets  []string `json:"targets"`  // cache | history | cookies | downloads
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if len(req.Browsers) == 0 {
 		req.Browsers = []string{"chrome", "edge"}
 	}
@@ -453,7 +451,7 @@ func handleFocusMode(w http.ResponseWriter, r *http.Request) {
 		Action   string `json:"action"`   // on | off
 		Duration int    `json:"duration"` // minutes
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	lang := getLang(r)
 
 	if req.Action == "off" {
@@ -625,8 +623,7 @@ func handleSaveNote(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 		Delete  string `json:"delete_id"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	notes := loadNotes()
 
 	if req.Delete != "" {

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -44,8 +43,7 @@ func handleDocSummary(w http.ResponseWriter, r *http.Request) {
 		UseAI      bool   `json:"use_ai"`    // Gemini Flash 사용 여부
 		GeminiKey  string `json:"gemini_key"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.FilePath == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("파일 경로를 입력해주세요", "Please enter a file path", lang)})
 		return
@@ -268,8 +266,7 @@ func handleDocExportReport(w http.ResponseWriter, r *http.Request) {
 		Format     string `json:"format"` // html | txt
 		OutputPath string `json:"output_path"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.File1 == "" || req.File2 == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("두 파일 경로가 필요해요", "Two file paths are required", lang)})
 		return

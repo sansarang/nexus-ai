@@ -585,7 +585,7 @@ func handleSettingsLang(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Lang string `json:"lang"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Lang != "en" && req.Lang != "ko" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "lang must be 'en' or 'ko'"})
 		return
@@ -629,7 +629,7 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 		ClaudeKey     string `json:"claude_key"`
 		TavilyKey     string `json:"tavily_key"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	// 하위 호환: apiKey → perplexity_key
 	if req.PerplexityKey == "" && req.ApiKey != "" {
 		req.PerplexityKey = req.ApiKey
@@ -866,7 +866,7 @@ func handleLLMDeepSearch(w http.ResponseWriter, r *http.Request) {
 		Folder     string `json:"folder"`
 		MaxResults int    `json:"max_results"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if req.Query == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "query 필요"})
 		return
@@ -1044,7 +1044,7 @@ func handleLLMRoute(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Message string `json:"message"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
+	tryDecodeBody(r, &req)
 	if strings.TrimSpace(req.Message) == "" {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "message required"})
 		return

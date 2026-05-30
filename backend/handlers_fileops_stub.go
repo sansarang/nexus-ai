@@ -4,7 +4,6 @@ package main
 
 import (
 	"crypto/md5"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,8 +58,7 @@ func handleFileOrganize(w http.ResponseWriter, r *http.Request) {
 		DryRun  bool   `json:"dry_run"`  // true면 실제 이동 안 함
 		Message string `json:"message"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	// 기본값: 바탕화면 or 다운로드
 	if req.Folder == "" {
 		home, _ := os.UserHomeDir()
@@ -144,8 +142,7 @@ func handleFileDuplicates(w http.ResponseWriter, r *http.Request) {
 		Folder  string `json:"folder"`
 		Message string `json:"message"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.Folder == "" {
 		home, _ := os.UserHomeDir()
 		msg := strings.ToLower(req.Message)
@@ -226,8 +223,7 @@ func handleFileLarge(w http.ResponseWriter, r *http.Request) {
 		MinSizeMB  int    `json:"min_size_mb"`
 		Message    string `json:"message"`
 	}
-	json.NewDecoder(r.Body).Decode(&req)
-
+	tryDecodeBody(r, &req)
 	if req.MinSizeMB == 0 {
 		req.MinSizeMB = 100
 	}
