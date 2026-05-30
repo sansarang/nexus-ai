@@ -5,6 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# GitHub Release 생성을 위한 권한 (Phase 14 이후 추가)
+# 기존엔 contents:read 만 있어서 softprops/action-gh-release 403 실패
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
