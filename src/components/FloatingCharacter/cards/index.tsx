@@ -28,6 +28,10 @@ export interface CardCallbacks {
   onRepair?: (ids: string[]) => void
   onMacroRun?: (id: string, name: string) => void
   onPersonaSelect?: (id: string) => void
+  /** 에러 카드의 "재시도" 버튼 — 동일 인텐트 재실행 */
+  onRetry?: (intent: string) => void
+  /** 에러 카드의 "API 키 설정" — Settings 모달 열기 */
+  onOpenSettings?: () => void
 }
 
 export interface CardSlotData {
@@ -50,7 +54,7 @@ interface CardSlotsProps extends CardSlotData, CardCallbacks {
  */
 export function CardSlots({
   inlineCard, inlineCard2, inlineCard3, inlineCard4, inlineCard5,
-  accentColor, onRepair, onMacroRun, onPersonaSelect,
+  accentColor, onRepair, onMacroRun, onPersonaSelect, onRetry, onOpenSettings,
   wrap = false,
 }: CardSlotsProps) {
   return (
@@ -58,9 +62,9 @@ export function CardSlots({
       {inlineCard && (
         wrap
           ? <CardWrapper variant="dark" accentColor={accentColor} animate={false}>
-              <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} />
+              <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} />
             </CardWrapper>
-          : <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} />
+          : <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} />
       )}
       {inlineCard2 && (
         wrap

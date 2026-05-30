@@ -1074,6 +1074,22 @@ export function FloatingCharacter() {
 
   const handleSend = useCallback((text: string) => void sendText(text), [sendText])
 
+  /** ErrorCard "재시도" 버튼 — 가장 최근 사용자 입력을 다시 전송 (인텐트 재탐지 + 재실행) */
+  const handleRetry = useCallback((intent: string) => {
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+    if (lastUserMsg && lastUserMsg.text) {
+      sendText(lastUserMsg.text)
+    } else {
+      // 폴백: 메시지가 없으면 인텐트 키만 보냄 (그대로 다시 분류)
+      sendText(intent)
+    }
+  }, [messages, sendText])
+
+  /** ErrorCard "API 키 설정" 버튼 — 설정 모달 열기 */
+  const handleOpenSettings = useCallback(() => {
+    setSettingsOpen(true)
+  }, [])
+
   const handleSendWithFileImpl = useCallback(async (text: string, file: { name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: 'image' | 'document' | 'spreadsheet' | 'video' | 'other' }, extraFiles?: Array<{ name: string; mimeType: string; dataUrl: string; text?: string; size: number; fileType: string }>) => {
     setTyping(true)
     const personaId = localStorage.getItem('nexus-persona-id') ?? 'nexus'
@@ -1822,6 +1838,8 @@ export function FloatingCharacter() {
             dailyUsed={dailyUsedCount}
             onPersonaClick={handlePersonaChipClick}
             onPersonaSelect={handlePersonaSelect}
+            onRetry={handleRetry}
+            onOpenSettings={handleOpenSettings}
             embedded={true}
           />
         </div>

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useAppStore } from '../../stores/appStore'
 import type { StatsData, ScanResult, ScanIssue, DailyReport, CleanResult, RepairResult, BackendErrorCode } from '../../lib/nexus/backendAPI'
+import { InsightLine, insightForPcStatus, insightForScan } from './cards/InsightLine'
 
 /* ── 공통 유틸 ── */
 function statusColor(pct: number, reverse = false): string {
@@ -61,6 +62,8 @@ export function PCStatusCard({ data, accentColor }: { data: StatsData; accentCol
   const diskColor = statusColor(data.disk)
   const tempColor_ = tempColor(data.cpu_temp)
   const overallScore = Math.round(100 - (data.cpu * 0.3 + data.mem * 0.3 + data.disk * 0.2 + (data.cpu_temp / 100) * 20))
+  const lang = ((typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko') as 'ko' | 'en'
+  const insight = insightForPcStatus(data, lang)
 
   return (
     <motion.div
@@ -136,6 +139,8 @@ export function PCStatusCard({ data, accentColor }: { data: StatsData; accentCol
         </span>
       </div>
 
+      {/* AI 인사이트: 단순 수치 → 사용자가 이해할 수 있는 한 줄 해석 */}
+      {insight && <InsightLine text={insight.text} level={insight.level} />}
     </motion.div>
   )
 }
@@ -158,6 +163,8 @@ export function ScanResultCard({
 }) {
   const scoreColor = data.score >= 90 ? '#22c55e' : data.score >= 70 ? '#f59e0b' : '#ef4444'
   const fixableIds = data.issues.filter(i => i.fixable).map(i => i.id)
+  const lang = ((typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko') as 'ko' | 'en'
+  const insight = insightForScan(data, lang)
 
   return (
     <motion.div
@@ -261,8 +268,19 @@ export function ScanResultCard({
         </div>
       )}
 
-      {/* 액션 버튼 */}
-      {fixableIds.length > 0 && onRepair && (
+      {/* AI 인사이트 — 사용자가 다음 행동 판단 가능 */}
+      {insight && (
+        <InsightLine
+          text={insight.text}
+          level={insight.level}
+          action={fixableIds.length > 0 && onRepair
+            ? { label: lang === 'en' ? `Fix ${fixableIds.length} now` : `${fixableIds.length}개 지금 수리`, onClick: () => onRepair(fixableIds) }
+            : undefined}
+        />
+      )}
+
+      {/* 액션 버튼 (인사이트에 액션 없을 때만 보조 표시) */}
+      {fixableIds.length > 0 && onRepair && !insight && (
         <div style={{ display: 'flex', gap: 6 }}>
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -614,9 +632,13 @@ interface InlineCardRendererProps {
   card: InlineCardData
   accentColor: string
   onRepair?: (ids: string[]) => void
+  /** 에러 카드의 "재시도" 버튼 — 동일 인텐트 재실행 */
+  onRetry?: (intent: string) => void
+  /** 설정 모달 열기 (no_api_key 에러 시) */
+  onOpenSettings?: () => void
 }
 
-export function InlineCardRenderer({ card, accentColor, onRepair }: InlineCardRendererProps) {
+export function InlineCardRenderer({ card, accentColor, onRepair, onRetry, onOpenSettings }: InlineCardRendererProps) {
   switch (card.type) {
     case 'pc_status':
       return <PCStatusCard data={card.data} accentColor={accentColor} />
@@ -642,11 +664,17 @@ export function InlineCardRenderer({ card, accentColor, onRepair }: InlineCardRe
     case 'preview_confirm':
       return <PreviewConfirmCard items={card.items} accentColor={accentColor} onPreview={card.onPreview} />
     case 'error':
-      return <ErrorCard intent={card.intent} code={card.code} title={card.title} detail={card.detail} hint={card.hint} path={card.path} />
+      return <ErrorCard
+        intent={card.intent} code={card.code} title={card.title}
+        detail={card.detail} hint={card.hint} path={card.path}
+        accentColor={accentColor}
+        onRetry={onRetry}
+        onOpenSettings={onOpenSettings}
+      />
     default: {
       const _exhaustive: never = card
       void _exhaustive
-      return <ErrorCard intent="unknown" code="renderer_missing" title="알 수 없는 카드 타입" />
+      return <ErrorCard intent="unknown" code="renderer_missing" title="알 수 없는 카드 타입" accentColor={accentColor} />
     }
   }
 }
@@ -654,8 +682,15 @@ export function InlineCardRenderer({ card, accentColor, onRepair }: InlineCardRe
 /* ── ErrorCard: 백엔드 실패·미구현 등 모든 에러의 통일된 표시 ── */
 function ErrorCard({
   intent, code, title, detail, hint, path,
-}: { intent: string; code: string; title: string; detail?: string; hint?: string; path?: string }) {
-  const lang = (typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko'
+  accentColor, onRetry, onOpenSettings,
+}: {
+  intent: string; code: string; title: string;
+  detail?: string; hint?: string; path?: string;
+  accentColor?: string;
+  onRetry?: (intent: string) => void;
+  onOpenSettings?: () => void;
+}) {
+  const lang = (typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko' as 'ko' | 'en'
   const ko = lang === 'ko'
   const codeLabels: Record<string, { ko: string; en: string; icon: string; color: string }> = {
     no_backend:       { ko: '백엔드 연결 안 됨',   en: 'Backend not connected',  icon: '🔌', color: '#ef4444' },
@@ -672,6 +707,30 @@ function ErrorCard({
   }
   const meta = codeLabels[code] ?? codeLabels.unknown
   const label = ko ? meta.ko : meta.en
+
+  // 코드별 액션 버튼 정의 (사용자가 다음에 뭘 할지 명확하게)
+  type ActionDef = { label: string; icon: string; onClick: () => void; primary?: boolean }
+  const actions: ActionDef[] = []
+  if (onRetry && intent && intent !== 'unknown' &&
+      (code === 'no_backend' || code === 'timeout' || code === 'server_error' ||
+       code === 'rate_limited' || code === 'unknown')) {
+    actions.push({
+      label: ko ? '재시도' : 'Retry', icon: '🔄',
+      onClick: () => onRetry(intent), primary: true,
+    })
+  }
+  if (onOpenSettings && code === 'no_api_key') {
+    actions.push({
+      label: ko ? 'API 키 설정' : 'API Settings', icon: '⚙️',
+      onClick: onOpenSettings, primary: true,
+    })
+  }
+  if (code === 'windows_only') {
+    actions.push({
+      label: ko ? '빌드 받기' : 'Get Windows Build', icon: '🪟',
+      onClick: () => { try { window.open('https://github.com/anthropics/nexus/releases', '_blank') } catch { /* ignore */ } },
+    })
+  }
 
   return (
     <motion.div
@@ -693,23 +752,55 @@ function ErrorCard({
         </div>
       </div>
       {detail && (
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginBottom: hint ? 4 : 0, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginBottom: hint ? 4 : 6, lineHeight: 1.4 }}>
           {detail}
         </div>
       )}
       {hint && (
-        <div style={{ fontSize: 10, color: `${meta.color}cc`, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 10, color: `${meta.color}cc`, marginBottom: actions.length > 0 ? 8 : 0, lineHeight: 1.4 }}>
           💡 {hint}
         </div>
       )}
+
+      {/* 코드별 액션 버튼 — 사용자에게 명확한 다음 단계 제공 */}
+      {actions.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+          {actions.map((a, i) => (
+            <button
+              key={i}
+              onClick={a.onClick}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '5px 10px', borderRadius: 6,
+                background: a.primary ? meta.color : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${a.primary ? meta.color : 'rgba(255,255,255,0.15)'}`,
+                color: a.primary ? '#fff' : 'rgba(255,255,255,0.85)',
+                fontSize: 10.5, fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                boxShadow: a.primary ? `0 2px 6px ${meta.color}55` : 'none',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.filter = 'brightness(1.15)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)';  e.currentTarget.style.filter = 'brightness(1)' }}
+            >
+              <span>{a.icon}</span>
+              <span>{a.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {(intent || path) && (
-        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 6, fontFamily: 'ui-monospace, monospace' }}>
+        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 8, fontFamily: 'ui-monospace, monospace' }}>
           {intent}{path ? ` · ${path}` : ''}
         </div>
       )}
     </motion.div>
   )
 }
+
+// CardHeader/StatusBadge 는 cards/ 디렉토리에 export 되어 향후 카드 리팩토링 시 사용 예정.
+// 현재는 ScanResultCard/PCStatusCard 에서 InsightLine + insight helpers만 사용.
 
 function PreviewConfirmCard({
   items, accentColor, onPreview,

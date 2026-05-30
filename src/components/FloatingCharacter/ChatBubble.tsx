@@ -258,6 +258,10 @@ interface ChatBubbleProps {
   dailyUsed?: number
   onPersonaClick?: () => void
   onPersonaSelect?: (id: string) => void
+  /** 에러 카드의 "재시도" 버튼 — 마지막 사용자 메시지 + 인텐트 재실행 */
+  onRetry?: (intent: string) => void
+  /** 에러 카드의 "API 키 설정" — Settings 모달 열기 */
+  onOpenSettings?: () => void
   embedded?: boolean
 }
 
@@ -281,6 +285,8 @@ export function ChatBubble({
   dailyUsed = 0,
   onPersonaClick,
   onPersonaSelect,
+  onRetry,
+  onOpenSettings,
   embedded = false,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -938,6 +944,8 @@ export function ChatBubble({
                       onRepair={onRepair}
                       onMacroRun={msg.onMacroRun}
                       onPersonaSelect={onPersonaSelect}
+                      onRetry={onRetry}
+                      onOpenSettings={onOpenSettings}
                     />
                   </div>
                 ))}
@@ -960,6 +968,8 @@ export function ChatBubble({
                 onRepair={onRepair}
                 onMacroRun={msg.onMacroRun}
                 onPersonaSelect={onPersonaSelect}
+                onRetry={onRetry}
+                onOpenSettings={onOpenSettings}
                 wrap
               />
             </div>
