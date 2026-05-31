@@ -32,6 +32,11 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: Setup Python (for sidecar build — Option A)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install LLVM
         run: choco install llvm -y
 
@@ -52,7 +57,53 @@ jobs:
           go build -tags windows -ldflags="-s -w" -o "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" .
           cd ..
           Copy-Item "src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" "src-tauri\backend-bin\nexus-backend.exe"
-          Copy-Item "src-tauri\backend-bin\nexus-backend.exe" "src-tauri\backend-bin\nexus-python.exe"
+
+      # Option A: 진짜 Python 사이드카 빌드 (PyInstaller)
+      # 이전: Go 백엔드를 nexus-python.exe로 복사 (가짜 Python)
+      # 이후: 실제 main.py + 26개 라우트 (OCR/PDF/임베딩/yt-dlp/주식/이메일AI 등)
+      - name: Build Python sidecar (PyInstaller)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          cd backend/nexus_python
+          Write-Host "📦 Installing Python deps (5-10 min, heavy ML libs)..."
+          python -m pip install --upgrade pip setuptools wheel
+          # 의존성 일부는 빌드 환경에서 깨질 수 있음 → 핵심만 강제 설치
+          pip install --no-cache-dir `
+            fastapi==0.115.0 uvicorn==0.30.6 requests==2.32.3 `
+            httpx==0.27.2 aiofiles==24.1.0 python-multipart==0.0.12 `
+            pyyaml==6.0.2 sqlalchemy==2.0.36 pillow==10.4.0 numpy==1.26.4 `
+            yt-dlp==2024.11.4 ytmusicapi==1.7.4 `
+            PyMuPDF==1.24.11 pandas==2.2.3 openpyxl==3.1.5 `
+            yfinance==0.2.43 groq==0.11.0 ollama==0.3.3 pyautogui==0.9.54 pygetwindow==0.0.9
+          # 무거운 ML 의존성 (easyocr, faiss, sentence-transformers) — 실패해도 빌드 계속
+          pip install --no-cache-dir easyocr==1.7.2 faiss-cpu==1.9.0 sentence-transformers==3.2.1 scikit-learn==1.5.2 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "⚠️ Heavy ML deps failed — sidecar will work without OCR/embeddings (graceful degradation)"
+          }
+          pip install pyinstaller==6.10.0
+          Write-Host "🔨 PyInstaller 빌드 시작 (5-10 min)..."
+          pyinstaller --onefile --name nexus-python --noconfirm `
+            --hidden-import=uvicorn --hidden-import=uvicorn.lifespan `
+            --hidden-import=uvicorn.lifespan.on --hidden-import=uvicorn.lifespan.off `
+            --hidden-import=uvicorn.protocols --hidden-import=uvicorn.protocols.http `
+            --hidden-import=uvicorn.protocols.http.auto --hidden-import=uvicorn.protocols.http.h11_impl `
+            --hidden-import=uvicorn.protocols.websockets --hidden-import=uvicorn.protocols.websockets.auto `
+            --hidden-import=uvicorn.protocols.websockets.wsproto_impl `
+            --hidden-import=uvicorn.loops --hidden-import=uvicorn.loops.auto `
+            --hidden-import=uvicorn.loops.asyncio `
+            --collect-data fastapi `
+            --collect-all yt_dlp --collect-all ytmusicapi `
+            main.py
+          if (Test-Path "dist\nexus-python.exe") {
+            $size = (Get-Item "dist\nexus-python.exe").Length / 1MB
+            Write-Host "✅ Python sidecar built: $([math]::Round($size, 1)) MB"
+            Copy-Item "dist\nexus-python.exe" "..\..\src-tauri\backend-bin\nexus-python.exe" -Force
+          } else {
+            Write-Host "❌ Python build failed — falling back to Go copy (no Python features)"
+            Copy-Item "..\..\src-tauri\backend-bin\nexus-backend.exe" "..\..\src-tauri\backend-bin\nexus-python.exe" -Force
+          }
+          cd ..\..
 
       - name: Install npm dependencies
         run: npm install
