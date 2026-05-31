@@ -946,6 +946,16 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			intentAction = "video_search"
 			intentParams = map[string]any{"query": query, "platform": "youtube", "max_items": 8}
 		} else {
+			// ── 0순위: Claude Haiku 의도 분류 (Supabase proxy, JWT 필요) ──
+			// 빠름·저렴·구조화 JSON 네이티브 → 분류 전용 최적 모델
+			// JWT 없거나 프록시 실패 → 기존 Function Calling / JSON 폴백
+			if haikuAction, haikuParams, _, _, haikuErr := callHaikuIntentClassifyViaProxy(req.Message); haikuErr == nil && haikuAction != "" {
+				intentAction = haikuAction
+				intentParams = haikuParams
+				// Haiku 라우팅 성공 → 아래 routing/Function Calling 블록 스킵
+				goto haikuRouted
+			}
+
 			// ── 일반 모드: LLM 의도 파악 (대화 이력 포함) ────────────
 			// 페르소나 컨텍스트를 라우팅 프롬프트 앞에 주입
 			personaCtx := getPersonaSystemPrompt()
@@ -1021,6 +1031,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+haikuRouted:
 
 	// ── clarify 액션: 실행 없이 질문 반환 ────────────────────
 	if intentAction == "clarify" {
