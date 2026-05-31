@@ -6,9 +6,14 @@
  * ──────────────────────────────────────────────────────────────
  */
 const BASE = 'http://127.0.0.1:17891'
-const TIMEOUT = 15000        // 기본 15초 (딥서치·PowerShell 고려)
-const TIMEOUT_FAST = 8000    // 빠른 응답 기대 엔드포인트 (상태 조회 등)
-const TIMEOUT_DEEP = 45000   // 딥서치·파일 분석·병렬 브라우저 크롤링
+// 기본을 30초로 상향 (PowerShell 다중 호출이 8~20초 자주 걸림)
+// 짧게 끝나는 엔드포인트(상태/설정/캐시)는 TIMEOUT_FAST 명시
+// 무거운 엔드포인트(LLM/브라우저/파일 스캔)는 호출부에서 TIMEOUT_DEEP/TIMEOUT_LLM 명시
+const TIMEOUT = 30000        // 기본 30초
+const TIMEOUT_FAST = 8000    // 빠른 응답 기대 엔드포인트 (상태 조회/메모리 카운터)
+const TIMEOUT_DEEP = 60000   // 딥서치·파일 분석 (1분)
+const TIMEOUT_LLM = 90000    // LLM 추론 (Groq/OpenAI 1.5분)
+const TIMEOUT_HEAVY = 120000 // 무거운 시스템 작업 (repair, restore, virus check)
 
 export type BackendErrorCode =
   | 'no_backend'        // 백엔드 프로세스 미실행 / 포트 닫힘
@@ -186,15 +191,15 @@ export const backendAPI = {
   // /api/stats는 백엔드에서 PowerShell 4~5개 직렬 호출 (사이트당 8초) → 최대 40초 가능
   // 기존 TIMEOUT_FAST(8s)는 너무 짧아서 항상 timeout 발생 → 45초로 확장
   stats:       ()                         => request<StatsData>          ('GET',  '/api/stats',  undefined, 45000),
-  scan:        ()                         => request<ScanResult>         ('POST', '/api/scan', undefined, 60000),
-  repair:      (items: string[])          => request<RepairResult>       ('POST', '/api/repair',      { items }),
-  clean:       (targets: string[])        => request<{ freed: number; message: string }>('POST', '/api/clean', { targets }),
-  autoClean:   (items: string[])          => request<CleanResult[]>      ('POST', '/api/autoclean',  { items }),
-  dailyReport: ()                         => request<DailyReport>        ('GET',  '/api/daily-report'),
+  scan:        ()                         => request<ScanResult>         ('POST', '/api/scan', undefined, TIMEOUT_DEEP),
+  repair:      (items: string[])          => request<RepairResult>       ('POST', '/api/repair',      { items }, TIMEOUT_HEAVY),
+  clean:       (targets: string[])        => request<{ freed: number; message: string }>('POST', '/api/clean', { targets }, TIMEOUT_DEEP),
+  autoClean:   (items: string[])          => request<CleanResult[]>      ('POST', '/api/autoclean',  { items }, TIMEOUT_DEEP),
+  dailyReport: ()                         => request<DailyReport>        ('GET',  '/api/daily-report', undefined, TIMEOUT_DEEP),
   privacy:     (feature: string, enabled: boolean) =>
-                                             request<{ success: boolean }>('POST', '/api/privacy', { feature, enabled }),
+                                             request<{ success: boolean }>('POST', '/api/privacy', { feature, enabled }, TIMEOUT_FAST),
   openFolder:  (path: string) =>
-                                             request<{ success: boolean; path: string; message: string }>('POST', '/api/folder/open', { path }),
+                                             request<{ success: boolean; path: string; message: string }>('POST', '/api/folder/open', { path }, TIMEOUT_FAST),
 
   // ── 보안 상세 ──────────────────────────────────────────
   securityRemote:  () => request<RemoteAccessResult>      ('GET', '/api/security/remote'),
@@ -352,7 +357,7 @@ export const backendAPI = {
   activeWindow:   () =>
     request<{ title: string; screen_info: string; timestamp: string }>('GET', '/api/vision/active-window'),
   ocrClipboard:   () =>
-    request<{ success: boolean; text: string; message: string }>('POST', '/api/vision/ocr-clipboard', {}),
+    request<{ success: boolean; text: string; message: string }>('POST', '/api/vision/ocr-clipboard', {}, TIMEOUT_LLM),
 
   // ── LLM (Go 백엔드 직접 Perplexity/Claude 호출) ──────────
   llmConfigGet: () =>
@@ -365,27 +370,27 @@ export const backendAPI = {
     ),
   llmChat: (messages: Array<{ role: string; content: string }>, options?: { maxTokens?: number; jsonMode?: boolean; fast?: boolean }) =>
     request<{ success: boolean; answer: string; model: string; tokens: number }>(
-      'POST', '/api/llm/chat', { messages, max_tokens: options?.maxTokens, json_mode: options?.jsonMode, fast: options?.fast }
+      'POST', '/api/llm/chat', { messages, max_tokens: options?.maxTokens, json_mode: options?.jsonMode, fast: options?.fast }, TIMEOUT_LLM
     ),
   llmVision: (question?: string, imageBase64?: string, mime?: string) =>
     request<{ success: boolean; answer: string; question: string; model: string; width: number; height: number }>(
-      'POST', '/api/llm/vision', { question, image_base64: imageBase64, mime }
+      'POST', '/api/llm/vision', { question, image_base64: imageBase64, mime }, TIMEOUT_LLM
     ),
   llmDocSummary: (filePath: string, question?: string) =>
     request<{ success: boolean; summary: string; file: string }>(
-      'POST', '/api/llm/doc-summary', { file_path: filePath, question }
+      'POST', '/api/llm/doc-summary', { file_path: filePath, question }, TIMEOUT_LLM
     ),
   llmDocCompare: (fileA: string, fileB: string, focus?: 'numbers' | 'changes' | 'both') =>
     request<{ success: boolean; result: LLMDocCompareResult; file_a: string; file_b: string }>(
-      'POST', '/api/llm/doc-compare', { file_a: fileA, file_b: fileB, focus }
+      'POST', '/api/llm/doc-compare', { file_a: fileA, file_b: fileB, focus }, TIMEOUT_LLM
     ),
   llmDeepSearch: (query: string, folder?: string, maxResults?: number) =>
     request<{ success: boolean; results: DeepSearchResult[]; total: number; keywords_used: string[]; ai_enhanced: boolean }>(
-      'POST', '/api/llm/deep-search', { query, folder, max_results: maxResults }, TIMEOUT_DEEP
+      'POST', '/api/llm/deep-search', { query, folder, max_results: maxResults }, TIMEOUT_LLM
     ),
   llmDeepSearchWeb: (query: string, maxResults?: number) =>
     request<{ success: boolean; query: string; summary: string; items: Array<{ title: string; url: string; source?: string }>; total: number }>(
-      'POST', '/api/llm/deep-search-web', { query, max_results: maxResults ?? 10 }, TIMEOUT_DEEP
+      'POST', '/api/llm/deep-search-web', { query, max_results: maxResults ?? 10 }, TIMEOUT_LLM
     ),
 
   // ── Browser Agent (chromedp) ──────────────────────────────
@@ -752,11 +757,11 @@ export const meetingStart      = () =>
 export const meetingStop       = () =>
   request<{ success: boolean; file_path: string; duration_sec: number; message: string }>('POST', '/api/meeting/stop', {})
 export const meetingTranscribe = (filePath: string) =>
-  request<{ success: boolean; text: string; duration_sec: number; message: string }>('POST', '/api/meeting/transcribe', { file_path: filePath })
+  request<{ success: boolean; text: string; duration_sec: number; message: string }>('POST', '/api/meeting/transcribe', { file_path: filePath }, TIMEOUT_HEAVY)
 export const meetingList       = () =>
   request<{ success: boolean; meetings: Array<{ file: string; timestamp: string; size_mb: number }>; total: number }>('GET', '/api/meeting/list')
 export const meetingSummarize  = (text: string) =>
-  request<{ success: boolean; summary: string; action_items: string[]; decisions: string[]; message: string }>('POST', '/api/meeting/summarize', { text })
+  request<{ success: boolean; summary: string; action_items: string[]; decisions: string[]; message: string }>('POST', '/api/meeting/summarize', { text }, TIMEOUT_LLM)
 
 /* ── ⌨️ 음성 받아쓰기 ── */
 export const dictationType  = (text: string, app?: string) =>
@@ -794,7 +799,7 @@ export interface VTResult {
   clean: number; total_scans: number; permalink: string; safe_score: number; verdict: string; message: string
 }
 export const virusTotalCheck = (filePath: string, apiKey: string) =>
-  request<VTResult>('POST', '/api/security/virustotal', { file_path: filePath, api_key: apiKey })
+  request<VTResult>('POST', '/api/security/virustotal', { file_path: filePath, api_key: apiKey }, TIMEOUT_HEAVY)
 
 /* ── 📊 성능 이력 ── */
 export interface PerfSnapshot {
@@ -901,9 +906,9 @@ export interface BrainEntry {
 export interface BrainSearchResult { entry: BrainEntry; score: number; highlight: string }
 export const brainSearch = (query: string, limit = 8, source = '') =>
   request<{ results: BrainSearchResult[]; total: number; summary: string; query: string }>(
-    'POST', '/api/brain/search', { query, limit, source })
+    'POST', '/api/brain/search', { query, limit, source }, TIMEOUT_LLM)
 export const brainRebuild = () =>
-  request<{ ok: boolean; message: string }>('POST', '/api/brain/rebuild', {})
+  request<{ ok: boolean; message: string }>('POST', '/api/brain/rebuild', {}, TIMEOUT_HEAVY)
 export const brainStats = () =>
   request<{ total: number; by_source: Record<string, number>; updated_at: string }>('GET', '/api/brain/stats')
 
@@ -916,9 +921,9 @@ export interface WorkflowResult {
   goal: string; steps: WorkflowStep[]; summary: string; ok: boolean
 }
 export const workflowPlan = (goal: string) =>
-  request<WorkflowResult>('POST', '/api/workflow/plan', { goal })
+  request<WorkflowResult>('POST', '/api/workflow/plan', { goal }, TIMEOUT_LLM)
 export const workflowRun = (goal: string) =>
-  request<WorkflowResult>('POST', '/api/workflow/run', { goal })
+  request<WorkflowResult>('POST', '/api/workflow/run', { goal }, TIMEOUT_HEAVY)
 
 /* ── 🎬 Live Caption ── */
 export interface CaptionEntry { text: string; translated?: string; timestamp: string; lang: string }
@@ -975,8 +980,8 @@ export const calendarSmartAdd   = (text: string) =>
 export const workflowList        = () => request<{ workflows: unknown[]; count: number }>('GET', '/api/workflow/list')
 export const workflowSave        = (workflow: unknown) => request<{ success: boolean; id: string; message: string }>('POST', '/api/workflow/save', workflow)
 export const workflowDeleteById  = (id: string) => request<{ success: boolean; message: string }>('DELETE', `/api/workflow/delete?id=${id}`)
-export const workflowRunNow      = (id: string) => request<{ success: boolean; task_id: string; message: string }>('POST', '/api/workflow/run-now', { id })
-export const workflowFromText    = (text: string) => request<{ success: boolean; workflow: unknown; message: string }>('POST', '/api/workflow/from-text', { text })
+export const workflowRunNow      = (id: string) => request<{ success: boolean; task_id: string; message: string }>('POST', '/api/workflow/run-now', { id }, TIMEOUT_HEAVY)
+export const workflowFromText    = (text: string) => request<{ success: boolean; workflow: unknown; message: string }>('POST', '/api/workflow/from-text', { text }, TIMEOUT_LLM)
 export const workflowTemplates   = () => request<{ templates: unknown[]; count: number }>('GET', '/api/workflow/templates')
 
 /* ── Privacy & Sandbox ── */
