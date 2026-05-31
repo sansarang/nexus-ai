@@ -266,6 +266,10 @@ interface ChatBubbleProps {
   onAction?: (command: string) => void
   /** 진행 중 요청 취소 — typing 중에만 표시 (Emergency-A) */
   onCancelTyping?: () => void
+  /** Jarvis 캔버스에서 카드 크게 보기 — wide 카드 옆 버튼 클릭 */
+  onExpandToCanvas?: (msg: ChatMessage) => void
+  /** 현재 캔버스 열림 여부 */
+  isCanvasOpen?: boolean
   embedded?: boolean
 }
 
@@ -293,6 +297,8 @@ export function ChatBubble({
   onOpenSettings,
   onAction,
   onCancelTyping,
+  onExpandToCanvas,
+  isCanvasOpen,
   embedded = false,
 }: ChatBubbleProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -1012,6 +1018,9 @@ export function ChatBubble({
                 onRetry={onRetry}
                 onOpenSettings={onOpenSettings}
                 onAction={onAction}
+                onExpandToCanvas={onExpandToCanvas ? () => onExpandToCanvas(msg) : undefined}
+                isCanvasOpen={isCanvasOpen}
+                lang={lang}
                 wrap
               />
             </div>

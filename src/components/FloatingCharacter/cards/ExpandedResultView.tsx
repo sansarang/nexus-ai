@@ -1,39 +1,71 @@
 /**
- * ExpandedResultView — Dynamic Block 결과를 풍부한 대시보드로 표시.
+ * ExpandedResultView — Jarvis 캔버스 모드.
  *
- * 트리거: shouldExpand() === true (table 5+행, chart, KPI 6+, 등)
- * 동작: 전체 화면 모달로 슬라이드 인 → 충분한 가로/세로 공간 제공
+ * 38종 카드 + 11종 블록 모두 대응:
+ *  - Dynamic Block (LLM 동적 응답) → DynamicCardRenderer
+ *  - InlineCardData (PC·Scan·Daily) → InlineCardRenderer (큰 폭)
+ *  - InlineCardData2 (보안·시스템) → InlineCardRenderer2 (큰 폭)
+ *  - InlineCard3Data (문서) → InlineCardRenderer3 (큰 폭)
+ *  - InlineCard4Data (매크로·일지·리포트) → InlineCardRenderer4
+ *  - InlineCard5Data (웹 검색) → InlineCard5Renderer (큰 폭)
+ *
+ * 자동 트리거: shouldExpand* 함수가 true 인 메시지 도착 시
  * 닫기: X 버튼 또는 ESC
- *
- * Jarvis/Claude Artifacts 스타일 — 채팅은 유지하면서 결과만 큰 화면에
  */
 
 import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DynamicCardRenderer, type Block } from './DynamicBlocks'
+import { CardSlots } from './index'
+import type { InlineCardData } from '../InlineCards'
+import type { InlineCardData2 } from '../InlineCards2'
+import type { InlineCard3Data } from '../InlineCards3'
+import type { InlineCard4Data } from '../InlineCards4'
+import type { InlineCard5Data } from '../InlineCards5'
+
+export interface CanvasContent {
+  title?: string
+  /** 원본 사용자 질문 (재실행용) */
+  originalQuery?: string
+  /** Dynamic Block (LLM 응답) */
+  blocks?: Block[]
+  /** InlineCardData 모든 슬롯 */
+  inlineCard?:  InlineCardData
+  inlineCard2?: InlineCardData2
+  inlineCard3?: InlineCard3Data
+  inlineCard4?: InlineCard4Data
+  inlineCard5?: InlineCard5Data
+}
 
 interface ExpandedResultViewProps {
   open: boolean
-  title?: string
-  blocks: Block[]
-  /** 페르소나 색상 (강조용) */
+  content: CanvasContent | null
   accentColor?: string
   onClose: () => void
-  /** action 블록 클릭 시 — 명령 재전송 + 모달 닫기 */
   onAction?: (command: string) => void
+  /** 마우스 위에 있을 때 자동 닫기 막기 (사장님 검토 중) */
+  onRerun?: () => void
+  onRepair?: (ids: string[]) => void
+  onMacroRun?: (id: string, name: string) => void
+  onPersonaSelect?: (id: string) => void
   lang?: 'ko' | 'en'
 }
 
 export function ExpandedResultView({
-  open, title, blocks, accentColor = '#9b59b6', onClose, onAction, lang = 'ko',
+  open, content, accentColor = '#9b59b6', onClose,
+  onAction, onRerun, onRepair, onMacroRun, onPersonaSelect, lang = 'ko',
 }: ExpandedResultViewProps) {
-  // ESC로 닫기
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
+
+  if (!content) return null
+
+  const hasBlocks = content.blocks && content.blocks.length > 0
+  const hasCards = !!(content.inlineCard || content.inlineCard2 || content.inlineCard3 || content.inlineCard4 || content.inlineCard5)
 
   return (
     <AnimatePresence>
@@ -75,15 +107,28 @@ export function ExpandedResultView({
               borderBottom: `1px solid ${accentColor}22`,
               background: `linear-gradient(135deg, ${accentColor}11, transparent)`,
             }}>
-              <span style={{ fontSize: 18 }}>📊</span>
+              <span style={{ fontSize: 22 }}>📊</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 9, fontWeight: 800, color: `${accentColor}cc`, letterSpacing: '0.06em' }}>
-                  {lang === 'en' ? 'RESULT VIEW' : '결과 대시보드'}
+                  {lang === 'en' ? 'CANVAS · RESULT VIEW' : '캔버스 · 결과 대시보드'}
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginTop: 1 }}>
-                  {title || (lang === 'en' ? 'Analysis Result' : '분석 결과')}
+                  {content.title || (lang === 'en' ? 'Analysis Result' : '분석 결과')}
                 </div>
               </div>
+              {onRerun && (
+                <button
+                  onClick={onRerun}
+                  title={lang === 'en' ? 'Re-run this command' : '다시 실행'}
+                  style={{
+                    background: `${accentColor}22`, border: `1px solid ${accentColor}55`,
+                    color: accentColor, padding: '6px 12px', borderRadius: 8,
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  🔄 {lang === 'en' ? 'Rerun' : '재실행'}
+                </button>
+              )}
               <button
                 onClick={onClose}
                 title={lang === 'en' ? 'Close (ESC)' : '닫기 (ESC)'}
@@ -96,8 +141,8 @@ export function ExpandedResultView({
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; e.currentTarget.style.color = '#fca5a5' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; e.currentTarget.style.color = '#fca5a5' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)' }}
               >
                 ✕
               </button>
@@ -108,18 +153,35 @@ export function ExpandedResultView({
               flex: 1, overflowY: 'auto', padding: '20px 24px',
               scrollbarWidth: 'thin',
               scrollbarColor: `${accentColor}44 transparent`,
+              display: 'flex', flexDirection: 'column', gap: 16,
             }}>
-              <DynamicCardRenderer
-                blocks={blocks}
-                accentColor={accentColor}
-                onAction={(cmd) => {
-                  onClose()  // 액션 클릭 시 모달 닫고 명령 전송
-                  onAction?.(cmd)
-                }}
-              />
+              {/* Dynamic Block 렌더링 */}
+              {hasBlocks && content.blocks && (
+                <DynamicCardRenderer
+                  blocks={content.blocks}
+                  accentColor={accentColor}
+                  onAction={(cmd) => { onClose(); onAction?.(cmd) }}
+                />
+              )}
+              {/* 38종 카드 렌더링 (5 슬롯 통합) */}
+              {hasCards && (
+                <CardSlots
+                  inlineCard={content.inlineCard}
+                  inlineCard2={content.inlineCard2}
+                  inlineCard3={content.inlineCard3}
+                  inlineCard4={content.inlineCard4}
+                  inlineCard5={content.inlineCard5}
+                  accentColor={accentColor}
+                  onRepair={onRepair}
+                  onMacroRun={onMacroRun}
+                  onPersonaSelect={onPersonaSelect}
+                  onAction={(cmd) => { onClose(); onAction?.(cmd) }}
+                  wrap
+                />
+              )}
             </div>
 
-            {/* 푸터 - 도움말 */}
+            {/* 푸터 */}
             <div style={{
               padding: '8px 20px',
               borderTop: '1px solid rgba(255,255,255,0.06)',
@@ -127,10 +189,12 @@ export function ExpandedResultView({
               display: 'flex', justifyContent: 'space-between',
             }}>
               <span>
-                {lang === 'en' ? '💡 Tip: Click any action button to continue, ESC to close' : '💡 액션 버튼 클릭으로 이어서 진행, ESC 로 닫기'}
+                {lang === 'en' ? '💡 Click actions to continue · ESC to close' : '💡 액션 클릭으로 계속 · ESC로 닫기'}
               </span>
               <span style={{ fontFamily: 'ui-monospace, monospace' }}>
-                {blocks.length} {lang === 'en' ? 'blocks' : '개 블록'}
+                {hasBlocks ? `${content.blocks?.length} blocks` : ''}
+                {hasBlocks && hasCards ? ' · ' : ''}
+                {hasCards ? 'card' : ''}
               </span>
             </div>
           </motion.div>

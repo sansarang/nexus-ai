@@ -21,6 +21,7 @@ import { InlineCardRenderer3,  type InlineCard3Data }  from '../InlineCards3'
 import { InlineCardRenderer4,  type InlineCard4Data }  from '../InlineCards4'
 import { InlineCard5Renderer,  type InlineCard5Data }  from '../InlineCards5'
 import { CardWrapper } from '../CardWrapper'
+import { shouldExpandMessage } from './shouldExpand'
 
 export type { InlineCardData, InlineCardData2, InlineCard3Data, InlineCard4Data, InlineCard5Data }
 
@@ -48,6 +49,11 @@ interface CardSlotsProps extends CardSlotData, CardCallbacks {
   accentColor: string
   /** true 시 inlineCard/inlineCard2 를 CardWrapper(dark/default) 로 감쌈 — 라이브 채팅용 */
   wrap?: boolean
+  /** "캔버스에서 보기" 버튼 표시 (wide card 일 때만) */
+  onExpandToCanvas?: () => void
+  /** 캔버스 표시 중인지 (이미 떠있으면 버튼 숨김) */
+  isCanvasOpen?: boolean
+  lang?: 'ko' | 'en'
 }
 
 /**
@@ -57,8 +63,12 @@ interface CardSlotsProps extends CardSlotData, CardCallbacks {
 export function CardSlots({
   inlineCard, inlineCard2, inlineCard3, inlineCard4, inlineCard5,
   accentColor, onRepair, onMacroRun, onPersonaSelect, onRetry, onOpenSettings, onAction,
-  wrap = false,
+  wrap = false, onExpandToCanvas, isCanvasOpen = false, lang = 'ko',
 }: CardSlotsProps) {
+  // wide 카드가 있고 캔버스 미오픈 시 "캔버스로 보기" 버튼 표시
+  const isWide = shouldExpandMessage({ inlineCard, inlineCard2, inlineCard3, inlineCard4, inlineCard5 })
+  const showExpandBtn = isWide && !isCanvasOpen && onExpandToCanvas
+
   return (
     <>
       {inlineCard && (
@@ -78,6 +88,29 @@ export function CardSlots({
       {inlineCard3 && <InlineCardRenderer3 card={inlineCard3} />}
       {inlineCard4 && <InlineCardRenderer4 card={inlineCard4} onMacroRun={onMacroRun} />}
       {inlineCard5 && <InlineCard5Renderer card={inlineCard5} accentColor={accentColor} />}
+
+      {/* Jarvis 캔버스 트리거 — wide 카드일 때 "큰 화면으로 보기" 버튼 */}
+      {showExpandBtn && (
+        <button
+          onClick={onExpandToCanvas}
+          style={{
+            marginTop: 6, padding: '6px 12px',
+            background: `${accentColor}22`,
+            border: `1px solid ${accentColor}66`,
+            borderRadius: 8,
+            color: accentColor,
+            fontSize: 11, fontWeight: 700,
+            cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            alignSelf: 'flex-start',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}44`; e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = `${accentColor}22`; e.currentTarget.style.transform = 'translateY(0)' }}
+        >
+          🔍 {lang === 'en' ? 'Open in Canvas' : '캔버스에서 크게 보기'}
+        </button>
+      )}
     </>
   )
 }

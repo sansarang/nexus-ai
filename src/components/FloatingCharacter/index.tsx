@@ -19,9 +19,8 @@ import type { AvatarConfig } from './OnboardingFlow'
 import { PaywallModal } from '../PaywallModal'
 import { ApprovalDialog } from './cards/ApprovalDialog'
 import { hasChosenMode, needsApproval, isDangerousCommand } from '../../lib/nexus/approvalMode'
-import { ExpandedResultView } from './cards/ExpandedResultView'
-import { shouldExpand, expandTitle } from './cards/shouldExpand'
-import type { Block } from './cards/DynamicBlocks'
+import { ExpandedResultView, type CanvasContent } from './cards/ExpandedResultView'
+import { shouldExpand, expandTitle, shouldExpandMessage } from './cards/shouldExpand'
 import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
 import { getDailyUsage, getMonthlyUsage } from '../../lib/nexus/usageTracker'
@@ -1174,20 +1173,47 @@ export function FloatingCharacter() {
     setEmotion('neutral')
   }, [userLang])
 
-  /** Phase B: Adaptive UI — Dynamic 카드의 wide 블록 자동 확장 (table/chart/KPI 등) */
-  const [expandedBlocks, setExpandedBlocks] = useState<{ title: string; blocks: Block[] } | null>(null)
-  // 새 메시지 도착 → inlineCard 가 dynamic 타입이고 wide 블록이면 자동 확장
+  /** Phase B+ : Jarvis 캔버스 — 모든 wide 카드/블록 자동 라우팅 (200+ 조합 지원) */
+  const [canvasContent, setCanvasContent] = useState<CanvasContent | null>(null)
+  const lastExpandedMsgIdRef = useRef<string>('')
+
   useEffect(() => {
     if (messages.length === 0) return
     const last = messages[messages.length - 1]
     if (last.role !== 'nexus') return
-    const card = last.inlineCard
-    if (!card || card.type !== 'dynamic') return
-    if (!shouldExpand(card.blocks)) return
-    // 이미 동일 메시지로 확장 중이면 스킵
-    setExpandedBlocks({
-      title: card.title || expandTitle(card.blocks),
-      blocks: card.blocks,
+    if (last.id === lastExpandedMsgIdRef.current) return  // 같은 메시지 재확장 방지
+
+    // 모든 카드 슬롯 검사 (5종 InlineCardData + dynamic blocks)
+    const isWide = shouldExpandMessage({
+      inlineCard:  last.inlineCard,
+      inlineCard2: last.inlineCard2,
+      inlineCard3: last.inlineCard3,
+      inlineCard4: last.inlineCard4,
+      inlineCard5: last.inlineCard5,
+    })
+
+    // dynamic 카드(블록)는 따로 검사
+    const dynBlocks = (last.inlineCard?.type === 'dynamic') ? last.inlineCard.blocks : undefined
+    const isDynWide = shouldExpand(dynBlocks)
+
+    if (!isWide && !isDynWide) return
+
+    lastExpandedMsgIdRef.current = last.id
+    // 제목 추출: inlineCard 의 title 또는 first heading 또는 메시지 text
+    const title =
+      (last.inlineCard?.type === 'dynamic' && last.inlineCard.title) ||
+      expandTitle(dynBlocks) ||
+      last.text.split('\n')[0].slice(0, 60) ||
+      '결과 보기'
+
+    setCanvasContent({
+      title,
+      blocks: dynBlocks,
+      inlineCard:  last.inlineCard,
+      inlineCard2: last.inlineCard2,
+      inlineCard3: last.inlineCard3,
+      inlineCard4: last.inlineCard4,
+      inlineCard5: last.inlineCard5,
     })
   }, [messages])
 
@@ -1993,6 +2019,19 @@ export function FloatingCharacter() {
             onOpenSettings={handleOpenSettings}
             onAction={handleDynamicAction}
             onCancelTyping={handleCancelTyping}
+            onExpandToCanvas={(msg) => {
+              setCanvasContent({
+                title: (msg.inlineCard?.type === 'dynamic' && msg.inlineCard.title)
+                  || msg.text.split('\n')[0].slice(0, 60) || '결과 보기',
+                blocks: (msg.inlineCard?.type === 'dynamic') ? msg.inlineCard.blocks : undefined,
+                inlineCard:  msg.inlineCard,
+                inlineCard2: msg.inlineCard2,
+                inlineCard3: msg.inlineCard3,
+                inlineCard4: msg.inlineCard4,
+                inlineCard5: msg.inlineCard5,
+              })
+            }}
+            isCanvasOpen={!!canvasContent}
             embedded={true}
           />
         </div>
@@ -2401,14 +2440,19 @@ export function FloatingCharacter() {
       lang={userLang}
     />
 
-    {/* Phase B: Adaptive UI — wide block 자동 확장 (Jarvis 스타일 대시보드) */}
+    {/* Jarvis 캔버스 — 200+ 조합 자동 라우팅 */}
     <ExpandedResultView
-      open={!!expandedBlocks}
-      title={expandedBlocks?.title}
-      blocks={expandedBlocks?.blocks ?? []}
+      open={!!canvasContent}
+      content={canvasContent}
       accentColor={activePersona?.color ?? primaryColor}
-      onClose={() => setExpandedBlocks(null)}
+      onClose={() => setCanvasContent(null)}
       onAction={handleDynamicAction}
+      onRerun={() => {
+        const lastUser = [...messages].reverse().find(m => m.role === 'user')
+        if (lastUser?.text) { setCanvasContent(null); sendText(lastUser.text) }
+      }}
+      onRepair={handleRepair}
+      onPersonaSelect={handlePersonaSelect}
       lang={userLang}
     />
     </>
