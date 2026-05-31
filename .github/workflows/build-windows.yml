@@ -46,6 +46,10 @@ jobs:
           echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build Go backend
+        env:
+          BUNDLED_GROQ_KEY: ${{ secrets.GROQ_KEY }}
+          BUNDLED_TAVILY_KEY: ${{ secrets.TAVILY_KEY }}
+          BUNDLED_OPENAI_KEY: ${{ secrets.VITE_OPENAI_KEY }}
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri\binaries | Out-Null
           New-Item -ItemType Directory -Force -Path src-tauri\backend-bin | Out-Null
@@ -54,7 +58,13 @@ jobs:
           $env:CGO_ENABLED = "0"
           cd backend
           go mod tidy
-          go build -tags windows -ldflags="-s -w" -o "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" .
+          # 번들 키 ldflags 주입 — Free 사용자도 LLM/웹검색 즉시 사용 가능 (Pro 자체 키 시 오버라이드)
+          $ldflags = "-s -w"
+          if ($env:BUNDLED_GROQ_KEY)   { $ldflags += " -X 'main.bundledGroqKey=$env:BUNDLED_GROQ_KEY'" }
+          if ($env:BUNDLED_TAVILY_KEY) { $ldflags += " -X 'main.bundledTavilyKey=$env:BUNDLED_TAVILY_KEY'" }
+          if ($env:BUNDLED_OPENAI_KEY) { $ldflags += " -X 'main.bundledOpenAIKey=$env:BUNDLED_OPENAI_KEY'" }
+          Write-Host "ldflags configured (keys masked)"
+          go build -tags windows -ldflags="$ldflags" -o "..\src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" .
           cd ..
           Copy-Item "src-tauri\binaries\backend-x86_64-pc-windows-msvc.exe" "src-tauri\backend-bin\nexus-backend.exe"
 

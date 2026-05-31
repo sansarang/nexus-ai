@@ -7,6 +7,7 @@ import { WorkflowBuilder } from '../WorkflowBuilder'
 import { EmailSetup } from '../EmailSetup'
 import { ChatBubble } from './ChatBubble'
 import type { ChatMessage, AttachedFile } from './ChatBubble'
+import { Sidebar } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
@@ -1990,10 +1991,41 @@ export function FloatingCharacter() {
         )}
       </AnimatePresence>
 
-      {/* ── 메인 콘텐츠: 좌우 분할 ── */}
+      {/* ── 메인 콘텐츠: 3-Pane (좌 사이드바 + 중앙 채팅 + (선택) 우 캔버스) ── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
 
-        {/* ── 좌: 채팅 영역 ── */}
+        {/* ── 좌: Sidebar (페르소나 + 최근 결과 + 음성 + 단축키) ── */}
+        <Sidebar
+          messages={messages}
+          accentColor={primaryColor}
+          primaryColor={primaryColor}
+          activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
+          dailyUsed={dailyUsedCount}
+          dailyLimit={
+            (subscriptionStatus === 'active' || subscriptionStatus === 'trial') ? 200 : 15
+          }
+          isPro={subscriptionStatus === 'active' || subscriptionStatus === 'trial'}
+          lang={userLang}
+          onRecentClick={(msg) => {
+            setCanvasContent({
+              title: (msg.inlineCard?.type === 'dynamic' && msg.inlineCard.title)
+                || msg.text.split('\n')[0].slice(0, 60) || '결과 보기',
+              blocks: (msg.inlineCard?.type === 'dynamic') ? msg.inlineCard.blocks : undefined,
+              inlineCard:  msg.inlineCard,
+              inlineCard2: msg.inlineCard2,
+              inlineCard3: msg.inlineCard3,
+              inlineCard4: msg.inlineCard4,
+              inlineCard5: msg.inlineCard5,
+            })
+          }}
+          onUpgradeClick={() => {
+            setPaywallFeature('daily_quota')
+            setPaywallUsed(dailyUsedCount)
+            setPaywallLimit((subscriptionStatus === 'active' || subscriptionStatus === 'trial') ? 200 : 15)
+          }}
+        />
+
+        {/* ── 중: 채팅 영역 ── */}
         <div style={{ flex: 1, overflow: 'hidden', borderRight: `1px solid ${primaryColor}20`, display: 'flex', flexDirection: 'column' }}>
           <ChatBubble
             messages={messages}
@@ -2036,38 +2068,7 @@ export function FloatingCharacter() {
           />
         </div>
 
-        {/* ── 우: 최근 결과 패널 — 결과 있을 때만 표시 (이전엔 항상 172px 점유)── */}
-        {(() => {
-          const lastMsg = messages.filter(m => m.role === 'nexus' && m.text).slice(-1)[0]
-          if (!lastMsg) return null  // 빈 상태에선 패널 자체 숨김 → 채팅 영역 100% 사용
-          const lines = lastMsg.text.split('\n').filter(l => l.trim()).slice(0, 5)
-          return (
-            <div style={{
-              width: 172, flexShrink: 0,
-              display: 'flex', flexDirection: 'column',
-              background: 'rgba(0,0,0,0.18)',
-              overflow: 'hidden',
-            }}>
-              <div style={{ padding: '8px 10px 4px', borderBottom: `1px solid ${primaryColor}22`, flexShrink: 0 }}>
-                <span style={{ fontSize: 9.5, fontWeight: 800, color: `${primaryColor}99`, letterSpacing: '0.06em' }}>
-                  📋 {userLang === 'en' ? 'LAST RESULT' : '최근 결과'}
-                </span>
-              </div>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px', scrollbarWidth: 'none' }}>
-                {lines.map((line, i) => (
-                  <div key={i} style={{ fontSize: 10, color: i === 0 ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.55)', marginBottom: 4, lineHeight: 1.5, wordBreak: 'break-all' }}>
-                    {i === 0 ? <span style={{ fontWeight: 700 }}>{line.slice(0, 40)}{line.length > 40 ? '…' : ''}</span> : `• ${line.slice(0, 32)}${line.length > 32 ? '…' : ''}`}
-                  </div>
-                ))}
-              </div>
-              <div style={{ padding: '4px 10px 6px', borderTop: `1px solid ${primaryColor}18`, flexShrink: 0 }}>
-                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)' }}>
-                  {new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
-          )
-        })()}
+        {/* (이전 우측 172px "최근 결과" 패널은 좌측 Sidebar 로 통합됨) */}
       </div>
 
       {/* ── 동적 결과창 (결과 완료 시만 슬라이드인) ── */}

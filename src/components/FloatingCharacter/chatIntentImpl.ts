@@ -747,56 +747,115 @@ export async function handleBackendIntentImpl(
           }
         }
 
-        /* ── 🛍️ 가격 비교 ── */
+        /* ── 🛍️ 가격 비교 (브라우저 실패 시 LLM 웹검색 폴백) ── */
         case 'price_compare': {
           const query = originalText.replace(/가격|비교|얼마|검색|찾아줘|price|compare|search|how much|buy/gi, '').trim() || originalText
-          const data = await priceCompare(query)
-          if (data.results && data.results.length > 0) {
-            setFloatingPreview(data.results.slice(0, 8).map(r => ({ title: `${r.price} — ${r.name}`, url: r.link })))
-          }
-          return {
-            text: data.summary || t(`"${query}" 가격 비교 완료!`, `Price comparison for "${query}" done!`, userLang),
-            card2: { type: 'price_compare', data: { query: data.query, results: data.results ?? [], total: data.total, summary: data.summary } },
-            emotion: data.success ? 'happy' : 'neutral',
-          }
+          // 1차: 스텔스 브라우저 멀티사이트 크롤링
+          try {
+            const data = await priceCompare(query)
+            const hasResults = data.results && data.results.filter(r => !r.blocked).length > 0
+            if (hasResults) {
+              setFloatingPreview(data.results.slice(0, 8).map(r => ({ title: `${r.price} — ${r.name}`, url: r.link })))
+              return {
+                text: data.summary || t(`"${query}" 가격 비교 완료!`, `Price comparison for "${query}" done!`, userLang),
+                card2: { type: 'price_compare', data: { query: data.query, results: data.results ?? [], total: data.total, summary: data.summary } },
+                emotion: 'happy',
+              }
+            }
+            // 1차 결과 빈 → 폴백으로 진행
+          } catch { /* 1차 실패 → 폴백 */ }
+
+          // Plan B: LLM 웹검색 ("OO 최저가 쿠팡 11번가" 쿼리)
+          try {
+            const fallback = await backendAPI.llmDeepSearchWeb(`${query} 최저가 가격 비교`, 8)
+            if (fallback.success && fallback.items?.length > 0) {
+              setFloatingPreview(fallback.items.slice(0, 8).map(it => ({ title: it.title, url: it.url })))
+              return {
+                text: fallback.summary || t(`"${query}" 가격 비교 (웹검색 결과):`, `Price info for "${query}" (web search):`, userLang),
+                card2: { type: 'system_action', icon: '🛍️', title: `${t('가격 검색', 'Price', userLang)}: ${query}`, detail: fallback.items.slice(0,5).map(it => `• ${it.title}`).join('\n'), success: true },
+                emotion: 'neutral',
+              }
+            }
+          } catch { /* 폴백도 실패 → 에러 카드 */ }
+
+          // 둘 다 실패 → 명확한 에러
+          return errorReturn('price_compare', new Error('가격 비교 결과를 가져오지 못했어요. 쇼핑몰 사이트가 차단된 상태일 수 있어요.'), userLang)
         }
 
-        /* ── 🌐 뉴스 검색 ── */
+        /* ── 🌐 뉴스 검색 (브라우저 실패 시 LLM 웹검색 폴백) ── */
         case 'news_search': {
           const query = originalText.replace(/뉴스|검색|최신|오늘|찾아줘|news|search|latest|today|find/gi, '').trim() || t('오늘 주요 뉴스', 'top news today', userLang)
-          const data = await newsSearch(query) as any
-          const articles = data.articles ?? data.items ?? []
-          if (articles.length > 0) {
-            setPreviewType('news')
-            setFloatingPreview(articles.slice(0, 8).map((a: { title: string; url: string }) => ({
-              title: a.title, url: a.url,
-              isVideo: a.url.includes('youtube.com') || a.url.includes('youtu.be'),
-            })))
-          }
-          return {
-            text: data.summary || t(`'${query}' 뉴스 검색 완료!`, `News search for '${query}' done!`, userLang),
-            card2: { type: 'system_action', icon: '📰', title: `${t('뉴스', 'News', userLang)}: ${query}`, detail: articles.slice(0,3).map((a: { title: string }) => `• ${a.title}`).join('\n'), success: data.success },
-            emotion: 'neutral',
-          }
+          // 1차: 네이버 뉴스 스텔스 크롤링
+          try {
+            const data = await newsSearch(query) as any
+            const articles = data.articles ?? data.items ?? []
+            if (articles.length > 0) {
+              setPreviewType('news')
+              setFloatingPreview(articles.slice(0, 8).map((a: { title: string; url: string }) => ({
+                title: a.title, url: a.url,
+                isVideo: a.url.includes('youtube.com') || a.url.includes('youtu.be'),
+              })))
+              return {
+                text: data.summary || t(`'${query}' 뉴스 검색 완료!`, `News search for '${query}' done!`, userLang),
+                card2: { type: 'system_action', icon: '📰', title: `${t('뉴스', 'News', userLang)}: ${query}`, detail: articles.slice(0,3).map((a: { title: string }) => `• ${a.title}`).join('\n'), success: true },
+                emotion: 'neutral',
+              }
+            }
+          } catch { /* 1차 실패 → 폴백 */ }
+
+          // Plan B: LLM 웹검색
+          try {
+            const fallback = await backendAPI.llmDeepSearchWeb(`${query} 최신 뉴스`, 8)
+            if (fallback.success && fallback.items?.length > 0) {
+              setPreviewType('news')
+              setFloatingPreview(fallback.items.slice(0, 8).map(it => ({ title: it.title, url: it.url })))
+              return {
+                text: fallback.summary || t(`'${query}' 뉴스 (웹검색):`, `News for '${query}' (web search):`, userLang),
+                card2: { type: 'system_action', icon: '📰', title: `${t('뉴스', 'News', userLang)}: ${query}`, detail: fallback.items.slice(0,5).map(it => `• ${it.title}`).join('\n'), success: true },
+                emotion: 'neutral',
+              }
+            }
+          } catch { /* 폴백도 실패 */ }
+
+          return errorReturn('news_search', new Error('뉴스 검색 결과를 가져오지 못했어요.'), userLang)
         }
 
-        /* ── 🎬 유튜브 검색 ── */
+        /* ── 🎬 유튜브 검색 (스텔스 실패 시 Tavily quick-search 폴백) ── */
         case 'youtube_search': {
           const query = originalText.replace(/유튜브에서|유튜브|youtube|찾아줘|검색해줘|보여줘|영상|search|find|show me|video/gi, '').trim() || originalText
           const isTiktok = /틱톡|tiktok/i.test(originalText)
-          const data = isTiktok
-            ? await tiktokSearch(query)
-            : await youtubeSearch(query)
           const platform = isTiktok ? t('틱톡', 'TikTok', userLang) : t('유튜브', 'YouTube', userLang)
           const icon = isTiktok ? '🎵' : '🎬'
-          const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
-          const detail = articles.slice(0, 5).map(a => `• ${a.title}\n  ${a.url}`).join('\n\n')
-          if (articles.length > 0) setFloatingPreview(articles.slice(0, 5).map(a => ({ title: a.title, url: a.url })))
-          return {
-            text: data.summary || t(`${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`, `Found ${articles.length} video(s) for "${query}" on ${platform}!`, userLang),
-            card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: detail || t(`"${query}" 검색 결과가 없어요.`, `No results found for "${query}".`, userLang), success: articles.length > 0 },
-            emotion: articles.length > 0 ? 'happy' : 'neutral',
-          }
+
+          // 1차: 스텔스 브라우저
+          try {
+            const data = isTiktok ? await tiktokSearch(query) : await youtubeSearch(query)
+            const articles = (data as { articles?: { title: string; url: string }[] }).articles ?? []
+            if (articles.length > 0) {
+              const detail = articles.slice(0, 5).map(a => `• ${a.title}\n  ${a.url}`).join('\n\n')
+              setFloatingPreview(articles.slice(0, 5).map(a => ({ title: a.title, url: a.url })))
+              return {
+                text: data.summary || t(`${platform}에서 "${query}" 영상 ${articles.length}개를 찾았어요!`, `Found ${articles.length} video(s) for "${query}" on ${platform}!`, userLang),
+                card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail, success: true },
+                emotion: 'happy',
+              }
+            }
+          } catch { /* 1차 실패 → 폴백 */ }
+
+          // Plan B: Tavily quick-search (크로스플랫폼, 빠름)
+          try {
+            const fallback = await videoQuickSearch(query, isTiktok ? 'tiktok' : 'youtube', 8)
+            if (fallback.success && fallback.items?.length > 0) {
+              setFloatingPreview(fallback.items.slice(0, 8).map(it => ({ title: it.title, url: it.url })))
+              return {
+                text: t(`${platform}에서 "${query}" 영상 ${fallback.items.length}개를 찾았어요!`, `Found ${fallback.items.length} video(s) for "${query}" on ${platform}!`, userLang),
+                card2: { type: 'system_action', icon, title: `${platform}: ${query}`, detail: fallback.items.slice(0,5).map(it => `• ${it.title}\n  ${it.url}`).join('\n\n'), success: true },
+                emotion: 'happy',
+              }
+            }
+          } catch { /* 폴백도 실패 */ }
+
+          return errorReturn('youtube_search', new Error(`"${query}" ${platform} 검색 결과를 가져오지 못했어요.`), userLang)
         }
 
         /* ── 🎬 영상 검색 (video_search = youtube_search alias) ── */

@@ -273,6 +273,67 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       return
     }
 
+    // ── 연속성 패턴: "방금 거", "이거", "그거", "아까" 직전 결과 참조 ──
+    // 직전 모델 응답을 대상으로 즉시 처리 (LLM 호출 안 함 → 0.2초 응답)
+    const CONTINUATION_PATTERNS: Array<{ re: RegExp; action: 'rerun' | 'copy' | 'save' | 'open_last' }> = [
+      { re: /^(방금|이거|그거|아까|위에)?\s*(다시|재실행|rerun|한번\s*더|again)\s*[!.?]*$/i, action: 'rerun' },
+      { re: /^(이거|그거|방금|결과)?\s*(복사|클립보드|copy)\s*(해|해줘)?\s*[!.?]*$/i, action: 'copy' },
+      { re: /^(이거|그거|방금|결과)?\s*(저장|save)\s*(해|해줘)?\s*[!.?]*$/i, action: 'save' },
+      { re: /^(이거|그거|방금)\s*(열|보여|show|open)/i, action: 'open_last' },
+    ]
+    const cont = CONTINUATION_PATTERNS.find(p => p.re.test(trimmed))
+    if (cont) {
+      const lastUser = [...historyRef.current].reverse().find((t: ConversationTurn) => t.role === 'user')?.parts[0]?.text ?? ''
+      const lastModel = [...historyRef.current].reverse().find((t: ConversationTurn) => t.role === 'model')?.parts[0]?.text ?? ''
+      const contMsgId = String(Date.now())
+      setMessages(prev => [...prev, { id: contMsgId, role: 'user', text: trimmed }])
+      setInput('')  // 입력창 클리어 (rerun 외 분기에서도 필요)
+      if (cont.action === 'rerun') {
+        if (!lastUser) {
+          setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? "No previous query to rerun." : '재실행할 이전 질문이 없어요.' }])
+          return
+        }
+        // 이전 질문을 다시 보냄 (재귀 호출)
+        setInput('')
+        return sendTextImpl(lastUser, d)
+      }
+      if (cont.action === 'copy' || cont.action === 'save') {
+        if (!lastModel) {
+          setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? "No previous response to copy/save." : '복사·저장할 직전 결과가 없어요.' }])
+          return
+        }
+        if (cont.action === 'copy') {
+          try { await navigator.clipboard.writeText(lastModel) } catch { /* clipboard 권한 없음 */ }
+          setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? '✅ Copied to clipboard.' : '✅ 클립보드에 복사했어요.' }])
+        } else {
+          // 저장: Blob으로 .txt 다운로드 (Tauri/브라우저 공통 동작)
+          try {
+            const blob = new Blob([lastModel], { type: 'text/plain;charset=utf-8' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `nexus-${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.txt`
+            a.click()
+            URL.revokeObjectURL(url)
+            setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? '✅ Saved as .txt file.' : '✅ .txt 파일로 저장했어요.' }])
+          } catch {
+            setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? '❌ Save failed.' : '❌ 저장 실패.' }])
+          }
+        }
+        return
+      }
+      if (cont.action === 'open_last') {
+        // 직전 결과 미리보기에서 첫 URL 열기
+        if (floatingPreview && floatingPreview.length > 0) {
+          try { window.open(floatingPreview[0].url, '_blank') } catch { /* ignore */ }
+          setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? '🌐 Opened in browser.' : '🌐 브라우저로 열었어요.' }])
+        } else {
+          setMessages(prev => [...prev, { id: `${contMsgId}-res`, role: 'nexus', text: userLang === 'en' ? 'No previous result with a URL.' : '열 수 있는 직전 결과가 없어요.' }])
+        }
+        return
+      }
+    }
+
     // 새 질문 시작 → 이전 음성 즉시 중지 (말풍선·미리보기는 새 답변 올 때 교체)
     stopSpeaking()
     setSpeaking(false)
@@ -987,18 +1048,13 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     }
 
     if (!response) {
-      // Emergency-C: API 키 없으면 Dynamic LLM 스킵 (8초 대기 낭비 방지)
-      //   apiKey 변수는 위에서 'nexus-pplx-key' or 'nexus-groq-key' 등 체크함
-      const hasAnyKey = !!apiKey ||
-        !!localStorage.getItem('nexus-pplx-key') ||
-        !!localStorage.getItem('nexus-groq-key') ||
-        !!localStorage.getItem('nexus-openai-key') ||
-        subscriptionStatus === 'active' || subscriptionStatus === 'trial' // Pro 는 백엔드 번들 키 사용
+      // 번들 키가 빌드에 주입돼 있어 사용자가 키 없어도 백엔드 LLM 동작 (Free 한도 내).
+      // 이전엔 'hasAnyKey' 가드로 키 없으면 스킵했으나 Free 사용자 경험 차단 → 제거.
+      // 백엔드 키도 없는 환경(개발/Mac)에서는 8초 안에 빠르게 실패하니 UX 부담 없음.
 
       // ★ 1순위: Dynamic LLM — Block[] 스키마 활용 (Phase 14)
       //   복합 질문/분석/비교/구조화된 답변 → 동적 카드 자동 생성
-      //   API 키 있을 때만 시도 (없으면 8초 낭비 X)
-      if (hasAnyKey) try {
+      try {
         const { callDynamicLLM } = await import('../../lib/nexus/dynamicLLM')
         const auth = await getAuthHeader()
         const dyn = await callDynamicLLM({
