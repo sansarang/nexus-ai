@@ -452,13 +452,27 @@ func getNetworkStat(dir string) float64 {
 }
 
 func handleStats(w http.ResponseWriter, r *http.Request) {
-	cpu := getRealCPU()
-	memPct := float64(getMemoryUsage())
-	ramTotal, ramUsed := getRAMDetail()
-	gpuUsage, gpuName := getGPUInfo()
-	disks := getAllDiskStats()
+	// 무거운 PowerShell 호출을 병렬화 (직렬 40초 → 병렬 ~8초)
+	var (
+		cpu       float64
+		gpuUsage  float64
+		gpuName   string
+		disks     []map[string]any
+		cpuTemp   float64
+		wg        sync.WaitGroup
+	)
+	memPct := float64(getMemoryUsage())     // 즉시 (WinAPI)
+	ramTotal, ramUsed := getRAMDetail()      // 즉시 (WinAPI)
+	netUp := getNetworkStat("up")            // 캐시
+	netDown := getNetworkStat("down")        // 캐시
 
-	// C: 디스크 사용률 (getAllDiskStats 결과 우선)
+	wg.Add(4)
+	go func() { defer wg.Done(); cpu = getRealCPU() }()
+	go func() { defer wg.Done(); gpuUsage, gpuName = getGPUInfo() }()
+	go func() { defer wg.Done(); disks = getAllDiskStats() }()
+	go func() { defer wg.Done(); cpuTemp = getCPUTemp() }()
+	wg.Wait()
+
 	diskPct := 0.0
 	if len(disks) > 0 {
 		if pct, ok := disks[0]["pct"].(int); ok {
@@ -473,11 +487,11 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		"mem_total_gb": ramTotal,
 		"disk":         diskPct,
 		"disks":        disks,
-		"cpu_temp":     getCPUTemp(),
+		"cpu_temp":     cpuTemp,
 		"gpu":          gpuUsage,
 		"gpu_name":     gpuName,
-		"net_up":       getNetworkStat("up"),
-		"net_down":     getNetworkStat("down"),
+		"net_up":       netUp,
+		"net_down":     netDown,
 		"timestamp":    time.Now().Unix(),
 	})
 }

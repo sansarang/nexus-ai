@@ -183,8 +183,10 @@ export interface RepairResult {
 /* ── API 함수 ── */
 export const backendAPI = {
   health:      ()                         => request<{ status: string }>('GET',  '/api/health', undefined, TIMEOUT_FAST),
-  stats:       ()                         => request<StatsData>          ('GET',  '/api/stats',  undefined, TIMEOUT_FAST),
-  scan:        ()                         => request<ScanResult>         ('POST', '/api/scan'),
+  // /api/stats는 백엔드에서 PowerShell 4~5개 직렬 호출 (사이트당 8초) → 최대 40초 가능
+  // 기존 TIMEOUT_FAST(8s)는 너무 짧아서 항상 timeout 발생 → 45초로 확장
+  stats:       ()                         => request<StatsData>          ('GET',  '/api/stats',  undefined, 45000),
+  scan:        ()                         => request<ScanResult>         ('POST', '/api/scan', undefined, 60000),
   repair:      (items: string[])          => request<RepairResult>       ('POST', '/api/repair',      { items }),
   clean:       (targets: string[])        => request<{ freed: number; message: string }>('POST', '/api/clean', { targets }),
   autoClean:   (items: string[])          => request<CleanResult[]>      ('POST', '/api/autoclean',  { items }),
@@ -629,14 +631,15 @@ export const searchAndPDF = (query: string, maxItems = 5, savePath = '', openAft
   }, 180000) // 3분 타임아웃 (브라우저 작업)
 
 /* ── 신규 API 메서드 ── */
+// 브라우저 기반 엔드포인트는 사이트당 90초까지 걸릴 수 있음 → 3분
 export const browserSmartAgent = (command: string, maxResults = 10, saveExcel = false, sessionKey = '') =>
-  request<SmartAgentResult>('POST', '/api/browser/smart-agent', { command, max_results: maxResults, save_excel: saveExcel, session_key: sessionKey })
+  request<SmartAgentResult>('POST', '/api/browser/smart-agent', { command, max_results: maxResults, save_excel: saveExcel, session_key: sessionKey }, 180000)
 
 export const browserCollectPrice = (productQuery: string, sites?: string[], maxPerSite = 5, saveExcel = true) =>
-  request<CollectPriceResult>('POST', '/api/browser/collect-price', { product_query: productQuery, sites, max_per_site: maxPerSite, save_excel: saveExcel })
+  request<CollectPriceResult>('POST', '/api/browser/collect-price', { product_query: productQuery, sites, max_per_site: maxPerSite, save_excel: saveExcel }, 180000)
 
 export const browserNewsCollect = (query: string, site = 'naver.com', maxItems = 10) =>
-  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site, max_items: maxItems })
+  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site, max_items: maxItems }, 180000)
 
 export const browserLoginSession = (url: string, username: string, password: string, sessionKey: string, opts?: { username_selector?: string; password_selector?: string; submit_selector?: string }) =>
   request<{ success: boolean; session_key: string; message: string }>('POST', '/api/browser/login-session', { url, username, password, session_key: sessionKey, ...opts })
@@ -809,20 +812,24 @@ export const appPermissions  = (app?: string) => request<{ success: boolean; per
 export const windowsUpdates  = () => request<{ success: boolean; count: number; updates: Array<{ title: string; kb: string; severity: string; size_mb: number; important: boolean }>; message: string }>('GET', '/api/system/updates')
 export const gpuStats        = () => request<{ success: boolean; gpus: Array<{ name: string; usage_pct: number; temp_c: number; mem_used_mb: number; mem_total_mb: number; driver_ver: string; status: string }>; message: string }>('GET', '/api/gpu/stats')
 
-/* ── 🌐 브라우저 래퍼 (price/news 바로 실행) ── */
+/* ── 🌐 브라우저 래퍼 (price/news 바로 실행) ──
+ * 백엔드 스텔스 브라우저는 사이트당 최대 90초 — 프론트 타임아웃 충분히 길게 (180s)
+ */
+const TIMEOUT_BROWSER = 180000
+
 export const priceCompare = (query: string) =>
   request<CollectPriceResult>('POST', '/api/browser/collect-price', {
     product_query: query,
     sites: ['coupang.com', 'naver.com', '11st.co.kr', 'gmarket.co.kr'],
     max_per_site: 5,
     save_excel: false,
-  })
+  }, TIMEOUT_BROWSER)
 
 export const youtubeSearch = (query: string) =>
-  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'youtube.com', max_items: 8 })
+  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'youtube.com', max_items: 8 }, TIMEOUT_BROWSER)
 
 export const tiktokSearch = (query: string) =>
-  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'tiktok.com', max_items: 8 })
+  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'tiktok.com', max_items: 8 }, TIMEOUT_BROWSER)
 
 export interface RedditPost {
   title: string
@@ -858,7 +865,7 @@ export const naverShoppingSearch = (query: string) =>
     sites: ['naver.com'],
     max_per_site: 8,
     save_excel: false,
-  })
+  }, TIMEOUT_BROWSER)
 
 export const coupangSearch = (query: string) =>
   request<CollectPriceResult>('POST', '/api/browser/collect-price', {
@@ -866,10 +873,10 @@ export const coupangSearch = (query: string) =>
     sites: ['coupang.com'],
     max_per_site: 8,
     save_excel: false,
-  })
+  }, TIMEOUT_BROWSER)
 
 export const newsSearch = (query: string) =>
-  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'naver.com', max_items: 8 })
+  request<NewsCollectResult>('POST', '/api/browser/news-collect', { query, site: 'naver.com', max_items: 8 }, TIMEOUT_BROWSER)
 
 export const videoDownload = (url: string, quality = 'best', savePath = '') =>
   request<{ success: boolean; url: string; save_path: string; message: string; install_url?: string; output?: string }>(

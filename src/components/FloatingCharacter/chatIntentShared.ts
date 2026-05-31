@@ -68,12 +68,40 @@ export function errorReturn(intent: Intent | string, err: unknown, lang: 'ko' | 
 
   const hint = (lang === 'en' ? HINTS_EN : HINTS_KO)[code as BackendErrorCode]
 
+  // 사용자에게 보이는 메시지에 원인 + 해결 힌트 직접 포함 (카드 안 펴봐도 보이게)
+  const codeLabelKo: Partial<Record<string, string>> = {
+    timeout: '응답 지연',
+    no_backend: '백엔드 미실행',
+    no_api_key: 'API 키 미등록',
+    rate_limited: '호출 한도 초과',
+    server_error: '백엔드 오류',
+    not_implemented: '미구현',
+    windows_only: 'Windows 전용',
+    bad_request: '요청 오류',
+    forbidden: '권한 부족',
+    unknown: '알 수 없는 오류',
+  }
+  const codeLabelEn: Partial<Record<string, string>> = {
+    timeout: 'Timeout',
+    no_backend: 'Backend offline',
+    no_api_key: 'Missing API key',
+    rate_limited: 'Rate limited',
+    server_error: 'Backend error',
+    not_implemented: 'Not implemented',
+    windows_only: 'Windows-only',
+    bad_request: 'Bad request',
+    forbidden: 'Forbidden',
+    unknown: 'Unknown error',
+  }
+  const cLabel = (lang === 'en' ? codeLabelEn : codeLabelKo)[code as string] ?? code
+  const tail = hint ? ` ${hint}` : ''
+
   const textKo = code === 'not_implemented' || code === 'windows_only'
-    ? `${label}는 ${code === 'windows_only' ? 'Windows 정식 빌드' : '곧 지원될'} 기능이에요.`
-    : `${label}를 처리하지 못했어요. 아래에서 원인을 확인해주세요.`
+    ? `${label}는 ${code === 'windows_only' ? 'Windows 정식 빌드' : '곧 지원될'} 기능이에요.${tail}`
+    : `${label} 실패 (${cLabel}).${tail}`
   const textEn = code === 'not_implemented' || code === 'windows_only'
-    ? `${label} is ${code === 'windows_only' ? 'Windows-only' : 'coming soon'}.`
-    : `Couldn't complete "${label}". See details below.`
+    ? `${label} is ${code === 'windows_only' ? 'Windows-only' : 'coming soon'}.${tail}`
+    : `${label} failed (${cLabel}).${tail}`
 
   const emotion: CharacterEmotion = (code === 'no_backend' || code === 'server_error') ? 'alert' : 'concerned'
 
