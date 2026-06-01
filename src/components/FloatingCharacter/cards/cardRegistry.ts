@@ -89,6 +89,12 @@ export const ACTION_TO_CARD: Record<string, string> = {
   // 시스템 제어 (시각 카드 가벼움)
   focus_mode:      'focus_mode',
   open_folder:     'folder_open',
+
+  // Excel/파일 자동 생성 (Jarvis 원칙: 데이터 없으면 LLM이 만든다)
+  excel_auto_create: 'file_result',
+  create_excel:      'file_result',
+  make_excel:        'file_result',
+  excel_save:        'file_result',
 }
 
 // 카드 슬롯 분류 — 어느 inlineCard{1-5} 슬롯에 들어가는지
@@ -249,6 +255,20 @@ export function buildCardFromResult(
       break
     case 'focus_mode':
       out.card2 = { type: 'focus_mode', active: r.active !== false, duration: r.duration }
+      break
+    case 'file_result':
+      // 자동 생성 파일 (Excel/PDF/Doc) → 파일 카드: 경로/이름/타입/행 수 + 열기 버튼
+      out.card2 = {
+        type: 'file_result',
+        data: {
+          fileName:  (r.fileName as string) ?? (r.path as string)?.split(/[\\/]/).pop() ?? 'untitled',
+          url:       (r.url as string) ?? ((r.path as string) ? 'file:///' + (r.path as string).replace(/\\/g, '/') : ''),
+          mimeType:  (r.mimeType as string) ?? 'application/octet-stream',
+          frames:    r.rows,  // Excel: rows 수
+          width:     r.cols,  // Excel: cols 수
+          operation: (r.operation as string) ?? 'excel_create',
+        },
+      }
       break
     case 'email_list':
       out.card2 = { type: 'email_list', data: r as any }

@@ -70,6 +70,12 @@ var actionToCard = map[string]string{
 	// 시스템 제어
 	"focus_mode":  "focus_mode",
 	"open_folder": "folder_open",
+
+	// Excel 자동 생성 (사장님 핵심 요구)
+	"excel_auto_create": "file_result",
+	"create_excel":      "file_result",
+	"make_excel":        "file_result",
+	"excel_save":        "file_result",
 }
 
 // resolveCardTypeForAction: 액션명 → 카드 타입. 매핑 없으면 빈 문자열.

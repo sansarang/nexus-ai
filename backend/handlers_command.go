@@ -845,10 +845,30 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		// ── 키워드 사전 라우팅 (LLM이 무시하는 액션들) ────────────
 		msgLower := strings.ToLower(req.Message)
 
+		// ── 최우선 명시 패턴 (map 순서 비결정 회피) ──
+		excelPat := regexp.MustCompile(`(엑셀|excel|스프레드시트|spreadsheet)`)
+		excelVerb := regexp.MustCompile(`(만들|생성|정리|create|make|generate)`)
+		if excelPat.MatchString(msgLower) && excelVerb.MatchString(msgLower) {
+			intentAction = "excel_auto_create"
+			intentParams = map[string]any{}
+			// Windows 에선 extractExcelTopic 사용 가능
+			topic := req.Message
+			for _, w := range []string{"엑셀", "excel", "스프레드시트", "spreadsheet", "만들어줘", "만들어", "정리해줘", "정리해", "정리", "생성해줘", "생성해", "생성", "create", "make", "generate", "으로", "로", "좀", "해줘", "줘"} {
+				topic = strings.ReplaceAll(topic, w, " ")
+			}
+			topic = strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(topic, " "))
+			if topic != "" {
+				intentParams["topic"] = topic
+			}
+			goto haikuRouted
+		}
+
 		// ── 시스템 인텐트 사전 라우팅 (Haiku/Groq가 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
 		// action 이름은 backend switch + frontend renderCommandResult 가 처리하는 표준 이름 사용
 		// KO/EN 모두 동등 대응
 		systemPatterns := map[string]string{
+			// Excel 자동 생성 (Jarvis 원칙: 데이터 없으면 LLM이 만든다)
+			"excel_auto_create": `(엑셀.*(만들|생성|정리)|스프레드시트.*(만들|생성)|표로.*정리|excel.*(create|make|generate)|create.*excel|generate.*spreadsheet|make.*table)`,
 			"stats":         `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태|memory|disk\s*(space|usage)|hard\s*drive|storage|system\s*status|pc\s*status|free\s*space)`,
 			"scan":          `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제|security\s*scan|virus\s*(scan|check)|malware|antivirus|slow|sluggish|laggy|why.*slow)`,
 			"clean":         `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리|clean\s*(up|cache)|clear\s*cache|temp\s*files|free\s*up\s*space|disk\s*cleanup)`,
@@ -2172,7 +2192,11 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		}
 		return r, koMsg
 
-	// ── 엑셀 저장 ────────────────────────────────────────────
+	// ── 엑셀 자동 생성 (사장님 원칙: 데이터 없으면 LLM이 만든다) ────────
+	case "excel_auto_create", "create_excel", "make_excel":
+		return cmdExcelAutoCreate(params, original, gKey, lang)
+
+	// ── 엑셀 저장 (data 명시) ────────────────────────────────
 	case "excel_save":
 		title := str("title")
 		rawData, _ := params["data"]

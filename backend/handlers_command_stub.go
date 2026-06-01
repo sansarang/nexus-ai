@@ -92,11 +92,23 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 	var preRoutedAction string
 	var preRoutedParams map[string]any
+	systemPreRouted := false
+
+	// ── 최우선 명시 패턴 (Go map 순서 비결정성 회피, 명백한 키워드만) ──
+	// "엑셀 정리해" 같이 다른 패턴(clean) 보다 우선해야 하는 경우 먼저 체크
+	excelPat := regexp.MustCompile(`(엑셀|excel|스프레드시트|spreadsheet)`)
+	excelVerb := regexp.MustCompile(`(만들|생성|정리|create|make|generate)`)
+	if excelPat.MatchString(msgLower) && excelVerb.MatchString(msgLower) {
+		preRoutedAction = "excel_auto_create"
+		preRoutedParams = map[string]any{"topic": extractExcelTopicMac(req.Message)}
+		systemPreRouted = true
+	}
 
 	// ── 시스템 인텐트 사전 라우팅 (LLM이 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
 	// action 이름은 backend switch + frontend renderCommandResult 가 처리하는 표준 이름 사용
 	// KO/EN 모두 동등 대응
 	systemPatterns := map[string]string{
+		"excel_auto_create": `(엑셀.*(만들|생성|정리)|스프레드시트.*(만들|생성)|표로.*정리|excel.*(create|make|generate)|create.*excel|generate.*spreadsheet|make.*table)`,
 		"stats":         `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태|memory|disk\s*(space|usage)|hard\s*drive|storage|system\s*status|pc\s*status|free\s*space)`,
 		"scan":          `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제|security\s*scan|virus\s*(scan|check)|malware|antivirus|slow|sluggish|laggy|why.*slow)`,
 		"clean":         `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리|clean\s*(up|cache)|clear\s*cache|temp\s*files|free\s*up\s*space|disk\s*cleanup)`,
@@ -105,8 +117,12 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels|music\s*video|cover\s*song|live\s*performance|shorts)`,
 	}
 	// 매칭된 액션별로 파라미터 추출
-	systemPreRouted := false
+	// systemPreRouted 는 이미 위에서 선언됨 (excel 우선 체크 시 true 가능)
+	// 이미 set 되어 있으면 systemPatterns 매칭 스킵
 	for action, pat := range systemPatterns {
+		if systemPreRouted {
+			break
+		}
 		if matched, _ := regexp.MatchString(pat, msgLower); matched {
 			preRoutedAction = action
 			preRoutedParams = map[string]any{}
@@ -732,6 +748,13 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		cmdHealthReport(_cx)
 	case "excel_save":
 		cmdExcelSave(_cx)
+	case "excel_auto_create", "create_excel", "make_excel":
+		// Jarvis 원칙: 데이터 없으면 LLM이 만든다
+		result, msg := cmdExcelAutoCreate(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
+		json200(_cx.w, CommandResponse{
+			Success:  true, Message: msg, Action: "excel_auto_create",
+			Result:   result, Duration: _cx.dur,
+		})
 	case "recall":
 		cmdRecall(_cx)
 	case "timer":
