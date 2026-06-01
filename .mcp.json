@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        "/Users/youngjinjung/Desktop/뚝딱PC"
+      ],
+      "env": {
+        "PATH": "/usr/local/go/bin:/Users/youngjinjung/go/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  }
+}

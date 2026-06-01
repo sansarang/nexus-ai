@@ -104,21 +104,25 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 	}
 	tryDecodeBody(r, &req)
 	home, _ := os.UserHomeDir()
-	switch req.Path {
-	case "desktop":
+	switch strings.ToLower(req.Path) {
+	case "desktop", "바탕화면":
 		req.Path = filepath.Join(home, "Desktop")
-	case "downloads", "":
+	case "downloads", "다운로드", "":
 		req.Path = filepath.Join(home, "Downloads")
+	case "documents", "문서":
+		req.Path = filepath.Join(home, "Documents")
 	}
 	if req.Mode == "" {
 		req.Mode = "type"
 	}
 	entries, err := os.ReadDir(req.Path)
 	if err != nil {
-		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("폴더를 읽을 수 없어요", "Cannot read folder", lang)})
+		writeJSON(w, 400, map[string]any{"success": false, "message": msgT("폴더를 읽을 수 없어요: ", "Cannot read folder: ", lang) + req.Path})
 		return
 	}
 	moved, skipped := 0, 0
+	categoryCounts := map[string]int{}
+	movedFiles := []map[string]string{}
 	for _, e := range entries {
 		if e.IsDir() {
 			skipped++
@@ -142,15 +146,37 @@ func handleFilesOrganize(w http.ResponseWriter, r *http.Request) {
 		dst := filepath.Join(req.Path, subDir)
 		os.MkdirAll(dst, 0755)
 		src := filepath.Join(req.Path, e.Name())
-		if err := os.Rename(src, filepath.Join(dst, e.Name())); err == nil {
+		dstFull := filepath.Join(dst, e.Name())
+		if err := os.Rename(src, dstFull); err == nil {
 			moved++
+			categoryCounts[subDir]++
+			if len(movedFiles) < 10 { // 최대 10개 샘플
+				movedFiles = append(movedFiles, map[string]string{
+					"name":     e.Name(),
+					"category": subDir,
+					"path":     dstFull,
+				})
+			}
 		}
 	}
+	// 증거 메시지 (사장님 원칙: 정확한 경로 + 파일명 출력)
+	categoryList := []string{}
+	for cat, n := range categoryCounts {
+		categoryList = append(categoryList, fmt.Sprintf("%s(%d)", cat, n))
+	}
+	msg := fmt.Sprintf(
+		msgT("✅ %s 폴더 정리 완료 — %d개 이동 (%s)", "✅ Organized %s — %d files moved (%s)", lang),
+		req.Path, moved, strings.Join(categoryList, ", "),
+	)
 	json200(w, map[string]any{
-		"success": true,
-		"moved":   moved,
-		"skipped": skipped,
-		"message": fmt.Sprintf(msgT("%d개 파일 정리 완료 📁", "%d files organized 📁", lang), moved),
+		"success":          true,
+		"folder":           req.Path,
+		"mode":             req.Mode,
+		"moved":            moved,
+		"skipped":          skipped,
+		"categories":       categoryCounts,
+		"moved_files":      movedFiles,
+		"message":          msg,
 	})
 }
 

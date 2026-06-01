@@ -207,6 +207,8 @@ var (
 )
 
 // callGroqWithCitations: 답변 텍스트 + Perplexity citations URL 목록 반환
+// (cleanJarvisTone 은 llm_cleanup_shared.go 로 이동됨 — Mac/Windows 공유)
+
 func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) (string, []string, error) {
 	llmMu.RLock()
 	key := llmPerplexityKey
@@ -222,6 +224,8 @@ func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) 
 	if err != nil {
 		return "", nil, err
 	}
+	// 자비스 톤 후처리 (마크다운 별표·헤더·비즈니스 preamble 제거)
+	text = cleanJarvisTone(text)
 	lastCitationsMu.Lock()
 	cites := make([]string, len(lastCitations))
 	copy(cites, lastCitations)
@@ -366,6 +370,15 @@ func isProxyLimitError(err error) bool {
 }
 
 func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
+	content, provider, err := callGroqWithFallbackRaw(msgs, maxTokens, jsonMode)
+	// JSON 모드(인텐트 분류용)는 정리 안 함 — 텍스트 응답만 자비스 톤 적용
+	if !jsonMode && err == nil && content != "" {
+		content = cleanJarvisTone(content)
+	}
+	return content, provider, err
+}
+
+func callGroqWithFallbackRaw(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
 	// 1순위: Supabase Edge Function 프록시 (JWT 있을 때 — 키가 EXE에 없음)
 	if content, err := callGroqViaProxy(msgs, maxTokens, jsonMode); err == nil {
 		return content, "groq-proxy", nil
@@ -481,7 +494,8 @@ func callClaude(apiKey string, msgs []groqMsg, maxTokens int) (string, error) {
 	if len(result.Content) == 0 {
 		return "", fmt.Errorf("Claude 응답 없음")
 	}
-	return result.Content[0].Text, nil
+	// 자비스 톤 후처리 (cleanJarvisTone은 멱등 — wrapper 거친 응답도 안전)
+	return cleanJarvisTone(result.Content[0].Text), nil
 }
 
 // ── 설정 영속화 ──────────────────────────────────────────────────

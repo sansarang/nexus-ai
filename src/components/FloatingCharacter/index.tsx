@@ -1714,14 +1714,15 @@ export function FloatingCharacter() {
       zIndex: 9999,
     }}>
 
-      {/* ── 상단 헤더: Orb + 상태바 + 컨트롤 ── */}
-      <div style={{
+      {/* ── 상단 헤더: Orb + 상태바 + 컨트롤 (drag 가능) ── */}
+      <div data-tauri-drag-region style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 14px 8px',
         background: 'rgba(8,8,24,0.85)',
         borderBottom: `1px solid ${primaryColor}28`,
         flexShrink: 0,
         position: 'relative', overflow: 'hidden',
+        cursor: 'grab',
       }}>
         {/* 빛줄기 */}
         {beamEnabled && (
@@ -1780,57 +1781,9 @@ export function FloatingCharacter() {
           )}
         </div>
 
-        {/* ─ 상태 정보 ─ */}
-        <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            {activePersona && <span style={{ fontSize: 14 }}>{activePersona.emoji}</span>}
-            <span style={{
-              fontSize: 12, fontWeight: 700,
-              color: activePersona ? activePersona.color : primaryColor,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {activePersona?.name ?? (userLang === 'en' ? 'General Mode' : '일반 모드')}
-            </span>
-            {/* UI-12: 페르소나 미선택 시 안내 칩 */}
-            {!activePersona && (
-              <span
-                onClick={() => sendText('도움말')}
-                style={{
-                  fontSize: 8.5, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.06)', padding: '2px 5px', borderRadius: 4,
-                  marginLeft: 4,
-                }}
-                title={userLang === 'en' ? 'Switch to a job-specific persona' : '직업별 모드로 전환'}
-              >
-                {userLang === 'en' ? 'Switch mode' : '모드 전환'}
-              </span>
-            )}
-          </div>
-          {/* UI-7: 사용 한도 시각 강화 — 색상으로 위급도 표시 */}
-          {(() => {
-            const limit = subscriptionStatus === 'active' || subscriptionStatus === 'trial' ? 200 : 15
-            const pct = (dailyUsedCount / limit) * 100
-            const limitColor = pct >= 90 ? '#ef4444' : pct >= 60 ? '#f59e0b' : 'rgba(255,255,255,0.45)'
-            return (
-              <div style={{ fontSize: 9.5, color: limitColor, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontWeight: pct >= 60 ? 700 : 500 }}>
-                  {userLang === 'en'
-                    ? `${dailyUsedCount} / ${limit} today`
-                    : `오늘 ${dailyUsedCount} / ${limit}회`}
-                </span>
-                {pct >= 80 && (
-                  <span
-                    onClick={() => import('../../lib/paddle').then(m => m.openCheckout(userEmail)).catch(() => {})}
-                    style={{ cursor: 'pointer', color: '#fbbf24', fontSize: 9, fontWeight: 800, marginLeft: 2 }}
-                    title={userLang === 'en' ? 'Upgrade to Pro for 200/day' : 'Pro 업그레이드 (하루 200회)'}
-                  >
-                    ↑PRO
-                  </span>
-                )}
-              </div>
-            )
-          })()}
-        </div>
+        {/* ─ 헤더는 미니멀: 페르소나/사용량은 좌측 Sidebar 에서 전담 ─ */}
+        <div style={{ flex: 1, minWidth: 0, zIndex: 1 }} />
+
 
         {/* ─ 컨트롤 버튼 ─ */}
         <div style={{ display: 'flex', gap: 4, zIndex: 1 }}>

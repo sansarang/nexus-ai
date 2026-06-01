@@ -309,6 +309,15 @@ func isProxyLimitError(err error) bool {
 }
 
 func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
+	content, provider, err := callGroqWithFallbackRaw(msgs, maxTokens, jsonMode)
+	// JSON 모드(인텐트 분류용)는 정리 안 함 — 텍스트 응답만 자비스 톤 적용
+	if !jsonMode && err == nil && content != "" {
+		content = cleanJarvisTone(content)
+	}
+	return content, provider, err
+}
+
+func callGroqWithFallbackRaw(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
 	// 1순위: Supabase Edge Function 프록시
 	if content, err := callGroqViaProxy(msgs, maxTokens, jsonMode); err == nil {
 		return content, "groq-proxy", nil

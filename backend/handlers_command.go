@@ -837,13 +837,14 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 		// ── 시스템 인텐트 사전 라우팅 (Haiku/Groq가 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
 		// action 이름은 backend switch + frontend renderCommandResult 가 처리하는 표준 이름 사용
+		// KO/EN 모두 동등 대응
 		systemPatterns := map[string]string{
-			"stats":         `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태)`,
-			"scan":          `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제)`,
-			"clean":         `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리)`,
-			"email_inbox":   `(받은\s*메일|받은편지|이메일\s*확인|inbox|메일\s*보여)`,
-			"price_compare": `(최저가|가격\s*비교|얼마야|얼마예요|할인|특가|가격대|싸게.*살|어디서.*싸|가성비)`,
-			"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels)`,
+			"stats":         `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태|memory|disk\s*(space|usage)|hard\s*drive|storage|system\s*status|pc\s*status|free\s*space)`,
+			"scan":          `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제|security\s*scan|virus\s*(scan|check)|malware|antivirus|slow|sluggish|laggy|why.*slow)`,
+			"clean":         `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리|clean\s*(up|cache)|clear\s*cache|temp\s*files|free\s*up\s*space|disk\s*cleanup)`,
+			"email_inbox":   `(받은\s*메일|받은편지|이메일\s*확인|inbox|메일\s*보여|check\s*(email|mail|inbox)|show.*(email|mail)|read.*mail)`,
+			"price_compare": `(최저가|가격\s*비교|얼마야|얼마예요|할인|특가|가격대|싸게.*살|어디서.*싸|가성비|cheapest|lowest\s*price|price\s*compare|how\s*much.*cost|best\s*deal|where.*buy.*cheap)`,
+			"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels|music\s*video|cover\s*song|live\s*performance|shorts)`,
 		}
 		matched := false
 		for action, pat := range systemPatterns {
@@ -2753,15 +2754,26 @@ func cleanPerplexityCall(query, gKey string) string {
 	today := time.Now().In(kst).Format("2006-01-02 15:04 KST")
 	var sys string
 	if isEnglishQuery(query) {
-		sys = "You are Nexus AI assistant. Use real-time web search to find accurate, up-to-date information and answer in natural English in 2-4 sentences. No markdown headers. Never say 'bot blocked', 'access denied', or 'unable to retrieve'. If no info, guide the user to the official site or app."
+		sys = `You are Nexus, a Jarvis-style assistant. Search the web and answer like a confident friend — never corporate.
+- 1-3 sentences max. Lead with the answer.
+- Casual friendly tone (use contractions: I'll, you're).
+- No markdown headers/bullets. No **bold** unless critical.
+- Never say "bot blocked", "access denied", "unable to retrieve". If no data, casually point to the official source.
+- Skip preambles like "In summary" or "To answer your question".`
 	} else {
-		sys = "당신은 Nexus AI 한국어 비서입니다. 실시간 웹 검색으로 정확한 최신 정보를 찾아 자연스러운 한국어로 2~4문장 답변하세요. 마크다운 헤더 금지. '봇 차단', '접근 불가', '차단으로 인해' 같은 표현 절대 금지. 정보 없으면 공식 사이트나 앱 이용을 안내하세요."
+		sys = `당신은 Nexus, 자비스 같은 AI 비서입니다. 웹 검색해서 친근하고 똘똘한 친구처럼 답변하세요.
+- 최대 1~3문장. 결론부터.
+- "~이에요/예요" 친근체. "~입니다/합니다" 격식체 금지.
+- 마크다운 헤더(#,##) 금지, 불릿(•) 금지, **굵게** 최소.
+- '봇 차단', '접근 불가', '차단으로 인해' 같은 표현 절대 금지. 정보 없으면 공식 사이트/앱 추천.
+- "정리하면", "요약하면", "다음과 같습니다" 같은 비즈니스 문구 금지.`
 	}
 	msgs := []groqMsg{
 		{Role: "system", Content: sys},
 		{Role: "user", Content: fmt.Sprintf("Current time: %s\n%s", today, query)},
 	}
-	text, _, err := callGroqWithFallback(msgs, 512, false)
+	// 자비스 톤: 짧게 (512 → 320)
+	text, _, err := callGroqWithFallback(msgs, 320, false)
 	if err != nil || text == "" {
 		return ""
 	}

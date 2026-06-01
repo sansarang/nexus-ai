@@ -86,13 +86,14 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 	// ── 시스템 인텐트 사전 라우팅 (LLM이 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
 	// action 이름은 backend switch + frontend renderCommandResult 가 처리하는 표준 이름 사용
+	// KO/EN 모두 동등 대응
 	systemPatterns := map[string]string{
-		"stats":         `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태)`,
-		"scan":          `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제)`,
-		"clean":         `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리)`,
-		"email_inbox":   `(받은\s*메일|받은편지|이메일\s*확인|inbox|메일\s*보여)`,
-		"price_compare": `(최저가|가격\s*비교|얼마야|얼마예요|할인|특가|가격대|싸게.*살|어디서.*싸|가성비)`,
-		"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels)`,
+		"stats":         `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태|memory|disk\s*(space|usage)|hard\s*drive|storage|system\s*status|pc\s*status|free\s*space)`,
+		"scan":          `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제|security\s*scan|virus\s*(scan|check)|malware|antivirus|slow|sluggish|laggy|why.*slow)`,
+		"clean":         `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리|clean\s*(up|cache)|clear\s*cache|temp\s*files|free\s*up\s*space|disk\s*cleanup)`,
+		"email_inbox":   `(받은\s*메일|받은편지|이메일\s*확인|inbox|메일\s*보여|check\s*(email|mail|inbox)|show.*(email|mail)|read.*mail)`,
+		"price_compare": `(최저가|가격\s*비교|얼마야|얼마예요|할인|특가|가격대|싸게.*살|어디서.*싸|가성비|cheapest|lowest\s*price|price\s*compare|how\s*much.*cost|best\s*deal|where.*buy.*cheap)`,
+		"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels|music\s*video|cover\s*song|live\s*performance|shorts)`,
 	}
 	// 매칭된 액션별로 파라미터 추출
 	systemPreRouted := false
