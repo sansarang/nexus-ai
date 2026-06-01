@@ -1059,9 +1059,42 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
             }
           }
 
+          // ── 자동 카드 풍부화: 카드 없는데 result.items 있으면 system_action 카드 자동 ──
+          //   web_search / news_search / chat (검색 폴백) 등 텍스트만 오는 경우 보강
+          let autoCard2 = card2
+          if (!card && !card2 && !card3 && !card4 && !card5 && cmd.result) {
+            const r = cmd.result as Record<string, unknown>
+            const rawItems = (r.items as Array<{ title?: string; url?: string }>) ??
+                             (r.articles as Array<{ title?: string; url?: string }>) ?? []
+            const items = rawItems.filter(it => !!it.url).slice(0, 5)
+            if (items.length > 0) {
+              const iconMap: Record<string, string> = {
+                web_search: '🔍', news_search: '📰', chat: '💬',
+                stock: '📈', exchange_rate: '💱', weather: '🌤️',
+                trip_plan: '✈️', deep_search: '🔬',
+              }
+              const titleMap: Record<string, string> = {
+                web_search:  userLang === 'en' ? 'Search Results' : '검색 결과',
+                news_search: userLang === 'en' ? 'News' : '뉴스',
+                chat:        userLang === 'en' ? 'Sources' : '참고 자료',
+                stock:       userLang === 'en' ? 'Stock' : '주가 정보',
+                weather:     userLang === 'en' ? 'Weather' : '날씨',
+                trip_plan:   userLang === 'en' ? 'Trip' : '여행',
+                deep_search: userLang === 'en' ? 'Deep Search' : '딥서치',
+              }
+              autoCard2 = {
+                type: 'system_action',
+                icon: iconMap[cmd.action] ?? '📋',
+                title: `${titleMap[cmd.action] ?? cmd.action}: ${(r.query as string) ?? trimmed.slice(0, 24)}`,
+                detail: items.map(it => `• ${it.title ?? it.url}`).join('\n'),
+                success: true,
+              }
+            }
+          }
+
           setMessages(prev => [...prev, {
             id: `${msgId}-res`, role: 'nexus', text: displayText,
-            inlineCard: card, inlineCard2: card2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5,
+            inlineCard: card, inlineCard2: autoCard2, inlineCard3: card3, inlineCard4: card4, inlineCard5: card5,
             action: cmd.action,
           }])
 

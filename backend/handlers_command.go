@@ -749,6 +749,16 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ── 응답 캐시 hit 체크 (자비스 응답 속도: 60초 내 동일 쿼리 즉시 반환) ──
+	// pending intent 가 있으면 캐시 미사용 (multi-turn 컨텍스트)
+	if req.PendingIntent == "" {
+		if cached, ok := cmdCacheGet(req.Message, req.Lang); ok {
+			cached.Duration = "0.00s (cached)"
+			json200(w, cached)
+			return
+		}
+	}
+
 	// ── AI 요청 사용량 체크 (플랜별 한도 적용) ─────────────────────
 	uid, _ := resolveUserID(req.UserEmail)
 	if allowed, used, lim := checkUsageLimit(uid, "ai_request"); !allowed {
@@ -1182,13 +1192,46 @@ haikuRouted:
 		Success:   true,
 	})
 
-	json200(w, CommandResponse{
-		Success:  true,
+	// 회피 메시지 자동 감지 — message 가 "지원되지 않/찾을 수 없/할 수 없" 등이면 success:false
+	// 프론트엔드 catch-all 폴백이 자동으로 LLM 답변으로 대체
+	successFlag := true
+	if isEvasiveResponse(msg) {
+		successFlag = false
+	}
+
+	finalResp := CommandResponse{
+		Success:  successFlag,
 		Message:  msg,
 		Action:   intentAction,
 		Result:   result,
 		Duration: time.Since(start).String(),
-	})
+	}
+	// 캐시 저장 (success=true 인 경우만, no-cache action 자동 스킵)
+	if req.PendingIntent == "" {
+		cmdCacheSet(req.Message, req.Lang, finalResp)
+	}
+	json200(w, finalResp)
+}
+
+// isEvasiveResponse: 명백한 회피·실패 메시지 패턴 감지 (KO + EN)
+// true 반환 시 프론트엔드 catch-all 폴백이 LLM 답변으로 자동 대체
+func isEvasiveResponse(msg string) bool {
+	if msg == "" {
+		return true
+	}
+	lower := strings.ToLower(msg)
+	patterns := []string{
+		"지원되지 않", "지원하지 않", "찾을 수 없", "찾지 못", "할 수 없어",
+		"불가능", "처리하지 못", "알 수 없는 오류",
+		"not supported", "not available", "not found", "unable to",
+		"cannot ", "i can't", "i am unable",
+	}
+	for _, p := range patterns {
+		if strings.Contains(lower, strings.ToLower(p)) {
+			return true
+		}
+	}
+	return false
 }
 
 // ══════════════════════════════════════════════════════════════════

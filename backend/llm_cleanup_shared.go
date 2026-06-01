@@ -50,9 +50,38 @@ func cleanJarvisTone(s string) string {
 	for _, p := range preambles {
 		s = strings.TrimPrefix(s, p)
 	}
-	// 본문 중간의 비즈니스 표현 제거 (한국어 격식체 → 친근체 자동 변환은 위험 — 끝 단어만 잡음)
 	s = strings.ReplaceAll(s, "다음과 같이 정리해드릴게요.\n", "")
 	s = strings.ReplaceAll(s, "여러 옵션이 있습니다.", "")
 	s = jarvisMultiNlRe.ReplaceAllString(s, "\n\n")
-	return strings.TrimSpace(s)
+	s = strings.TrimSpace(s)
+
+	// 안전망: 너무 긴 답변 자동 자르기 (시스템 프롬프트 무시한 경우)
+	// 줄 수 제한: 5줄, 글자 수 제한: 500자
+	const maxLines = 5
+	const maxChars = 500
+	lines := strings.Split(s, "\n")
+	if len(lines) > maxLines {
+		lines = lines[:maxLines]
+		s = strings.Join(lines, "\n")
+	}
+	// 글자 수 초과 시 마지막 문장 종료점에서 자르기 (한글 + 영어)
+	if runeCount := len([]rune(s)); runeCount > maxChars {
+		runes := []rune(s)[:maxChars]
+		s = string(runes)
+		// 끝에서 가장 가까운 문장 부호 (. ! ? 。 ! ?)를 찾아 자르기
+		lastSentenceEnd := -1
+		for i := len(s) - 1; i >= maxChars/2 && i >= 0; i-- {
+			r := rune(s[i])
+			if r == '.' || r == '!' || r == '?' || r == '。' {
+				lastSentenceEnd = i
+				break
+			}
+		}
+		if lastSentenceEnd > 0 {
+			s = s[:lastSentenceEnd+1]
+		} else {
+			s = s + "…"
+		}
+	}
+	return s
 }

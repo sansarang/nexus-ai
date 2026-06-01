@@ -29,6 +29,15 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		userID = r.RemoteAddr
 	}
 
+	// ── 응답 캐시 hit 체크 (Mac dev) ───────────────────────
+	if req.PendingIntent == "" {
+		if cached, ok := cmdCacheGet(req.Message, req.Lang); ok {
+			cached.Duration = "0.00s (cached)"
+			json200(w, cached)
+			return
+		}
+	}
+
 	start := time.Now()
 
 	llmMu.RLock()

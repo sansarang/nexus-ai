@@ -137,6 +137,9 @@ export function FloatingCharacter() {
   //  - Proactive 알림(과열/디스크 부족)은 speak() 직접 호출이라 본 토글 영향 없음 (항상 동작)
   const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') === 'on')
   const forceVoiceNextRef = useRef(false)
+  // STT — Web Speech API 음성 입력 (마이크 → 텍스트)
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
   const [isActive, setIsActive]           = useState(true)
   const [beamEnabled, setBeamEnabled]     = useState(() => localStorage.getItem('nexus-beam') !== 'off')
   const [historyVersion, setHistoryVersion] = useState(0)
@@ -2000,13 +2003,47 @@ export function FloatingCharacter() {
             setPaywallUsed(dailyUsedCount)
             setPaywallLimit((subscriptionStatus === 'active' || subscriptionStatus === 'trial') ? 200 : 15)
           }}
-          voiceActive={soundEnabled}
-          onVoiceToggle={() => setSoundEnabled(prev => {
-            const next = !prev
-            try { localStorage.setItem('nexus-sound', next ? 'on' : 'off') } catch { /* ignore */ }
-            if (!next) stopSpeaking()
-            return next
-          })}
+          voiceActive={listening}
+          onVoiceToggle={() => {
+            // STT 토글 — Web Speech API
+            if (listening) {
+              // 중지
+              try { recognitionRef.current?.stop() } catch { /* ignore */ }
+              setListening(false)
+              return
+            }
+            // 시작
+            const win = window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }
+            const SR = win.SpeechRecognition ?? win.webkitSpeechRecognition
+            if (!SR) {
+              alert(userLang === 'en'
+                ? 'Speech recognition not supported in this browser.'
+                : '이 환경에서는 음성 인식을 지원하지 않아요.')
+              return
+            }
+            const rec = new SR()
+            rec.lang = userLang === 'en' ? 'en-US' : 'ko-KR'
+            rec.interimResults = false
+            rec.continuous = false
+            rec.onresult = (e: any) => {
+              const transcript = e.results?.[0]?.[0]?.transcript ?? ''
+              if (transcript) {
+                // 음성 입력 후 자동 전송 + 다음 응답 1회 음성 ON (음성 → 음성 미러)
+                forceVoiceNextRef.current = true
+                sendText(transcript)
+              }
+            }
+            rec.onerror = () => setListening(false)
+            rec.onend = () => setListening(false)
+            recognitionRef.current = rec
+            try {
+              rec.start()
+              setListening(true)
+            } catch (err) {
+              console.warn('[STT] start failed:', err)
+              setListening(false)
+            }
+          }}
         />
 
         {/* ── 중: 채팅 영역 ── */}
