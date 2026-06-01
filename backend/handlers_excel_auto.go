@@ -131,22 +131,24 @@ Rules:
 	// 응답 — file_result 카드 자동 렌더
 	rows := len(parsed.Rows)
 	cols := len(parsed.Headers)
-	msg := fmt.Sprintf("✅ Excel 저장 완료: %s (%d행 × %d열) — 바탕화면", filename, rows, cols)
+	msg := fmt.Sprintf("✅ Excel 저장 완료 (가상 샘플): %s (%d행 × %d열) — 바탕화면", filename, rows, cols)
 	if lang == "en" {
-		msg = fmt.Sprintf("✅ Excel saved: %s (%d rows × %d cols) — Desktop", filename, rows, cols)
+		msg = fmt.Sprintf("✅ Excel saved (sample template): %s (%d rows × %d cols) — Desktop", filename, rows, cols)
 	}
 
 	return map[string]any{
-		"success":   true,
-		"fileName":  filename,
-		"path":      savePath,
-		"url":       "file:///" + filepath.ToSlash(savePath),
-		"mimeType":  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-		"rows":      rows,
-		"cols":      cols,
-		"operation": "excel_create",
-		"title":     parsed.Title,
-		"topic":     topic,
+		"success":     true,
+		"fileName":    filename,
+		"path":        savePath,
+		"url":         "file:///" + filepath.ToSlash(savePath),
+		"mimeType":    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		"rows":        rows,
+		"cols":        cols,
+		"operation":   "excel_create",
+		"title":       parsed.Title,
+		"topic":       topic,
+		"is_sample":   true,
+		"sample_note": sampleNote(lang),
 	}, msg
 }
 

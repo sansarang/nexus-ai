@@ -71,11 +71,17 @@ var actionToCard = map[string]string{
 	"focus_mode":  "focus_mode",
 	"open_folder": "folder_open",
 
-	// Excel 자동 생성 (사장님 핵심 요구)
+	// Excel/문서 자동 생성 (사장님 핵심 요구: 데이터 없으면 만든다)
 	"excel_auto_create": "file_result",
 	"create_excel":      "file_result",
 	"make_excel":        "file_result",
 	"excel_save":        "file_result",
+	"doc_auto_create":   "file_result",
+	"create_doc":        "file_result",
+	"make_doc":          "file_result",
+	// Excel 분석 (사용자 데이터 활용)
+	"excel_analyze":     "file_result",
+	"analyze_excel":     "file_result",
 }
 
 // resolveCardTypeForAction: 액션명 → 카드 타입. 매핑 없으면 빈 문자열.

@@ -94,14 +94,33 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	var preRoutedParams map[string]any
 	systemPreRouted := false
 
-	// ── 최우선 명시 패턴 (Go map 순서 비결정성 회피, 명백한 키워드만) ──
-	// "엑셀 정리해" 같이 다른 패턴(clean) 보다 우선해야 하는 경우 먼저 체크
-	excelPat := regexp.MustCompile(`(엑셀|excel|스프레드시트|spreadsheet)`)
-	excelVerb := regexp.MustCompile(`(만들|생성|정리|create|make|generate)`)
-	if excelPat.MatchString(msgLower) && excelVerb.MatchString(msgLower) {
-		preRoutedAction = "excel_auto_create"
-		preRoutedParams = map[string]any{"topic": extractExcelTopicMac(req.Message)}
+	// ── 최우선 명시 패턴 (Go map 순서 비결정성 회피) ──
+	// 1) Excel 분석 (사용자 파일 활용)
+	excelAnalyzePat := regexp.MustCompile(`(엑셀|excel|xlsx).*(분석|요약|보여|이해|읽어|확인|analyze|summarize|read)`)
+	if excelAnalyzePat.MatchString(msgLower) {
+		preRoutedAction = "excel_analyze"
+		preRoutedParams = map[string]any{}
 		systemPreRouted = true
+	}
+	// 2) Excel 자동 생성
+	if !systemPreRouted {
+		excelPat := regexp.MustCompile(`(엑셀|excel|스프레드시트|spreadsheet)`)
+		excelVerb := regexp.MustCompile(`(만들|생성|정리|create|make|generate)`)
+		if excelPat.MatchString(msgLower) && excelVerb.MatchString(msgLower) {
+			preRoutedAction = "excel_auto_create"
+			preRoutedParams = map[string]any{"topic": extractExcelTopicMac(req.Message)}
+			systemPreRouted = true
+		}
+	}
+	// 3) 문서 자동 생성 (보고서/메모/회의록)
+	if !systemPreRouted {
+		docPat := regexp.MustCompile(`(보고서|메모|회의록|기획서|문서|노트|report|memo|note|proposal|document)`)
+		docVerb := regexp.MustCompile(`(작성|만들|생성|써|쓰|create|make|write|generate|draft)`)
+		if docPat.MatchString(msgLower) && docVerb.MatchString(msgLower) {
+			preRoutedAction = "doc_auto_create"
+			preRoutedParams = map[string]any{}
+			systemPreRouted = true
+		}
 	}
 
 	// ── 시스템 인텐트 사전 라우팅 (LLM이 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
@@ -753,6 +772,20 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		result, msg := cmdExcelAutoCreate(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
 		json200(_cx.w, CommandResponse{
 			Success:  true, Message: msg, Action: "excel_auto_create",
+			Result:   result, Duration: _cx.dur,
+		})
+	case "doc_auto_create", "create_doc", "make_doc":
+		// 문서 자동 생성 (TXT/MD/HTML)
+		result, msg := cmdDocAutoCreate(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
+		json200(_cx.w, CommandResponse{
+			Success:  true, Message: msg, Action: "doc_auto_create",
+			Result:   result, Duration: _cx.dur,
+		})
+	case "excel_analyze", "analyze_excel":
+		// 사용자 Excel 분석 (사장님 원칙 #3)
+		result, msg := cmdExcelAnalyze(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
+		json200(_cx.w, CommandResponse{
+			Success:  true, Message: msg, Action: "excel_analyze",
 			Result:   result, Duration: _cx.dur,
 		})
 	case "recall":

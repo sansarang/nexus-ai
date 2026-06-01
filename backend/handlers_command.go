@@ -846,12 +846,20 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		msgLower := strings.ToLower(req.Message)
 
 		// ── 최우선 명시 패턴 (map 순서 비결정 회피) ──
+		// 1) Excel 분석 (사용자 데이터 활용) — Excel + (분석|요약|보여|이해) 동시
+		excelAnalyzePat := regexp.MustCompile(`(엑셀|excel|xlsx).*(분석|요약|보여|이해|읽어|확인|analyze|summarize|read)`)
+		if excelAnalyzePat.MatchString(msgLower) {
+			intentAction = "excel_analyze"
+			intentParams = map[string]any{}
+			goto haikuRouted
+		}
+
+		// 2) Excel 자동 생성
 		excelPat := regexp.MustCompile(`(엑셀|excel|스프레드시트|spreadsheet)`)
 		excelVerb := regexp.MustCompile(`(만들|생성|정리|create|make|generate)`)
 		if excelPat.MatchString(msgLower) && excelVerb.MatchString(msgLower) {
 			intentAction = "excel_auto_create"
 			intentParams = map[string]any{}
-			// Windows 에선 extractExcelTopic 사용 가능
 			topic := req.Message
 			for _, w := range []string{"엑셀", "excel", "스프레드시트", "spreadsheet", "만들어줘", "만들어", "정리해줘", "정리해", "정리", "생성해줘", "생성해", "생성", "create", "make", "generate", "으로", "로", "좀", "해줘", "줘"} {
 				topic = strings.ReplaceAll(topic, w, " ")
@@ -860,6 +868,15 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			if topic != "" {
 				intentParams["topic"] = topic
 			}
+			goto haikuRouted
+		}
+
+		// 3) 문서 자동 생성 (보고서/메모/회의록/기획서/노트)
+		docPat := regexp.MustCompile(`(보고서|메모|회의록|기획서|문서|노트|report|memo|note|proposal|document)`)
+		docVerb := regexp.MustCompile(`(작성|만들|생성|써|쓰|create|make|write|generate|draft)`)
+		if docPat.MatchString(msgLower) && docVerb.MatchString(msgLower) {
+			intentAction = "doc_auto_create"
+			intentParams = map[string]any{}
 			goto haikuRouted
 		}
 
@@ -2195,6 +2212,14 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	// ── 엑셀 자동 생성 (사장님 원칙: 데이터 없으면 LLM이 만든다) ────────
 	case "excel_auto_create", "create_excel", "make_excel":
 		return cmdExcelAutoCreate(params, original, gKey, lang)
+
+	// ── 문서 자동 생성 (TXT/MD/HTML) ─────────────────────────
+	case "doc_auto_create", "create_doc", "make_doc":
+		return cmdDocAutoCreate(params, original, gKey, lang)
+
+	// ── Excel 분석 (사용자 파일 활용) ────────────────────────
+	case "excel_analyze", "analyze_excel":
+		return cmdExcelAnalyze(params, original, gKey, lang)
 
 	// ── 엑셀 저장 (data 명시) ────────────────────────────────
 	case "excel_save":

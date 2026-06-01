@@ -90,11 +90,17 @@ export const ACTION_TO_CARD: Record<string, string> = {
   focus_mode:      'focus_mode',
   open_folder:     'folder_open',
 
-  // Excel/파일 자동 생성 (Jarvis 원칙: 데이터 없으면 LLM이 만든다)
+  // Excel/문서 자동 생성 (사장님 원칙: 데이터 없으면 LLM이 만든다)
   excel_auto_create: 'file_result',
   create_excel:      'file_result',
   make_excel:        'file_result',
   excel_save:        'file_result',
+  doc_auto_create:   'file_result',
+  create_doc:        'file_result',
+  make_doc:          'file_result',
+  // Excel 분석 (사용자 데이터 활용)
+  excel_analyze:     'file_result',
+  analyze_excel:     'file_result',
 }
 
 // 카드 슬롯 분류 — 어느 inlineCard{1-5} 슬롯에 들어가는지
