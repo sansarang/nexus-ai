@@ -278,6 +278,8 @@ func callGroqWithCitations(apiKey, model string, msgs []groqMsg, maxTokens int) 
 	if err != nil {
 		return "", nil, err
 	}
+	// 자비스 톤 후처리 (마크다운/비즈니스 preamble 제거) — Mac/Windows 공유
+	text = cleanJarvisTone(text)
 	lastCitationsMu.Lock()
 	cites := make([]string, len(lastCitations))
 	copy(cites, lastCitations)
@@ -752,6 +754,7 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Messages  []groqMsg `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
+		JSONMode  bool      `json:"json_mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.Messages) == 0 {
 		writeJSON(w, 400, map[string]any{"success": false, "message": "messages 필요"})
@@ -760,12 +763,14 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	if req.MaxTokens == 0 {
 		req.MaxTokens = 1024
 	}
-	text, provider, err := callGroqWithFallback(req.Messages, req.MaxTokens, false)
+	// callGroqWithFallback wrapper 가 jsonMode=false 면 cleanJarvisTone 적용
+	text, provider, err := callGroqWithFallback(req.Messages, req.MaxTokens, req.JSONMode)
 	if err != nil {
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "text": text, "provider": provider})
+	// Windows 응답 필드와 통일: "answer" (프론트 catch-all 폴백이 이 필드 사용)
+	json200(w, map[string]any{"success": true, "answer": text, "model": provider, "tokens": 0})
 }
 
 func handleLLMDeepSearch(w http.ResponseWriter, r *http.Request) {

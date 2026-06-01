@@ -676,7 +676,7 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/llm/chat
 func handleLLMChat(w http.ResponseWriter, r *http.Request) {
-	lang := getLang(r)
+lang := getLang(r)
 	var req struct {
 		Messages  []groqMsg `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
@@ -699,10 +699,18 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	cKey := llmClaudeKey
 	llmMu.RUnlock()
 
+	// 응답 후처리: JSON 모드면 raw 유지, 텍스트면 자비스 톤 적용
+	finalize := func(text string) string {
+		if req.JSONMode {
+			return text
+		}
+		return cleanJarvisTone(text)
+	}
+
 	if pKey == "" {
 		// 로컬 키 없음 → JWT 있으면 Supabase Edge Function 프록시로 폴백
 		if content, err := callGroqViaProxy(req.Messages, req.MaxTokens, req.JSONMode); err == nil {
-			json200(w, map[string]any{"success": true, "answer": content, "model": "proxy", "tokens": 0})
+			json200(w, map[string]any{"success": true, "answer": finalize(content), "model": "proxy", "tokens": 0})
 			return
 		}
 		writeJSON(w, 503, map[string]any{"success": false, "message": "API 키가 없습니다. 설정에서 Groq 또는 Perplexity 키를 입력해주세요."})
@@ -713,19 +721,18 @@ func handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	answer, tokens, err := callOpenAICompat(pKey, endpoint, model, req.Messages, req.MaxTokens, req.JSONMode)
 	if err != nil {
 		if cKey != "" {
+			// callClaude 는 함수 내부에서 자체 cleanJarvisTone 적용됨
 			ans, err2 := callClaude(cKey, req.Messages, req.MaxTokens)
 			if err2 == nil {
-				json200(w, map[string]any{"success": true, "answer": ans, "model": "openai-fallback", "tokens": 0})
+				json200(w, map[string]any{"success": true, "answer": ans, "model": "claude-fallback", "tokens": 0})
 				return
 			}
 		}
 		writeJSON(w, 500, map[string]any{"success": false, "message": err.Error()})
 		return
 	}
-	json200(w, map[string]any{"success": true, "answer": answer, "model": model, "tokens": tokens})
-}
-
-// POST /api/llm/vision — Vision 미지원
+	json200(w, map[string]any{"success": true, "answer": finalize(answer), "model": model, "tokens": tokens})
+}// POST /api/llm/vision — Vision 미지원
 func handleLLMVision(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 400, map[string]any{
 		"success": false,
