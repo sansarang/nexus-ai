@@ -1221,12 +1221,21 @@ func isEvasiveResponse(msg string) bool {
 	if msg == "" {
 		return true
 	}
+	// 길이가 짧은 메시지에서만 회피 패턴 판정 (긴 답변 안에 "찾을 수 없는" 같은 표현이
+	// 일부 포함돼도 정상 답변일 수 있음 — false positive 완화)
+	if len([]rune(msg)) > 80 {
+		return false
+	}
 	lower := strings.ToLower(msg)
+	// 명확히 거부/실패 메시지인 짧은 응답만 폴백 트리거
+	// 패턴: 문장 시작 또는 단독 표현
 	patterns := []string{
-		"지원되지 않", "지원하지 않", "찾을 수 없", "찾지 못", "할 수 없어",
-		"불가능", "처리하지 못", "알 수 없는 오류",
-		"not supported", "not available", "not found", "unable to",
-		"cannot ", "i can't", "i am unable",
+		"지원되지 않", "지원하지 않", "처리하지 못했",
+		"실행할 수 없", "찾을 수 없어요", "위치를 찾을 수 없",
+		"기능은 windows", "windows 정식",
+		"알 수 없는 오류", "에러:",
+		"not supported", "not available in", "currently unable",
+		"feature is not", "this is not a", "i am unable to",
 	}
 	for _, p := range patterns {
 		if strings.Contains(lower, strings.ToLower(p)) {

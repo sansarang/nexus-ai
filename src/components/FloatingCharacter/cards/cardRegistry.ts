@@ -257,7 +257,27 @@ export function buildCardFromResult(
       out.card2 = { type: 'timeline', data: r as any }
       break
     case 'weather_card':
-      out.card2 = { type: 'weather_card', data: r as any }
+      // 백엔드 응답(wind_kmh, forecast.max/min) → 카드 data(wind_kph, high_c/low_c) 정규화
+      out.card2 = {
+        type: 'weather_card',
+        data: {
+          city:       r.city,
+          condition:  r.condition,
+          temp_c:     r.temp_c,
+          feels_like: r.feels_like,
+          humidity:   r.humidity,
+          wind_kph:   r.wind_kph ?? r.wind_kmh,
+          icon:       r.icon,
+          forecast: ((r.forecast as any[]) ?? []).map((f: any) => ({
+            date:      f.date,
+            condition: f.condition,
+            high_c:    f.high_c ?? f.max,
+            low_c:     f.low_c  ?? f.min,
+            icon:      f.icon,
+          })),
+          summary:    r.summary ?? message,
+        },
+      }
       break
 
     // ── Cards3 ──
@@ -305,19 +325,35 @@ export function buildCardFromResult(
 
     // ── Cards5 (검색 결과) ──
     case 'web_search':
+      // items 정규화 (백엔드 응답 다양: items / results / articles)
       out.card5 = {
         type: 'web_search',
         query: (r.query as string) ?? query,
         summary: (r.summary as string) ?? message ?? '',
-        items: (r.items as any[]) ?? [],
+        items: ((r.items as any[]) ?? (r.results as any[]) ?? (r.articles as any[]) ?? []).map((it: any) => ({
+          title:     it.title ?? it.name ?? '',
+          url:       it.url ?? it.link ?? '',
+          snippet:   it.snippet ?? it.description ?? it.content ?? '',
+          source:    it.source ?? it.site ?? '',
+          published: it.published ?? it.date ?? '',
+          thumbnail: it.thumbnail ?? it.image ?? '',
+        })).filter((it: any) => it.url),
       }
       break
     case 'news_search':
+      // articles → items 자동 정규화 (백엔드 응답 다양)
       out.card5 = {
         type: 'news_search',
         query: (r.query as string) ?? query,
         summary: (r.summary as string) ?? message ?? '',
-        items: (r.items as any[]) ?? (r.articles as any[]) ?? [],
+        items: ((r.items as any[]) ?? (r.articles as any[]) ?? []).map((it: any) => ({
+          title:     it.title ?? it.name ?? '',
+          url:       it.url ?? it.link ?? '',
+          snippet:   it.snippet ?? it.description ?? it.content ?? '',
+          source:    it.source ?? it.site ?? '',
+          published: it.published ?? it.date ?? '',
+          thumbnail: it.thumbnail ?? it.image ?? '',
+        })).filter((it: any) => it.url),
       }
       break
     case 'youtube':

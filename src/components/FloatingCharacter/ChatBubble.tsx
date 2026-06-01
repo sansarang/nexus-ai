@@ -886,7 +886,9 @@ export function ChatBubble({
                   ? [...liveMessages.slice(0, msgIdx)].reverse().find(m => m.role === 'user')?.text
                   : undefined
                 // 답변 안의 URL 추출 (열기 버튼용)
-                const urlMatch = !isUser ? msg.text.match(/https?:\/\/\S+/) : null
+                // 답변 안 URL 다중 추출 (첫 번째 = 기본, 나머지 = "더보기" 버튼)
+                const allUrls = !isUser ? (msg.text.match(/https?:\/\/\S+/g) ?? []) : []
+                const urlMatch = allUrls.length > 0 ? [allUrls[0]] : null
                 return (
                   <motion.div
                     key={msg.id}
@@ -959,10 +961,19 @@ export function ChatBubble({
                         )}
                         {urlMatch && (
                           <button
-                            onClick={() => { try { window.open(urlMatch[0], '_blank') } catch { /* ignore */ } }}
-                            title={isEn ? 'Open link' : '링크 열기'}
+                            onClick={() => {
+                              // 첫 URL 즉시 열기 + 나머지 있으면 차례로 (최대 5개)
+                              try {
+                                allUrls.slice(0, 5).forEach((u, i) => {
+                                  setTimeout(() => { try { window.open(u, '_blank') } catch { /* ignore */ } }, i * 100)
+                                })
+                              } catch { /* ignore */ }
+                            }}
+                            title={allUrls.length > 1
+                              ? (isEn ? `Open ${allUrls.length} links` : `링크 ${allUrls.length}개 열기`)
+                              : (isEn ? 'Open link' : '링크 열기')}
                             style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
-                          >🌐</button>
+                          >🌐{allUrls.length > 1 ? `·${allUrls.length}` : ''}</button>
                         )}
                       </div>
                     )}

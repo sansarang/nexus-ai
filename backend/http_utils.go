@@ -71,6 +71,15 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 func json200(w http.ResponseWriter, v any) {
+	// CommandResponse 인 경우 CardType 자동 주입 (Mac/Windows 공용 응답 후처리)
+	// cmd_*.go 핸들러들이 직접 json200 호출해도 카드 자동 라우팅 됨
+	if cmd, ok := v.(CommandResponse); ok {
+		if cmd.CardType == "" && cmd.Action != "" {
+			cmd.CardType = resolveCardTypeForAction(cmd.Action)
+		}
+		writeJSON(w, http.StatusOK, cmd)
+		return
+	}
 	writeJSON(w, http.StatusOK, v)
 }
 
