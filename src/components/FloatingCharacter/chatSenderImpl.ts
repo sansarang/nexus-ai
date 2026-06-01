@@ -876,6 +876,51 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           return
         }
 
+        // ── 🛡️ Catch-all 폴백 (Jarvis 원칙: 어떤 질문에도 답변) ─────
+        //  cmd.success===false 이지만 paywall/API키도 아님 → 회피 답변 ("지원되지 않음", "찾을 수 없음" 등)
+        //  자동으로 LLM 일반 답변을 받아서 사용자에게 답 제공
+        if (!cmd.success) {
+          try {
+            setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
+            const auth = await getAuthHeader()
+            const isEn = detectedLang === 'en'
+            const llmRes = await fetch('http://127.0.0.1:17891/api/llm/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...auth },
+              body: JSON.stringify({
+                messages: [
+                  { role: 'system', content: isEn
+                    ? "You are Nexus, a Jarvis-style assistant. Answer the user directly, 1-3 sentences, casual friendly tone. No markdown."
+                    : "당신은 Nexus, 자비스 같은 AI 비서입니다. 친근하고 똘똘한 친구처럼 1~3문장으로 답변하세요. '~이에요/예요' 친근체. 마크다운 금지." },
+                  { role: 'user', content: trimmed },
+                ],
+                max_tokens: 320,
+              }),
+              signal: AbortSignal.timeout(15000),
+            })
+            const llmData = await llmRes.json() as { success: boolean; answer?: string }
+            if (llmData.success && llmData.answer) {
+              setTyping(false); typingRef.current = false
+              setEmotion('neutral')
+              setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: llmData.answer! }])
+              pushModelHistory(trimmed, llmData.answer)
+              speakText(llmData.answer)
+              appendHistory({ id: msgId, ts: Date.now(), q: trimmed, a: cleanForHistory(llmData.answer) })
+              setHistoryVersion(v => v + 1)
+              return
+            }
+          } catch { /* LLM 폴백 실패 → 마지막 안내로 fall through */ }
+
+          // 최종 폴백: cmd.message 라도 표시 (회피 답변 그대로보다는 솔직함)
+          setTyping(false); typingRef.current = false
+          setEmotion('concerned')
+          const fallbackMsg = cmd.message || (detectedLang === 'en'
+            ? "Sorry, I couldn't process that. Could you rephrase or try a more specific request?"
+            : "죄송해요, 처리하지 못했어요. 좀 더 구체적으로 다시 말씀해주실래요?")
+          setMessages(prev => [...prev, { id: `${msgId}-res`, role: 'nexus', text: fallbackMsg }])
+          return
+        }
+
         if (cmd.success) {
           // ── clarify: 추가 질문 필요 ──────────────────────────
           if (cmd.action === 'clarify' && cmd.needs_clarify) {
