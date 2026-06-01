@@ -871,7 +871,25 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			goto haikuRouted
 		}
 
-		// 3) 문서 자동 생성 (보고서/메모/회의록/기획서/노트)
+		// 3) PDF 자동 생성 (PDF 키워드 + 생성/작성 동사) — 문서보다 우선
+		pdfPat := regexp.MustCompile(`(pdf|피디에프)`)
+		pdfVerb := regexp.MustCompile(`(만들|생성|작성|create|make|generate|write|draft|export)`)
+		if pdfPat.MatchString(msgLower) && pdfVerb.MatchString(msgLower) {
+			intentAction = "pdf_auto_create"
+			intentParams = map[string]any{}
+			goto haikuRouted
+		}
+
+		// 4) 영상 워크플로 (URL 명시 + 다운로드/자막/요약)
+		videoUrlRe := regexp.MustCompile(`https?://[^\s]*(youtube|youtu\.be|vimeo|tiktok|twitch)[^\s]*`)
+		videoVerbRe := regexp.MustCompile(`(다운로드|받아|save|자막|subtitle|transcript|스크립트|요약|summary|summarize)`)
+		if videoUrlRe.MatchString(msgLower) && videoVerbRe.MatchString(msgLower) {
+			intentAction = "video_workflow"
+			intentParams = map[string]any{}
+			goto haikuRouted
+		}
+
+		// 5) 문서 자동 생성 (보고서/메모/회의록/기획서/노트)
 		docPat := regexp.MustCompile(`(보고서|메모|회의록|기획서|문서|노트|report|memo|note|proposal|document)`)
 		docVerb := regexp.MustCompile(`(작성|만들|생성|써|쓰|create|make|write|generate|draft)`)
 		if docPat.MatchString(msgLower) && docVerb.MatchString(msgLower) {
@@ -2217,9 +2235,17 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 	case "doc_auto_create", "create_doc", "make_doc":
 		return cmdDocAutoCreate(params, original, gKey, lang)
 
+	// ── PDF 자동 생성 (gofpdf 직접) ──────────────────────────
+	case "pdf_auto_create", "create_pdf", "make_pdf":
+		return cmdPdfAutoCreate(params, original, gKey, lang)
+
 	// ── Excel 분석 (사용자 파일 활용) ────────────────────────
 	case "excel_analyze", "analyze_excel":
 		return cmdExcelAnalyze(params, original, gKey, lang)
+
+	// ── 영상 워크플로 (다운로드/자막/요약 통합) ───────────────
+	case "video_workflow", "video_summary", "video_download_summary":
+		return cmdVideoWorkflow(params, original, gKey, lang)
 
 	// ── 엑셀 저장 (data 명시) ────────────────────────────────
 	case "excel_save":

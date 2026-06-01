@@ -98,9 +98,16 @@ export const ACTION_TO_CARD: Record<string, string> = {
   doc_auto_create:   'file_result',
   create_doc:        'file_result',
   make_doc:          'file_result',
+  pdf_auto_create:   'file_result',
+  create_pdf:        'file_result',
+  make_pdf:          'file_result',
   // Excel 분석 (사용자 데이터 활용)
   excel_analyze:     'file_result',
   analyze_excel:     'file_result',
+  // 영상 워크플로
+  video_workflow:           'file_result',
+  video_summary:            'file_result',
+  video_download_summary:   'file_result',
 }
 
 // 카드 슬롯 분류 — 어느 inlineCard{1-5} 슬롯에 들어가는지

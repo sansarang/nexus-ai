@@ -112,7 +112,29 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			systemPreRouted = true
 		}
 	}
-	// 3) 문서 자동 생성 (보고서/메모/회의록)
+	// 3) PDF 자동 생성 (문서보다 우선)
+	if !systemPreRouted {
+		pdfPat := regexp.MustCompile(`(pdf|피디에프)`)
+		pdfVerb := regexp.MustCompile(`(만들|생성|작성|create|make|generate|write|draft|export)`)
+		if pdfPat.MatchString(msgLower) && pdfVerb.MatchString(msgLower) {
+			preRoutedAction = "pdf_auto_create"
+			preRoutedParams = map[string]any{}
+			systemPreRouted = true
+		}
+	}
+
+	// 4) 영상 워크플로 (URL 명시 + 영상 동작 키워드)
+	if !systemPreRouted {
+		videoUrlRe := regexp.MustCompile(`https?://[^\s]*(youtube|youtu\.be|vimeo|tiktok|twitch)[^\s]*`)
+		videoVerbRe := regexp.MustCompile(`(다운로드|받아|save|자막|subtitle|transcript|스크립트|요약|summary|summarize)`)
+		if videoUrlRe.MatchString(msgLower) && videoVerbRe.MatchString(msgLower) {
+			preRoutedAction = "video_workflow"
+			preRoutedParams = map[string]any{}
+			systemPreRouted = true
+		}
+	}
+
+	// 5) 문서 자동 생성 (보고서/메모/회의록)
 	if !systemPreRouted {
 		docPat := regexp.MustCompile(`(보고서|메모|회의록|기획서|문서|노트|report|memo|note|proposal|document)`)
 		docVerb := regexp.MustCompile(`(작성|만들|생성|써|쓰|create|make|write|generate|draft)`)
@@ -779,6 +801,20 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		result, msg := cmdDocAutoCreate(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
 		json200(_cx.w, CommandResponse{
 			Success:  true, Message: msg, Action: "doc_auto_create",
+			Result:   result, Duration: _cx.dur,
+		})
+	case "pdf_auto_create", "create_pdf", "make_pdf":
+		// PDF 자동 생성 (gofpdf)
+		result, msg := cmdPdfAutoCreate(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
+		json200(_cx.w, CommandResponse{
+			Success:  true, Message: msg, Action: "pdf_auto_create",
+			Result:   result, Duration: _cx.dur,
+		})
+	case "video_workflow", "video_summary", "video_download_summary":
+		// 영상 통합 워크플로 (Python sidecar 활용)
+		result, msg := cmdVideoWorkflow(_cx.params, _cx.req.Message, _cx.gKey, _cx.req.Lang)
+		json200(_cx.w, CommandResponse{
+			Success:  true, Message: msg, Action: "video_workflow",
 			Result:   result, Duration: _cx.dur,
 		})
 	case "excel_analyze", "analyze_excel":

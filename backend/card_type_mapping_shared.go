@@ -79,9 +79,16 @@ var actionToCard = map[string]string{
 	"doc_auto_create":   "file_result",
 	"create_doc":        "file_result",
 	"make_doc":          "file_result",
+	"pdf_auto_create":   "file_result",
+	"create_pdf":        "file_result",
+	"make_pdf":          "file_result",
 	// Excel 분석 (사용자 데이터 활용)
 	"excel_analyze":     "file_result",
 	"analyze_excel":     "file_result",
+	// 영상 워크플로
+	"video_workflow":           "file_result",
+	"video_summary":            "file_result",
+	"video_download_summary":   "file_result",
 }
 
 // resolveCardTypeForAction: 액션명 → 카드 타입. 매핑 없으면 빈 문자열.

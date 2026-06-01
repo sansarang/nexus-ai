@@ -86,6 +86,36 @@ func cmdExcelAutoCreate(params map[string]any, original, gKey, lang string) (res
 		}
 	}
 
+	// 차트 자동 추가 — 첫 번째 숫자 컬럼 발견 시 막대 차트 생성
+	chartCol := -1
+	for ci := 1; ci < len(parsed.Headers); ci++ {
+		if isNumericColumn(parsed.Rows, ci) {
+			chartCol = ci
+			break
+		}
+	}
+	if chartCol >= 0 {
+		nRows := len(parsed.Rows)
+		categoryCol, _ := excelize.CoordinatesToCellName(1, 2)
+		categoryEnd, _ := excelize.CoordinatesToCellName(1, nRows+1)
+		valueCol, _ := excelize.CoordinatesToCellName(chartCol+1, 2)
+		valueEnd, _ := excelize.CoordinatesToCellName(chartCol+1, nRows+1)
+		chartCell, _ := excelize.CoordinatesToCellName(len(parsed.Headers)+2, 2)
+		chartConfig := &excelize.Chart{
+			Type: excelize.Bar,
+			Series: []excelize.ChartSeries{{
+				Name:       fmt.Sprintf("'%s'!$%s$1", sheet, splitCellCol(valueCol)),
+				Categories: fmt.Sprintf("'%s'!$%s$2:$%s$%d", sheet, splitCellCol(categoryCol), splitCellCol(categoryEnd), nRows+1),
+				Values:     fmt.Sprintf("'%s'!$%s$2:$%s$%d", sheet, splitCellCol(valueCol), splitCellCol(valueEnd), nRows+1),
+			}},
+			Title: []excelize.RichTextRun{{
+				Text: parsed.Headers[chartCol],
+			}},
+			Dimension: excelize.ChartDimension{Width: 480, Height: 290},
+		}
+		_ = f.AddChart(sheet, chartCell, chartConfig)
+	}
+
 	safeTitle := sanitizeFilenameMac(parsed.Title)
 	filename := fmt.Sprintf("%s_%s.xlsx", safeTitle, time.Now().Format("20060102_150405"))
 	home, _ := os.UserHomeDir()
@@ -143,4 +173,42 @@ func sanitizeFilenameMac(s string) string {
 		s = "data"
 	}
 	return s
+}
+
+// isNumericColumn: 행들의 ci 번째 컬럼이 숫자인지 확인 (60% 이상)
+func isNumericColumn(rows [][]string, ci int) bool {
+	if len(rows) == 0 {
+		return false
+	}
+	numeric := 0
+	for _, row := range rows {
+		if ci >= len(row) {
+			continue
+		}
+		val := strings.TrimSpace(row[ci])
+		val = strings.ReplaceAll(val, ",", "")
+		val = strings.TrimSuffix(val, "원")
+		val = strings.TrimSuffix(val, "%")
+		val = strings.TrimSuffix(val, "$")
+		val = strings.TrimSpace(val)
+		if val == "" {
+			continue
+		}
+		// 부동소수점 시도
+		var f float64
+		if _, err := fmt.Sscanf(val, "%f", &f); err == nil {
+			numeric++
+		}
+	}
+	return numeric*100/len(rows) >= 60
+}
+
+// splitCellCol: "B2" → "B" 만 추출 (차트 시리즈 범위 구성용)
+func splitCellCol(cell string) string {
+	for i, c := range cell {
+		if c >= '0' && c <= '9' {
+			return cell[:i]
+		}
+	}
+	return cell
 }
