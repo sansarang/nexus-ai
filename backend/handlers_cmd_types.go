@@ -19,6 +19,10 @@ type CommandResponse struct {
 	Action           string         `json:"action"`
 	Result           any            `json:"result"`
 	Duration         string         `json:"duration"`
+	// CardType — 프론트 cardRegistry 에 어떤 카드를 그릴지 명시 (선택)
+	//   비어있으면 ACTION_TO_CARD 매핑표 또는 result 구조로 자동 추론
+	//   백엔드 핸들러가 명확히 지정하고 싶을 때 (예: 같은 action 이 다른 카드를 그릴 때)
+	CardType         string         `json:"card_type,omitempty"`
 	NeedsClarify     bool           `json:"needs_clarify,omitempty"`
 	ClarifyQuestion  string         `json:"clarify_question,omitempty"`
 	ClarifyQuestions []string       `json:"clarify_questions,omitempty"`

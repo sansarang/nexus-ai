@@ -1204,6 +1204,8 @@ haikuRouted:
 		Message:  msg,
 		Action:   intentAction,
 		Result:   result,
+		// card_type 자동 주입 — 프론트 cardRegistry 가 49개 카드 중 즉시 라우팅
+		CardType: resolveCardTypeForAction(intentAction),
 		Duration: time.Since(start).String(),
 	}
 	// 캐시 저장 (success=true 인 경우만, no-cache action 자동 스킵)
