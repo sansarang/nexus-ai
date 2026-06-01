@@ -34,15 +34,25 @@ func cleanJarvisTone(s string) string {
 		return strings.ReplaceAll(m, "*", "")
 	})
 	s = jarvisBulletRe.ReplaceAllString(s, "")
+	// preamble 제거 — 응답 시작 부분의 비즈니스/회피 문구
 	preambles := []string{
+		// KO
 		"정리하면, ", "정리하면 ", "요약하면, ", "요약하면 ",
 		"다음과 같습니다.\n", "다음과 같이 정리해드릴게요.\n",
+		"답변드리자면, ", "말씀드리자면, ",
+		"질문해주신 ", "문의하신 ",
+		// EN
 		"In summary, ", "To summarize, ", "Here's a summary: ",
 		"To answer your question, ", "In short, ",
+		"Sure! ", "Of course! ", "Certainly, ",
+		"As an AI, ", "I'm just an AI ",
 	}
 	for _, p := range preambles {
 		s = strings.TrimPrefix(s, p)
 	}
+	// 본문 중간의 비즈니스 표현 제거 (한국어 격식체 → 친근체 자동 변환은 위험 — 끝 단어만 잡음)
+	s = strings.ReplaceAll(s, "다음과 같이 정리해드릴게요.\n", "")
+	s = strings.ReplaceAll(s, "여러 옵션이 있습니다.", "")
 	s = jarvisMultiNlRe.ReplaceAllString(s, "\n\n")
 	return strings.TrimSpace(s)
 }

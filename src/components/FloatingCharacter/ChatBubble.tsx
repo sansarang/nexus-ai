@@ -155,20 +155,27 @@ function groupByDate(entries: HistoryEntry[]): { date: string; items: HistoryEnt
 
 /* HistoryItem 제거 — 이력은 HistoryBubbles 형식으로 렌더링 */
 
+// 빈 상태에서 표시되는 추천 칩 — 카테고리별 8개 (시스템 / 검색 / 쇼핑 / 영상 / AI)
 const FEATURED_ACTIONS_KO = [
-  { emoji: '🔐', label: 'PC 해킹 점검', cmd: '내 PC 해킹당했어? 보안 점검해줘' },
-  { emoji: '🔬', label: '딥서치', cmd: '양자컴퓨터에 대해 깊게 조사해줘' },
-  { emoji: '🗺️', label: '복합 질문', cmd: '오늘 날씨도 알려주고 경주에서 대전 가는 버스 시간표 알려줘' },
-  { emoji: '⚖️', label: '비교 분석', cmd: '아이폰 vs 갤럭시 비교해줘' },
-  { emoji: '▶️', label: '영상 검색', cmd: '요즘 유튜브에서 핫한 AI 영상 찾아줘' },
+  { emoji: '📊', label: 'PC 상태',    cmd: '내 PC 메모리랑 디스크 상태 알려줘',  cat: '시스템' },
+  { emoji: '🔐', label: '보안 스캔',   cmd: '보안 스캔 해줘',                       cat: '시스템' },
+  { emoji: '🧹', label: '캐시 정리',   cmd: '캐시랑 임시파일 정리해줘',            cat: '시스템' },
+  { emoji: '🌤️', label: '날씨',        cmd: '오늘 서울 날씨 어때',                   cat: '검색' },
+  { emoji: '📰', label: '오늘 뉴스',   cmd: '오늘 IT 뉴스 알려줘',                  cat: '검색' },
+  { emoji: '🛒', label: '가격 비교',   cmd: '아이폰 15 최저가 알려줘',              cat: '쇼핑' },
+  { emoji: '▶️', label: '유튜브',      cmd: '잔잔한 노래 유튜브에서 추천',          cat: '영상' },
+  { emoji: '⚖️', label: '비교 분석',   cmd: 'ChatGPT vs Claude 차이 알려줘',         cat: 'AI' },
 ]
 
 const FEATURED_ACTIONS_EN = [
-  { emoji: '🔐', label: 'PC Security Scan', cmd: 'Check if my PC has been hacked' },
-  { emoji: '🔬', label: 'Deep Research', cmd: 'Do a deep dive on quantum computing' },
-  { emoji: '🗺️', label: 'Multi-task Query', cmd: "What's the weather today and find flights from NYC to LA?" },
-  { emoji: '⚖️', label: 'Compare & Analyze', cmd: 'Compare iPhone vs Samsung Galaxy' },
-  { emoji: '▶️', label: 'Video Search', cmd: 'Find trending AI videos on YouTube right now' },
+  { emoji: '📊', label: 'PC Status',      cmd: 'Show my PC memory and disk usage', cat: 'System' },
+  { emoji: '🔐', label: 'Security Scan',  cmd: 'Run a security scan',              cat: 'System' },
+  { emoji: '🧹', label: 'Clean Cache',    cmd: 'Clean up cache and temp files',    cat: 'System' },
+  { emoji: '🌤️', label: 'Weather',        cmd: "What's the weather in Seoul",      cat: 'Search' },
+  { emoji: '📰', label: 'Today News',     cmd: "Today's tech news",                cat: 'Search' },
+  { emoji: '🛒', label: 'Price Compare',  cmd: 'Cheapest iPhone 15',               cat: 'Shop' },
+  { emoji: '▶️', label: 'YouTube',        cmd: 'Find lo-fi music on YouTube',      cat: 'Video' },
+  { emoji: '⚖️', label: 'Compare',        cmd: 'ChatGPT vs Claude',                cat: 'AI' },
 ]
 
 const FOLLOW_UP_MAP_KO: Record<string, Array<{ label: string; cmd: string }>> = {
@@ -745,30 +752,47 @@ export function ChatBubble({
         scrollbarWidth: 'none',
       }}>
         {history.length === 0 && liveMessages.length === 0 && !typing && (
-          <div style={{ padding: '12px 4px' }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginBottom: 10, textAlign: 'center' }}>
-              {isEn ? 'You can ask things like...' : '이런 걸 물어볼 수 있어요'}
+          <div style={{ padding: '20px 8px' }}>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 22, marginBottom: 6 }}>👋</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.85)', marginBottom: 4 }}>
+                {isEn ? 'How can I help, boss?' : '뭘 도와드릴까요, 사장님?'}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                {isEn ? 'Tap a suggestion or type anything' : '아래에서 골라보거나 직접 물어보세요'}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
               {FEATURED_ACTIONS.map(a => (
                 <button
                   key={a.cmd}
                   onClick={() => onSend(a.cmd)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
+                    padding: '10px 11px', borderRadius: 12, cursor: 'pointer',
                     background: 'rgba(255,255,255,0.05)',
                     border: `1px solid ${primaryColor}33`,
-                    color: 'rgba(255,255,255,0.8)', fontSize: 12,
+                    color: 'rgba(255,255,255,0.88)', fontSize: 11.5, fontWeight: 600,
                     textAlign: 'left', transition: 'all 0.15s',
+                    minHeight: 56,
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}18`; e.currentTarget.style.borderColor = `${primaryColor}88` }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = `${primaryColor}33` }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}22`; e.currentTarget.style.borderColor = `${primaryColor}99`; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = `${primaryColor}33`; e.currentTarget.style.transform = 'translateY(0)' }}
                 >
-                  <span style={{ fontSize: 15 }}>{a.emoji}</span>
-                  <span>{a.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+                    <span style={{ fontSize: 16 }}>{a.emoji}</span>
+                    <span style={{ flex: 1 }}>{a.label}</span>
+                  </div>
+                  <span style={{ fontSize: 9, fontWeight: 500, color: `${primaryColor}aa`, letterSpacing: '0.05em' }}>
+                    {(a as { cat?: string }).cat ?? ''}
+                  </span>
                 </button>
               ))}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 14, lineHeight: 1.7 }}>
+              {isEn
+                ? '⌨️ Alt+Space quick call · 🔊 "Hey Nexus" voice'
+                : '⌨️ Alt+Space 빠른 호출 · 🔊 "헤이 넥서스" 음성'}
             </div>
           </div>
         )}
@@ -852,12 +876,19 @@ export function ChatBubble({
                 const isLong = msg.text.length > 300
                 const expanded = expandedMsgs.has(msg.id)
                 const displayText = isLong && !expanded ? msg.text.slice(0, 280) + '...' : msg.text
+                // 직전 사용자 메시지 (재실행용)
+                const msgIdx = liveMessages.indexOf(msg)
+                const prevUserMsg = msgIdx > 0
+                  ? [...liveMessages.slice(0, msgIdx)].reverse().find(m => m.role === 'user')?.text
+                  : undefined
+                // 답변 안의 URL 추출 (열기 버튼용)
+                const urlMatch = !isUser ? msg.text.match(/https?:\/\/\S+/) : null
                 return (
                   <motion.div
                     key={msg.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 6 }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', marginBottom: 6 }}
                   >
                     <div style={{
                       maxWidth: '86%',
@@ -889,6 +920,48 @@ export function ChatBubble({
                         </span>
                       )}
                     </div>
+                    {/* ── AI 답변 액션 버튼 (복사/저장/재실행/링크) ── */}
+                    {!isUser && msg.text && !msg.clarifyOptions && (
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, marginLeft: 6, opacity: 0.6 }}
+                           onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                           onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
+                      >
+                        <button
+                          onClick={() => { navigator.clipboard?.writeText(msg.text).catch(() => {}) }}
+                          title={isEn ? 'Copy' : '복사'}
+                          style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
+                        >📋</button>
+                        <button
+                          onClick={() => {
+                            try {
+                              const blob = new Blob([msg.text], { type: 'text/plain;charset=utf-8' })
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.download = `nexus-${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.txt`
+                              a.click()
+                              URL.revokeObjectURL(url)
+                            } catch { /* ignore */ }
+                          }}
+                          title={isEn ? 'Save' : '저장'}
+                          style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
+                        >💾</button>
+                        {prevUserMsg && (
+                          <button
+                            onClick={() => onSend(prevUserMsg)}
+                            title={isEn ? 'Rerun' : '재실행'}
+                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
+                          >🔄</button>
+                        )}
+                        {urlMatch && (
+                          <button
+                            onClick={() => { try { window.open(urlMatch[0], '_blank') } catch { /* ignore */ } }}
+                            title={isEn ? 'Open link' : '링크 열기'}
+                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
+                          >🌐</button>
+                        )}
+                      </div>
+                    )}
                     {/* 명확화 선택 버튼 */}
                     {!isUser && msg.clarifyOptions && msg.clarifyOptions.length > 0 && (
                       <div style={{ marginTop: 10, maxWidth: '90%' }}>
