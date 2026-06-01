@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -243,6 +244,12 @@ func callVisionViaProxy(b64img, question, lang string) (string, error) {
 
 // requireAuth: 인증 필요 엔드포인트 — JWT 없으면 401
 func requireAuth(w http.ResponseWriter, r *http.Request) bool {
+	// localhost (127.0.0.1, ::1) 요청은 JWT 없이 허용 — 사용자 PC 내부 호출
+	// (Tauri 앱이든 PowerShell 테스트든 같은 머신에서 오면 신뢰)
+	host := r.RemoteAddr
+	if strings.HasPrefix(host, "127.0.0.1:") || strings.HasPrefix(host, "[::1]:") {
+		return true
+	}
 	if getJWTFromCtx(r.Context()) == "" {
 		lang := getLang(r)
 		writeJSON(w, 401, map[string]any{"success": false, "message": msgT("로그인이 필요합니다.", "Login is required.", lang), "code": "auth_required"})
