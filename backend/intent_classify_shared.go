@@ -30,14 +30,19 @@ Available actions:
 - "file_search" / "file_organize" / "open_folder"
 - "chat": params: {} — 인사, 잡담, 일반 대화에만. 정보 검색은 web_search 우선.
 
-KEY RULES:
-- "알려줘","찾아줘","보여줘","추천해줘" + 정보 키워드 → web_search
-- 도시명 + 날씨 키워드 → weather
-- 상품 + 가격/최저가 → price_compare
-- 영상/유튜브/틱톡 → video_search
-- 메모리/CPU/디스크/PC 상태 → pc_status
-- 보안/스캔/바이러스 → scan
-- 인사/잡담/AI 자체 질문만 → chat
+KEY RULES (정확한 매핑 — 절대 chat 으로 떨어뜨리지 말 것):
+- 메모리/RAM/CPU/디스크/하드/저장공간/PC 상태/내 컴퓨터/내 PC + (확인|상태|얼마|남았|봐|보여) → pc_status
+- 보안/스캔/바이러스/악성/감염/해킹 → security_scan
+- 정리/청소/캐시/임시파일/공간 + (해줘|정리|비워) → clean
+- "느려"/"버벅"/"렉"/"왜 이래" + PC/컴퓨터 맥락 → full_scan
+- 도시명 + (날씨|기온|비|눈|미세먼지) → weather
+- 상품명 + (가격|최저가|얼마|비교|쇼핑|쿠팡|네이버) → price_compare
+- 유튜브/youtube/틱톡/tiktok/영상/비디오/노래/음악/플레이리스트/MV/뮤직비디오 → video_search (절대 web_search 금지)
+- 뉴스/news/오늘 일/최신 소식 → news_search
+- 일정/스케줄/캘린더/오늘 약속 → calendar_today
+- 이메일/메일/받은편지 → email_inbox
+- "알려줘"/"찾아줘"/"보여줘"/"추천해줘" + 일반 정보 → web_search
+- 인사 (안녕/hi/hello)/감사 (고마워)/잡담 + 시스템 키워드 0개 → chat
 
 needs_clarify=true ONLY when critical info is TRULY missing (도시 없는 날씨, 지역 없는 맛집 등).
 Always output valid JSON, nothing else.`

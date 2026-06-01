@@ -44,7 +44,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 			if len(parts) > 0 {
 				idleStr := strings.TrimSuffix(parts[len(parts)-1], "%")
 				if idle, err := strconv.ParseFloat(idleStr, 64); err == nil {
-					stats["cpu_percent"] = 100 - idle
+					stats["cpu"] = 100 - idle  // 프론트 StatsData 키와 일치
 				}
 			}
 		}
@@ -67,9 +67,9 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 		total := vals["Pages free"] + vals["Pages active"] + vals["Pages inactive"] + vals["Pages speculative"] + vals["Pages wired down"]
 		if total > 0 {
 			used := total - vals["Pages free"] - vals["Pages speculative"]
-			stats["memory_percent"] = used / total * 100
-			stats["memory_used_gb"] = used / (1 << 30)
-			stats["memory_total_gb"] = total / (1 << 30)
+			stats["mem"] = used / total * 100
+			stats["mem_used_gb"] = used / (1 << 30)
+			stats["mem_total_gb"] = total / (1 << 30)
 		}
 	}
 
@@ -81,7 +81,7 @@ func handleStats(w http.ResponseWriter, r *http.Request) {
 			if len(fields) >= 5 {
 				pct := strings.TrimSuffix(fields[4], "%")
 				if p, err := strconv.ParseFloat(pct, 64); err == nil {
-					stats["disk_percent"] = p
+					stats["disk"] = p
 				}
 				stats["disk_used"] = fields[2]
 				stats["disk_total"] = fields[1]

@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
-
 )
 
 
@@ -70,7 +70,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 	// ── 키워드 사전 라우팅 (LLM보다 우선, 틱톡/유튜브 영상 검색) ──
 	msgLower := strings.ToLower(req.Message)
-	videoVerbs := []string{"찾", "검색", "영상", "보여", "추천", "viral", "바이럴", "트렌드"}
+	videoVerbs := []string{"찾", "검색", "영상", "비디오", "보여", "추천", "viral", "바이럴", "트렌드", "노래", "음악", "music", "song", "플레이리스트", "playlist", "뮤직비디오", "mv", "들려"}
 	isTikTokReq := strings.Contains(msgLower, "틱톡") || strings.Contains(msgLower, "tiktok")
 	isYouTubeReq := strings.Contains(msgLower, "유튜브") || strings.Contains(msgLower, "youtube")
 	hasVideoVerb := false
@@ -83,6 +83,26 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 
 	var preRoutedAction string
 	var preRoutedParams map[string]any
+
+	// ── 시스템 인텐트 사전 라우팅 (LLM이 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
+	// action 이름은 backend switch + frontend renderCommandResult 가 처리하는 표준 이름 사용
+	systemPatterns := map[string]string{
+		"stats":   `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태)`,
+		"scan":    `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제)`,
+		"clean":   `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리)`,
+		"weather": `(서울|부산|인천|대구|광주|대전|울산|수원|제주|뉴욕|도쿄|상하이|싱가포르)\s*(날씨|기온|온도|비\s*와|눈\s*와|미세먼지)`,
+	}
+	// systemPatterns 매칭되면 LLM 분류 건너뛰고 바로 액션 실행 (clarify/chat 으로 가로채임 방지)
+	systemPreRouted := false
+	for action, pat := range systemPatterns {
+		if matched, _ := regexp.MatchString(pat, msgLower); matched {
+			preRoutedAction = action
+			preRoutedParams = map[string]any{}
+			systemPreRouted = true
+			break
+		}
+	}
+
 	// 가격/쇼핑/도메인 사전 라우팅
 	shoppingSites := map[string]string{
 		// ── 쇼핑몰 ──────────────────────────────────────
@@ -150,7 +170,10 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	isMultiAction := outFmt != outNone && req.PendingIntent == ""
 
 	// ── Pre-routing: 액션 감지만 (Clarify 판단은 Groq에 위임) ──────
-	if detectedShopSite != "" && req.PendingIntent == "" {
+	// 시스템 패턴이 이미 잡혔으면 쇼핑/영상 사전 라우팅 스킵
+	if preRoutedAction != "" {
+		// 이미 시스템 액션 (pc_status 등) 결정됨
+	} else if detectedShopSite != "" && req.PendingIntent == "" {
 		q := req.Message
 		for kw := range shoppingSites {
 			q = strings.ReplaceAll(q, kw, "")
@@ -435,8 +458,9 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ── Intent 분류 + Clarify 판단 (워크플로우 프리셋은 건너뜀) ─────────────
+	// systemPreRouted (PC/보안/정리 패턴 매칭) 도 LLM 스킵 → clarify 로 가로채임 방지
 	var structuredResult *ClarifyResult
-	if preRoutedAction != "workflow_preset" && req.PendingIntent == "" {
+	if preRoutedAction != "workflow_preset" && req.PendingIntent == "" && !systemPreRouted {
 		clarifyNow := func(questions []string, pi string, pp map[string]any) {
 			q := ""
 			if len(questions) > 0 {

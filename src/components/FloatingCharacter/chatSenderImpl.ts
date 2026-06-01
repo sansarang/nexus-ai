@@ -211,6 +211,10 @@ export interface ChatSenderDeps {
   setClarifyPendingParams: Dispatch<SetStateAction<Record<string, unknown> | null>>
   setClarifyPendingQuestion: Dispatch<SetStateAction<string | null>>
   speakText: (text: string, em?: CharacterEmotion) => void
+  /** 다음 응답 1회만 음성 강제 ON ("말로 알려줘", "읽어줘" 패턴 시) */
+  setForceVoiceNext?: () => void
+  /** 사운드 영구 토글 ("그만 말해" 패턴 시 false) */
+  setSoundEnabled?: (b: boolean) => void
   resetClarify: () => void
   pushModelHistory: (userText: string, modelText: string) => void
   handleBackendIntent: (intent: Intent, msgId: string, originalText?: string) => Promise<{ text: string; card?: InlineCardData; card2?: InlineCardData2; card3?: InlineCard3Data; card4?: InlineCard4Data; card5?: import('./InlineCards5').InlineCard5Data; emotion: CharacterEmotion }>
@@ -234,7 +238,7 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
     setMessages, setInput, setTyping, setTypingSteps, setEmotion, setSpeaking,
     setUserLang, setHistoryVersion, setToastAlerts, setIsActive, setFloatingPreview,
     setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
-    speakText, resetClarify, pushModelHistory,
+    speakText, setForceVoiceNext, setSoundEnabled, resetClarify, pushModelHistory,
     handleBackendIntent, renderCommandResult, showPaywall, setDynamicResult,
   } = d
 
@@ -271,6 +275,39 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
       pushModelHistory(trimmed, replyText)
       speakText(replyText)
       return
+    }
+
+    // ── 음성 정책 단축 명령 ──
+    //  "그만 말해" / "조용" / "음성 꺼" → 사운드 영구 OFF + 즉시 정지
+    //  "말로 알려줘" / "읽어줘" / "음성으로 [질문]" → 1회 강제 ON + 질문 부분만 계속
+    if (/^(그만\s*말해|조용|음성\s*꺼|꺼\s*줘|stop\s*talking|be\s*quiet|mute)[\s!.?]*$/i.test(trimmed)) {
+      stopSpeaking()
+      if (setSoundEnabled) setSoundEnabled(false)
+      try { localStorage.setItem('nexus-sound', 'off') } catch {}
+      const voiceOffMsgId = String(Date.now())
+      setMessages(prev => [...prev,
+        { id: voiceOffMsgId, role: 'user', text: trimmed },
+        { id: `${voiceOffMsgId}-res`, role: 'nexus', text: userLang === 'en' ? '🔇 Voice muted.' : '🔇 음성 껐어요.' },
+      ])
+      setInput('')
+      return
+    }
+    const voiceOnMatch = trimmed.match(/^(말로|음성으로|읽어줘|소리\s*켜|voice\s*on|say\s*it)\s*[:\-]?\s*(.*)$/i)
+    if (voiceOnMatch) {
+      if (setForceVoiceNext) setForceVoiceNext()  // 다음 응답 1회 강제 ON
+      const remainder = voiceOnMatch[2].trim()
+      if (!remainder) {
+        // "말로 알려줘" 단독 → 직전 응답 음성 재생
+        const lastModel = [...historyRef.current].reverse().find((t: ConversationTurn) => t.role === 'model')?.parts[0]?.text ?? ''
+        const voMsgId = String(Date.now())
+        setMessages(prev => [...prev, { id: voMsgId, role: 'user', text: trimmed }])
+        setInput('')
+        if (lastModel) speakText(lastModel)
+        else setMessages(prev => [...prev, { id: `${voMsgId}-res`, role: 'nexus', text: userLang === 'en' ? 'Nothing to read aloud yet.' : '읽을 직전 응답이 없어요.' }])
+        return
+      }
+      // "말로 [질문]" → 질문만 떼서 정상 흐름 계속 (forceVoiceNextRef 활성 상태)
+      return sendTextImpl(remainder, d)
     }
 
     // ── 연속성 패턴: "방금 거", "이거", "그거", "아까" 직전 결과 참조 ──

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -833,7 +834,24 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// ── 키워드 사전 라우팅 (LLM이 무시하는 액션들) ────────────
 		msgLower := strings.ToLower(req.Message)
-		videoKeywords := []string{"찾", "검색", "영상", "보여", "추천", "viral", "바이럴", "트렌드"}
+
+		// ── 시스템 인텐트 사전 라우팅 (Haiku/Groq가 chat/clarify 로 잘못 떨어뜨리는 케이스 방지) ──
+		// action 이름은 backend switch + frontend renderCommandResult 가 처리하는 표준 이름 사용
+		systemPatterns := map[string]string{
+			"stats":   `(메모리|램|ram|cpu|디스크|하드|저장공간|pc\s*상태|내\s*pc|내\s*컴퓨터|시스템\s*상태)`,
+			"scan":    `(보안.*스캔|바이러스.*검사|악성코드|해킹.*확인|보안.*점검|느려|버벅|렉|왜.*이래|성능.*문제|컴퓨터.*문제)`,
+			"clean":   `(정리.*해|청소.*해|캐시.*비워|임시파일.*정리|공간.*확보|디스크.*정리)`,
+			"weather": `(서울|부산|인천|대구|광주|대전|울산|수원|제주|뉴욕|도쿄|상하이|싱가포르)\s*(날씨|기온|온도|비\s*와|눈\s*와|미세먼지)`,
+		}
+		for action, pat := range systemPatterns {
+			if matched, _ := regexp.MatchString(pat, msgLower); matched {
+				intentAction = action
+				intentParams = map[string]any{}
+				goto haikuRouted  // LLM 라우팅 / Function Calling 모두 스킵 (clarify 가로채기 방지)
+			}
+		}
+
+		videoKeywords := []string{"찾", "검색", "영상", "비디오", "보여", "추천", "viral", "바이럴", "트렌드", "노래", "음악", "music", "song", "플레이리스트", "playlist", "뮤직비디오", "mv", "들려"}
 		isTikTokReq := strings.Contains(msgLower, "틱톡") || strings.Contains(msgLower, "tiktok")
 		isYouTubeReq := strings.Contains(msgLower, "유튜브") || strings.Contains(msgLower, "youtube")
 		hasVideoVerb := false

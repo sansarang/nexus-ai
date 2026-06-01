@@ -130,7 +130,13 @@ export function FloatingCharacter() {
   const setShowWorkflowBuilder = (val: boolean) => storeSetShowWorkflowBuilder(val)
   const [showEmailSetup, setShowEmailSetup] = useState(false)
   const [toastAlerts, setToastAlerts]     = useState<Array<{id: string; title: string; message: string; level: string}>>([])
-  const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') !== 'off')
+  // 음성 정책 (사용자 피드백 반영):
+  //  - 디폴트 OFF — 텍스트 응답을 매번 읽으면 사용자 집중 깨짐 (읽기 vs 듣기 속도 3~4배 차)
+  //  - 사이드바 음성 토글로 사용자가 ON 가능 ('on' 명시 저장)
+  //  - "말로/읽어줘" 패턴 시 1회 강제 ON (forceVoiceNextRef)
+  //  - Proactive 알림(과열/디스크 부족)은 speak() 직접 호출이라 본 토글 영향 없음 (항상 동작)
+  const [soundEnabled, setSoundEnabled]   = useState(() => localStorage.getItem('nexus-sound') === 'on')
+  const forceVoiceNextRef = useRef(false)
   const [isActive, setIsActive]           = useState(true)
   const [beamEnabled, setBeamEnabled]     = useState(() => localStorage.getItem('nexus-beam') !== 'off')
   const [historyVersion, setHistoryVersion] = useState(0)
@@ -637,15 +643,30 @@ export function FloatingCharacter() {
   const [bubbleText, setBubbleText] = useState('')
   const [bubbleExpanded, setBubbleExpanded] = useState(false)
 
-  /* TTS — 감정 기반 톤 자동 조정 (Pro만 OpenAI TTS, 무료는 Web Speech) */
+  /* TTS — 정책: 디폴트 OFF, 명시적 ON일 때만 발화 + 첫 문장만
+   *  - bubbleText(시각)는 항상 업데이트
+   *  - 음성은 (soundEnabled || forceVoiceNextRef) 일 때만
+   *  - 강제 ON일 땐 첫 문장만 읽고 1회용 플래그 reset (긴 결과 안 드론)
+   */
   const speakText = useCallback((text: string, em?: CharacterEmotion) => {
     const clean = text.replace(/\*\*/g, '').replace(/\n+/g, ' ').trim()
     setBubbleText(clean)
-    if (!soundEnabled) return
+
+    const forced = forceVoiceNextRef.current
+    if (!soundEnabled && !forced) return  // 디폴트 OFF — 시각만 갱신
+    if (forced) forceVoiceNextRef.current = false  // 1회용 플래그 소진
+
+    // 강제 ON일 땐 첫 문장만 (긴 결과 무한 낭독 방지)
+    let toRead = clean
+    if (forced && !soundEnabled) {
+      const firstSentence = clean.split(/(?<=[.!?。!?])\s+/)[0] ?? clean
+      toRead = firstSentence.length > 140 ? firstSentence.slice(0, 140) + '…' : firstSentence
+    }
+
     const ttsEmotion = em ?? emotion
     const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
     speak(
-      text, userLang,
+      toRead, userLang,
       () => setSpeaking(true),
       () => setSpeaking(false),
       ttsEmotion as import('../../lib/nexus/tts').SpeakEmotion,
@@ -1068,7 +1089,10 @@ export function FloatingCharacter() {
       setMessages, setInput, setTyping, setTypingSteps, setEmotion, setSpeaking,
       setUserLang, setHistoryVersion, setToastAlerts, setIsActive, setFloatingPreview,
       setPreviewType, setClarifyPendingIntent, setClarifyPendingParams, setClarifyPendingQuestion,
-      speakText, resetClarify, pushModelHistory,
+      speakText,
+      setForceVoiceNext: () => { forceVoiceNextRef.current = true },
+      setSoundEnabled: (b: boolean) => setSoundEnabled(b),
+      resetClarify, pushModelHistory,
       handleBackendIntent, renderCommandResult,
       setDynamicResult,
       showPaywall: (feature, used, limit) => {
@@ -2023,6 +2047,13 @@ export function FloatingCharacter() {
             setPaywallUsed(dailyUsedCount)
             setPaywallLimit((subscriptionStatus === 'active' || subscriptionStatus === 'trial') ? 200 : 15)
           }}
+          voiceActive={soundEnabled}
+          onVoiceToggle={() => setSoundEnabled(prev => {
+            const next = !prev
+            try { localStorage.setItem('nexus-sound', next ? 'on' : 'off') } catch { /* ignore */ }
+            if (!next) stopSpeaking()
+            return next
+          })}
         />
 
         {/* ── 중: 채팅 영역 ── */}
