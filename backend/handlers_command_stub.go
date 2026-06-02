@@ -94,11 +94,31 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	var preRoutedParams map[string]any
 	systemPreRouted := false
 
-	// ── ★ 최최우선: 멀티스텝 감지 (사장님 요구: 여러 액션 동시 처리) ──
-	if detectMultiStep(req.Message) {
+	// ── ★ 최최우선 1: 위험 액션 감지 (Phase A2) — 즉시 확인 카드 ──
+	if dangerKey := detectDangerousInMessage(req.Message); dangerKey != "" {
+		preRoutedAction = dangerKey
+		preRoutedParams = map[string]any{"confirmed": false, "_dangerous": true}
+		systemPreRouted = true
+	}
+
+	// ── ★ 최최우선 2: 멀티스텝 감지 ──
+	if !systemPreRouted && detectMultiStep(req.Message) {
 		preRoutedAction = "workflow_run"
 		preRoutedParams = map[string]any{"goal": req.Message}
 		systemPreRouted = true
+	}
+
+	// ── ★ 최최우선 3: Vision 키워드 ──
+	if !systemPreRouted {
+		visionPat := []string{"화면 분석", "스크린샷 분석", "screen analyze", "analyze screen", "vision", "이 이미지", "이 화면", "보이는 거", "이 사진"}
+		for _, kw := range visionPat {
+			if strings.Contains(msgLower, strings.ToLower(kw)) {
+				preRoutedAction = "vision"
+				preRoutedParams = map[string]any{"question": req.Message}
+				systemPreRouted = true
+				break
+			}
+		}
 	}
 
 	// ── 최우선 명시 패턴 (Go map 순서 비결정성 회피) ──
@@ -903,6 +923,25 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		cmdFileOps(_cx)
 	case "trigger_add":
 		cmdTriggerAdd(_cx)
+	// ── Phase A2 위험 액션 (확인 카드 응답) ──
+	case "restart", "shutdown", "sleep", "format_disk", "payment", "file_delete",
+		"clean_aggressive", "email_send", "app_uninstall", "registry_edit", "file_move":
+		cmdDangerousConfirm(_cx, intent.Action)
+	case "vision":
+		// Phase C1 — Vision (스크린샷 분석)
+		question, _ := _cx.params["question"].(string)
+		if question == "" {
+			question = _cx.req.Message
+		}
+		json200(_cx.w, CommandResponse{
+			Success: true, Action: "vision",
+			Message: "스크린샷을 분석하려면 화면 캡처가 필요해요 (프론트에서 자동 수행).",
+			Result: map[string]any{
+				"question": question,
+				"hint":     "frontend should capture screen and call /api/vision/analyze",
+			},
+			Duration: _cx.dur,
+		})
 	case "screen_analyze":
 		cmdScreenAnalyze(_cx)
 	case "clipboard_action":
@@ -948,6 +987,12 @@ func cmdWorkflowRunStub(cx cmdCtx) {
 	if plannedJSON != "" {
 		_ = json.Unmarshal([]byte(plannedJSON), &planned)
 	}
+
+	// ★ planned_actions가 없으면 키워드 기반으로 단계 자동 생성 (LLM 호출 없이)
+	if len(planned) == 0 {
+		planned = synthesizePlannedSteps(goal)
+	}
+
 	results := make([]map[string]any, 0, len(planned))
 	doneCount := 0
 	for i, p := range planned {
@@ -962,9 +1007,9 @@ func cmdWorkflowRunStub(cx cmdCtx) {
 	var msg string
 	if len(planned) > 0 {
 		if cx.req.Lang == "en" {
-			msg = fmt.Sprintf("Multi-step workflow: %d actions queued (Mac dev)", len(planned))
+			msg = fmt.Sprintf("Multi-step workflow: %d actions identified", len(planned))
 		} else {
-			msg = fmt.Sprintf("멀티 액션 워크플로 %d개 단계 인식됨 (Mac 개발 모드)", len(planned))
+			msg = fmt.Sprintf("멀티 액션 %d개 단계 인식됨", len(planned))
 		}
 	} else {
 		if cx.req.Lang == "en" {
@@ -984,6 +1029,83 @@ func cmdWorkflowRunStub(cx cmdCtx) {
 		},
 		Duration: cx.dur,
 	})
+}
+
+
+// cmdDangerousConfirm — Phase A2: 위험 액션 즉시 실행 대신 확인 카드 반환
+func cmdDangerousConfirm(cx cmdCtx, action string) {
+	// 이미 confirmed 면 (사용자가 확인 카드 클릭 후 재요청) 실제 실행 dispatch로
+	if c, _ := cx.params["confirmed"].(bool); c {
+		json200(cx.w, CommandResponse{
+			Success: true, Action: action + "_confirmed",
+			Message: "✅ 확인됨 — 실제 실행은 Windows 빌드에서만 동작합니다.",
+			Result:  map[string]any{"action": action, "executed": false, "reason": "mac-dev-only"},
+			Duration: cx.dur,
+		})
+		return
+	}
+	confirmResult, confirmMsg := buildConfirmCard(action, cx.params, cx.msg, cx.req.Lang)
+	if confirmResult == nil {
+		confirmResult = map[string]any{"needs_confirmation": true, "action": action}
+		confirmMsg = "⚠️ " + action + " 실행 확인 필요"
+	}
+	json200(cx.w, CommandResponse{
+		Success: true, Action: action,
+		Message:  confirmMsg,
+		Result:   confirmResult,
+		CardType: "confirm_action",
+		Duration: cx.dur,
+	})
+}
+
+// synthesizePlannedSteps — 자연어에서 멀티스텝 분해 (LLM 없이 키워드 기반)
+// "엑셀로 매출 정리하고 PDF로 저장" → [excel_auto_create, pdf_auto_create]
+func synthesizePlannedSteps(goal string) []struct {
+	Action string         `json:"action"`
+	Params map[string]any `json:"params"`
+} {
+	out := []struct {
+		Action string         `json:"action"`
+		Params map[string]any `json:"params"`
+	}{}
+	lower := strings.ToLower(goal)
+	add := func(a string, p map[string]any) {
+		out = append(out, struct {
+			Action string         `json:"action"`
+			Params map[string]any `json:"params"`
+		}{Action: a, Params: p})
+	}
+	// 단계 후보들 — 키워드 매칭 순서대로 추가
+	candidates := []struct {
+		action  string
+		keywords []string
+	}{
+		{"calendar_today", []string{"오늘 일정", "오늘 스케줄"}},
+		{"calendar_find_slot", []string{"빈 시간", "회의 잡", "미팅 잡"}},
+		{"email_inbox", []string{"받은 메일", "메일 확인", "inbox"}},
+		{"email_summarize", []string{"메일 요약", "이메일 요약"}},
+		{"news_search", []string{"뉴스", "news"}},
+		{"web_search", []string{"검색해", "찾아"}},
+		{"excel_auto_create", []string{"엑셀", "excel", "스프레드시트"}},
+		{"pdf_auto_create", []string{"pdf", "피디에프"}},
+		{"doc_auto_create", []string{"보고서", "메모", "회의록"}},
+		{"note", []string{"노트", "메모"}},
+		{"scan", []string{"진단", "스캔"}},
+		{"clean", []string{"정리해", "청소"}},
+		{"translate", []string{"번역"}},
+		{"stats", []string{"상태", "메모리", "디스크"}},
+	}
+	seen := map[string]bool{}
+	for _, c := range candidates {
+		for _, kw := range c.keywords {
+			if strings.Contains(lower, kw) && !seen[c.action] {
+				seen[c.action] = true
+				add(c.action, map[string]any{"topic": goal, "query": goal})
+				break
+			}
+		}
+	}
+	return out
 }
 
 // cmdFrontendDispatch — 프론트가 backendAPI 호출로 데이터를 가져오는 액션

@@ -569,8 +569,77 @@ Example EN: "[Previous context: Tokyo restaurants]\nCurrent question: find more 
 	return result, nil
 }
 
-func callGroqVision(_, _, _, _ string) (string, error) {
-	return "", fmt.Errorf("Vision 기능은 현재 지원되지 않습니다")
+// callGroqVision (Mac stub) — Win과 동일 동작
+func callGroqVision(apiKey, imageBase64, mime, prompt string) (string, error) {
+	if prompt == "" {
+		prompt = "이 이미지를 자세히 설명해주세요."
+	}
+	if mime == "" {
+		mime = "image/png"
+	}
+	imgURL := imageBase64
+	if !strings.HasPrefix(imgURL, "data:") {
+		imgURL = "data:" + mime + ";base64," + imageBase64
+	}
+	tryCall := func(key, endpoint, model string) (string, error) {
+		payload := map[string]any{
+			"model": model,
+			"messages": []map[string]any{
+				{
+					"role": "user",
+					"content": []map[string]any{
+						{"type": "text", "text": prompt},
+						{"type": "image_url", "image_url": map[string]string{"url": imgURL}},
+					},
+				},
+			},
+			"max_tokens": 1024, "temperature": 0.3,
+		}
+		body, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", endpoint, bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+key)
+		client := &http.Client{Timeout: 25 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != 200 {
+			return "", fmt.Errorf("vision %d: %s", resp.StatusCode, string(raw))
+		}
+		var out struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(raw, &out); err != nil {
+			return "", err
+		}
+		if len(out.Choices) == 0 {
+			return "", fmt.Errorf("vision: empty response")
+		}
+		return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	}
+	if strings.HasPrefix(apiKey, "gsk_") {
+		for _, model := range []string{"meta-llama/llama-4-maverick-17b-128e-instruct", "llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"} {
+			if text, err := tryCall(apiKey, "https://api.groq.com/openai/v1/chat/completions", model); err == nil && text != "" {
+				return text, nil
+			}
+		}
+	}
+	llmMu.RLock()
+	openaiKey := llmClaudeKey
+	llmMu.RUnlock()
+	if strings.HasPrefix(openaiKey, "sk-") {
+		if text, err := tryCall(openaiKey, "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"); err == nil && text != "" {
+			return text, nil
+		}
+	}
+	return "", fmt.Errorf("vision: no working multimodal endpoint")
 }
 
 func callClaude(apiKey string, msgs []groqMsg, maxTokens int) (string, error) {

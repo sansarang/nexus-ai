@@ -16,8 +16,8 @@ func detectMultiStep(msg string) bool {
 	// 1) 연결사 — 한/영
 	connectors := []string{
 		"하고 ", "한 다음", "그리고", "그다음", "그 다음", "한뒤", "한 뒤", "이후에", "다음에",
-		"해서 ", "하면서", "한후", "한 후",
-		" and then ", " then ", " also ", " and ", " after ", " next ",
+		"해서 ", "하면서", "한후", "한 후", "고 ", "찾고", "받고", "보고", "쓰고", "만들고",
+		" and then ", " then ", " also ", " and ", " after ", " next ", " plus ",
 	}
 	hasConnector := false
 	for _, c := range connectors {

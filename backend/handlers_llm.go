@@ -248,8 +248,89 @@ func callGroq(apiKey, model string, msgs []groqMsg, maxTokens int, jsonMode bool
 	return callOpenAICompat(key, endpoint, resolvedModel, msgs, maxTokens, jsonMode)
 }
 
-func callGroqVision(_, _, _, _ string) (string, error) {
-	return "", fmt.Errorf("Vision 기능은 현재 지원되지 않습니다")
+// callGroqVision — Groq multimodal 호출 (Llama 4 Maverick 또는 Llama 3.2 Vision)
+// apiKey: Groq 키 ; imageBase64: base64 또는 data URL ; mime: image/png 등 ; prompt: 질문
+// 키 미설정 시 OpenAI GPT-4o-mini Vision 자동 폴백
+func callGroqVision(apiKey, imageBase64, mime, prompt string) (string, error) {
+	if prompt == "" {
+		prompt = "이 이미지를 자세히 설명해주세요."
+	}
+	if mime == "" {
+		mime = "image/png"
+	}
+	// data URL 정규화
+	imgURL := imageBase64
+	if !strings.HasPrefix(imgURL, "data:") {
+		imgURL = "data:" + mime + ";base64," + imageBase64
+	}
+
+	tryCall := func(key, endpoint, model string) (string, error) {
+		payload := map[string]any{
+			"model": model,
+			"messages": []map[string]any{
+				{
+					"role": "user",
+					"content": []map[string]any{
+						{"type": "text", "text": prompt},
+						{"type": "image_url", "image_url": map[string]string{"url": imgURL}},
+					},
+				},
+			},
+			"max_tokens":  1024,
+			"temperature": 0.3,
+		}
+		body, _ := json.Marshal(payload)
+		req, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+key)
+		client := &http.Client{Timeout: 25 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != 200 {
+			return "", fmt.Errorf("vision %d: %s", resp.StatusCode, string(raw))
+		}
+		var out struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(raw, &out); err != nil {
+			return "", err
+		}
+		if len(out.Choices) == 0 {
+			return "", fmt.Errorf("vision: empty response")
+		}
+		return strings.TrimSpace(out.Choices[0].Message.Content), nil
+	}
+
+	// 1) Groq vision (Llama 4 Maverick → Llama 3.2 90B Vision 순서)
+	if strings.HasPrefix(apiKey, "gsk_") {
+		for _, model := range []string{"meta-llama/llama-4-maverick-17b-128e-instruct", "llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"} {
+			if text, err := tryCall(apiKey, "https://api.groq.com/openai/v1/chat/completions", model); err == nil && text != "" {
+				return text, nil
+			}
+		}
+	}
+
+	// 2) OpenAI GPT-4o-mini Vision 폴백 (번들 OpenAI 키 활용)
+	llmMu.RLock()
+	openaiKey := llmClaudeKey // OpenAI 키가 Claude 슬롯에 저장된 경우 (현 구조)
+	llmMu.RUnlock()
+	if strings.HasPrefix(openaiKey, "sk-") {
+		if text, err := tryCall(openaiKey, "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"); err == nil && text != "" {
+			return text, nil
+		}
+	}
+	return "", fmt.Errorf("vision: no working multimodal endpoint")
 }
 
 // ToolDef: OpenAI 호환 함수 호출 도구 정의
