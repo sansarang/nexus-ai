@@ -19,9 +19,24 @@ var (
 )
 
 const (
-	cmdCacheTTL     = 60 * time.Second // 기본 1분 (날씨/뉴스 등 자주 묻는 거)
-	cmdCacheMaxSize = 200              // 최대 200개 항목 (메모리 절약)
+	// 시나리오 C 비용 최적화 — 액션별 차등 TTL
+	cmdCacheTTLDefault     = 24 * time.Hour      // 정적 응답 (지식 질문, chat)
+	cmdCacheTTLRealtime    = 60 * time.Second    // 시간 의존 (날씨/뉴스/주가)
+	cmdCacheTTLMedium      = 30 * time.Minute    // 중간 (검색/번역)
+	cmdCacheMaxSize        = 500                 // 200 → 500 (메모리 8MB↓)
 )
+
+// ttlForAction — 액션별 적절한 캐시 TTL 결정
+func ttlForAction(action string) time.Duration {
+	switch action {
+	case "weather", "news_search", "stock_analysis", "exchange_rate", "stats", "scan":
+		return cmdCacheTTLRealtime
+	case "web_search", "translate", "youtube_search", "video_search", "price_compare":
+		return cmdCacheTTLMedium
+	default:
+		return cmdCacheTTLDefault
+	}
+}
 
 // normalizeQuery: 캐시 키 정규화 (공백 / 대소문자 영향 무시)
 func normalizeQuery(s string) string {
@@ -84,7 +99,7 @@ func cmdCacheSet(query, lang string, resp CommandResponse) {
 	}
 	cmdCache[key] = cmdCacheEntry{
 		resp:    resp,
-		expires: time.Now().Add(cmdCacheTTL),
+		expires: time.Now().Add(ttlForAction(resp.Action)),
 	}
 	cmdCacheMu.Unlock()
 }

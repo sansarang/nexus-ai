@@ -2,7 +2,7 @@
   "bundle": {
     "resources": {
       "backend-bin/nexus-backend.exe": "nexus-backend.exe",
-      "backend-bin/nexus-python.exe": "nexus-python.exe"
+      "../backend/fonts/NanumGothic.ttf": "fonts/NanumGothic.ttf"
     }
   }
 }

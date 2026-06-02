@@ -30,6 +30,9 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
   const [claudeKey,   setClaudeKey]   = useState(localStorage.getItem('nexus-claude-key') ?? '')
   const [openaiKey,   setOpenaiKey]   = useState(localStorage.getItem('nexus-openai-key') ?? '')
   const [ollamaUrl,   setOllamaUrl]   = useState(localStorage.getItem('nexus-ollama-url') ?? 'http://localhost:11434')
+  // ★ Free BYOK 완성 — Groq/Tavily 사용자 키 (Pro는 번들 키 사용)
+  const [groqKey,     setGroqKey]     = useState(localStorage.getItem('nexus-groq-key') ?? '')
+  const [tavilyKey,   setTavilyKey]   = useState(localStorage.getItem('nexus-tavily-key') ?? '')
   const [emailTo,             setEmailTo]             = useState(localStorage.getItem('nexus-report-email') ?? '')
   const [customInstructions,  setCustomInstructions]  = useState(localStorage.getItem('nexus-custom-instructions') ?? '')
   const [saved,               setSaved]               = useState(false)
@@ -96,6 +99,8 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
     onPrimaryColorChange?.(themeColor)
 
     if (claudeKey.trim()) localStorage.setItem('nexus-claude-key', claudeKey.trim())
+    if (groqKey.trim())   localStorage.setItem('nexus-groq-key',   groqKey.trim())
+    if (tavilyKey.trim()) localStorage.setItem('nexus-tavily-key', tavilyKey.trim())
     else                  localStorage.removeItem('nexus-claude-key')
 
     if (openaiKey.trim()) localStorage.setItem('nexus-openai-key', openaiKey.trim())
@@ -108,12 +113,14 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
     if (customInstructions.trim()) localStorage.setItem('nexus-custom-instructions', customInstructions.trim())
     else localStorage.removeItem('nexus-custom-instructions')
 
-    // Claude 키를 백엔드에 전송 (sk-ant- 키는 즉시 1순위 LLM으로 활성화)
+    // 키들을 백엔드에 전송 (BYOK — Pro는 번들 키 우선)
     fetch('http://127.0.0.1:17891/api/llm/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         claude_key: claudeKey.trim() || undefined,
+        groq_key:   groqKey.trim()   || undefined,
+        tavily_key: tavilyKey.trim() || undefined,
         ollama_url: ollamaUrl.trim() || undefined,
       }),
     }).catch(() => {})
@@ -502,6 +509,68 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                       {isEn
                         ? 'claude-haiku-4-5 is used when set — highest accuracy'
                         : '설정 시 claude-haiku-4-5 사용 — 최고 정확도'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Groq Key — Free 전용 (Pro는 번들) */}
+                {subscriptionStatus !== 'active' && subscriptionStatus !== 'trial' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={{ ...labelStyle, color: '#10b981' }}>
+                        {isEn ? '⚡ GROQ API KEY (fast LLM · priority #2)' : '⚡ GROQ API KEY (빠른 LLM · 2순위)'}
+                      </label>
+                      {groqKey.trim().startsWith('gsk_') && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
+                          background: 'rgba(16,185,129,0.18)', color: '#10b981', border: '1px solid rgba(16,185,129,0.4)',
+                        }}>
+                          {isEn ? 'ACTIVE' : '활성'}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      value={groqKey}
+                      onChange={e => setGroqKey(e.target.value)}
+                      placeholder="gsk_..."
+                      style={inputStyle(groqKey.trim().startsWith('gsk_'))}
+                    />
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                      {isEn
+                        ? 'Free key: console.groq.com — Llama 3.3 70B blazing fast'
+                        : '무료 키: console.groq.com — Llama 3.3 70B 초고속'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tavily Key — Free 전용 (Pro는 번들) */}
+                {subscriptionStatus !== 'active' && subscriptionStatus !== 'trial' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={{ ...labelStyle, color: '#60a5fa' }}>
+                        {isEn ? '🔍 TAVILY API KEY (web search · optional)' : '🔍 TAVILY API KEY (웹 검색 · 선택)'}
+                      </label>
+                      {tavilyKey.trim().startsWith('tvly-') && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
+                          background: 'rgba(96,165,250,0.18)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.4)',
+                        }}>
+                          {isEn ? 'ACTIVE' : '활성'}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      value={tavilyKey}
+                      onChange={e => setTavilyKey(e.target.value)}
+                      placeholder="tvly-..."
+                      style={inputStyle(tavilyKey.trim().startsWith('tvly-'))}
+                    />
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                      {isEn
+                        ? 'Free: 1000 searches/month — tavily.com'
+                        : '무료: 월 1000건 — tavily.com'}
                     </span>
                   </div>
                 )}

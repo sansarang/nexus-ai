@@ -80,6 +80,14 @@
   nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
   Sleep 500
 
+  ; ── 0.5. Windows Defender 방화벽 예외 등록 (백엔드 17891 포트) ──
+  ; 사용자가 매번 방화벽 팝업 보지 않게 사전 등록
+  DetailPrint "Adding Firewall exception for Nexus backend..."
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="Nexus AI Backend"'
+  nsExec::ExecToStack 'netsh advfirewall firewall add rule name="Nexus AI Backend" dir=in action=allow protocol=TCP localport=17891 profile=any description="Nexus AI 로컬 백엔드 (127.0.0.1만 수신)"'
+  Pop $0
+  DetailPrint "Firewall: $0"
+
   ; ── 1. Microsoft Visual C++ Redistributable 확인 ─────────────────
   DetailPrint "Checking Visual C++ Redistributable..."
   ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" "Installed"
@@ -277,6 +285,9 @@
 
   ; 백엔드 프로세스 종료
   nsExec::Exec 'taskkill /F /IM nexus-backend.exe /T'
+
+  ; 방화벽 예외 제거
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="Nexus AI Backend"'
 
   ; 사용자 데이터는 보존 (llm_config.json, memory 등)
   ; 완전 삭제 원하면 아래 주석 해제:
