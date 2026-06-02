@@ -778,7 +778,7 @@ func cmdDefault(cx cmdCtx) {
 			"tutor":      "chat",
 			// 도메인 API 페르소나는 전용 액션
 			"medical":  "medical_search",
-			"legal":    "contract_review",
+			"legal":    "legal_search",   // 일반 법률 질문은 legal_search (계약서 검토는 사전 패턴에서 contract_review)
 			"investor": "stock_analysis",
 			"finance":  "chat",
 			"security": "chat",

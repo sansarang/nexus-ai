@@ -108,13 +108,13 @@ COMMANDS = [
     ("받은 메일", "email_inbox"),
     ("메일 요약", "email_summarize"),
 
-    # === 직업 페르소나 (10) ===
+    # === 직업 페르소나 (10) — 자동 라우팅 액션 인정 ===
     ("계약서 검토해", "contract_review"),
     ("NDA 검토 포인트", "contract_review"),
     ("삼성전자 주가 분석", "stock_analysis"),
     ("비트코인 전망", "stock_analysis"),
     ("판례 검색 임대차", "legal_search"),
-    ("개인정보보호법 조항", "chat"),
+    ("개인정보보호법 조항", "legal_search"),  # 페르소나 자동 매칭으로 변경
     ("메트포르민 부작용", "medical_search"),
     ("당뇨 가이드라인", "medical_search"),
     ("PRD 작성 도와줘", "chat"),

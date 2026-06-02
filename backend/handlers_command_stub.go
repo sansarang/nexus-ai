@@ -94,11 +94,38 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	var preRoutedParams map[string]any
 	systemPreRouted := false
 
+	// ── ★ 최최우선 0: 직업 페르소나 명시 액션 (순서 = 우선순위) ──
+	domainActionPats := []struct{ action, pat string }{
+		// 1) PRD/리서치/기획 → chat (multi_action 차단)
+		{"chat", `(^|\s)(prd|리서치|기획서|아키텍처)(\s|$|를|을|좀|작성|만들|도와|분석)`},
+		// 2) Contract — "계약서/NDA" 키워드는 contract_review 우선 (legal보다 먼저)
+		{"contract_review", `(계약서|nda|약관|독소조항).*?(검토|분석|검사|확인|포인트|체크|리뷰|review)`},
+		{"contract_review", `(근로계약서|업무위탁계약|nda)\b`},
+		// 3) Legal — 법령/판례/개인정보보호법 등
+		{"legal_search", `(개인정보보호법|gdpr|판례|법령|민법|형법|상법|특허법|근로기준법)`},
+		// 4) Medical
+		{"medical_search", `(메트포르민|당뇨|고혈압|콜레스테롤|약물|임상|논문|pubmed)`},
+		// 5) Stock
+		{"stock_analysis", `(주가|종목|코인|비트코인|이더리움|etf|aapl|nvda|tsla|삼성전자|sk하이닉스|애플|테슬라|엔비디아).*?(분석|전망|예측|차트|시세|투자|매수|매도)`},
+	}
+	if !systemPreRouted {
+		for _, dp := range domainActionPats {
+			if matched, _ := regexp.MatchString(dp.pat, msgLower); matched {
+				preRoutedAction = dp.action
+				preRoutedParams = map[string]any{"query": req.Message}
+				systemPreRouted = true
+				break
+			}
+		}
+	}
+
 	// ── ★ 최최우선 1: 위험 액션 감지 (Phase A2) — 즉시 확인 카드 ──
-	if dangerKey := detectDangerousInMessage(req.Message); dangerKey != "" {
-		preRoutedAction = dangerKey
-		preRoutedParams = map[string]any{"confirmed": false, "_dangerous": true}
-		systemPreRouted = true
+	if !systemPreRouted {
+		if dangerKey := detectDangerousInMessage(req.Message); dangerKey != "" {
+			preRoutedAction = dangerKey
+			preRoutedParams = map[string]any{"confirmed": false, "_dangerous": true}
+			systemPreRouted = true
+		}
 	}
 
 	// ── ★ 최최우선 2: 멀티스텝 감지 ──
@@ -929,10 +956,9 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		cmdFileOps(_cx)
 	case "trigger_add":
 		cmdTriggerAdd(_cx)
-	// ── 직업 페르소나 전문 액션 (Mac stub: chat 폴백) ──
+	// ── 직업 페르소나 전문 액션 — 명시 action으로 응답 (cmdDefault 페르소나 덮어쓰기 차단) ──
 	case "contract_review", "legal_search", "medical_search", "stock_analysis":
-		// 페르소나 컨텍스트가 이미 자동 적용됨 → cmdDefault 통해 chat 응답
-		cmdDefault(_cx)
+		cmdDomainProfessional(_cx, intent.Action)
 	// ── Phase A2 위험 액션 (확인 카드 응답) ──
 	case "restart", "shutdown", "sleep", "format_disk", "payment", "file_delete",
 		"clean_aggressive", "email_send", "app_uninstall", "registry_edit", "file_move":
@@ -1064,6 +1090,23 @@ func cmdDangerousConfirm(cx cmdCtx, action string) {
 		Message:  confirmMsg,
 		Result:   confirmResult,
 		CardType: "confirm_action",
+		Duration: cx.dur,
+	})
+}
+
+
+// cmdDomainProfessional — 직업 전문 액션 명시 응답 (legal/medical/contract/stock)
+// 페르소나 자동 매칭 + 도메인 컨텍스트 + 명시 action 반환
+func cmdDomainProfessional(cx cmdCtx, action string) {
+	chatMsgs := []groqMsg{
+		{Role: "system", Content: getPersonaSystemPromptForQuery(cx.req.Message)},
+		{Role: "user", Content: cx.req.Message},
+	}
+	answer, _, _ := callGroqWithFallback(chatMsgs, 800, false)
+	json200(cx.w, CommandResponse{
+		Success:  true,
+		Message:  answer,
+		Action:   action, // 사전 라우팅 결과 그대로
 		Duration: cx.dur,
 	})
 }
