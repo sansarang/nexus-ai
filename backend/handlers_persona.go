@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -258,8 +259,172 @@ func getActivePersona() Persona {
 	return builtinPersonas[0]
 }
 
+// personaQualityGuide — 모든 페르소나 답변에 공통 적용되는 품질 가이드
+const personaQualityGuide = `
+
+━━━ 답변 품질 규칙 (모든 페르소나 공통) ━━━
+1. 결론 먼저 — 첫 문장에 핵심 답. 그 다음 근거.
+2. 구체적 숫자/이름/링크 — "많다/적다" 같은 모호한 표현 금지.
+3. 단계가 있으면 번호 매김(1. 2. 3.). 비교가 있으면 표 형태.
+4. 출처 명시 — 검색 결과면 [도메인] 형식. 추측이면 "추정" 명시.
+5. 위험/한계 명시 — 법률/의료/투자는 반드시 전문가 확인 권고 추가.
+6. 분량 — 단순 질문 1-3문장, 복잡한 질문 5-8문장. 불필요한 장황 금지.
+7. 마크다운 헤더(#, ##) 금지 — 일반 텍스트 또는 굵게(**) 정도만.
+8. "물론입니다", "당연히" 같은 빈말 금지. 바로 본론.
+9. 모르면 "확실하지 않음" 명시. 환각 금지.
+`
+
 func getPersonaSystemPrompt() string {
-	return getActivePersona().SystemPrompt
+	return getActivePersona().SystemPrompt + personaQualityGuide
+}
+
+// detectPersonaForQuery — 사용자 쿼리 분석해서 최적 페르소나 ID 자동 추천
+// 명시적 페르소나 전환이 없어도 키워드 기반으로 답변 품질 ↑
+// 반환: 매칭된 페르소나 ID (없으면 빈 문자열 → 현재 active 사용)
+func detectPersonaForQuery(msg string) string {
+	lower := strings.ToLower(msg)
+	// 키워드 → 페르소나 매핑 (specificity 높은 순)
+	mappings := []struct {
+		persona  string
+		keywords []string
+	}{
+		{"developer", []string{
+			"코드", "디버그", "버그", "리팩토링", "함수", "클래스", "메서드", "에러", "exception", "스택트레이스",
+			"git ", "github", "pr 검토", "pull request", "merge", "branch",
+			"python", "typescript", "javascript", "react", "vue", "go ", "golang", "rust", "java", "c++", "kotlin", "swift",
+			"api ", "rest", "graphql", "데이터베이스", "sql", "postgres", "mysql", "mongodb",
+			"docker", "kubernetes", "k8s", "ci/cd", "terraform",
+			"코드 리뷰", "code review", "refactor", "debug", "stack trace",
+		}},
+		{"security", []string{
+			"보안", "취약점", "해킹", "악성코드", "랜섬웨어", "피싱", "방화벽",
+			"cve", "owasp", "mitre", "att&ck", "침해", "포렌식", "사이버",
+			"security", "vulnerability", "malware", "ransomware", "firewall", "exploit", "penetration",
+		}},
+		{"legal", []string{
+			"계약서", "계약", "약관", "특약", "조항", "독소조항", "법률", "법", "조례", "규정", "법령", "판례",
+			"nda", "compliance", "gdpr", "개인정보보호", "저작권", "특허", "상표", "공정거래",
+			"contract", "agreement", "clause", "legal", "law", "lawsuit", "patent", "copyright", "trademark",
+		}},
+		{"medical", []string{
+			"증상", "병", "약", "처방", "복용", "부작용", "임상", "논문", "진단", "치료", "수술", "재활",
+			"당뇨", "고혈압", "암", "심장", "코로나", "백신",
+			"pubmed", "clinical", "diagnosis", "treatment", "drug", "medication", "symptom", "disease",
+		}},
+		{"investor", []string{
+			"주식", "주가", "종목", "코인", "비트코인", "이더리움", "etf", "펀드", "포트폴리오", "배당",
+			"재무제표", "per", "pbr", "roe", "현금흐름", "ebitda",
+			"매수", "매도", "공매도", "옵션", "선물", "외환", "환율",
+			"stock", "ticker", "earnings", "dividend", "bull", "bear", "trading", "forex", "crypto",
+		}},
+		{"finance", []string{
+			"예산", "비용", "지출", "수입", "매출", "원가", "마진", "회계", "결산", "분기보고서",
+			"roi", "irr", "npv", "현재가치", "감가상각",
+			"budget", "expense", "revenue", "profit", "cost", "accounting", "fiscal",
+		}},
+		{"marketer", []string{
+			"마케팅", "광고", "캠페인", "카피", "후크", "타겟", "타깃", "퍼널", "전환", "리텐션", "ltv",
+			"sns", "인스타", "유튜브", "틱톡", "릴스", "쇼츠", "콘텐츠 기획", "바이럴",
+			"ctr", "cvr", "cpm", "cpc", "roas", "a/b 테스트", "ab 테스트",
+			"marketing", "advertising", "campaign", "audience", "engagement", "viral", "funnel",
+		}},
+		{"sales", []string{
+			"영업", "세일즈", "리드", "프로스펙트", "콜드메일", "콜드콜", "제안서", "견적서", "딜", "클로징", "협상",
+			"spin", "bant", "meddic", "crm", "고객 미팅", "고객사",
+			"sales", "lead", "prospect", "pitch", "proposal", "negotiation", "closing", "outreach",
+		}},
+		{"pm", []string{
+			"prd", "기획서", "스프린트", "백로그", "user story", "유저 스토리", "사용자 스토리",
+			"로드맵", "마일스톤", "okr", "kpi", "rice", "ice scoring",
+			"product manager", "스크럼", "scrum", "agile", "애자일", "지라", "jira", "노션",
+			"우선순위", "prioritization",
+		}},
+		{"designer", []string{
+			"ui", "ux", "디자인", "와이어프레임", "프로토타입", "피그마", "figma", "스케치",
+			"타이포", "폰트", "컬러", "팔레트", "그라디언트",
+			"디자인 시스템", "material design", "hig", "human interface", "tailwind",
+			"접근성", "wcag", "a11y",
+			"design system", "wireframe", "mockup", "user experience",
+		}},
+		{"meeting", []string{
+			"회의", "미팅", "회의록", "안건", "agenda", "minutes", "참석자",
+			"meeting", "참석", "회의 잡", "미팅 잡",
+		}},
+		{"research", []string{
+			"경쟁사", "시장 조사", "리서치", "벤치마킹", "트렌드 분석", "산업 분석", "백서", "whitepaper",
+			"competitor analysis", "market research", "industry report",
+		}},
+		{"creative", []string{
+			"아이디어", "브레인스토밍", "기획", "컨셉", "네이밍", "슬로건", "스토리텔링",
+			"brainstorm", "creative", "concept", "naming",
+		}},
+		{"freelancer", []string{
+			"프리랜서", "외주", "프로젝트 견적", "단가", "수임료", "원천세", "종합소득세", "사업소득",
+			"freelance", "freelancer", "invoicing", "1099",
+		}},
+		{"smallbiz", []string{
+			"소상공인", "자영업", "카페", "음식점", "매장 운영", "포스기", "결제기",
+			"부가세", "현금영수증", "사업자등록", "임대료",
+			"small business",
+		}},
+		{"corporate", []string{
+			"법인", "법인세", "주주", "이사회", "정관", "감사", "결산공시",
+			"4대보험", "전자세금계산서", "급여대장", "원천징수",
+			"corporate", "shareholder", "board of directors",
+		}},
+		{"creator", []string{
+			"유튜브 스크립트", "콘텐츠 제작", "썸네일", "구독자", "조회수", "수익화",
+			"youtube creator", "tiktok creator", "monetization", "subscriber",
+		}},
+		{"tutor", []string{
+			"공부", "학습", "문제 풀이", "수학", "영어 회화", "과외", "강의", "튜터", "학생", "시험",
+			"수능", "토익", "토플", "ielts",
+			"tutoring", "lesson", "homework", "exam",
+		}},
+	}
+	for _, m := range mappings {
+		for _, kw := range m.keywords {
+			if strings.Contains(lower, kw) {
+				return m.persona
+			}
+		}
+	}
+	return ""
+}
+
+// getPersonaSystemPromptForQuery — 쿼리 기반 자동 페르소나 적용
+// 자동 매칭된 페르소나가 있으면 그것을, 없으면 active 페르소나를 사용
+func getPersonaSystemPromptForQuery(msg string) string {
+	if id := detectPersonaForQuery(msg); id != "" {
+		for _, p := range builtinPersonas {
+			if p.ID == id {
+				return p.SystemPrompt + personaQualityGuide
+			}
+		}
+	}
+	return getPersonaSystemPrompt()
+}
+
+// getDomainSearchHint — 페르소나별 도메인 검색 우선순위 힌트
+// Tavily/web_search 호출 시 사이트 제한으로 답변 품질 ↑
+func getDomainSearchHint(personaID string) []string {
+	switch personaID {
+	case "medical":
+		return []string{"pubmed.ncbi.nlm.nih.gov", "nejm.org", "thelancet.com", "kma.org", "snuh.org"}
+	case "legal":
+		return []string{"law.go.kr", "casenote.kr", "ipc.go.kr", "scourt.go.kr"}
+	case "investor", "finance":
+		return []string{"dart.fss.or.kr", "finance.naver.com", "investing.com", "morningstar.com", "sec.gov"}
+	case "developer":
+		return []string{"stackoverflow.com", "github.com", "developer.mozilla.org", "docs.python.org", "go.dev", "react.dev"}
+	case "research":
+		return []string{"scholar.google.com", "ssrn.com", "researchgate.net", "arxiv.org"}
+	case "designer":
+		return []string{"dribbble.com", "behance.net", "awwwards.com", "uxdesign.cc"}
+	case "marketer":
+		return []string{"hubspot.com", "neilpatel.com", "marketingland.com", "thinkwithgoogle.com"}
+	}
+	return nil
 }
 
 // ── HTTP 핸들러 ────────────────────────────────────────────────

@@ -86,7 +86,7 @@ REQUIRED:
 - If no real answer possible, redirect: "Try X for that — it's the standard tool"`
 				} else {
 					// 자비스 톤 v2: 결론 먼저, 단 하나 추천, 소스 URL.
-					personaPrompt := getPersonaSystemPrompt()
+					personaPrompt := getPersonaSystemPromptForQuery(cx.req.Message)
 					sysPrompt = personaPrompt + `
 
 당신은 Nexus — 사장님의 자비스급 비서입니다.
@@ -668,7 +668,7 @@ func cmdMeeting(cx cmdCtx) {
 			if mEng {
 				mPrompt = "You are a meeting assistant. Help with: " + mQuery + "\nAnswer concisely in English."
 			} else {
-				mPrompt = getPersonaSystemPrompt() + "\n회의 관련 질문: " + mQuery + "\n간결하게 한국어로 답변하세요."
+				mPrompt = getPersonaSystemPromptForQuery(mQuery) + "\n회의 관련 질문: " + mQuery + "\n간결하게 한국어로 답변하세요."
 			}
 			mMsgs := []groqMsg{{Role: "user", Content: mPrompt}}
 			mAnswer, _, _ = callGroqWithFallback(mMsgs, 512, false)
@@ -751,9 +751,9 @@ func cmdBriefing(cx cmdCtx) {
 }
 
 func cmdDefault(cx cmdCtx) {
-		// 알 수 없는 액션 → chat으로 폴백
+		// 알 수 없는 액션 → chat으로 폴백 (자동 페르소나 적용)
 		chatMsgs := []groqMsg{
-			{Role: "system", Content: getPersonaSystemPrompt()},
+			{Role: "system", Content: getPersonaSystemPromptForQuery(cx.req.Message)},
 			{Role: "user", Content: cx.req.Message},
 		}
 		answer, _, _ := callGroqWithFallback(chatMsgs, 1024, false)

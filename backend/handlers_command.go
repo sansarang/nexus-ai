@@ -1148,8 +1148,8 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// ── 일반 모드: LLM 의도 파악 (대화 이력 포함) ────────────
-			// 페르소나 컨텍스트를 라우팅 프롬프트 앞에 주입
-			personaCtx := getPersonaSystemPrompt()
+			// ★ 자동 페르소나 추천 (쿼리 기반) — 명시적 전환 안 해도 적절한 페르소나 사용
+			personaCtx := getPersonaSystemPromptForQuery(req.Message)
 			routingPrompt := nexusSystemPrompt
 			if lang == "en" {
 				routingPrompt = "Respond in English.\n\n" + routingPrompt
