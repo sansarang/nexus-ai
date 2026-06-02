@@ -1066,7 +1066,7 @@ export function FloatingCharacter() {
           }
         }
         default: {
-          // ── 미매핑 액션 폴백 (백엔드는 처리했지만 프론트 전용 카드 없음) ──
+          // ── 100% 카드 보장: 매핑 안된 모든 액션도 system_action 으로 답 ──
           const labels: Record<string, { icon: string; title: string }> = {
             brightness: { icon: '💡', title: '밝기 조정' }, volume: { icon: '🔊', title: '볼륨 조정' },
             mute: { icon: '🔇', title: '음소거' }, wifi: { icon: '📶', title: 'Wi-Fi' },
@@ -1084,23 +1084,49 @@ export function FloatingCharacter() {
             legal_search: { icon: '⚖️', title: '법률 검색' }, medical_search: { icon: '🏥', title: '의료 검색' },
             stock_analysis: { icon: '📈', title: '주식 분석' }, organize_folder: { icon: '📁', title: '폴더 정리' },
             general_answer: { icon: '💬', title: '답변' },
+            // frontend_dispatch 액션 44개 라벨
+            calendar_today: { icon: '📅', title: '오늘 일정' }, calendar_week: { icon: '🗓️', title: '주간 일정' },
+            calendar_find_slot: { icon: '🕒', title: '빈 시간' },
+            email_classify: { icon: '🏷️', title: '메일 분류' }, email_draft: { icon: '✉️', title: '메일 초안' },
+            email_summarize: { icon: '📨', title: '메일 요약' }, imap_inbox: { icon: '📬', title: '메일함' },
+            email_inbox: { icon: '📥', title: '받은 메일' },
+            meeting_list: { icon: '👥', title: '회의 목록' }, meeting_summary: { icon: '📋', title: '회의 요약' },
+            notes: { icon: '🗒️', title: '노트' },
+            perf_history: { icon: '📊', title: '성능 기록' }, perf_anomaly: { icon: '⚠️', title: '성능 이상' },
+            gpu_stats: { icon: '🎮', title: 'GPU 상태' },
+            process_top: { icon: '🔥', title: '프로세스 TOP' }, process_security: { icon: '🛡️', title: '프로세스 보안' },
+            startup_items: { icon: '⚡', title: '시작 프로그램' }, programs_list: { icon: '📦', title: '설치 프로그램' },
+            app_permissions: { icon: '🔐', title: '앱 권한' },
+            boot_analysis: { icon: '⏱️', title: '부팅 분석' }, driver_check: { icon: '🔌', title: '드라이버 점검' },
+            defender_status: { icon: '🛡️', title: '디펜더 상태' }, virus_check: { icon: '🦠', title: '바이러스 검사' },
+            windows_updates: { icon: '🔄', title: 'Windows 업데이트' }, remote_access: { icon: '🌐', title: '원격 접속' },
+            network_analysis: { icon: '📡', title: '네트워크 분석' },
+            clipboard_history: { icon: '📋', title: '클립보드 기록' }, clipboard_ai: { icon: '🤖', title: '클립보드 AI' },
+            dictation_start: { icon: '🎙️', title: '받아쓰기' },
+            file_duplicates: { icon: '👥', title: '중복 파일' }, search_pdf: { icon: '🔍', title: 'PDF 검색' },
+            recall_capture: { icon: '📸', title: '기억 저장' }, recall_search: { icon: '🔎', title: '기억 검색' },
+            brain_search: { icon: '🧠', title: '브레인 검색' }, brain_stats: { icon: '📈', title: '브레인 통계' },
+            persona_list: { icon: '🎭', title: '페르소나' },
+            workflow_list: { icon: '🤖', title: '워크플로 목록' }, workflow_templates: { icon: '📋', title: '워크플로 템플릿' },
+            schedule_list: { icon: '⏰', title: '예약 목록' },
+            voice_todo: { icon: '🎤', title: '음성 할일' },
+            news_search: { icon: '📰', title: '뉴스' }, youtube_search: { icon: '▶️', title: '유튜브' },
+            translate: { icon: '🌐', title: '번역' },
+            chat: { icon: '💬', title: '대화' }, clarify: { icon: '❓', title: '추가 질문' },
+            error: { icon: '⚠️', title: '오류' },
           }
-          const meta = labels[action]
+          const meta = labels[action] ?? { icon: '✨', title: (action || 'unknown').replace(/_/g, ' ') }
           const r = result as { frontend_dispatch?: boolean; message?: string; success?: boolean } | undefined
-          if (meta || r?.frontend_dispatch) {
-            const m = meta ?? { icon: '✨', title: action.replace(/_/g, ' ') }
-            return {
-              card2: {
-                type: 'system_action',
-                icon: m.icon,
-                title: m.title,
-                detail: r?.message ?? trimmed.slice(0, 100),
-                success: r?.success !== false,
-              },
-              emotion: 'happy',
-            }
+          return {
+            card2: {
+              type: 'system_action',
+              icon: meta.icon,
+              title: meta.title,
+              detail: r?.message ?? trimmed.slice(0, 120),
+              success: r?.success !== false,
+            },
+            emotion: r?.success === false ? 'concerned' : 'happy',
           }
-          return { emotion: 'neutral' }
         }
       }
     } catch {

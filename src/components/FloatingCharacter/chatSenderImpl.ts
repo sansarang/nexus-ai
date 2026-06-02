@@ -949,6 +949,77 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
 
           // ── 정상 실행: clarify 상태 초기화 ──────────────────
           resetClarify()
+
+          // ── ★ 멀티 액션 (workflow_run) 분해: step별로 카드 푸시 ──
+          if (cmd.action === 'workflow_run') {
+            const wfResult = cmd.result as {
+              goal?: string
+              steps?: Array<{ step?: number; action?: string; params?: Record<string, unknown>; result?: unknown; message?: string; status?: string }>
+              summary?: string
+              mode?: string
+            } | undefined
+            const steps = wfResult?.steps ?? []
+            const overallText = cmd.message || wfResult?.summary || (userLang === 'en' ? 'Workflow complete.' : '워크플로 완료.')
+            setTyping(false)
+            typingRef.current = false
+            setEmotion('happy')
+
+            // 1) 헤더 카드 (전체 요약)
+            setMessages(prev => [...prev, {
+              id: `${msgId}-wf-hdr`, role: 'nexus',
+              text: overallText,
+              inlineCard2: {
+                type: 'system_action', icon: '🤖',
+                title: userLang === 'en' ? `Workflow (${steps.length} steps)` : `멀티 액션 (${steps.length}단계)`,
+                detail: wfResult?.goal ?? trimmed,
+                success: (wfResult as { ok?: boolean })?.ok !== false,
+              },
+              action: 'workflow_run',
+            }])
+
+            // 2) 각 step별 카드 (renderCommandResult 재귀 호출)
+            for (let i = 0; i < steps.length; i++) {
+              const s = steps[i]
+              const stepAction = s.action ?? 'chat'
+              try {
+                const stepCards = await renderCommandResult(stepAction, s.result, s.message ?? trimmed)
+                const stepText = s.message ?? `${i + 1}. ${stepAction}`
+                // 빈 카드 폴백
+                const noCard = !stepCards.card && !stepCards.card2 && !stepCards.card3 && !stepCards.card4 && !stepCards.card5
+                setMessages(prev => [...prev, {
+                  id: `${msgId}-wf-${i}`, role: 'nexus',
+                  text: `[${i + 1}/${steps.length}] ${stepText}`,
+                  inlineCard:  stepCards.card,
+                  inlineCard2: stepCards.card2 ?? (noCard ? {
+                    type: 'system_action', icon: '▶️',
+                    title: `Step ${i + 1}: ${stepAction}`,
+                    detail: stepText,
+                    success: s.status !== 'error',
+                  } : undefined),
+                  inlineCard3: stepCards.card3,
+                  inlineCard4: stepCards.card4,
+                  inlineCard5: stepCards.card5,
+                  action: stepAction,
+                }])
+              } catch {
+                setMessages(prev => [...prev, {
+                  id: `${msgId}-wf-${i}-err`, role: 'nexus',
+                  text: `[${i + 1}/${steps.length}] ${stepAction} 실패`,
+                  inlineCard2: {
+                    type: 'system_action', icon: '⚠️',
+                    title: `Step ${i + 1} 오류`,
+                    detail: stepAction,
+                    success: false,
+                  },
+                  action: stepAction,
+                }])
+              }
+            }
+            pushModelHistory(trimmed, overallText)
+            if (overallText) speakText(overallText)
+            return
+          }
+
           const { card, card2, card3, card4, card5, emotion: cmdEmotion } = await renderCommandResult(cmd.action, cmd.result, trimmed)
           const displayText = cmd.message || ''
           setTyping(false)
@@ -1093,9 +1164,28 @@ export async function sendTextImpl(text: string, d: ChatSenderDeps): Promise<voi
           }
           return
         }
-      } catch {
+      } catch (err) {
         setMessages(prev => prev.filter(m => m.id !== `think-${msgId}`))
         resetClarify()
+        // 100% 카드 보장: 에러여도 ErrorCard로 답함
+        const errMsg = err instanceof Error ? err.message : String(err)
+        setMessages(prev => [...prev, {
+          id: `${msgId}-err`, role: 'nexus',
+          text: userLang === 'en' ? `Backend command failed.` : `명령 처리 중 오류가 발생했어요.`,
+          inlineCard: {
+            type: 'error',
+            error: {
+              type: 'unknown',
+              message: errMsg,
+              suggestion: userLang === 'en' ? 'Try again or rephrase your request.' : '다시 시도하거나 표현을 바꿔보세요.',
+            },
+            retryable: true,
+          } as any,
+          action: 'error',
+        }])
+        setTyping(false)
+        typingRef.current = false
+        return
       }
     }
 
