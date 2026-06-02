@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -376,6 +377,11 @@ func resolveUserID(fallback string) (subID string, isAuth bool) {
 // and the current used/limit counts.
 // Supabase가 연결되어 있으면 서버 카운트 우선, 오프라인이면 로컬 폴백.
 func checkUsageLimit(userID, feature string) (allowed bool, used int, limit int) {
+	// ★ Mac dev 환경 — 사용량 한도 무한 (개발/테스트 편의)
+	if isMacDevEnvironment() {
+		return true, 0, 999999
+	}
+
 	jwt := getJWT()
 	plan := getPlanFromJWT(jwt)
 
@@ -409,6 +415,12 @@ func checkUsageLimit(userID, feature string) (allowed bool, used int, limit int)
 	}
 	used = d[uid][feature]
 	return used < limit, used, limit
+}
+
+// isMacDevEnvironment — Mac dev (Win 빌드 태그 없음) 에서만 true
+// build tag로 분리: handlers_usage.go가 cross-platform이므로 runtime.GOOS 사용
+func isMacDevEnvironment() bool {
+	return runtime.GOOS != "windows"
 }
 
 // incrementUsage bumps the counter for a feature.

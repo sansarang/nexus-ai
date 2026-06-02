@@ -452,11 +452,62 @@ func isProxyLimitError(err error) bool {
 
 func callGroqWithFallback(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {
 	content, provider, err := callGroqWithFallbackRaw(msgs, maxTokens, jsonMode)
-	// JSON 모드(인텐트 분류용)는 정리 안 함 — 텍스트 응답만 자비스 톤 적용
 	if !jsonMode && err == nil && content != "" {
 		content = cleanJarvisTone(content)
 	}
+	// ★ 빈 응답 보장 폴백 — Ollama 로컬 → 최소 메시지
+	if !jsonMode && content == "" {
+		if loc := callOllamaForFallback(msgs, maxTokens); loc != "" {
+			return cleanJarvisTone(loc), "ollama", nil
+		}
+		userQ := ""
+		for i := len(msgs) - 1; i >= 0; i-- {
+			if msgs[i].Role == "user" {
+				if s, ok := msgs[i].Content.(string); ok {
+					userQ = s
+				}
+				break
+			}
+		}
+		fallback := "지금 외부 LLM 응답이 비어있어 충분한 답변을 만들지 못했어요. 다시 시도해 주세요."
+		if userQ != "" {
+			fallback = "요청: \"" + userQ + "\" — 응답 생성 중 일시 지연. 다시 시도해 주세요."
+		}
+		return fallback, "fallback-empty", err
+	}
 	return content, provider, err
+}
+
+// callOllamaForFallback — Ollama (localhost:11434) 로컬 LLM 폴백 (Win+Mac 공용)
+func callOllamaForFallback(msgs []groqMsg, maxTokens int) string {
+	prompt := ""
+	for _, m := range msgs {
+		c, _ := m.Content.(string)
+		prompt += m.Role + ": " + c + "\n"
+	}
+	body, _ := json.Marshal(map[string]any{
+		"model":   "llama3.2:3b",
+		"prompt":  prompt,
+		"stream":  false,
+		"options": map[string]any{"num_predict": maxTokens},
+	})
+	req, _ := http.NewRequest("POST", "http://127.0.0.1:11434/api/generate", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 6 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return ""
+	}
+	raw, _ := io.ReadAll(resp.Body)
+	var out struct {
+		Response string `json:"response"`
+	}
+	json.Unmarshal(raw, &out)
+	return strings.TrimSpace(out.Response)
 }
 
 func callGroqWithFallbackRaw(msgs []groqMsg, maxTokens int, jsonMode bool) (string, string, error) {

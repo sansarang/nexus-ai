@@ -228,6 +228,11 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		"virus_check":        `(바이러스.*확인|virus.*check|malware.*scan)`,
 		"windows_updates":    `(윈도우.*업데이트|windows.*update|update.*check)`,
 		"remote_access":      `(원격.*접속|remote.*access|teamviewer|anydesk)`,
+		// ★ 직업 페르소나 액션 — Phase B 매칭률 향상
+		"contract_review":    `(계약서.*검토|계약.*검토|nda.*검토|약관.*검토|독소조항|contract\s*review|review\s*contract)`,
+		"stock_analysis":     `(주가.*분석|종목.*분석|주식.*분석|코인.*분석|etf.*분석|.*전망|portfolio.*analysis|stock\s*analysis)`,
+		"medical_search":     `(약물.*상호작용|약물.*부작용|임상.*가이드|논문.*요약|pubmed.*검색)`,
+		"legal_search":       `(판례.*검색|법령.*검색|규정.*검색)`,
 	}
 	// 매칭된 액션별로 파라미터 추출
 	// systemPreRouted 는 이미 위에서 선언됨 (excel 우선 체크 시 true 가능)
@@ -923,6 +928,10 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		cmdFileOps(_cx)
 	case "trigger_add":
 		cmdTriggerAdd(_cx)
+	// ── 직업 페르소나 전문 액션 (Mac stub: chat 폴백) ──
+	case "contract_review", "legal_search", "medical_search", "stock_analysis":
+		// 페르소나 컨텍스트가 이미 자동 적용됨 → cmdDefault 통해 chat 응답
+		cmdDefault(_cx)
 	// ── Phase A2 위험 액션 (확인 카드 응답) ──
 	case "restart", "shutdown", "sleep", "format_disk", "payment", "file_delete",
 		"clean_aggressive", "email_send", "app_uninstall", "registry_edit", "file_move":

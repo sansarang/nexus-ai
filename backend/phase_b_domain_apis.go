@@ -34,7 +34,7 @@ type DomainSearchResult struct {
 	Score   int    `json:"score,omitempty"`
 }
 
-var domainHTTPClient = &http.Client{Timeout: 8 * time.Second}
+var domainHTTPClient = &http.Client{Timeout: 3 * time.Second}
 
 // ── 1. PubMed (의료) ──────────────────────────────────────────────
 // E-utilities: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
