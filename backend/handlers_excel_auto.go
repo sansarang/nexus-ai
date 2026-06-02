@@ -74,7 +74,7 @@ Rules:
 	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysPrompt},
 		{Role: "user", Content: userPrompt},
-	}, 1500, true)
+	}, 900, true)
 	if err != nil || raw == "" {
 		return map[string]any{"success": false, "error": "LLM 호출 실패"},
 			fmt.Sprintf("Excel 데이터 생성 실패: %v", err)

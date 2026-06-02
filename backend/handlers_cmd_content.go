@@ -751,17 +751,47 @@ func cmdBriefing(cx cmdCtx) {
 }
 
 func cmdDefault(cx cmdCtx) {
-		// 알 수 없는 액션 → chat으로 폴백 (자동 페르소나 적용)
-		chatMsgs := []groqMsg{
-			{Role: "system", Content: getPersonaSystemPromptForQuery(cx.req.Message)},
-			{Role: "user", Content: cx.req.Message},
+	// 알 수 없는 액션 → chat 폴백 (자동 페르소나 적용)
+	chatMsgs := []groqMsg{
+		{Role: "system", Content: getPersonaSystemPromptForQuery(cx.req.Message)},
+		{Role: "user", Content: cx.req.Message},
+	}
+	// 성능: 1024 → 800
+	answer, _, _ := callGroqWithFallback(chatMsgs, 800, false)
+	// ★ action 자동 추론 — 페르소나 매칭 결과를 액션명에도 반영
+	resolvedAction := "chat"
+	if pid := detectPersonaForQuery(cx.req.Message); pid != "" {
+		// 직업 페르소나 매칭됐을 때 액션명 차별화 (프론트 카드 라우팅 다양화)
+		actionMap := map[string]string{
+			"developer":  "chat",
+			"marketer":   "chat",
+			"sales":      "chat",
+			"pm":         "chat",
+			"designer":   "chat",
+			"creative":   "chat",
+			"meeting":    "chat",
+			"research":   "chat",
+			"freelancer": "chat",
+			"smallbiz":   "chat",
+			"corporate":  "chat",
+			"creator":    "chat",
+			"tutor":      "chat",
+			// 도메인 API 페르소나는 전용 액션
+			"medical":  "medical_search",
+			"legal":    "contract_review",
+			"investor": "stock_analysis",
+			"finance":  "chat",
+			"security": "chat",
 		}
-		answer, _, _ := callGroqWithFallback(chatMsgs, 1024, false)
-		json200(cx.w, CommandResponse{
-			Success:  true,
-			Message:  answer,
-			Action:   "chat",
-			Duration: cx.dur,
-		})
+		if a, ok := actionMap[pid]; ok {
+			resolvedAction = a
+		}
+	}
+	json200(cx.w, CommandResponse{
+		Success:  true,
+		Message:  answer,
+		Action:   resolvedAction,
+		Duration: cx.dur,
+	})
 }
 

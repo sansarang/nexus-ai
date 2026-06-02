@@ -36,7 +36,7 @@ func cmdExcelAutoCreate(params map[string]any, original, gKey, lang string) (res
 	raw, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysPrompt},
 		{Role: "user", Content: "주제: " + topic},
-	}, 1500, true)
+	}, 900, true)
 	if err != nil || raw == "" {
 		return map[string]any{"success": false}, "Excel 데이터 생성 실패: " + fmt.Sprint(err)
 	}

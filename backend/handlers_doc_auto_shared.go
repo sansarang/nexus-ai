@@ -74,10 +74,11 @@ IMPORTANT: This is sample template data. Real values should be filled in by user
 중요: 이건 샘플 템플릿 데이터입니다. 실제 값은 사용자가 채워야 함.`, formatHint, tone)
 	}
 
+	// 성능 최적화: 2000 → 1000 (응답 ~8초 단축)
 	content, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysPrompt},
 		{Role: "user", Content: "주제: " + topic},
-	}, 2000, false)
+	}, 1000, false)
 	if err != nil || content == "" {
 		return map[string]any{"success": false, "error": "LLM 호출 실패"},
 			fmt.Sprintf("문서 생성 실패: %v", err)

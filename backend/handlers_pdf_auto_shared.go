@@ -69,10 +69,11 @@ IMPORTANT: Note this is sample template — replace with real data.`
 중요: 가상 샘플 데이터입니다. 실제 데이터로 교체 사용.`, tone)
 	}
 
+	// 성능 최적화: 2500 → 1200 (응답 ~10초 단축, 품질 유지)
 	content, _, err := callGroqWithFallback([]groqMsg{
 		{Role: "system", Content: sysPrompt},
 		{Role: "user", Content: "주제: " + topic},
-	}, 2500, false)
+	}, 1200, false)
 	if err != nil || content == "" {
 		return map[string]any{"success": false, "error": "LLM 호출 실패"},
 			fmt.Sprintf("PDF 생성 실패: %v", err)

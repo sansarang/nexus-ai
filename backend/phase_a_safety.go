@@ -88,12 +88,15 @@ func buildConfirmCard(action string, params map[string]any, msg, lang string) (m
 func detectDangerousInMessage(msg string) string {
 	lower := strings.ToLower(msg)
 	patterns := map[string][]string{
-		"shutdown":    {"전원 꺼", "pc 꺼", "컴퓨터 꺼", "전원 종료", "shutdown", "power off", "turn off"},
-		"restart":     {"재시작", "리부팅", "리부트", "다시 시작", "restart", "reboot"},
-		"sleep":       {"절전", "잠재워", "sleep mode"},
-		"file_delete": {"파일 삭제", "지워", "remove file", "delete file"},
-		"format_disk": {"포맷해", "디스크 초기화", "format disk", "wipe disk"},
-		"payment":     {"결제해", "송금해", "transfer money", "pay now"},
+		"shutdown":    {"전원 꺼", "pc 꺼", "컴퓨터 꺼", "전원 종료", "종료해", "끄기", "shut down", "shutdown", "power off", "turn off"},
+		"restart":     {"재시작", "리부팅", "리부트", "다시 시작", "다시시작", "restart", "reboot"},
+		"sleep":       {"절전", "잠재워", "수면", "sleep mode", "sleep"},
+		"file_delete": {"파일 삭제", "파일삭제", "지워줘", "지워", "삭제해", "remove file", "delete file", "rm -rf"},
+		"format_disk": {"포맷", "디스크 초기화", "디스크초기화", "초기화해", "format disk", "wipe disk", "format c:"},
+		"payment":     {"결제해", "결제 진행", "송금해", "transfer money", "pay now", "구매 진행", "purchase now"},
+		"clean_aggressive": {"강제 정리", "전체 삭제", "모두 삭제", "전부 지워", "wipe all", "purge all"},
+		"app_uninstall":    {"앱 제거", "프로그램 제거", "uninstall", "remove app"},
+		"registry_edit":    {"레지스트리 편집", "regedit", "registry edit"},
 	}
 	for action, kws := range patterns {
 		for _, kw := range kws {
