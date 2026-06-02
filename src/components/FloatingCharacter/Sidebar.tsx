@@ -38,15 +38,23 @@ export function Sidebar({
 }: SidebarProps) {
   const [query, setQuery] = useState('')
 
-  // 최근 결과 5개 — nexus 메시지 중 카드 있거나 30자+ 텍스트
+  // 최근 결과 — query 있으면 전체 메시지에서 필터링, 없으면 카드 있는 최근 5개
   const recentResults = useMemo(() => {
     const hasCard = (m: ChatMessage) =>
       !!(m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5)
+    const trimmedQuery = query.trim().toLowerCase()
+    if (trimmedQuery.length > 0) {
+      // 실시간 필터: user/nexus 모든 메시지에서 텍스트 검색
+      return messages
+        .filter(m => (m.text ?? '').toLowerCase().includes(trimmedQuery))
+        .slice(-20)
+        .reverse()
+    }
     return messages
       .filter(m => m.role === 'nexus' && (hasCard(m) || (m.text?.length ?? 0) > 30))
       .slice(-5)
       .reverse()
-  }, [messages])
+  }, [messages, query])
 
   const usagePct = (dailyUsed / dailyLimit) * 100
   const usageColor = usagePct >= 90 ? '#ef4444' : usagePct >= 70 ? '#f59e0b' : NEXUS.text.secondary
@@ -215,7 +223,9 @@ export function Sidebar({
           padding: `0 ${NEXUS.spacing.xs}px`,
           textTransform: 'uppercase',
         }}>
-          📋 {lang === 'en' ? 'Recent' : '최근 결과'}
+          {query.trim()
+            ? `🔎 ${lang === 'en' ? 'Matches' : '검색 결과'} (${recentResults.length})`
+            : `📋 ${lang === 'en' ? 'Recent' : '최근 결과'}`}
         </div>
         {recentResults.length === 0 ? (
           <div style={{

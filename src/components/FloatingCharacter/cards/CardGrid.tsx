@@ -19,6 +19,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import { CardShell } from './CardShell'
 import { NEXUS } from '../../../theme/nexus'
 
@@ -47,16 +48,31 @@ export function CardGrid({
   onCardDismiss,
   emptyHint,
 }: CardGridProps) {
+  // 반응형: 좁으면 1열 + 적게, 넓으면 2열
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(360)
+  useEffect(() => {
+    if (!wrapRef.current) return
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setWidth(e.contentRect.width)
+    })
+    ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [])
+  const isNarrow = width < 320
+  const cols = isNarrow ? 1 : 2
+  const effectiveMax = isNarrow ? Math.min(2, maxCards) : maxCards
+
   // 최신순 정렬 + 상한
   const visibleItems = items
     .slice()
     .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
-    .slice(0, maxCards)
+    .slice(0, effectiveMax)
 
   // 빈 상태
   if (visibleItems.length === 0 && emptyHint) {
     return (
-      <div style={{
+      <div ref={wrapRef} style={{
         padding: `${NEXUS.spacing.xl}px`,
         textAlign: 'center',
         color: NEXUS.text.tertiary,
@@ -68,12 +84,12 @@ export function CardGrid({
   }
 
   return (
-    <div style={{
+    <div ref={wrapRef} style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(2, 1fr)',
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
       gap: NEXUS.layout.cardGridGap,
       padding: `${NEXUS.spacing.md}px ${NEXUS.spacing.lg}px`,
-      maxHeight: 320,
+      maxHeight: isNarrow ? 260 : 320,
       overflow: 'hidden',
     }}>
       <AnimatePresence mode="popLayout">

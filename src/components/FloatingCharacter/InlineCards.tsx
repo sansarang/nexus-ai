@@ -57,12 +57,12 @@ function GaugeBar({ label, value, max = 100, unit = '%', color, icon }: GaugeBar
 }
 
 /* ── PC 상태 카드 ── */
-export function PCStatusCard({ data, accentColor }: { data: StatsData; accentColor: string }) {
+export function PCStatusCard({ data, accentColor: _ac }: { data: StatsData; accentColor: string }) {
   const cpuColor  = statusColor(data.cpu)
   const memColor  = statusColor(data.mem)
   const diskColor = statusColor(data.disk)
-  const tempColor_ = tempColor(data.cpu_temp)
   const overallScore = Math.round(100 - (data.cpu * 0.3 + data.mem * 0.3 + data.disk * 0.2 + (data.cpu_temp / 100) * 20))
+  const scoreColor = overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444'
   const lang = ((typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') ?? 'ko') as 'ko' | 'en'
   const insight = insightForPcStatus(data, lang)
 
@@ -72,77 +72,132 @@ export function PCStatusCard({ data, accentColor }: { data: StatsData; accentCol
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25 }}
       style={{
-        background: '#0a0c1c',
-        border: `1px solid ${accentColor}55`,
-        borderLeft: `3px solid ${accentColor}`,
-        borderRadius: 14,
-        padding: '12px 14px',
+        // NEXUS 글래스 — Apple 날씨 영감
+        background: 'rgba(255, 255, 255, 0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255, 255, 255, 0.10)',
+        borderRadius: 18,
+        padding: '16px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 10,
-        boxShadow: `0 6px 28px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05)`,
+        gap: 14,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
+        color: '#f1f5f9',
       }}
     >
-      {/* 헤더 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ fontSize: 16 }}>💻</span>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.95)', lineHeight: 1.3 }}>실시간 PC 상태</div>
-            <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
-              {new Date(data.timestamp * 1000).toLocaleTimeString('ko-KR')} 기준
-            </div>
-          </div>
-        </div>
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '4px 10px',
-          borderRadius: 10,
-          background: overallScore >= 80 ? 'rgba(34,197,94,0.15)' : overallScore >= 60 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-          border: `1px solid ${overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444'}66`,
-        }}>
-          <span style={{
-            fontSize: 16, fontWeight: 900, lineHeight: 1,
-            color: overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444',
-          }}>{overallScore}</span>
-          <span style={{
-            fontSize: 9, fontWeight: 700,
-            color: overallScore >= 80 ? '#22c55e' : overallScore >= 60 ? '#f59e0b' : '#ef4444',
-            opacity: 0.8,
-          }}>점</span>
-        </div>
-      </div>
-      <div style={{ height: 1, background: `${accentColor}22`, margin: '0 -2px' }} />
-
-      {/* 게이지 바 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <GaugeBar label="CPU" value={data.cpu} color={cpuColor} icon="⚡" />
-        <GaugeBar label="메모리" value={data.mem} color={memColor} icon="🧠" />
-        <GaugeBar label="디스크" value={data.disk} color={diskColor} icon="💾" />
-        <GaugeBar label="CPU 온도" value={data.cpu_temp} max={100} unit="°C" color={tempColor_} icon="🌡️" />
-      </div>
-
-      {/* 네트워크 */}
+      {/* 헤더: 작은 라벨 (Apple 날씨 위젯 스타일) */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '6px 8px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: 8,
-        fontSize: 11,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontSize: 10.5, fontWeight: 700,
+        color: 'rgba(255,255,255,0.55)',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
       }}>
-        <span style={{ color: '#22c55e' }}>
-          ↓ {(data.net_down / 1024).toFixed(1)} MB/s
-        </span>
-        <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-        <span style={{ color: accentColor }}>
-          ↑ {(data.net_up / 1024).toFixed(2)} MB/s
+        <span>💻  PC STATUS</span>
+        <span style={{ fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.35)' }}>
+          {new Date(data.timestamp * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
 
-      {/* AI 인사이트: 단순 수치 → 사용자가 이해할 수 있는 한 줄 해석 */}
+      {/* 히어로: 큰 점수 + 상태 */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginTop: -4 }}>
+        <span style={{
+          fontSize: 56, fontWeight: 800, lineHeight: 1,
+          color: scoreColor,
+          textShadow: `0 0 24px ${scoreColor}55`,
+          fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
+        }}>
+          {overallScore}
+        </span>
+        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>/ 100</span>
+        <div style={{ flex: 1 }} />
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: scoreColor,
+          padding: '4px 10px',
+          background: `${scoreColor}22`,
+          border: `1px solid ${scoreColor}44`,
+          borderRadius: 999,
+        }}>
+          {overallScore >= 80 ? '🟢 양호' : overallScore >= 60 ? '🟡 보통' : '🔴 주의'}
+        </span>
+      </div>
+
+      {/* 게이지 그리드 (2x2) */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 10,
+      }}>
+        <MiniMetric label="CPU"     value={data.cpu}      unit="%" color={cpuColor}  icon="⚡" />
+        <MiniMetric label="메모리"  value={data.mem}      unit="%" color={memColor}  icon="🧠" sub={data.mem_used_gb && data.mem_total_gb ? `${data.mem_used_gb.toFixed(1)}/${data.mem_total_gb.toFixed(1)}GB` : ''} />
+        <MiniMetric label="디스크"  value={data.disk}     unit="%" color={diskColor} icon="💾" />
+        <MiniMetric label="온도"    value={data.cpu_temp} unit="°C" max={100} color={tempColor(data.cpu_temp)} icon="🌡️" />
+      </div>
+
+      {/* 네트워크 (작은 라인) */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        padding: '8px 12px',
+        background: 'rgba(255,255,255,0.04)',
+        borderRadius: 10,
+        fontSize: 11,
+        fontWeight: 600,
+      }}>
+        <span style={{ color: '#22c55e' }}>↓ {(data.net_down / 1024).toFixed(1)} MB/s</span>
+        <span style={{ color: 'rgba(255,255,255,0.20)' }}>|</span>
+        <span style={{ color: '#60a5fa' }}>↑ {(data.net_up / 1024).toFixed(2)} MB/s</span>
+      </div>
+
       {insight && <InsightLine text={insight.text} level={insight.level} />}
     </motion.div>
+  )
+}
+
+// MiniMetric — Apple 날씨 위젯 영감 (큰 숫자 + 작은 라벨 + 미니 게이지)
+function MiniMetric({ label, value, unit = '%', max = 100, color, icon, sub }: {
+  label: string; value: number; unit?: string; max?: number; color: string; icon: string; sub?: string;
+}) {
+  const pct = Math.min(100, (value / max) * 100)
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 12,
+      padding: '10px 12px',
+      display: 'flex', flexDirection: 'column', gap: 6,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        fontSize: 9.5, fontWeight: 700,
+        color: 'rgba(255,255,255,0.55)',
+        textTransform: 'uppercase', letterSpacing: '0.06em',
+      }}>
+        <span style={{ fontSize: 11 }}>{icon}</span>
+        <span>{label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+        <span style={{
+          fontSize: 22, fontWeight: 700, color,
+          fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
+          lineHeight: 1,
+        }}>
+          {value.toFixed(0)}
+        </span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>
+          {unit}
+        </span>
+      </div>
+      {sub && (
+        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)' }}>{sub}</div>
+      )}
+      <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+        <motion.div
+          initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }}
+          style={{ height: '100%', background: color, borderRadius: 2 }}
+        />
+      </div>
+    </div>
   )
 }
 

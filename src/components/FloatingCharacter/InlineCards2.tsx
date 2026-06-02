@@ -974,7 +974,7 @@ export function GridSelectCard({ data, accentColor, onSelect }: {
 /* 날씨 카드 (weather)                                         */
 /* ─────────────────────────────────────────────────────────── */
 
-export function WeatherCard({ data, accentColor }: {
+export function WeatherCard({ data, accentColor: _ac }: {
   data: {
     city?: string; condition?: string; temp_c?: number; feels_like?: number; humidity?: number; wind_kph?: number; icon?: string
     forecast?: Array<{ date?: string; condition?: string; high_c?: number; low_c?: number; icon?: string }>
@@ -983,43 +983,122 @@ export function WeatherCard({ data, accentColor }: {
   accentColor: string
 }) {
   const weatherIcon = data.icon ?? (data.condition?.includes('맑') ? '☀️' : data.condition?.includes('구름') ? '⛅' : data.condition?.includes('비') ? '🌧️' : data.condition?.includes('눈') ? '❄️' : '🌤️')
+  // 시간대별 그라디언트 (Apple 날씨 영감)
+  const hour = new Date().getHours()
+  const bgGradient = hour < 6 || hour >= 20
+    ? 'linear-gradient(135deg, rgba(30,41,59,0.6), rgba(15,23,42,0.6))'    // 밤
+    : hour < 12
+    ? 'linear-gradient(135deg, rgba(59,130,246,0.18), rgba(99,102,241,0.18))' // 아침
+    : hour < 18
+    ? 'linear-gradient(135deg, rgba(139,92,246,0.18), rgba(59,130,246,0.18))' // 오후
+    : 'linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.12))'  // 저녁
+
   return (
-    <CardWrap accent={accentColor}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-        <span style={{ fontSize: 44 }}>{weatherIcon}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.25 }}
+      style={{
+        background: bgGradient,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 18,
+        padding: '16px 18px',
+        display: 'flex', flexDirection: 'column', gap: 14,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
+        color: '#f1f5f9',
+      }}
+    >
+      {/* 헤더: 위치 (Apple 날씨 상단 도시명 스타일) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.9)' }}>{data.city ?? '현재 위치'}</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: accentColor, lineHeight: 1 }}>{data.temp_c !== undefined ? `${data.temp_c}°C` : '--'}</div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{data.condition}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            📍 {data.city ?? '현재 위치'}
+          </div>
+        </div>
+        <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)' }}>
+          {new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
+
+      {/* 히어로: 큰 온도 + 아이콘 (Apple 날씨 메인) */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -4 }}>
+        <span style={{ fontSize: 56, lineHeight: 1, filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.3))' }}>{weatherIcon}</span>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{
+            fontSize: 64, fontWeight: 200, lineHeight: 0.95,
+            fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
+            color: '#f1f5f9',
+            textShadow: '0 4px 24px rgba(0,0,0,0.3)',
+          }}>
+            {data.temp_c !== undefined ? `${Math.round(data.temp_c)}°` : '--'}
+          </span>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, fontWeight: 500 }}>
+            {data.condition ?? '날씨 정보 없음'}
+          </span>
+        </div>
+      </div>
+
+      {/* 세부: 체감/습도/바람 (Apple 날씨 하단 메트릭) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {[
-          { label: '체감', value: data.feels_like !== undefined ? `${data.feels_like}°` : '--' },
-          { label: '습도', value: data.humidity !== undefined ? `${data.humidity}%` : '--' },
-          { label: '바람', value: data.wind_kph !== undefined ? `${data.wind_kph}km/h` : '--' },
+          { label: '체감', value: data.feels_like !== undefined ? `${Math.round(data.feels_like)}°` : '--', icon: '🌡️' },
+          { label: '습도', value: data.humidity !== undefined ? `${data.humidity}%` : '--', icon: '💧' },
+          { label: '바람', value: data.wind_kph !== undefined ? `${data.wind_kph}` : '--', unit: 'km/h', icon: '💨' },
         ].map((item, i) => (
-          <div key={i} style={{ padding: '5px 0', borderRadius: 7, background: 'rgba(255,255,255,0.05)', textAlign: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: accentColor }}>{item.value}</div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{item.label}</div>
+          <div key={i} style={{
+            padding: '8px 10px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 10,
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 2 }}>{item.icon}</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: '#f1f5f9', lineHeight: 1 }}>
+              {item.value}
+              {(item as any).unit && <span style={{ fontSize: 9, opacity: 0.5, marginLeft: 2 }}>{(item as any).unit}</span>}
+            </div>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 3, fontWeight: 600 }}>{item.label}</div>
           </div>
         ))}
       </div>
-      {(data.forecast ?? []).slice(0, 3).map((f, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 4px' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', width: 48 }}>{f.date}</span>
-          <span style={{ fontSize: 12 }}>{f.icon ?? '🌤️'}</span>
-          <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>{f.high_c}°</span>
-          <span style={{ fontSize: 10, color: '#60a5fa' }}>{f.low_c}°</span>
+
+      {/* 예보: 일별 (Apple 날씨 10일간 일기예보 영감, 3일만) */}
+      {(data.forecast ?? []).length > 0 && (
+        <div style={{
+          padding: '10px 12px',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 12,
+        }}>
+          <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            📅 일기예보
+          </div>
+          {(data.forecast ?? []).slice(0, 3).map((f, i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '6px 0',
+              borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+            }}>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', width: 50, fontWeight: 500 }}>{f.date}</span>
+              <span style={{ fontSize: 16 }}>{f.icon ?? '🌤️'}</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 700 }}>{f.high_c}°</span>
+                <span style={{ fontSize: 11, color: '#60a5fa', opacity: 0.7 }}>{f.low_c}°</span>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-      {data.summary && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>{data.summary}</div>}
+      )}
+
       {(() => {
         if (data.temp_c === undefined || !data.condition) return null
         const insight = insightForWeather({ temp_c: data.temp_c, condition: data.condition, humidity: data.humidity }, detectLang())
         return insight && <InsightLine text={insight.text} level={insight.level} />
       })()}
-    </CardWrap>
+    </motion.div>
   )
 }
 
@@ -1130,70 +1209,127 @@ function FileResultCard({ data, accentColor }: { data: { fileName: string; url: 
   )
 }
 
-function PriceCompareCard({ data, accentColor }: { data: { query: string; results: PriceItem[]; total: number; summary: string }; accentColor: string }) {
+function PriceCompareCard({ data, accentColor: _ac }: { data: { query: string; results: PriceItem[]; total: number; summary: string }; accentColor: string }) {
   const siteIcon: Record<string, string> = { 'coupang.com': '🛒', 'naver.com': '🟢', 'gmarket.co.kr': '🔵', 'elevenst.com': '1️⃣' }
 
-  // 사이트별 최저가만 뽑기
-  const bysite: Record<string, PriceItem[]> = {}
-  data.results.forEach(r => {
-    const key = r.site.replace(/^www\./, '')
-    if (!bysite[key]) bysite[key] = []
-    bysite[key].push(r)
-  })
-
-  const cheapest = data.results
+  const sorted = data.results
     .filter(r => !r.blocked && r.price)
     .sort((a, b) => {
       const pa = parseInt(a.price.replace(/[^0-9]/g, '')) || 99999999
       const pb = parseInt(b.price.replace(/[^0-9]/g, '')) || 99999999
       return pa - pb
     })
-    .slice(0, 6)
+  const cheapest = sorted.slice(0, 6)
+  const lowest = cheapest[0]
+  const lowestPrice = lowest ? parseInt(lowest.price.replace(/[^0-9]/g, '')) : 0
+  const highest = sorted[sorted.length - 1]
+  const highestPrice = highest ? parseInt(highest.price.replace(/[^0-9]/g, '')) : 0
+  const savings = highestPrice && lowestPrice ? highestPrice - lowestPrice : 0
+  const savingsPct = highestPrice ? Math.round((savings / highestPrice) * 100) : 0
 
   return (
-    <CardWrap accent={accentColor}>
-      <SectionTitle icon="🛍️" title={`가격 비교: ${data.query}`} accentColor={accentColor} />
-      {data.summary && (
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>{data.summary}</div>
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.25 }}
+      style={{
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 18,
+        padding: '16px 18px',
+        display: 'flex', flexDirection: 'column', gap: 14,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
+        color: '#f1f5f9',
+      }}
+    >
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          🛍️ 가격 비교
+        </div>
+        <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)' }}>총 {data.total}개</div>
+      </div>
+
+      {/* 검색어 */}
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', marginTop: -4 }}>
+        {data.query}
+      </div>
+
+      {/* 히어로: 최저가 큰 표시 */}
+      {lowest && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.20), rgba(139,92,246,0.20))',
+          border: '1px solid rgba(139,92,246,0.40)',
+          borderRadius: 14,
+          padding: '14px 16px',
+          display: 'flex', flexDirection: 'column', gap: 6,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 700, color: '#a78bfa', letterSpacing: '0.06em' }}>
+            🏆 최저가
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{
+              fontSize: 32, fontWeight: 800, color: '#f1f5f9', lineHeight: 1,
+              fontFamily: "-apple-system, 'SF Pro Display', system-ui, sans-serif",
+            }}>
+              {lowest.price}
+            </span>
+            {savings > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#22c55e' }}>
+                -{savingsPct}% 절약
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {lowest.name}
+          </div>
+          <a href={lowest.link} target="_blank" rel="noreferrer" style={{
+            marginTop: 4,
+            fontSize: 10, fontWeight: 700, color: '#a78bfa', textDecoration: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+            {lowest.site} 구매 →
+          </a>
+        </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+
+      {/* 사이트별 리스트 (최저가 제외) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {cheapest.length === 0 ? (
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', padding: '8px 0' }}>수집된 가격 정보가 없어요.</div>
-        ) : cheapest.map((item, i) => {
+        ) : cheapest.slice(1).map((item, i) => {
           const siteKey = item.site.replace(/^www\./, '')
           const icon = Object.entries(siteIcon).find(([k]) => siteKey.includes(k))?.[1] ?? '🔗'
-          const isLowest = i === 0
+          const diff = lowestPrice ? parseInt(item.price.replace(/[^0-9]/g, '')) - lowestPrice : 0
           return (
             <a key={i} href={item.link} target="_blank" rel="noreferrer"
-              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8,
-                background: isLowest ? `${accentColor}18` : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${isLowest ? accentColor + '55' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}>
-              <span style={{ fontSize: 14 }}>{icon}</span>
+              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10,
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 10, padding: '8px 12px', cursor: 'pointer' }}>
+              <span style={{ fontSize: 16 }}>{icon}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 1 }}>{item.site}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.45)', marginBottom: 2, fontWeight: 600 }}>{item.site}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.80)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.name}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: isLowest ? accentColor : 'rgba(255,255,255,0.9)' }}>
-                  {item.price}
-                </span>
-                {isLowest && <span style={{ fontSize: 9, color: accentColor, fontWeight: 700, background: `${accentColor}22`, padding: '1px 5px', borderRadius: 4 }}>최저가</span>}
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{item.price}</span>
+                {diff > 0 && <span style={{ fontSize: 9, color: '#f87171' }}>+{diff.toLocaleString()}원</span>}
               </div>
             </a>
           )
         })}
       </div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
-        총 {data.total}개 결과 · 클릭하면 구매 페이지로 이동
-      </div>
+
       {(() => {
         const insight = insightForPriceCompare({ results: data.results }, detectLang())
         return insight && <InsightLine text={insight.text} level={insight.level} />
       })()}
-    </CardWrap>
+    </motion.div>
   )
 }
 
