@@ -376,7 +376,7 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                     {isEn ? 'Subscription Benefits' : '구독 혜택'}
                   </div>
                   <div>{isEn ? '✦ 2,000 AI requests/day (all features)' : '✦ 하루 2,000건 AI 요청 (모든 기능)'}</div>
-                  <div>{isEn ? '✦ Real-time web search (Perplexity)' : '✦ 실시간 웹 검색 (Perplexity)'}</div>
+                  <div>{isEn ? '✦ Real-time web search (Tavily)' : '✦ 실시간 웹 검색 (Tavily)'}</div>
                   <div>{isEn ? '✦ Screen analysis & translation' : '✦ 화면 분석 · 번역'}</div>
                   <div>{isEn ? '✦ Automatic updates' : '✦ 자동 업데이트'}</div>
                   <div>{isEn ? '✦ Cancel anytime' : '✦ 언제든 해지 가능'}</div>
@@ -708,15 +708,15 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                   </div>
                 </div>
                 {(isEn ? [
-                  ['AI Engine',  claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6 (Anthropic · highest accuracy)' : 'Perplexity (sonar-pro · web search built-in)'],
-                  ['Vision',     'Not supported'],
+                  ['AI Engine',  claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6 (Anthropic · highest accuracy)' : 'Groq Llama 3.3 70B + Tavily web search'],
+                  ['Vision',     'Groq Llama 4 Maverick (multimodal)'],
                   ['Local AI',   'Ollama (optional)'],
                   ['Backend',    'Go + Windows API'],
                   ['Frontend',   'React + Framer Motion'],
                   ['Packaging',  'Tauri (.exe)'],
                 ] : [
-                  ['AI 엔진',    claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6 (Anthropic · 최고 정확도)' : 'Perplexity (sonar-pro · 웹 검색 내장)'],
-                  ['Vision',     '미지원'],
+                  ['AI 엔진',    claudeKey.trim().startsWith('sk-ant-') ? 'Claude Sonnet 4.6 (Anthropic · 최고 정확도)' : 'Groq Llama 3.3 70B + Tavily 웹 검색'],
+                  ['Vision',     'Groq Llama 4 Maverick (멀티모달)'],
                   ['로컬 AI',    'Ollama (선택)'],
                   ['백엔드',     'Go + Windows API'],
                   ['프론트엔드', 'React + Framer Motion'],
@@ -758,7 +758,7 @@ export function SettingsModal({ open, onClose, primaryColor, onPrimaryColorChang
                         : (isEn ? '🔄 Check for Updates' : '🔄 업데이트 확인')}
                 </motion.button>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: 8 }}>
-                  Perplexity API · https://www.perplexity.ai/settings/api
+                  Groq · console.groq.com  ·  Tavily · tavily.com
                 </div>
               </div>
             )}

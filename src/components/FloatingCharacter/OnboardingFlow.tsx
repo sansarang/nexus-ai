@@ -1082,8 +1082,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     ? ['All Pro features', 'Team sharing + API access', 'Brand customization', 'Priority support']
                     : ['Pro 전체 기능 포함', '팀 공유 + API 접근', '기업 브랜딩 설정', '우선 지원'])
                   : (isEn
-                    ? ['15 AI requests/day', 'Basic chat & weather & news', 'Browser TTS voice (basic)', 'Perplexity sonar AI model']
-                    : ['하루 15건 AI 요청', '기본 채팅 · 날씨 · 뉴스', '브라우저 기본 AI 음성', 'Perplexity sonar AI 모델'])
+                    ? ['15 AI requests/day', 'Basic chat & weather & news', 'Browser TTS voice (basic)', 'Groq Llama 3.3 70B + Tavily web search']
+                    : ['하루 15건 AI 요청', '기본 채팅 · 날씨 · 뉴스', '브라우저 기본 AI 음성', 'Groq Llama 3.3 70B + Tavily 웹 검색'])
 
                 return (
                   <button

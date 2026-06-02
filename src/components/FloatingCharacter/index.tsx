@@ -1612,26 +1612,10 @@ export function FloatingCharacter() {
           ? `[첨부 파일: ${file.name}]\n\n${truncated}\n\n---\n사용자 질문: ${userQ}`
           : `[첨부 파일: ${file.name} — 텍스트 추출 불가]\n\n사용자 질문: ${userQ}`
 
-        // Perplexity/Groq API 호출
-        const pplxKey = localStorage.getItem('nexus-pplx-key') ?? ''
+        // 백엔드 LLM 호출 (Groq + Tavily 조합 / Pro는 번들 키 자동)
         const openaiKey = localStorage.getItem('nexus-openai-key') ?? ''
 
-        if (pplxKey) {
-          const res = await fetch('https://api.perplexity.ai/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pplxKey}` },
-            body: JSON.stringify({
-              model: 'sonar-pro',
-              messages: [{ role: 'user', content: prompt }],
-              max_tokens: 2000,
-            }),
-            signal: AbortSignal.timeout(30000),
-          })
-          if (res.ok) {
-            const d = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
-            analysisResult = d.choices?.[0]?.message?.content?.trim() ?? '분석 결과를 가져오지 못했습니다.'
-          }
-        } else if (openaiKey) {
+        if (openaiKey) {
           const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
@@ -1657,10 +1641,10 @@ export function FloatingCharacter() {
             if (res?.content) {
               analysisResult = res.content
             } else {
-              analysisResult = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 OpenAI API 키를 입력해주세요.'
+              analysisResult = '⚠️ AI 응답 실패. 설정에서 Groq 또는 OpenAI API 키를 입력하거나 로그인하세요.'
             }
           } catch {
-            analysisResult = '⚠️ API 키가 없습니다. 설정에서 Perplexity 또는 OpenAI API 키를 입력해주세요.'
+            analysisResult = '⚠️ AI 응답 실패. 설정에서 Groq 또는 OpenAI API 키를 입력하거나 로그인하세요.'
           }
         }
       }

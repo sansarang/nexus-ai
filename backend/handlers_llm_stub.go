@@ -66,8 +66,9 @@ func injectBundledKeys() {
 	if llmGroqKey == "" {
 		llmGroqKey = bundledGroqKey
 	}
+	// llmPerplexityKey — DEPRECATED 슬롯 (BYOK pplx- 호환만 유지)
 	if llmPerplexityKey == "" {
-		llmPerplexityKey = bundledGroqKey // Groq 키를 Perplexity 슬롯에도 주입
+		llmPerplexityKey = bundledGroqKey
 	}
 	if llmTavilyKey == "" {
 		llmTavilyKey = bundledTavilyKey
