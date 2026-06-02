@@ -183,6 +183,14 @@ export function FloatingCharacter() {
   const [clarifyPendingParams,   setClarifyPendingParams]   = useState<Record<string, unknown> | null>(null)
   const [clarifyPendingQuestion, setClarifyPendingQuestion] = useState<string | null>(null)
   const [activePersona, setActivePersona] = useState<PersonaDef | null>(null)
+  // v9: 페르소나 모드 — 'auto' 또는 명시 personaID. localStorage 영속.
+  const [personaMode, setPersonaMode] = useState<string>(() => {
+    try { return localStorage.getItem('nexus-persona-mode') ?? 'auto' } catch { return 'auto' }
+  })
+  const handlePersonaModeChange = useCallback((id: string) => {
+    setPersonaMode(id)
+    try { localStorage.setItem('nexus-persona-mode', id) } catch { /* ignore */ }
+  }, [])
   const [dailyUsedCount, setDailyUsedCount] = useState(() => getDailyUsage().count)
   const [showPersonaPopup, setShowPersonaPopup] = useState(false)
   const [personaListData, setPersonaListData] = useState<PersonaDef[]>([])
@@ -2051,6 +2059,8 @@ export function FloatingCharacter() {
           accentColor={primaryColor}
           primaryColor={primaryColor}
           activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
+          personaMode={personaMode}
+          onPersonaModeChange={handlePersonaModeChange}
           dailyUsed={dailyUsedCount}
           dailyLimit={
             (subscriptionStatus === 'active' || subscriptionStatus === 'trial') ? 200 : 15

@@ -13,6 +13,37 @@ import { useMemo, useState } from 'react'
 import type { ChatMessage } from './ChatBubble'
 import { NEXUS } from '../../theme/nexus'
 
+// v9: 직업/페르소나는 채팅창에서 자유 전환 — Sidebar 드롭다운
+export interface PersonaOption {
+  id: string
+  name: string
+  emoji: string
+  color: string
+}
+
+export const PERSONA_OPTIONS: PersonaOption[] = [
+  { id: 'auto',       name: '자동 (스마트)',  emoji: '🪄', color: '#a78bfa' },
+  { id: 'nexus',      name: 'Nexus 기본',      emoji: '🤖', color: '#6366f1' },
+  { id: 'developer',  name: '개발자',          emoji: '💻', color: '#22c55e' },
+  { id: 'marketer',   name: '마케터',          emoji: '📊', color: '#f97316' },
+  { id: 'sales',      name: '세일즈',          emoji: '🤝', color: '#06b6d4' },
+  { id: 'pm',         name: '프로덕트 매니저', emoji: '📋', color: '#3b82f6' },
+  { id: 'designer',   name: '디자이너',        emoji: '🎨', color: '#ec4899' },
+  { id: 'meeting',    name: '회의',            emoji: '🎯', color: '#f59e0b' },
+  { id: 'research',   name: '리서치',          emoji: '🔬', color: '#0ea5e9' },
+  { id: 'creative',   name: '크리에이티브',    emoji: '🎨', color: '#ec4899' },
+  { id: 'security',   name: '보안',            emoji: '🛡️', color: '#ef4444' },
+  { id: 'legal',      name: '법무',            emoji: '⚖️', color: '#7c3aed' },
+  { id: 'medical',    name: '의료',            emoji: '🩺', color: '#dc2626' },
+  { id: 'finance',    name: '재무',            emoji: '💰', color: '#10b981' },
+  { id: 'investor',   name: '투자자',          emoji: '📈', color: '#16a34a' },
+  { id: 'freelancer', name: '프리랜서',        emoji: '🚀', color: '#8b5cf6' },
+  { id: 'smallbiz',   name: '소상공인',        emoji: '🏪', color: '#f59e0b' },
+  { id: 'corporate',  name: '법인',            emoji: '🏢', color: '#0891b2' },
+  { id: 'creator',    name: '크리에이터',      emoji: '🎬', color: '#e11d48' },
+  { id: 'tutor',      name: '튜터',            emoji: '📚', color: '#7c3aed' },
+]
+
 interface SidebarProps {
   messages: ChatMessage[]
   accentColor: string
@@ -28,15 +59,19 @@ interface SidebarProps {
   voiceActive?: boolean
   onPersonaClick?: () => void                  // 캐릭터 클릭 → 페르소나 변경
   onSearch?: (query: string) => void           // 검색창 → 새 명령 전송
+  personaMode?: string                          // v9: 'auto' | personaID
+  onPersonaModeChange?: (id: string) => void
 }
 
 export function Sidebar({
   messages, accentColor: _accentColor, primaryColor: _primaryColor, activePersona,
   dailyUsed, dailyLimit, isPro, lang,
   onRecentClick, onUpgradeClick, onVoiceToggle, voiceActive,
-  onPersonaClick, onSearch,
+  onPersonaClick, onSearch, personaMode = 'auto', onPersonaModeChange,
 }: SidebarProps) {
   const [query, setQuery] = useState('')
+  const [personaOpen, setPersonaOpen] = useState(false)
+  const currentPersonaOpt = PERSONA_OPTIONS.find(p => p.id === personaMode) ?? PERSONA_OPTIONS[0]
 
   // 최근 결과 — query 있으면 전체 메시지에서 필터링, 없으면 카드 있는 최근 5개
   const recentResults = useMemo(() => {
@@ -164,6 +199,73 @@ export function Sidebar({
               fontFamily: NEXUS.font.family.ui,
             }}
           />
+        </div>
+
+        {/* v9: 페르소나 드롭다운 (사용자가 자유 전환 + 자동 매칭) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setPersonaOpen(o => !o)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              background: NEXUS.bg.input,
+              border: `1px solid ${NEXUS.border.subtle}`,
+              borderRadius: NEXUS.radius.md,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', color: NEXUS.text.primary,
+              fontFamily: NEXUS.font.family.ui, fontSize: NEXUS.font.size.sm,
+            }}
+            title={lang === 'en' ? 'Switch persona' : '페르소나 전환'}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14 }}>{currentPersonaOpt.emoji}</span>
+              <span style={{ fontWeight: NEXUS.font.weight.medium }}>{currentPersonaOpt.name}</span>
+            </span>
+            <span style={{ fontSize: 10, opacity: 0.5 }}>{personaOpen ? '▲' : '▼'}</span>
+          </button>
+          {personaOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                zIndex: 50,
+                background: 'rgba(15,23,42,0.95)',
+                backdropFilter: 'blur(40px) saturate(1.6)',
+                WebkitBackdropFilter: 'blur(40px) saturate(1.6)',
+                border: `1px solid ${NEXUS.border.subtle}`,
+                borderRadius: NEXUS.radius.md,
+                maxHeight: 320, overflowY: 'auto',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+                padding: 4,
+              }}
+            >
+              {PERSONA_OPTIONS.map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => { onPersonaModeChange?.(opt.id); setPersonaOpen(false) }}
+                  style={{
+                    width: '100%', textAlign: 'left',
+                    padding: '8px 10px',
+                    borderRadius: NEXUS.radius.sm,
+                    background: opt.id === personaMode ? `${opt.color}22` : 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    color: NEXUS.text.primary, fontSize: NEXUS.font.size.sm,
+                    fontFamily: NEXUS.font.family.ui,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${opt.color}1a` }}
+                  onMouseLeave={e => { e.currentTarget.style.background = opt.id === personaMode ? `${opt.color}22` : 'transparent' }}
+                >
+                  <span style={{ fontSize: 14 }}>{opt.emoji}</span>
+                  <span style={{ flex: 1 }}>{opt.name}</span>
+                  {opt.id === personaMode && (
+                    <span style={{ fontSize: 11, color: opt.color }}>✓</span>
+                  )}
+                </button>
+              ))}
+            </motion.div>
+          )}
         </div>
       </div>
 

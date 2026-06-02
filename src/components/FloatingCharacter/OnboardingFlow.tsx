@@ -39,7 +39,16 @@ const SUGGESTED_NAMES = ['넥서스', '아리아', '노바', '카이', 'Aria', '
 const USER_NAMES_KO = ['주인님', '사용자', '선생님', '파트너']
 const USER_NAMES_EN = ['Boss', 'User', 'Partner', 'Chief']
 
-const STEPS_TOTAL = 6
+// v9: Step 1 (직업) + Step 2 (직업 데모) + Step 5 (Avatar) 제거 → 3단계 압축
+// 사장님 비전: 직업 고정 X, 실 채팅에서 페르소나 자유 전환 (자동 매칭 + 수동 칩)
+const STEPS_TOTAL = 3 // [Step 0 데모] → [Step 3 플랜] → [Step 4 로그인] → 완료
+const stepProgressIndex = (rawStep: number): number => {
+  // 진행 인디케이터용 매핑 (raw step → 1~3)
+  if (rawStep === 0) return 1
+  if (rawStep === 3) return 2
+  if (rawStep === 4) return 3
+  return rawStep + 1
+}
 
 // ─── Generic demo sequences (Step 0) ────────────────────────────────────────
 const GENERIC_DEMOS_KO = [
@@ -269,6 +278,22 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const [selectedPlan, setSelectedPlan]   = useState<'free' | 'pro' | 'team'>('free')
 
+  // ★ v9: 로그인 완료 시 기본 config로 즉시 완료 (Avatar/이름 Step 제거)
+  const completeOnboardingNow = () => {
+    if (didAutoComplete.current) return
+    didAutoComplete.current = true
+    onComplete({
+      assistantName: isEn ? 'Nexus' : '넥서스',
+      userName: isEn ? 'Boss' : '사장님',
+      glbUrl: null,
+      previewUrl: null,
+      primaryColor: '#8b5cf6',  // NEXUS 보라
+      accentColor: '#6366f1',   // NEXUS 인디고
+      preset: 'orb' as CharacterPreset,
+      styleId: 'nexus' as RealisticStyleId,
+    })
+  }
+
   // Demo state for Step 2 (job-specific)
   const [demoRunning, setDemoRunning]     = useState(false)
   const [demoStarted, setDemoStarted]     = useState(false)
@@ -292,13 +317,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const selectedJob   = JOB_PERSONAS.find(p => p.id === selectedJobId) ?? JOB_PERSONAS[0]
   const jobColor      = selectedJob.color
 
-  // Google OAuth callback
+  // Google OAuth callback — v9: Step 5 제거, 로그인 성공 시 즉시 완료
   useEffect(() => {
     if (isLoggedIn && userEmail && step >= 3 && step <= 5 && !didAutoComplete.current) {
-      didAutoComplete.current = true
       setGoogleEmail(userEmail)
       setGoogleLoading(false)
-      setStep(5)
+      completeOnboardingNow()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, userEmail])
@@ -403,7 +427,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-expiry', '2099-12-31T00:00:00.000Z')
       setGoogleEmail(ADMIN_EMAIL)
       setLoginError('')
-      setStep(5)
+      completeOnboardingNow()
     } else {
       setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.')
     }
@@ -417,7 +441,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      setStep(5)
+      completeOnboardingNow()
       return
     }
     setGoogleLoading(true)
@@ -432,7 +456,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       localStorage.setItem('nexus-sub-status', 'trial')
       localStorage.setItem('nexus-sub-expiry', trialExpiry)
       setGoogleEmail(demoEmail)
-      setStep(5)
+      completeOnboardingNow()
     } finally {
       setGoogleLoading(false)
     }
@@ -504,11 +528,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em' }}>NEXUS SETUP</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{step + 1} / {STEPS_TOTAL}</span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{stepProgressIndex(step)} / {STEPS_TOTAL}</span>
       </div>
       <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }}>
         <motion.div
-          animate={{ width: `${((step + 1) / STEPS_TOTAL) * 100}%` }}
+          animate={{ width: `${(stepProgressIndex(step) / STEPS_TOTAL) * 100}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
           style={{
             height: '100%', borderRadius: 4,
@@ -706,12 +730,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* CTA */}
             <div style={{ padding: '12px 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {nextBtn(
-                () => setStep(1),
+                () => setStep(3),  // v9: 직업 선택 건너뛰고 바로 플랜 (직업은 채팅창에서 자유 전환)
                 isEn ? 'I want this! →' : '나도 써보고 싶다! →',
                 false,
               )}
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: 0 }}>
-                {isEn ? 'Select your job next → personalized AI for you' : '다음에 직업 선택 → 나만의 맞춤 AI'}
+                {isEn ? 'Free plan available → switch personas anytime in chat' : '무료로 시작 → 채팅창에서 페르소나 자유 전환'}
               </p>
             </div>
           </motion.div>
