@@ -524,7 +524,29 @@ func buildNexusRoutingTools() []ToolDef {
 const nexusSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령을 분석하여 아래 액션 중 하나를 반드시 선택하세요.
 
 ⚠️ 규칙: 반드시 JSON만 출력하세요. 설명 금지.
-형식: {"action":"액션명","params":{...}}
+형식 (단일 액션): {"action":"액션명","params":{...}}
+
+━━━ ★ 멀티 액션 (NEW) ━━━
+사용자가 "A하고 B해", "A한 다음 B", "A하고 B도", "A and then B", "A and B" 등 명시적으로
+여러 작업을 동시/순차로 요구할 때는 actions 배열로 출력하세요:
+
+형식 (여러 액션): {"actions":[{"action":"A","params":{...}},{"action":"B","params":{...}}, ...]}
+
+예시:
+- "엑셀로 매출 정리하고 PDF로도 저장해"
+  → {"actions":[{"action":"excel_auto_create","params":{"topic":"매출"}},{"action":"pdf_auto_create","params":{"topic":"매출"}}]}
+- "오늘 일정 확인하고 빈 시간에 회의 잡아줘"
+  → {"actions":[{"action":"calendar_today","params":{}},{"action":"calendar_find_slot","params":{}}]}
+- "메일 확인하고 중요한 거 요약해서 노트에 저장"
+  → {"actions":[{"action":"email_inbox","params":{}},{"action":"email_summarize","params":{}},{"action":"note","params":{"content":"메일 요약"}}]}
+
+⚠️ 멀티 액션 판정 기준 (이 중 하나라도 만족 → actions 배열):
+1. 연결사("하고", "한 다음", "그리고", "그 다음", "then", "also", "and") 포함 + 서로 다른 두 의도
+2. 출력 포맷 둘 이상("엑셀로...PDF로", "보고서랑 메모")
+3. 명확한 단계가 3개 이상
+
+⚠️ 단일 의도는 절대 actions 배열로 출력하지 말고 단일 action 사용.
+⚠️ multi_action/workflow_run 사용 대신 actions 배열을 우선 사용 (백엔드가 자동 워크플로 실행).
 
 ━━━ 액션 목록 & 트리거 키워드 ━━━
 
@@ -844,6 +866,15 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// ── 키워드 사전 라우팅 (LLM이 무시하는 액션들) ────────────
 		msgLower := strings.ToLower(req.Message)
+
+		// ── ★ 최최우선: 멀티스텝 감지 (연결사 + 다중 의도 키워드) ──
+		// 사장님 요구: "여러 액션 동시 처리"
+		// 패턴: (의도A 키워드) + (그리고|하고|한 다음|then|also) + (의도B 키워드)
+		if detectMultiStep(req.Message) {
+			intentAction = "workflow_run"
+			intentParams = map[string]any{"goal": req.Message}
+			goto haikuRouted
+		}
 
 		// ── 최우선 명시 패턴 (map 순서 비결정 회피) ──
 		// 1) Excel 분석 (사용자 데이터 활용) — Excel + (분석|요약|보여|이해) 동시
@@ -1175,19 +1206,37 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					raw = `{"action":"chat","params":{}}`
 				}
-				var intent struct {
-					Action string         `json:"action"`
-					Params map[string]any `json:"params"`
+				// 1) actions[] 배열 응답 우선 체크 — 멀티 액션 지원
+				var multi struct {
+					Actions []struct {
+						Action string         `json:"action"`
+						Params map[string]any `json:"params"`
+					} `json:"actions"`
 				}
-				if jsonErr := json.Unmarshal([]byte(raw), &intent); jsonErr != nil || intent.Action == "" {
-					intent.Action = "chat"
-					intent.Params = map[string]any{}
+				if jErr := json.Unmarshal([]byte(raw), &multi); jErr == nil && len(multi.Actions) > 1 {
+					// 여러 액션 → workflow_run 으로 위임 (goal은 원문, steps는 actions 직렬화)
+					actionsJSON, _ := json.Marshal(multi.Actions)
+					intentAction = "workflow_run"
+					intentParams = map[string]any{
+						"goal":            req.Message,
+						"planned_actions": string(actionsJSON),
+					}
+				} else {
+					// 2) 기존 단일 action 응답
+					var intent struct {
+						Action string         `json:"action"`
+						Params map[string]any `json:"params"`
+					}
+					if jsonErr := json.Unmarshal([]byte(raw), &intent); jsonErr != nil || intent.Action == "" {
+						intent.Action = "chat"
+						intent.Params = map[string]any{}
+					}
+					if intent.Params == nil {
+						intent.Params = map[string]any{}
+					}
+					intentAction = intent.Action
+					intentParams = intent.Params
 				}
-				if intent.Params == nil {
-					intent.Params = map[string]any{}
-				}
-				intentAction = intent.Action
-				intentParams = intent.Params
 			}
 		}
 	}
@@ -1390,6 +1439,40 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		if goal == "" {
 			goal = original
 		}
+		// LLM이 actions[] 으로 미리 분해해 준 경우 → 그 순서대로 직접 실행 (Planner 스킵)
+		plannedJSON := str("planned_actions")
+		if plannedJSON != "" {
+			var planned []struct {
+				Action string         `json:"action"`
+				Params map[string]any `json:"params"`
+			}
+			if jerr := json.Unmarshal([]byte(plannedJSON), &planned); jerr == nil && len(planned) > 0 {
+				results := make([]map[string]any, 0, len(planned))
+				doneCount := 0
+				for i, p := range planned {
+					subResult, subMsg := dispatchAction(p.Action, p.Params, original, gKey, lang, history)
+					if subResult != nil {
+						doneCount++
+					}
+					results = append(results, map[string]any{
+						"step":    i + 1,
+						"action":  p.Action,
+						"params":  p.Params,
+						"result":  subResult,
+						"message": subMsg,
+					})
+				}
+				summary := fmt.Sprintf(msgT("멀티 액션 %d개 중 %d개 완료", "Completed %[2]d of %[1]d actions", lang), len(planned), doneCount)
+				return map[string]any{
+					"goal":    goal,
+					"steps":   results,
+					"summary": summary,
+					"ok":      doneCount > 0,
+					"mode":    "planned_actions",
+				}, summary
+			}
+		}
+		// 기존 Reflection 루프 (LLM이 plan을 만든다)
 		steps, summary, _ := runWithReflection(goal)
 		doneCount := 0
 		for _, s := range steps {

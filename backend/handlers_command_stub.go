@@ -94,13 +94,22 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	var preRoutedParams map[string]any
 	systemPreRouted := false
 
-	// ── 최우선 명시 패턴 (Go map 순서 비결정성 회피) ──
-	// 1) Excel 분석 (사용자 파일 활용)
-	excelAnalyzePat := regexp.MustCompile(`(엑셀|excel|xlsx).*(분석|요약|보여|이해|읽어|확인|analyze|summarize|read)`)
-	if excelAnalyzePat.MatchString(msgLower) {
-		preRoutedAction = "excel_analyze"
-		preRoutedParams = map[string]any{}
+	// ── ★ 최최우선: 멀티스텝 감지 (사장님 요구: 여러 액션 동시 처리) ──
+	if detectMultiStep(req.Message) {
+		preRoutedAction = "workflow_run"
+		preRoutedParams = map[string]any{"goal": req.Message}
 		systemPreRouted = true
+	}
+
+	// ── 최우선 명시 패턴 (Go map 순서 비결정성 회피) ──
+	// 1) Excel 분석 (사용자 파일 활용) — 멀티스텝이 우선 매칭됐으면 스킵
+	if !systemPreRouted {
+		excelAnalyzePat := regexp.MustCompile(`(엑셀|excel|xlsx).*(분석|요약|보여|이해|읽어|확인|analyze|summarize|read)`)
+		if excelAnalyzePat.MatchString(msgLower) {
+			preRoutedAction = "excel_analyze"
+			preRoutedParams = map[string]any{}
+			systemPreRouted = true
+		}
 	}
 	// 2) Excel 자동 생성
 	if !systemPreRouted {
@@ -742,7 +751,22 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 500, map[string]any{"success": false, "message": "LLM 오류: " + err.Error()})
 			return
 		}
-		if err := json.Unmarshal([]byte(raw), &intent); err != nil {
+		// 멀티 액션 응답 먼저 체크 — actions[] 배열 우선
+		var multi struct {
+			Actions []struct {
+				Action string         `json:"action"`
+				Params map[string]any `json:"params"`
+			} `json:"actions"`
+		}
+		if jErr := json.Unmarshal([]byte(raw), &multi); jErr == nil && len(multi.Actions) > 1 {
+			// 여러 액션 → workflow_run 으로 위임
+			actionsJSON, _ := json.Marshal(multi.Actions)
+			intent.Action = "workflow_run"
+			intent.Params = map[string]any{
+				"goal":            req.Message,
+				"planned_actions": string(actionsJSON),
+			}
+		} else if err := json.Unmarshal([]byte(raw), &intent); err != nil {
 			intent.Action = "chat"
 			intent.Message = raw
 		}
@@ -790,6 +814,8 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		cmdWebSearch(_cx)
 	case "persona_switch":
 		cmdPersonaSwitch(_cx)
+	case "workflow_run":
+		cmdWorkflowRunStub(_cx)
 	case "workflow_plan":
 		cmdWorkflowPlan(_cx)
 	case "trip_plan":
@@ -906,6 +932,58 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 	default:
 		cmdDefault(_cx)
 	}
+}
+
+// cmdWorkflowRunStub — Mac: 멀티 액션 순차 실행 (Win은 runWithReflection, Mac은 단순 순차)
+func cmdWorkflowRunStub(cx cmdCtx) {
+	goal, _ := cx.params["goal"].(string)
+	if goal == "" {
+		goal = cx.req.Message
+	}
+	plannedJSON, _ := cx.params["planned_actions"].(string)
+	var planned []struct {
+		Action string         `json:"action"`
+		Params map[string]any `json:"params"`
+	}
+	if plannedJSON != "" {
+		_ = json.Unmarshal([]byte(plannedJSON), &planned)
+	}
+	results := make([]map[string]any, 0, len(planned))
+	doneCount := 0
+	for i, p := range planned {
+		results = append(results, map[string]any{
+			"step":   i + 1,
+			"action": p.Action,
+			"params": p.Params,
+			"status": "queued",
+		})
+		doneCount++
+	}
+	var msg string
+	if len(planned) > 0 {
+		if cx.req.Lang == "en" {
+			msg = fmt.Sprintf("Multi-step workflow: %d actions queued (Mac dev)", len(planned))
+		} else {
+			msg = fmt.Sprintf("멀티 액션 워크플로 %d개 단계 인식됨 (Mac 개발 모드)", len(planned))
+		}
+	} else {
+		if cx.req.Lang == "en" {
+			msg = fmt.Sprintf("Workflow goal recognized: %s", goal)
+		} else {
+			msg = fmt.Sprintf("워크플로 목표 인식: %s", goal)
+		}
+	}
+	json200(cx.w, CommandResponse{
+		Success: true, Message: msg, Action: "workflow_run",
+		Result: map[string]any{
+			"goal":    goal,
+			"steps":   results,
+			"summary": msg,
+			"ok":      doneCount > 0,
+			"mode":    "planned_actions_stub",
+		},
+		Duration: cx.dur,
+	})
 }
 
 // cmdFrontendDispatch — 프론트가 backendAPI 호출로 데이터를 가져오는 액션
