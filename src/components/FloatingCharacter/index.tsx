@@ -8,6 +8,7 @@ import { EmailSetup } from '../EmailSetup'
 import { ChatBubble } from './ChatBubble'
 import type { ChatMessage, AttachedFile } from './ChatBubble'
 import { Sidebar } from './Sidebar'
+import { Onboarding, hasCompletedOnboarding } from './Onboarding'
 import { SettingsModal } from './SettingsModal'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
@@ -117,6 +118,7 @@ export function FloatingCharacter() {
     () => (localStorage.getItem('nexus-preset') as import('./Avatar3D').CharacterPreset | null) ?? 'kpop_star'
   )
 
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => !hasCompletedOnboarding())
   const [chatOpen, setChatOpen]           = useState(false)
   const [messages, setMessages]           = useState<ChatMessage[]>([])
   const [typing, setTyping]               = useState(false)
@@ -1761,6 +1763,13 @@ export function FloatingCharacter() {
 
   return (
     <>
+    {/* ── 첫 실행 온보딩 마법사 (Phase A4) ── */}
+    {showOnboarding && (
+      <Onboarding
+        onComplete={() => setShowOnboarding(false)}
+        onTryCommand={(cmd) => { void sendText(cmd) }}
+      />
+    )}
     {/* ── 전체 화면 패널 레이아웃 (v2.6) ── */}
     <style>{`
       @keyframes orb-speak { 0% { transform: scale(1); } 100% { transform: scale(1.06); } }

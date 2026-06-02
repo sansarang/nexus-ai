@@ -520,6 +520,12 @@ func main() {
 	go startClipboardMonitor()
 	go rebuildBrainIndex()
 
+	// ── Phase B/C 신규 시스템 시작 ──
+	log.Println("[Nexus Backend] RAG / user-patterns / local-mode 로드")
+	loadUserPatterns()
+	loadLocalOnlyMode()
+	startRAGBackgroundWatcher()
+
 	const port = "127.0.0.1:17892"
 
 	log.Printf("[Nexus Backend] 포트 바인딩 확인: %s", port)

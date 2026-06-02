@@ -395,14 +395,28 @@ func detectPersonaForQuery(msg string) string {
 // getPersonaSystemPromptForQuery — 쿼리 기반 자동 페르소나 적용
 // 자동 매칭된 페르소나가 있으면 그것을, 없으면 active 페르소나를 사용
 func getPersonaSystemPromptForQuery(msg string) string {
-	if id := detectPersonaForQuery(msg); id != "" {
+	// 1) 페르소나 자동 매칭 + 품질 가이드
+	personaID := detectPersonaForQuery(msg)
+	base := ""
+	if personaID != "" {
 		for _, p := range builtinPersonas {
-			if p.ID == id {
-				return p.SystemPrompt + personaQualityGuide
+			if p.ID == personaID {
+				base = p.SystemPrompt + personaQualityGuide
+				break
 			}
 		}
 	}
-	return getPersonaSystemPrompt()
+	if base == "" {
+		base = getPersonaSystemPrompt()
+	}
+	// 2) RAG: 사용자 PC 문서 관련 발췌 첨부 (Phase B1)
+	ragCtx := ragContextForLLM(msg)
+	// 3) 도메인 API: 페르소나별 신뢰 출처 자동 검색 (Phase B3)
+	domainCtx := ""
+	if personaID != "" {
+		domainCtx = domainContextForLLM(personaID, msg)
+	}
+	return base + ragCtx + domainCtx
 }
 
 // getDomainSearchHint — 페르소나별 도메인 검색 우선순위 힌트

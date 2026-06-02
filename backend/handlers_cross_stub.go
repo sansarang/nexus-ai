@@ -379,14 +379,25 @@ func detectPersonaForQuery(msg string) string {
 }
 
 func getPersonaSystemPromptForQuery(msg string) string {
-	if id := detectPersonaForQuery(msg); id != "" {
+	personaID := detectPersonaForQuery(msg)
+	base := ""
+	if personaID != "" {
 		for _, p := range builtinPersonas {
-			if p.ID == id {
-				return p.SystemPrompt + personaQualityGuide
+			if p.ID == personaID {
+				base = p.SystemPrompt + personaQualityGuide
+				break
 			}
 		}
 	}
-	return getPersonaSystemPrompt()
+	if base == "" {
+		base = getPersonaSystemPrompt()
+	}
+	ragCtx := ragContextForLLM(msg)
+	domainCtx := ""
+	if personaID != "" {
+		domainCtx = domainContextForLLM(personaID, msg)
+	}
+	return base + ragCtx + domainCtx
 }
 
 func getDomainSearchHint(personaID string) []string {

@@ -1449,11 +1449,17 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			if jerr := json.Unmarshal([]byte(plannedJSON), &planned); jerr == nil && len(planned) > 0 {
 				results := make([]map[string]any, 0, len(planned))
 				doneCount := 0
+				var prev PrevStepResult
 				for i, p := range planned {
+					// ★ B2: 이전 step 결과를 다음 params 에 자동 주입
+					if i > 0 {
+						p.Params = injectPrevResultIntoParams(p.Params, prev, p.Action)
+					}
 					subResult, subMsg := dispatchAction(p.Action, p.Params, original, gKey, lang, history)
 					if subResult != nil {
 						doneCount++
 					}
+					prev = PrevStepResult{Action: p.Action, Message: subMsg, Result: subResult}
 					results = append(results, map[string]any{
 						"step":    i + 1,
 						"action":  p.Action,
