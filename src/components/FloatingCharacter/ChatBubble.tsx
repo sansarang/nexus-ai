@@ -814,30 +814,32 @@ export function ChatBubble({
             </div>
             {g.items.map(entry => (
               <div key={entry.id} style={{ marginBottom: 10 }}>
-                {/* 사용자 질문 버블 — 카톡 노랑 */}
+                {/* 사용자 질문 버블 — NEXUS 인디고 그라디언트 */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                   <div style={{
-                    maxWidth: '86%', padding: '8px 12px',
-                    borderRadius: '14px 14px 4px 14px',
-                    background: 'linear-gradient(135deg, #fde047, #fbbf24)',
-                    border: '1px solid rgba(251,191,36,0.6)',
-                    fontSize: 12, color: '#1f2937', fontWeight: 600,
+                    maxWidth: '86%', padding: '10px 14px',
+                    borderRadius: '16px 16px 4px 16px',
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    border: '1px solid rgba(139,92,246,0.45)',
+                    fontSize: 13, color: '#ffffff', fontWeight: 500,
                     lineHeight: 1.6, wordBreak: 'break-word',
-                    boxShadow: '0 2px 8px rgba(251,191,36,0.25)',
+                    boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
                   }}>
                     {entry.q}
                   </div>
                 </div>
-                {/* AI 응답 버블 — 흰색 톤 */}
+                {/* AI 응답 버블 — 글래스 */}
                 <div style={{ display: 'flex', justifyContent: 'flex-start', position: 'relative' }}>
                   <div style={{
-                    maxWidth: '86%', padding: '8px 12px',
-                    borderRadius: '4px 14px 14px 14px',
-                    background: 'rgba(248,250,252,0.9)',
-                    border: '1px solid rgba(226,232,240,0.35)',
-                    fontSize: 12, color: '#0f172a', fontWeight: 500,
+                    maxWidth: '86%', padding: '10px 14px',
+                    borderRadius: '4px 16px 16px 16px',
+                    background: 'rgba(255,255,255,0.08)',
+                    backdropFilter: 'blur(20px) saturate(1.4)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    fontSize: 13, color: '#f1f5f9', fontWeight: 400,
                     lineHeight: 1.65, wordBreak: 'break-word',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.07)',
                   }}>
                     {renderMarkdown(entry.a)}
                   </div>
@@ -898,23 +900,26 @@ export function ChatBubble({
                   >
                     <div style={{
                       maxWidth: '86%',
-                      padding: '8px 12px',
-                      borderRadius: isUser ? '14px 14px 4px 14px' : '4px 14px 14px 14px',
-                      // Phase A: 카톡 따뜻함 — 사용자 노랑 그라데이션, AI 흰색 톤
+                      padding: '10px 14px',
+                      borderRadius: isUser ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
+                      // NEXUS 디자인: iMessage 스타일 (사용자 = 인디고-바이올렛, AI = 글래스)
                       background: isUser
-                        ? 'linear-gradient(135deg, #fde047, #fbbf24)'  // 카톡 노랑 톤
-                        : 'rgba(248,250,252,0.94)',                     // 흰색 톤 (slate-50)
-                      border: `1px solid ${isUser ? 'rgba(251,191,36,0.6)' : 'rgba(226,232,240,0.4)'}`,
-                      fontSize: 12,
-                      // 사용자/AI 둘 다 어두운 텍스트 (카톡 스타일)
-                      color: isUser ? '#1f2937' : '#0f172a',
-                      fontWeight: isUser ? 600 : 500,
+                        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'   // 인디고 → 바이올렛
+                        : 'rgba(255,255,255,0.08)',                     // 글래스 화이트
+                      backdropFilter: isUser ? 'none' : 'blur(20px) saturate(1.4)',
+                      WebkitBackdropFilter: isUser ? 'none' : 'blur(20px) saturate(1.4)',
+                      border: isUser
+                        ? '1px solid rgba(139,92,246,0.5)'
+                        : '1px solid rgba(255,255,255,0.12)',
+                      fontSize: 13,
+                      color: isUser ? '#ffffff' : '#f1f5f9',
+                      fontWeight: isUser ? 500 : 400,
                       lineHeight: 1.65,
                       whiteSpace: isUser ? 'pre-wrap' : 'normal',
                       wordBreak: 'break-word',
                       boxShadow: isUser
-                        ? '0 2px 12px rgba(251,191,36,0.35)'
-                        : '0 2px 10px rgba(0,0,0,0.4)',
+                        ? '0 4px 16px rgba(99,102,241,0.45)'
+                        : '0 4px 16px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08)',
                     }}>
                       {isUser ? displayText : renderMarkdown(displayText)}
                       {isLong && (

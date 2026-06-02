@@ -1,17 +1,17 @@
 /**
- * Sidebar — Jarvis 3-Pane 좌측 패널.
+ * Sidebar — NEXUS 좌측 패널 (Apple 날씨 스타일 글래스)
  *
- * 영구 표시:
- *  - 페르소나 (큰 아이콘 + 이름)
- *  - 최근 결과 5개 (클릭으로 재조회 가능)
- *  - 음성 입력 표시
- *  - 단축키 안내
- *  - PRO 업그레이드 / 한도
+ * 구조:
+ *  1. 상단: 작은 캐릭터 (36px) + 검색창
+ *  2. PRO/사용량 카드 (글래스)
+ *  3. 최근 결과 5개 (스크롤)
+ *  4. 하단: 음성 입력 + 단축키 안내
  */
 
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ChatMessage } from './ChatBubble'
+import { NEXUS } from '../../theme/nexus'
 
 interface SidebarProps {
   messages: ChatMessage[]
@@ -26,40 +26,45 @@ interface SidebarProps {
   onUpgradeClick?: () => void
   onVoiceToggle?: () => void
   voiceActive?: boolean
+  onPersonaClick?: () => void                  // 캐릭터 클릭 → 페르소나 변경
+  onSearch?: (query: string) => void           // 검색창 → 새 명령 전송
 }
 
 export function Sidebar({
-  messages, accentColor, primaryColor, activePersona,
+  messages, accentColor: _accentColor, primaryColor: _primaryColor, activePersona,
   dailyUsed, dailyLimit, isPro, lang,
   onRecentClick, onUpgradeClick, onVoiceToggle, voiceActive,
+  onPersonaClick, onSearch,
 }: SidebarProps) {
-  // 최근 결과 5개 — nexus 메시지 중 카드 있는 것만
+  const [query, setQuery] = useState('')
+
+  // 최근 결과 5개 — nexus 메시지 중 카드 있거나 30자+ 텍스트
   const recentResults = useMemo(() => {
     const hasCard = (m: ChatMessage) =>
       !!(m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5)
     return messages
-      .filter(m => m.role === 'nexus' && (hasCard(m) || m.text?.length > 30))
+      .filter(m => m.role === 'nexus' && (hasCard(m) || (m.text?.length ?? 0) > 30))
       .slice(-5)
       .reverse()
   }, [messages])
 
   const usagePct = (dailyUsed / dailyLimit) * 100
-  const usageColor = usagePct >= 90 ? '#ef4444' : usagePct >= 70 ? '#f59e0b' : 'rgba(255,255,255,0.5)'
-  const personaColor = activePersona?.color ?? primaryColor
+  const usageColor = usagePct >= 90 ? '#ef4444' : usagePct >= 70 ? '#f59e0b' : NEXUS.text.secondary
+  const personaColor = activePersona?.color ?? NEXUS.brand.violet
 
-  // 결과 미리보기 텍스트
+  // 결과 미리보기
   const previewText = (m: ChatMessage) => {
     if (m.inlineCard?.type === 'dynamic' && m.inlineCard.title) return m.inlineCard.title
     if (m.inlineCard?.type === 'pc_status') return 'PC 상태'
     if (m.inlineCard?.type === 'scan_result') return '보안 스캔'
     if (m.inlineCard?.type === 'daily_report') return '일일 리포트'
+    if (m.inlineCard2?.type === 'price_compare') return `가격 비교: ${(m.inlineCard2.data?.query ?? '').slice(0,16)}`
     if (m.inlineCard5?.type === 'web_search') return `웹: ${(m.inlineCard5.query ?? '').slice(0, 18)}`
     if (m.inlineCard5?.type === 'news_search') return `뉴스: ${(m.inlineCard5.query ?? '').slice(0, 18)}`
     if (m.inlineCard5?.type === 'youtube') return `유튜브: ${(m.inlineCard5.query ?? '').slice(0, 18)}`
     return (m.text ?? '').split('\n')[0].slice(0, 24) || '결과'
   }
 
-  // 결과 아이콘
   const previewIcon = (m: ChatMessage): string => {
     if (m.inlineCard?.type === 'pc_status') return '🖥️'
     if (m.inlineCard?.type === 'scan_result') return '🔒'
@@ -79,132 +84,222 @@ export function Sidebar({
   }
 
   return (
-    <div style={{
-      width: 200, flexShrink: 0,
+    <div data-tauri-drag-region style={{
+      width: NEXUS.layout.sidebarWidth,
+      flexShrink: 0,
       display: 'flex', flexDirection: 'column',
-      background: 'linear-gradient(180deg, rgba(20,20,42,0.95) 0%, rgba(15,15,30,0.98) 100%)',
-      borderRight: `1px solid ${accentColor}22`,
+      background: NEXUS.bg.panel,
+      backdropFilter: NEXUS.blur.standard,
+      WebkitBackdropFilter: NEXUS.blur.standard,
+      borderRight: `1px solid ${NEXUS.border.subtle}`,
       overflow: 'hidden',
     }}>
-      {/* 페르소나 카드 (상단) */}
+      {/* ── 상단: 작은 캐릭터 + 검색창 ── */}
       <div style={{
-        padding: '14px 14px 10px',
-        borderBottom: `1px solid ${accentColor}18`,
-        background: `linear-gradient(135deg, ${personaColor}18, transparent)`,
+        padding: `${NEXUS.spacing.lg}px ${NEXUS.spacing.lg}px ${NEXUS.spacing.md}px`,
+        borderBottom: `1px solid ${NEXUS.border.subtle}`,
+        display: 'flex', flexDirection: 'column', gap: NEXUS.spacing.md,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <motion.div
+        <div style={{ display: 'flex', alignItems: 'center', gap: NEXUS.spacing.md }}>
+          <motion.button
+            onClick={onPersonaClick}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
             animate={{ scale: [1, 1.03, 1] }}
-            transition={{ duration: 3, repeat: Infinity }}
+            transition={{ scale: { duration: 3, repeat: Infinity } }}
             style={{
-              width: 36, height: 36, borderRadius: '50%',
+              width: 36, height: 36, borderRadius: '50%', border: 'none',
               background: `radial-gradient(circle at 38% 32%, ${personaColor}ee, ${personaColor}66 70%)`,
+              boxShadow: `0 0 16px ${personaColor}55`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
-              boxShadow: `0 0 12px ${personaColor}55`,
+              fontSize: 16, cursor: 'pointer', flexShrink: 0,
             }}
+            title={lang === 'en' ? 'Switch persona' : '페르소나 변경'}
           >
             {activePersona?.emoji ?? '🤖'}
-          </motion.div>
+          </motion.button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: personaColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {activePersona?.name ?? (lang === 'en' ? 'Nexus' : 'Nexus')}
+            <div style={{
+              fontSize: NEXUS.font.size.base, fontWeight: NEXUS.font.weight.bold,
+              color: NEXUS.text.primary, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {activePersona?.name ?? 'Nexus'}
             </div>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+            <div style={{ fontSize: NEXUS.font.size.xs, color: NEXUS.text.tertiary, marginTop: 1 }}>
               {isPro ? (lang === 'en' ? '⭐ PRO active' : '⭐ PRO 활성') : (lang === 'en' ? 'Free plan' : '무료 플랜')}
             </div>
           </div>
         </div>
 
-        {/* 사용 한도 progress bar */}
-        <div style={{ marginTop: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: usageColor, marginBottom: 3 }}>
-            <span>{lang === 'en' ? 'Today' : '오늘'}</span>
-            <span style={{ fontWeight: 700 }}>{dailyUsed} / {dailyLimit}</span>
-          </div>
-          <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(usagePct, 100)}%` }}
-              transition={{ duration: 0.6 }}
-              style={{ height: '100%', background: usageColor }}
-            />
-          </div>
-          {!isPro && usagePct >= 70 && (
-            <button
-              onClick={onUpgradeClick}
-              style={{
-                marginTop: 6, width: '100%',
-                padding: '5px 8px', borderRadius: 6,
-                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                border: 'none', color: '#1f1f1f',
-                fontSize: 9.5, fontWeight: 800, cursor: 'pointer',
-              }}
-            >
-              ⭐ {lang === 'en' ? 'Upgrade to PRO' : 'PRO 업그레이드'}
-            </button>
-          )}
+        {/* 검색창 (글래스) */}
+        <div style={{
+          background: NEXUS.bg.input,
+          border: `1px solid ${NEXUS.border.subtle}`,
+          borderRadius: NEXUS.radius.md,
+          padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <span style={{ fontSize: 12, opacity: 0.6 }}>🔍</span>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && query.trim() && onSearch) {
+                onSearch(query.trim()); setQuery('')
+              }
+            }}
+            placeholder={lang === 'en' ? 'Ask anything…' : '무엇이든 물어보세요…'}
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              fontSize: NEXUS.font.size.sm, color: NEXUS.text.primary,
+              fontFamily: NEXUS.font.family.ui,
+            }}
+          />
         </div>
       </div>
 
-      {/* 최근 결과 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px', scrollbarWidth: 'thin' }}>
-        <div style={{ fontSize: 9, fontWeight: 800, color: `${accentColor}99`, letterSpacing: '0.06em', marginBottom: 6, padding: '0 4px' }}>
-          📋 {lang === 'en' ? 'RECENT' : '최근 결과'}
+      {/* ── 사용량 progress bar ── */}
+      <div style={{ padding: `${NEXUS.spacing.md}px ${NEXUS.spacing.lg}px` }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: NEXUS.font.size.xs, color: usageColor,
+          marginBottom: 4, fontWeight: NEXUS.font.weight.medium,
+        }}>
+          <span>{lang === 'en' ? 'Today' : '오늘'}</span>
+          <span style={{ fontWeight: NEXUS.font.weight.bold }}>{dailyUsed} / {dailyLimit}</span>
+        </div>
+        <div style={{
+          height: 4, background: 'rgba(255,255,255,0.06)',
+          borderRadius: NEXUS.radius.pill, overflow: 'hidden',
+        }}>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(usagePct, 100)}%` }}
+            transition={{ duration: 0.6 }}
+            style={{
+              height: '100%',
+              background: usagePct >= 70
+                ? `linear-gradient(90deg, ${usageColor}, ${usageColor})`
+                : NEXUS.brand.gradient,
+            }}
+          />
+        </div>
+        {!isPro && usagePct >= 70 && (
+          <button
+            onClick={onUpgradeClick}
+            style={{
+              marginTop: 8, width: '100%',
+              padding: '7px 10px', borderRadius: NEXUS.radius.sm,
+              background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+              border: 'none', color: '#1f1f1f',
+              fontSize: NEXUS.font.size.xs, fontWeight: NEXUS.font.weight.heavy,
+              cursor: 'pointer',
+            }}
+          >
+            ⭐ {lang === 'en' ? 'Upgrade to PRO' : 'PRO 업그레이드'}
+          </button>
+        )}
+      </div>
+
+      {/* ── 최근 결과 ── */}
+      <div style={{
+        flex: 1, overflowY: 'auto',
+        padding: `${NEXUS.spacing.sm}px ${NEXUS.spacing.md}px`,
+        scrollbarWidth: 'thin',
+      }}>
+        <div style={{
+          fontSize: NEXUS.font.size.xs, fontWeight: NEXUS.font.weight.bold,
+          color: NEXUS.text.tertiary, letterSpacing: '0.08em',
+          marginBottom: NEXUS.spacing.sm,
+          padding: `0 ${NEXUS.spacing.xs}px`,
+          textTransform: 'uppercase',
+        }}>
+          📋 {lang === 'en' ? 'Recent' : '최근 결과'}
         </div>
         {recentResults.length === 0 ? (
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', textAlign: 'center', padding: '20px 6px', lineHeight: 1.6 }}>
-            {lang === 'en' ? 'Results appear here as you use Nexus' : '결과가\n여기에 쌓여요'}
+          <div style={{
+            fontSize: NEXUS.font.size.xs, color: NEXUS.text.quaternary,
+            textAlign: 'center', padding: '24px 6px', lineHeight: 1.7,
+          }}>
+            {lang === 'en' ? 'Results appear here\nas you use Nexus' : '결과가 여기에\n쌓여요'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {recentResults.map((m) => (
-              <button
+              <motion.button
                 key={m.id}
                 onClick={() => onRecentClick?.(m)}
+                whileHover={{ x: 2 }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '7px 8px', borderRadius: 7,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${accentColor}11`,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 10px', borderRadius: NEXUS.radius.sm,
+                  background: NEXUS.bg.input,
+                  border: `1px solid ${NEXUS.border.subtle}`,
                   cursor: 'pointer', textAlign: 'left',
-                  transition: 'all 0.15s',
+                  transition: `all ${NEXUS.motion.fast}`,
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}18`; e.currentTarget.style.borderColor = `${accentColor}55` }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = `${accentColor}11` }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = NEXUS.bg.cardHover
+                  e.currentTarget.style.borderColor = NEXUS.border.accent
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = NEXUS.bg.input
+                  e.currentTarget.style.borderColor = NEXUS.border.subtle
+                }}
               >
-                <span style={{ fontSize: 13, flexShrink: 0 }}>{previewIcon(m)}</span>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>{previewIcon(m)}</span>
+                <span style={{
+                  fontSize: NEXUS.font.size.sm, color: NEXUS.text.primary,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+                  fontWeight: NEXUS.font.weight.medium,
+                }}>
                   {previewText(m)}
                 </span>
-              </button>
+              </motion.button>
             ))}
           </div>
         )}
       </div>
 
-      {/* 음성 + 단축키 (하단) */}
-      <div style={{ padding: '10px 12px', borderTop: `1px solid ${accentColor}18` }}>
+      {/* ── 하단: 음성 + 단축키 ── */}
+      <div style={{
+        padding: `${NEXUS.spacing.md}px ${NEXUS.spacing.lg}px ${NEXUS.spacing.lg}px`,
+        borderTop: `1px solid ${NEXUS.border.subtle}`,
+        display: 'flex', flexDirection: 'column', gap: NEXUS.spacing.md,
+      }}>
         {onVoiceToggle && (
           <button
             onClick={onVoiceToggle}
             style={{
-              width: '100%', padding: '8px 10px',
-              background: voiceActive ? `${accentColor}33` : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${voiceActive ? accentColor : 'rgba(255,255,255,0.1)'}`,
-              borderRadius: 8, color: voiceActive ? accentColor : 'rgba(255,255,255,0.7)',
-              fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              width: '100%', padding: '10px 12px',
+              background: voiceActive ? NEXUS.brand.gradient : NEXUS.bg.input,
+              border: voiceActive
+                ? `1px solid ${NEXUS.border.glow}`
+                : `1px solid ${NEXUS.border.subtle}`,
+              borderRadius: NEXUS.radius.md,
+              color: voiceActive ? '#ffffff' : NEXUS.text.secondary,
+              fontSize: NEXUS.font.size.sm,
+              fontWeight: NEXUS.font.weight.bold,
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              boxShadow: voiceActive ? NEXUS.shadow.glow : 'none',
+              transition: `all ${NEXUS.motion.standard}`,
             }}
           >
             🎤 {voiceActive
-              ? (lang === 'en' ? 'Listening...' : '듣는 중...')
+              ? (lang === 'en' ? 'Listening…' : '듣는 중…')
               : (lang === 'en' ? 'Voice input' : '음성 입력')}
           </button>
         )}
-        <div style={{ marginTop: 8, fontSize: 9, color: 'rgba(255,255,255,0.3)', lineHeight: 1.5 }}>
-          <div>⌨️ <span style={{ color: 'rgba(255,255,255,0.5)' }}>Alt+Space</span> 빠른 호출</div>
-          <div>🔊 <span style={{ color: 'rgba(255,255,255,0.5)' }}>"헤이 넥서스"</span> 음성</div>
+        <div style={{
+          fontSize: NEXUS.font.size.xs,
+          color: NEXUS.text.tertiary,
+          lineHeight: 1.6,
+          textAlign: 'center',
+        }}>
+          <div>⌨️ <span style={{ color: NEXUS.text.secondary }}>Alt+Space</span> 빠른 호출</div>
+          <div>🔊 <span style={{ color: NEXUS.text.secondary }}>&quot;헤이 넥서스&quot;</span></div>
         </div>
       </div>
     </div>

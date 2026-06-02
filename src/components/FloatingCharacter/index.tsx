@@ -21,6 +21,7 @@ import { PaywallModal } from '../PaywallModal'
 import { ApprovalDialog } from './cards/ApprovalDialog'
 import { hasChosenMode, needsApproval, isDangerousCommand } from '../../lib/nexus/approvalMode'
 import { ExpandedResultView, type CanvasContent } from './cards/ExpandedResultView'
+import { CardGrid, type CardGridItem } from './cards/CardGrid'
 import { shouldExpand, expandTitle, shouldExpandMessage } from './cards/shouldExpand'
 import { appendHistory } from './ChatBubble'
 import { callGemini, callOllama, fallbackResponse, trackUsage, getLastPreviewItems, clearLastPreviewItems, isFollowUpQuestion } from '../../lib/nexus/gemini_engine'
@@ -1707,14 +1708,16 @@ export function FloatingCharacter() {
     <div style={{
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
-      background: 'rgba(6,6,18,0.62)',
-      backdropFilter: 'blur(32px)',
-      WebkitBackdropFilter: 'blur(32px)',
-      borderRadius: 16,
-      border: `1px solid ${primaryColor}33`,
-      boxShadow: `0 0 0 1px ${primaryColor}18, 0 8px 48px rgba(0,0,0,0.55)`,
+      // NEXUS 디자인 — Apple 날씨 영감, 인디고-바이올렛 강조
+      background: 'rgba(15, 23, 42, 0.78)',
+      backdropFilter: 'blur(40px) saturate(1.8)',
+      WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+      borderRadius: 18,
+      border: '1px solid rgba(255,255,255,0.08)',
+      boxShadow: '0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)',
       overflow: 'hidden',
       zIndex: 9999,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif",
     }}>
 
       {/* ── 상단 헤더: Orb + 상태바 + 컨트롤 (drag 가능) ── */}
@@ -2044,10 +2047,60 @@ export function FloatingCharacter() {
               setListening(false)
             }
           }}
+          onPersonaClick={handlePersonaChipClick}
+          onSearch={(q) => sendText(q)}
         />
 
-        {/* ── 중: 채팅 영역 ── */}
-        <div style={{ flex: 1, overflow: 'hidden', borderRight: `1px solid ${primaryColor}20`, display: 'flex', flexDirection: 'column' }}>
+        {/* ── 중: 채팅 영역 (CardGrid 위젯 + Chat) ── */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* ── CardGrid (Apple 날씨 위젯) — 카드 있는 최근 4개 메시지 ── */}
+          {(() => {
+            const cardItems: CardGridItem[] = messages
+              .filter(m => m.role === 'nexus' && !!(m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5))
+              .slice(-4)
+              .map(m => {
+                // 카드 타입별 아이콘/제목 추출 (Sidebar 와 동일 로직 재사용 아이디어)
+                let icon = '💬', title = '결과', preview: React.ReactNode = m.text.slice(0, 60)
+                if (m.inlineCard?.type === 'pc_status') { icon = '🖥️'; title = 'PC 상태' }
+                else if (m.inlineCard?.type === 'scan_result') { icon = '🔒'; title = '보안 스캔' }
+                else if (m.inlineCard?.type === 'clean_result') { icon = '🧹'; title = '정리 완료' }
+                else if (m.inlineCard2?.type === 'weather_card') { icon = '🌤'; title = '날씨' }
+                else if (m.inlineCard2?.type === 'price_compare') { icon = '🛒'; title = '가격 비교' }
+                else if (m.inlineCard2?.type === 'file_result') { icon = '📄'; title = '파일 생성' }
+                else if (m.inlineCard5?.type === 'web_search') { icon = '🌐'; title = '웹 검색' }
+                else if (m.inlineCard5?.type === 'news_search') { icon = '📰'; title = '뉴스' }
+                else if (m.inlineCard5?.type === 'youtube') { icon = '▶️'; title = '유튜브' }
+                preview = (m.text || '').split('\n').slice(0, 2).join('\n').slice(0, 100)
+                return {
+                  id: m.id,
+                  icon, title,
+                  preview,
+                  accent: 'default' as const,
+                  timestamp: parseInt(m.id) || Date.now(),
+                }
+              })
+            if (cardItems.length === 0) return null
+            return (
+              <CardGrid
+                items={cardItems}
+                maxCards={4}
+                onCardClick={(item) => {
+                  const msg = messages.find(m => m.id === item.id)
+                  if (msg) {
+                    setCanvasContent({
+                      title: item.title,
+                      inlineCard: msg.inlineCard,
+                      inlineCard2: msg.inlineCard2,
+                      inlineCard3: msg.inlineCard3,
+                      inlineCard4: msg.inlineCard4,
+                      inlineCard5: msg.inlineCard5,
+                    })
+                  }
+                }}
+              />
+            )
+          })()}
+
           <ChatBubble
             messages={messages}
             typing={typing}
