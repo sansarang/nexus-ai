@@ -910,6 +910,51 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			"email_inbox":   `(받은\s*메일|받은편지|이메일\s*확인|inbox|메일\s*보여|check\s*(email|mail|inbox)|show.*(email|mail)|read.*mail)`,
 			"price_compare": `(최저가|가격\s*비교|얼마야|얼마예요|할인|특가|가격대|싸게.*살|어디서.*싸|가성비|cheapest|lowest\s*price|price\s*compare|how\s*much.*cost|best\s*deal|where.*buy.*cheap)`,
 			"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels|music\s*video|cover\s*song|live\s*performance|shorts)`,
+
+			// ── 추가 44개: 자연어 트리거 강화 ──
+			"news_search":          `(뉴스|속보|이슈|오늘.*소식|news|breaking|headlines|today.*news)`,
+			"youtube_search":       `(유튜브|youtube|영상.*검색|동영상.*찾)`,
+			"weather":              `(날씨|기온|온도|비\s*와|눈\s*와|미세먼지|weather|temperature|rain|snow|forecast)`,
+			"translate":            `(번역|영어로|한국어로|일본어로|중국어로|translate|translation|to\s*english|to\s*korean)`,
+			"calendar_today":       `(오늘.*일정|오늘.*스케줄|오늘.*캘린더|today.*schedule|today.*calendar|today.*events)`,
+			"calendar_week":        `(이번\s*주.*일정|주간.*일정|week.*schedule|this\s*week.*event)`,
+			"calendar_find_slot":   `(빈.*시간|언제.*가능|미팅.*잡|회의.*잡|free\s*time|find.*slot|when.*free|schedule.*meeting)`,
+			"email_classify":       `(이메일.*분류|메일.*분류|받은편지.*정리|classify.*email|sort.*email)`,
+			"email_draft":          `(이메일.*작성|답장.*써|메일.*초안|draft.*email|reply.*draft|compose.*email)`,
+			"email_summarize":      `(이메일.*요약|메일.*요약|email.*summary|summarize.*email)`,
+			"imap_inbox":           `(imap|gmail.*받은|outlook.*받은|메일.*동기화)`,
+			"meeting_list":         `(회의.*목록|미팅.*리스트|meeting.*list|meetings.*today)`,
+			"meeting_summary":      `(회의.*요약|미팅.*요약|meeting.*summary|summarize.*meeting)`,
+			"notes":                `(노트.*목록|메모.*목록|note.*list|show.*notes|all.*notes)`,
+			"voice_todo":           `(음성.*할일|받아.*적|받아.*써|voice.*todo|voice.*note|dictate)`,
+			"recall_capture":       `(기억해|저장해.*화면|capture.*recall|remember.*this)`,
+			"recall_search":        `(기억.*검색|예전.*화면|search.*recall|find.*past)`,
+			"brain_search":         `(브레인.*검색|지식.*검색|brain.*search|knowledge.*search)`,
+			"brain_stats":          `(브레인.*상태|지식.*통계|brain.*stats|knowledge.*stats)`,
+			"persona_list":         `(페르소나.*목록|성격.*목록|persona.*list|all.*personas)`,
+			"workflow_list":        `(워크플로.*목록|자동화.*목록|workflow.*list|all.*workflows)`,
+			"workflow_templates":   `(워크플로.*템플릿|자동화.*템플릿|workflow.*template)`,
+			"schedule_list":        `(예약.*목록|스케줄.*목록|크론.*목록|schedule.*list|cron.*list|scheduled.*tasks)`,
+			"clipboard_history":    `(클립보드.*기록|클립보드.*히스토리|clipboard.*history|paste.*history)`,
+			"clipboard_ai":         `(클립보드.*ai|복사.*ai|clipboard.*ai|smart.*clipboard)`,
+			"dictation_start":      `(받아쓰기.*시작|딕테이션.*시작|start.*dictation|start.*transcrib)`,
+			"file_duplicates":      `(중복.*파일|똑같은.*파일|duplicate.*files|find.*duplicates)`,
+			"search_pdf":           `(pdf.*검색|pdf.*찾|search.*pdf|find.*pdf)`,
+			"network_analysis":     `(네트워크.*분석|와이파이.*분석|인터넷.*상태|network.*analysis|wifi.*analysis|connection.*check)`,
+			"perf_history":         `(성능.*기록|성능.*히스토리|performance.*history|perf.*log)`,
+			"perf_anomaly":         `(성능.*이상|이상.*탐지|perf.*anomaly|performance.*issue)`,
+			"gpu_stats":            `(gpu|그래픽카드|video.*card)`,
+			"process_top":          `(프로세스.*top|process.*top|top.*process|cpu.*점유)`,
+			"process_security":     `(프로세스.*보안|의심.*프로세스|process.*security|suspicious.*process)`,
+			"startup_items":        `(시작\s*프로그램|자동.*실행|startup.*items|startup.*programs)`,
+			"programs_list":        `(설치.*프로그램.*목록|programs\s*list|installed.*apps)`,
+			"app_permissions":      `(앱.*권한|권한.*확인|app.*permissions|permission.*check)`,
+			"boot_analysis":        `(부팅.*분석|시작.*시간|boot.*analysis|boot.*time)`,
+			"driver_check":         `(드라이버.*확인|드라이버.*검사|driver.*check|driver.*update)`,
+			"defender_status":      `(디펜더|defender|windows.*security|보안.*상태)`,
+			"virus_check":          `(바이러스.*확인|virus.*check|malware.*scan)`,
+			"windows_updates":      `(윈도우.*업데이트|windows.*update|update.*check)`,
+			"remote_access":        `(원격.*접속|remote.*access|teamviewer|anydesk)`,
 		}
 		matched := false
 		for action, pat := range systemPatterns {
@@ -2313,6 +2358,56 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			gaItems = append(gaItems, map[string]string{"title": extractDomain(u), "url": u})
 		}
 		return map[string]any{"reply": gaAns, "items": gaItems}, gaAns
+
+	// ── 프론트가 backendAPI 호출로 데이터를 보충하는 액션들 (44개) ──
+	// 백엔드는 의도 인식만 확인 → 프론트 renderCommandResult 가 적절한 API 호출 + 카드 렌더
+	case "calendar_today", "calendar_week", "calendar_find_slot",
+		"email_classify", "email_draft", "email_summarize", "imap_inbox", "email_inbox",
+		"meeting_list", "meeting_summary", "notes",
+		"perf_history", "perf_anomaly", "gpu_stats", "process_top",
+		"process_security", "startup_items", "programs_list", "app_permissions",
+		"boot_analysis", "driver_check", "defender_status", "virus_check",
+		"windows_updates", "remote_access", "network_analysis",
+		"clipboard_history", "clipboard_ai", "dictation_start",
+		"file_duplicates", "search_pdf",
+		"recall_capture", "recall_search", "brain_search", "brain_stats",
+		"persona_list", "workflow_list", "workflow_templates", "schedule_list",
+		"voice_todo", "news_search", "youtube_search", "translate":
+		// 프론트에서 backendAPI.* 호출로 실제 데이터 가져옴
+		intentLabels := map[string]string{
+			"calendar_today": "오늘 일정", "calendar_week": "주간 일정", "calendar_find_slot": "빈 시간 찾기",
+			"email_classify": "이메일 분류", "email_draft": "이메일 초안", "email_summarize": "이메일 요약",
+			"imap_inbox": "메일함", "email_inbox": "받은 메일",
+			"meeting_list": "회의 목록", "meeting_summary": "회의 요약", "notes": "노트 목록",
+			"perf_history": "성능 기록", "perf_anomaly": "성능 이상", "gpu_stats": "GPU 상태",
+			"process_top": "프로세스 TOP", "process_security": "프로세스 보안",
+			"startup_items": "시작 프로그램", "programs_list": "설치 프로그램", "app_permissions": "앱 권한",
+			"boot_analysis": "부팅 분석", "driver_check": "드라이버 점검", "defender_status": "디펜더 상태",
+			"virus_check": "바이러스 검사", "windows_updates": "Windows 업데이트", "remote_access": "원격 접속",
+			"network_analysis": "네트워크 분석",
+			"clipboard_history": "클립보드 기록", "clipboard_ai": "클립보드 AI",
+			"dictation_start": "받아쓰기", "file_duplicates": "중복 파일", "search_pdf": "PDF 검색",
+			"recall_capture": "기억 저장", "recall_search": "기억 검색",
+			"brain_search": "브레인 검색", "brain_stats": "브레인 통계",
+			"persona_list": "페르소나 목록",
+			"workflow_list": "워크플로 목록", "workflow_templates": "워크플로 템플릿", "schedule_list": "예약 목록",
+			"voice_todo": "음성 할일", "news_search": "뉴스", "youtube_search": "유튜브", "translate": "번역",
+		}
+		label := intentLabels[action]
+		if label == "" {
+			label = action
+		}
+		var msg string
+		if lang == "en" {
+			msg = fmt.Sprintf("%s — opening…", label)
+		} else {
+			msg = fmt.Sprintf("%s 준비 완료", label)
+		}
+		return map[string]any{
+			"action":            action,
+			"params":            params,
+			"frontend_dispatch": true,
+		}, msg
 
 	default:
 		// 분류 안 된 질문 → 이력 보완 후 web_search

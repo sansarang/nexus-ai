@@ -156,6 +156,49 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		"email_inbox":   `(받은\s*메일|받은편지|이메일\s*확인|inbox|메일\s*보여|check\s*(email|mail|inbox)|show.*(email|mail)|read.*mail)`,
 		"price_compare": `(최저가|가격\s*비교|얼마야|얼마예요|할인|특가|가격대|싸게.*살|어디서.*싸|가성비|cheapest|lowest\s*price|price\s*compare|how\s*much.*cost|best\s*deal|where.*buy.*cheap)`,
 		"video_search":  `(뮤직비디오|뮤비|mv\b|플레이리스트|playlist|커버\s*영상|라이브\s*영상|숏폼|쇼츠|reels|music\s*video|cover\s*song|live\s*performance|shorts)`,
+		// 44개 추가
+		"news_search":        `(뉴스|속보|이슈|오늘.*소식|news|breaking|headlines)`,
+		"youtube_search":     `(유튜브|youtube|영상.*검색|동영상.*찾)`,
+		"translate":          `(번역|영어로|한국어로|일본어로|중국어로|translate|translation)`,
+		"calendar_today":     `(오늘.*일정|오늘.*스케줄|오늘.*캘린더|today.*schedule|today.*calendar)`,
+		"calendar_week":      `(이번\s*주.*일정|주간.*일정|week.*schedule)`,
+		"calendar_find_slot": `(빈.*시간|언제.*가능|미팅.*잡|회의.*잡|free\s*time|find.*slot)`,
+		"email_classify":     `(이메일.*분류|메일.*분류|classify.*email)`,
+		"email_draft":        `(이메일.*작성|답장.*써|메일.*초안|draft.*email|reply.*draft)`,
+		"email_summarize":    `(이메일.*요약|메일.*요약|email.*summary)`,
+		"imap_inbox":         `(imap|gmail.*받은|outlook.*받은|메일.*동기화)`,
+		"meeting_list":       `(회의.*목록|미팅.*리스트|meeting.*list)`,
+		"meeting_summary":    `(회의.*요약|미팅.*요약|meeting.*summary)`,
+		"notes":              `(노트.*목록|메모.*목록|note.*list|show.*notes)`,
+		"voice_todo":         `(음성.*할일|받아.*적|받아.*써|voice.*todo|dictate)`,
+		"recall_capture":     `(기억해|저장해.*화면|capture.*recall|remember.*this)`,
+		"recall_search":      `(기억.*검색|예전.*화면|search.*recall|find.*past)`,
+		"brain_search":       `(브레인.*검색|지식.*검색|brain.*search|knowledge.*search)`,
+		"brain_stats":        `(브레인.*상태|지식.*통계|brain.*stats|knowledge.*stats)`,
+		"persona_list":       `(페르소나.*목록|성격.*목록|persona.*list)`,
+		"workflow_list":      `(워크플로.*목록|자동화.*목록|workflow.*list)`,
+		"workflow_templates": `(워크플로.*템플릿|자동화.*템플릿|workflow.*template)`,
+		"schedule_list":      `(예약.*목록|스케줄.*목록|크론.*목록|schedule.*list|cron.*list)`,
+		"clipboard_history":  `(클립보드.*기록|클립보드.*히스토리|clipboard.*history|paste.*history)`,
+		"clipboard_ai":       `(클립보드.*ai|복사.*ai|smart.*clipboard)`,
+		"dictation_start":    `(받아쓰기.*시작|딕테이션.*시작|start.*dictation)`,
+		"file_duplicates":    `(중복.*파일|똑같은.*파일|duplicate.*files)`,
+		"search_pdf":         `(pdf.*검색|pdf.*찾|search.*pdf|find.*pdf)`,
+		"network_analysis":   `(네트워크.*분석|와이파이.*분석|인터넷.*상태|network.*analysis|wifi.*analysis)`,
+		"perf_history":       `(성능.*기록|성능.*히스토리|performance.*history)`,
+		"perf_anomaly":       `(성능.*이상|이상.*탐지|perf.*anomaly)`,
+		"gpu_stats":          `(gpu|그래픽카드|video.*card)`,
+		"process_top":        `(프로세스.*top|process.*top|top.*process|cpu.*점유)`,
+		"process_security":   `(프로세스.*보안|의심.*프로세스|process.*security|suspicious.*process)`,
+		"startup_items":      `(시작\s*프로그램|자동.*실행|startup.*items|startup.*programs)`,
+		"programs_list":      `(설치.*프로그램.*목록|programs\s*list|installed.*apps)`,
+		"app_permissions":    `(앱.*권한|권한.*확인|app.*permissions)`,
+		"boot_analysis":      `(부팅.*분석|시작.*시간|boot.*analysis|boot.*time)`,
+		"driver_check":       `(드라이버.*확인|드라이버.*검사|driver.*check|driver.*update)`,
+		"defender_status":    `(디펜더|defender|windows.*security|보안.*상태)`,
+		"virus_check":        `(바이러스.*확인|virus.*check|malware.*scan)`,
+		"windows_updates":    `(윈도우.*업데이트|windows.*update|update.*check)`,
+		"remote_access":      `(원격.*접속|remote.*access|teamviewer|anydesk)`,
 	}
 	// 매칭된 액션별로 파라미터 추출
 	// systemPreRouted 는 이미 위에서 선언됨 (excel 우선 체크 시 true 가능)
@@ -846,7 +889,64 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 		cmdWindowsOnly(_cx)
 	case "deep_research":
 		cmdDeepResearch(_cx)
+	// ── 프론트 디스패치 액션 (Mac: 의도만 인식, 프론트가 backendAPI 호출) ──
+	case "calendar_week", "calendar_find_slot",
+		"email_classify", "email_draft", "email_summarize", "imap_inbox", "email_inbox",
+		"meeting_list", "meeting_summary", "notes",
+		"perf_history", "perf_anomaly", "gpu_stats", "process_top",
+		"process_security", "startup_items", "programs_list", "app_permissions",
+		"boot_analysis", "driver_check", "defender_status", "virus_check",
+		"windows_updates", "remote_access", "network_analysis",
+		"clipboard_history", "clipboard_ai", "dictation_start",
+		"file_duplicates", "search_pdf",
+		"recall_capture", "recall_search", "brain_search", "brain_stats",
+		"persona_list", "workflow_list", "workflow_templates", "schedule_list",
+		"voice_todo", "news_search", "youtube_search", "translate":
+		cmdFrontendDispatch(_cx, intent.Action)
 	default:
 		cmdDefault(_cx)
 	}
+}
+
+// cmdFrontendDispatch — 프론트가 backendAPI 호출로 데이터를 가져오는 액션
+// 백엔드는 의도만 confirm하고 action 이름 전달
+func cmdFrontendDispatch(cx cmdCtx, action string) {
+	labels := map[string]string{
+		"calendar_today": "오늘 일정", "calendar_week": "주간 일정", "calendar_find_slot": "빈 시간",
+		"email_classify": "이메일 분류", "email_draft": "이메일 초안", "email_summarize": "이메일 요약",
+		"imap_inbox": "메일함", "email_inbox": "받은 메일",
+		"meeting_list": "회의 목록", "meeting_summary": "회의 요약", "notes": "노트",
+		"perf_history": "성능 기록", "perf_anomaly": "성능 이상", "gpu_stats": "GPU 상태",
+		"process_top": "프로세스 TOP", "process_security": "프로세스 보안",
+		"startup_items": "시작 프로그램", "programs_list": "설치 프로그램", "app_permissions": "앱 권한",
+		"boot_analysis": "부팅 분석", "driver_check": "드라이버 점검", "defender_status": "디펜더 상태",
+		"virus_check": "바이러스 검사", "windows_updates": "Windows 업데이트", "remote_access": "원격 접속",
+		"network_analysis": "네트워크 분석",
+		"clipboard_history": "클립보드 기록", "clipboard_ai": "클립보드 AI",
+		"dictation_start": "받아쓰기", "file_duplicates": "중복 파일", "search_pdf": "PDF 검색",
+		"recall_capture": "기억 저장", "recall_search": "기억 검색",
+		"brain_search": "브레인 검색", "brain_stats": "브레인 통계",
+		"persona_list": "페르소나 목록",
+		"workflow_list": "워크플로 목록", "workflow_templates": "워크플로 템플릿", "schedule_list": "예약 목록",
+		"voice_todo": "음성 할일", "news_search": "뉴스", "youtube_search": "유튜브", "translate": "번역",
+	}
+	label := labels[action]
+	if label == "" {
+		label = action
+	}
+	var msg string
+	if cx.req.Lang == "en" {
+		msg = fmt.Sprintf("%s — opening…", label)
+	} else {
+		msg = fmt.Sprintf("%s 준비 완료", label)
+	}
+	json200(cx.w, CommandResponse{
+		Success: true, Message: msg, Action: action,
+		Result: map[string]any{
+			"action":            action,
+			"params":            cx.params,
+			"frontend_dispatch": true,
+		},
+		Duration: cx.dur,
+	})
 }

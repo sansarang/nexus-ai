@@ -1065,8 +1065,43 @@ export function FloatingCharacter() {
             emotion: 'happy',
           }
         }
-        default:
+        default: {
+          // ── 미매핑 액션 폴백 (백엔드는 처리했지만 프론트 전용 카드 없음) ──
+          const labels: Record<string, { icon: string; title: string }> = {
+            brightness: { icon: '💡', title: '밝기 조정' }, volume: { icon: '🔊', title: '볼륨 조정' },
+            mute: { icon: '🔇', title: '음소거' }, wifi: { icon: '📶', title: 'Wi-Fi' },
+            sleep: { icon: '😴', title: '절전 모드' }, shutdown: { icon: '⏻', title: '종료' },
+            restart: { icon: '🔄', title: '재시작' }, shutdown_confirmed: { icon: '⏻', title: '종료 확정' },
+            restart_confirmed: { icon: '🔄', title: '재시작 확정' },
+            launch_app: { icon: '🚀', title: '앱 실행' },
+            note: { icon: '📝', title: '노트' }, system_control: { icon: '⚙️', title: '시스템 제어' },
+            scheduler: { icon: '⏰', title: '예약' }, workflow_run: { icon: '🤖', title: '워크플로 실행' },
+            doc_auto_create: { icon: '📄', title: '문서 생성' }, doc_compare: { icon: '📑', title: '문서 비교' },
+            doc_summary: { icon: '📃', title: '문서 요약' }, excel_auto_create: { icon: '📊', title: 'Excel 생성' },
+            excel_analyze: { icon: '📈', title: 'Excel 분석' }, excel_save: { icon: '💾', title: 'Excel 저장' },
+            pdf_auto_create: { icon: '📕', title: 'PDF 생성' }, video_workflow: { icon: '🎬', title: '영상 워크플로' },
+            content_script: { icon: '✍️', title: '스크립트' }, contract_review: { icon: '📜', title: '계약서 검토' },
+            legal_search: { icon: '⚖️', title: '법률 검색' }, medical_search: { icon: '🏥', title: '의료 검색' },
+            stock_analysis: { icon: '📈', title: '주식 분석' }, organize_folder: { icon: '📁', title: '폴더 정리' },
+            general_answer: { icon: '💬', title: '답변' },
+          }
+          const meta = labels[action]
+          const r = result as { frontend_dispatch?: boolean; message?: string; success?: boolean } | undefined
+          if (meta || r?.frontend_dispatch) {
+            const m = meta ?? { icon: '✨', title: action.replace(/_/g, ' ') }
+            return {
+              card2: {
+                type: 'system_action',
+                icon: m.icon,
+                title: m.title,
+                detail: r?.message ?? trimmed.slice(0, 100),
+                success: r?.success !== false,
+              },
+              emotion: 'happy',
+            }
+          }
           return { emotion: 'neutral' }
+        }
       }
     } catch {
       return { emotion: 'neutral' }
