@@ -8,7 +8,7 @@ import { EmailSetup } from '../EmailSetup'
 import { ChatBubble } from './ChatBubble'
 import type { ChatMessage, AttachedFile } from './ChatBubble'
 import { Sidebar } from './Sidebar'
-import { Onboarding, hasCompletedOnboarding } from './Onboarding'
+import { hasCompletedOnboarding, markOnboardingComplete } from './Onboarding'
 import { SettingsModal } from './SettingsModal'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
@@ -299,6 +299,9 @@ export function FloatingCharacter() {
     const expiry = localStorage.getItem('nexus-sub-expiry') ?? ''
     if (email) setLoggedIn(email, status, expiry)
     setOnboarded()
+    // ★ OnboardingFlow 가 이미 데모 + 가입 완료 — Phase A4 Onboarding 중복 방지
+    markOnboardingComplete()
+    setShowOnboarding(false)
     // Supabase에 설정 저장
     const userId = localStorage.getItem('nexus-user-id')
     if (userId) {
@@ -1763,13 +1766,8 @@ export function FloatingCharacter() {
 
   return (
     <>
-    {/* ── 첫 실행 온보딩 마법사 (Phase A4) ── */}
-    {showOnboarding && (
-      <Onboarding
-        onComplete={() => setShowOnboarding(false)}
-        onTryCommand={(cmd) => { void sendText(cmd) }}
-      />
-    )}
+    {/* ── Phase A4 보조 온보딩 — OnboardingFlow 이미 완료된 사용자는 미표시 ──
+        showOnboarding 은 사용자가 명시적으로 "튜토리얼 다시 보기" 호출 시만 활성화 */}
     {/* ── 전체 화면 패널 레이아웃 (v2.6) ── */}
     <style>{`
       @keyframes orb-speak { 0% { transform: scale(1); } 100% { transform: scale(1.06); } }

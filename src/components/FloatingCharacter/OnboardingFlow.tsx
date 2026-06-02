@@ -1454,27 +1454,43 @@ export function LoginScreen() {
   }
 
   return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 99998,
+      background: 'rgba(8,11,22,0.6)',
+      backdropFilter: 'blur(20px) saturate(1.4)',
+      WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.28 }}
         style={{
-          position: 'fixed',
-          top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
           zIndex: 99999,
-          width: 400,
-          background: '#1e2035',
-          border: '1px solid rgba(255,255,255,0.12)',
+          width: 420,
+          // NEXUS 글래스 통일 (Apple 날씨 영감)
+          background: 'rgba(15,23,42,0.85)',
+          backdropFilter: 'blur(40px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          borderTop: '2px solid rgba(139,92,246,0.6)',
           borderRadius: 24,
           padding: '40px 36px',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
+          color: '#f1f5f9',
         }}
       >
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>👋</div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 6 }}>다시 오셨군요!</h2>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6 }}>
+          <div style={{
+            fontSize: 56, marginBottom: 14,
+            filter: 'drop-shadow(0 6px 24px rgba(139,92,246,0.4))',
+          }}>👋</div>
+          <h2 style={{
+            fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 8,
+            letterSpacing: '-0.01em',
+          }}>다시 오셨군요!</h2>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, margin: 0 }}>
             Google 계정으로 로그인하면<br />바로 시작됩니다.
           </p>
         </div>
@@ -1531,5 +1547,6 @@ export function LoginScreen() {
 
         {error && <p style={{ fontSize: 12, color: '#f87171', margin: 0 }}>{error}</p>}
       </motion.div>
+    </div>
   )
 }
