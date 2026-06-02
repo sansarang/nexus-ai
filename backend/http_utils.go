@@ -71,12 +71,20 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 func json200(w http.ResponseWriter, v any) {
-	// CommandResponse 인 경우 CardType 자동 주입 (Mac/Windows 공용 응답 후처리)
-	// cmd_*.go 핸들러들이 직접 json200 호출해도 카드 자동 라우팅 됨
+	// CommandResponse 인 경우 CardType 자동 주입 + Phase D 텔레메트리 자동 기록
 	if cmd, ok := v.(CommandResponse); ok {
 		if cmd.CardType == "" && cmd.Action != "" {
 			cmd.CardType = resolveCardTypeForAction(cmd.Action)
 		}
+		// ★ Phase D 텔레메트리 — 모든 명령 응답 메타 자동 수집
+		go recordTelemetry(TelemetryEntry{
+			Action:     cmd.Action,
+			CardType:   cmd.CardType,
+			MessageLen: len(cmd.Message),
+			Success:    cmd.Success,
+			Empty:      len(cmd.Message) == 0,
+			Clarify:    cmd.Action == "clarify",
+		})
 		writeJSON(w, http.StatusOK, cmd)
 		return
 	}

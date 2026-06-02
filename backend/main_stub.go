@@ -44,6 +44,11 @@ func main() {
 
 	// ── 자연어 명령 라우터 (핵심) ────────────────────────────
 	mux.HandleFunc("POST /api/command", handleCommand)
+	mux.HandleFunc("GET /api/agent/proposals", handleAgentPatchProposals)
+	mux.HandleFunc("POST /api/agent/approve", handleAgentApprove)
+	mux.HandleFunc("POST /api/agent/reject", handleAgentReject)
+	mux.HandleFunc("GET /api/agent/status", handleAgentStatus)
+	mux.HandleFunc("POST /api/agent/analyze-now", handleAgentAnalyzeNow)
 
 	// ── 🛒 워크플로우 마켓플레이스 ───────────────────────────────
 	mux.HandleFunc("GET /api/marketplace/presets", handleMarketplaceList)
@@ -366,6 +371,10 @@ func main() {
 	loadLLMConfig()
 	loadPersonaConfig()
 	loadBrainIndex()
+	loadUserPatterns()
+	loadLocalOnlyMode()
+	startRAGBackgroundWatcher()
+	startSelfHealingLoop()
 	go startBriefingScheduler()
 	go startMacProactiveMonitor()
 

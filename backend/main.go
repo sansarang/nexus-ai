@@ -226,6 +226,11 @@ func main() {
 
 	// ── 자연어 명령 라우터 (핵심: 말만 하면 알아서 처리) ──────
 	mux.HandleFunc("POST /api/command", handleCommand)
+	mux.HandleFunc("GET /api/agent/proposals", handleAgentPatchProposals)
+	mux.HandleFunc("POST /api/agent/approve", handleAgentApprove)
+	mux.HandleFunc("POST /api/agent/reject", handleAgentReject)
+	mux.HandleFunc("GET /api/agent/status", handleAgentStatus)
+	mux.HandleFunc("POST /api/agent/analyze-now", handleAgentAnalyzeNow)
 
 	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
 	mux.HandleFunc("POST /api/site-search", handleSiteSearch)
@@ -525,6 +530,10 @@ func main() {
 	loadUserPatterns()
 	loadLocalOnlyMode()
 	startRAGBackgroundWatcher()
+
+	// ── Phase D: 자가 치유 Agent 시스템 ──
+	log.Println("[Nexus Backend] Phase D 자가치유 12 Agent 시작")
+	startSelfHealingLoop()
 
 	const port = "127.0.0.1:17892"
 
