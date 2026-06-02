@@ -53,17 +53,20 @@ function Card5Wrap({ children, accentColor }: { children: React.ReactNode; accen
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
       style={{
-        background: 'rgba(8,8,22,0.97)',
-        border: `1px solid ${accentColor}44`,
-        borderLeft: `3px solid ${accentColor}`,
-        borderRadius: 14,
-        padding: '10px 12px',
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderTop: `2px solid ${accentColor}88`,
+        borderRadius: 18,
+        padding: '14px 16px',
         display: 'flex',
         flexDirection: 'column',
         gap: 0,
         width: '100%',
-        boxShadow: `0 6px 28px rgba(0,0,0,0.7)`,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
         marginTop: 6,
+        color: '#f1f5f9',
       }}
     >
       {children}

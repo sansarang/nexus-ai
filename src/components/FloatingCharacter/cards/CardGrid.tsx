@@ -39,6 +39,8 @@ interface CardGridProps {
   onCardClick?: (item: CardGridItem) => void
   onCardDismiss?: (item: CardGridItem) => void
   emptyHint?: React.ReactNode         // 빈 상태 안내
+  collapsible?: boolean               // 헤더에 접기 토글
+  defaultCollapsed?: boolean
 }
 
 export function CardGrid({
@@ -47,7 +49,21 @@ export function CardGrid({
   onCardClick,
   onCardDismiss,
   emptyHint,
+  collapsible = false,
+  defaultCollapsed = false,
 }: CardGridProps) {
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const v = localStorage.getItem('nexus-cardgrid-collapsed')
+      if (v != null) return v === '1'
+    }
+    return defaultCollapsed
+  })
+  const toggle = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    try { localStorage.setItem('nexus-cardgrid-collapsed', next ? '1' : '0') } catch {}
+  }
   // 반응형: 좁으면 1열 + 적게, 넓으면 2열
   const wrapRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(360)
@@ -84,14 +100,35 @@ export function CardGrid({
   }
 
   return (
-    <div ref={wrapRef} style={{
-      display: 'grid',
-      gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gap: NEXUS.layout.cardGridGap,
-      padding: `${NEXUS.spacing.md}px ${NEXUS.spacing.lg}px`,
-      maxHeight: isNarrow ? 260 : 320,
-      overflow: 'hidden',
-    }}>
+    <div ref={wrapRef} style={{ display: 'flex', flexDirection: 'column' }}>
+      {collapsible && (
+        <button
+          onClick={toggle}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            margin: `0 ${NEXUS.spacing.lg}px`,
+            padding: '4px 8px',
+            background: 'transparent',
+            border: 'none',
+            color: NEXUS.text.tertiary,
+            fontSize: 10.5, fontWeight: 700,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            cursor: 'pointer',
+          }}
+        >
+          <span>📋 결과 위젯 ({visibleItems.length})</span>
+          <motion.span animate={{ rotate: collapsed ? -90 : 0 }} style={{ display: 'inline-block', fontSize: 10 }}>▼</motion.span>
+        </button>
+      )}
+      {!collapsed && (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: NEXUS.layout.cardGridGap,
+        padding: `${NEXUS.spacing.sm}px ${NEXUS.spacing.lg}px ${NEXUS.spacing.md}px`,
+        maxHeight: isNarrow ? 200 : 240,
+        overflow: 'auto',
+      }}>
       <AnimatePresence mode="popLayout">
         {visibleItems.map((item) => (
           <motion.div
@@ -116,6 +153,8 @@ export function CardGrid({
           </motion.div>
         ))}
       </AnimatePresence>
+    </div>
+      )}
     </div>
   )
 }

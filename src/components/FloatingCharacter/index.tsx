@@ -2084,6 +2084,7 @@ export function FloatingCharacter() {
               <CardGrid
                 items={cardItems}
                 maxCards={4}
+                collapsible
                 onCardClick={(item) => {
                   const msg = messages.find(m => m.id === item.id)
                   if (msg) {

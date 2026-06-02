@@ -228,9 +228,12 @@ export function ScanResultCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25 }}
       style={{
-        background: 'rgba(10,12,28,0.96)',
-        border: `1px solid ${accentColor}44`,
-        borderRadius: 14,
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderTop: `2px solid ${accentColor}88`,
+        borderRadius: 18,
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -375,9 +378,12 @@ export function DailyReportCard({ data, accentColor }: { data: DailyReport; acce
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25 }}
       style={{
-        background: 'rgba(10,12,28,0.96)',
-        border: `1px solid ${accentColor}44`,
-        borderRadius: 14,
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderTop: `2px solid ${accentColor}88`,
+        borderRadius: 18,
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -483,9 +489,12 @@ export function CleanResultCard({ results, accentColor }: { results: CleanResult
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25 }}
       style={{
-        background: 'rgba(10,12,28,0.96)',
-        border: `1px solid #22c55e44`,
-        borderRadius: 14,
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderTop: `2px solid #22c55e44`,
+        borderRadius: 18,
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -542,9 +551,12 @@ export function FolderOpenCard({
       initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       style={{
-        background: 'rgba(10,12,28,0.96)',
-        border: `1px solid ${success ? '#22c55e' : '#ef4444'}44`,
-        borderRadius: 14,
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderTop: `2px solid ${success ? '#22c55e' : '#ef4444'}44`,
+        borderRadius: 18,
         padding: '12px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -614,9 +626,12 @@ export function RepairResultCard({ data, accentColor }: { data: RepairResult; ac
       initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       style={{
-        background: 'rgba(10,12,28,0.96)',
-        border: `1px solid ${data.success ? '#22c55e' : '#ef4444'}44`,
-        borderRadius: 14,
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderTop: `2px solid ${data.success ? '#22c55e' : '#ef4444'}44`,
+        borderRadius: 18,
         padding: '10px 14px',
         display: 'flex',
         alignItems: 'center',

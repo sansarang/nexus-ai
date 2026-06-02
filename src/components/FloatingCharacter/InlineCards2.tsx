@@ -45,17 +45,24 @@ function RiskBadge({ risk }: { risk: string }) {
   )
 }
 
+// NEXUS 글래스 카드 — 모든 인라인 카드 공용 컨테이너 (Apple 날씨 영감)
 function CardWrap({ children, accent }: { children: React.ReactNode; accent: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.25 }}
       style={{
-        background: '#0a0c1c', border: `1px solid ${accent}44`,
-        borderLeft: `3px solid ${accent}`,
-        borderRadius: 14, padding: '12px 14px', display: 'flex',
-        flexDirection: 'column', gap: 8, width: '100%',
-        boxShadow: '0 6px 28px rgba(0,0,0,0.75)',
+        background: 'rgba(255, 255, 255, 0.06)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        border: '1px solid rgba(255, 255, 255, 0.10)',
+        borderTop: `2px solid ${accent}88`,
+        borderRadius: 18,
+        padding: '14px 16px',
+        display: 'flex', flexDirection: 'column', gap: 10,
+        width: '100%', color: '#f1f5f9',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
       }}
     >
       {children}

@@ -3,13 +3,19 @@ import React from 'react'
 
 export type CardVariant = 'default' | 'success' | 'warning' | 'info' | 'search' | 'dark'
 
+// NEXUS 글래스 스타일 (Apple 날씨 영감) — 모든 카드 통일
+const GLASS_BASE: React.CSSProperties = {
+  backdropFilter: 'blur(40px) saturate(1.8)',
+  WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
+}
 const variantStyles: Record<CardVariant, React.CSSProperties> = {
-  default: { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' },
-  success: { background: 'rgba(72,187,120,0.07)', border: '1px solid rgba(72,187,120,0.25)' },
-  warning: { background: 'rgba(237,137,54,0.07)', border: '1px solid rgba(237,137,54,0.25)' },
-  info:    { background: 'rgba(99,179,237,0.07)', border: '1px solid rgba(99,179,237,0.25)' },
-  search:  { background: 'rgba(8,8,22,0.97)',     border: '1px solid rgba(255,255,255,0.1)' },
-  dark:    { background: 'rgba(5,5,15,0.95)',     border: '1px solid rgba(255,255,255,0.08)' },
+  default: { ...GLASS_BASE, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', borderTop: '2px solid rgba(139,92,246,0.55)' },
+  success: { ...GLASS_BASE, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderTop: '2px solid rgba(34,197,94,0.65)' },
+  warning: { ...GLASS_BASE, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderTop: '2px solid rgba(245,158,11,0.65)' },
+  info:    { ...GLASS_BASE, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderTop: '2px solid rgba(96,165,250,0.65)' },
+  search:  { ...GLASS_BASE, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', borderTop: '2px solid rgba(168,85,247,0.55)' },
+  dark:    { ...GLASS_BASE, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' },
 }
 
 interface CardWrapperProps {
@@ -29,14 +35,14 @@ export function CardWrapper({
 }: CardWrapperProps) {
   const base: React.CSSProperties = {
     ...variantStyles[variant],
-    ...(accentColor ? { border: `1px solid ${accentColor}33` } : {}),
-    borderRadius: 12,
-    padding: '12px 14px',
+    ...(accentColor ? { borderTop: `2px solid ${accentColor}88` } : {}),
+    borderRadius: 18,
+    padding: '14px 16px',
     marginTop: 8,
     fontSize: 13,
-    color: '#e2e8f0',
-    width: 'clamp(240px, 100%, 420px)',
-    lineHeight: 1.55,
+    color: '#f1f5f9',
+    width: 'clamp(240px, 100%, 460px)',
+    lineHeight: 1.6,
     boxSizing: 'border-box',
     ...style,
   }
