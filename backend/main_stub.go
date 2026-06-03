@@ -49,6 +49,16 @@ func main() {
 	mux.HandleFunc("POST /api/agent/reject", handleAgentReject)
 	mux.HandleFunc("GET /api/agent/status", handleAgentStatus)
 	mux.HandleFunc("POST /api/agent/analyze-now", handleAgentAnalyzeNow)
+	// Team workspace
+	mux.HandleFunc("POST /api/team/create", handleTeamCreate)
+	mux.HandleFunc("GET /api/team/members", handleTeamMembers)
+	mux.HandleFunc("POST /api/team/invite", handleTeamInvite)
+	mux.HandleFunc("POST /api/team/accept", handleTeamAccept)
+	mux.HandleFunc("POST /api/team/remove", handleTeamRemove)
+	// Gmail OAuth
+	mux.HandleFunc("GET /api/gmail/inbox", handleGmailInbox)
+	mux.HandleFunc("POST /api/gmail/send", handleGmailSend)
+	mux.HandleFunc("GET /api/gmail/search", handleGmailSearch)
 
 	// ── 🛒 워크플로우 마켓플레이스 ───────────────────────────────
 	mux.HandleFunc("GET /api/marketplace/presets", handleMarketplaceList)
@@ -375,6 +385,7 @@ func main() {
 	loadLocalOnlyMode()
 	startRAGBackgroundWatcher()
 	startSelfHealingLoop()
+	loadWorkspaceStore()
 	go startBriefingScheduler()
 	go startMacProactiveMonitor()
 

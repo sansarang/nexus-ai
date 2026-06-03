@@ -231,6 +231,16 @@ func main() {
 	mux.HandleFunc("POST /api/agent/reject", handleAgentReject)
 	mux.HandleFunc("GET /api/agent/status", handleAgentStatus)
 	mux.HandleFunc("POST /api/agent/analyze-now", handleAgentAnalyzeNow)
+	// Team workspace
+	mux.HandleFunc("POST /api/team/create", handleTeamCreate)
+	mux.HandleFunc("GET /api/team/members", handleTeamMembers)
+	mux.HandleFunc("POST /api/team/invite", handleTeamInvite)
+	mux.HandleFunc("POST /api/team/accept", handleTeamAccept)
+	mux.HandleFunc("POST /api/team/remove", handleTeamRemove)
+	// Gmail OAuth integration
+	mux.HandleFunc("GET /api/gmail/inbox", handleGmailInbox)
+	mux.HandleFunc("POST /api/gmail/send", handleGmailSend)
+	mux.HandleFunc("GET /api/gmail/search", handleGmailSearch)
 
 	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
 	mux.HandleFunc("POST /api/site-search", handleSiteSearch)
@@ -534,6 +544,9 @@ func main() {
 	// ── Phase D: 자가 치유 Agent 시스템 ──
 	log.Println("[Nexus Backend] Phase D 자가치유 12 Agent 시작")
 	startSelfHealingLoop()
+
+	// ── Team Workspace 영속 데이터 로드 ──
+	loadWorkspaceStore()
 
 	const port = "127.0.0.1:17892"
 
