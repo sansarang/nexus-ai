@@ -673,11 +673,20 @@ export function FloatingCharacter() {
     if (!soundEnabled && !forced) return  // 디폴트 OFF — 시각만 갱신
     if (forced) forceVoiceNextRef.current = false  // 1회용 플래그 소진
 
-    // 강제 ON일 땐 첫 문장만 (긴 결과 무한 낭독 방지)
+    // 음성 입력 응답 — 간략하게 주요 내용만 (사장님 정책)
     let toRead = clean
     if (forced && !soundEnabled) {
+      // 1) 첫 문장 추출
       const firstSentence = clean.split(/(?<=[.!?。!?])\s+/)[0] ?? clean
-      toRead = firstSentence.length > 140 ? firstSentence.slice(0, 140) + '…' : firstSentence
+      // 2) URL/마크다운 잡음 제거
+      const stripped = firstSentence
+        .replace(/https?:\/\/\S+/g, '')
+        .replace(/\[[^\]]*\]/g, '')
+        .replace(/[•·\-*]+\s*/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+      // 3) 80자 컷 (음성 자연스러움 ~7초)
+      toRead = stripped.length > 80 ? stripped.slice(0, 78) + '…' : stripped
     }
 
     const ttsEmotion = em ?? emotion

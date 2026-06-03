@@ -2,14 +2,25 @@ import { initializePaddle, Paddle } from '@paddle/paddle-js'
 import { PADDLE_CLIENT_TOKEN, PADDLE_PRICE_ID, PADDLE_ENVIRONMENT } from '../config/services'
 
 // Paddle price IDs
-// pro_monthly: 실제 운영 중
-// team_5, team_10, enterprise: Paddle 대시보드에서 플랜 생성 후 아래 값 교체 필요
+// pro_monthly: 실제 운영 중 ($19/mo · ₩14,900)
+// pro_plus_monthly: 신설 ($49/mo · ₩39,000) — Vision 무제한 + 우선 Agent 패치
+// team_*: Paddle 대시보드에서 가격 ID 생성 후 환경변수 갱신
 export const PADDLE_PRICES = {
-  pro_monthly: PADDLE_PRICE_ID,
-  pro_yearly:  PADDLE_PRICE_ID, // TODO: Paddle 대시보드에서 yearly price 생성 후 VITE_PADDLE_PRICE_YEARLY 추가
-  team_5:      PADDLE_PRICE_ID, // TODO: team_5 price → VITE_PADDLE_PRICE_TEAM5
-  team_10:     PADDLE_PRICE_ID, // TODO: team_10 price → VITE_PADDLE_PRICE_TEAM10
-  enterprise:  PADDLE_PRICE_ID, // TODO: enterprise price → VITE_PADDLE_PRICE_ENT
+  pro_monthly:       PADDLE_PRICE_ID,
+  pro_yearly:        PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_YEARLY
+  pro_plus_monthly:  PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_PROPLUS — Pro+ $49/mo
+  pro_plus_yearly:   PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_PROPLUS_YEARLY
+  team_5:            PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_TEAM5
+  team_10:           PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_TEAM10
+  enterprise:        PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_ENT
+}
+
+// 플랜 메타 (UI 표시용)
+export const PLAN_META = {
+  free:     { name: 'Free',     priceUSD: 0,  priceKRW: 0,      requests: 15,   highlight: '체험' },
+  pro:      { name: 'Pro',      priceUSD: 19, priceKRW: 14900,  requests: 200,  highlight: '인기' },
+  pro_plus: { name: 'Pro+',     priceUSD: 49, priceKRW: 39000,  requests: 1000, highlight: '🔥 NEW · Vision 무제한 + 우선 Agent 패치' },
+  team:     { name: 'Team',     priceUSD: 99, priceKRW: 79000,  requests: 3000, highlight: '5명+ 워크스페이스' },
 }
 
 let paddleInstance: Paddle | undefined

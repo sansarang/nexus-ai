@@ -226,14 +226,26 @@ var planLimits = map[string]map[string]int{
 		"content_script":  100,
 		"workflow_run":    200,
 	},
-	"team": {
+	// ★ Pro+ 신설 (파워 유저 — Vision 무제한 + 우선 Agent 패치)
+	"pro_plus": {
 		"ai_request":      1000,
 		"stock_analysis":  200,
 		"medical_search":  200,
 		"contract_review": 100,
 		"legal_search":    200,
 		"content_script":  500,
-		"workflow_run":    1000,
+		"workflow_run":    500,
+		"vision":          9999, // Vision 무제한
+	},
+	"team": {
+		"ai_request":      3000,
+		"stock_analysis":  500,
+		"medical_search":  500,
+		"contract_review": 300,
+		"legal_search":    500,
+		"content_script":  1000,
+		"workflow_run":    1500,
+		"vision":          9999,
 	},
 	"admin": {
 		"ai_request":      99999,
@@ -349,12 +361,15 @@ func getPlanFromJWT(token string) string {
 }
 
 // normalizePlan maps variant spellings to canonical plan names.
+// normalizePlan maps variant spellings to canonical plan names.
 func normalizePlan(p string) string {
 	switch strings.ToLower(strings.TrimSpace(p)) {
 	case "admin", "administrator", "superadmin", "super_admin":
 		return "admin"
 	case "team", "business", "enterprise":
 		return "team"
+	case "pro_plus", "pro+", "proplus", "premium_plus", "pro plus", "power":
+		return "pro_plus"
 	case "pro", "premium", "professional":
 		return "pro"
 	default:

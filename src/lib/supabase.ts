@@ -40,6 +40,9 @@ export async function signInWithGoogle(loginHint?: string): Promise<void> {
     options: {
       redirectTo: 'nexus://auth/callback',
       skipBrowserRedirect: true,
+      // ★ Gmail OAuth 통합 — Google 로그인 1회 = NEXUS 가입 + Gmail 읽기/전송
+      // 별도 IMAP/앱비번 입력 불필요
+      scopes: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',

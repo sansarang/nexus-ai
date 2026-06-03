@@ -276,7 +276,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [selectedJobId, setSelectedJobId] = useState<string>('developer')
   const [jobSelected, setJobSelected]     = useState(false) // animation flag
 
-  const [selectedPlan, setSelectedPlan]   = useState<'free' | 'pro' | 'team'>('free')
+  const [selectedPlan, setSelectedPlan]   = useState<'free' | 'pro' | 'pro_plus' | 'team'>('free')
 
   // ★ v9: 로그인 완료 시 기본 config로 즉시 완료 (Avatar/이름 Step 제거)
   const completeOnboardingNow = () => {
@@ -470,7 +470,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
     // If Pro or Team plan selected, open checkout
     if (selectedPlan !== 'free' && resolvedEmail) {
-      const priceId = selectedPlan === 'team' ? PADDLE_PRICES.team_5 : PADDLE_PRICES.pro_monthly
+      const priceId =
+        selectedPlan === 'team' ? PADDLE_PRICES.team_5 :
+        selectedPlan === 'pro_plus' ? PADDLE_PRICES.pro_plus_monthly :
+        PADDLE_PRICES.pro_monthly
       openCheckout(priceId, resolvedEmail).catch(console.warn)
     }
 
@@ -1058,32 +1061,41 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
             )}
 
-            {/* Plan cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
-              {/* Free */}
-              {(['free', 'pro', 'team'] as const).map(plan => {
+            {/* Plan cards — Free / Pro / Pro+ / Team (v2.8 신설) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+              {(['free', 'pro', 'pro_plus', 'team'] as const).map(plan => {
                 const isSelected = selectedPlan === plan
                 const isPro = plan === 'pro'
+                const isProPlus = plan === 'pro_plus'
                 const isTeam = plan === 'team'
-                const planColor = isPro ? '#a855f7' : isTeam ? '#0ea5e9' : '#6b7280'
-                const planLabel = isPro ? (isEn ? '✨ PRO' : '✨ PRO') : isTeam ? (isEn ? 'TEAM' : 'TEAM') : (isEn ? 'FREE' : 'FREE')
-                // 가격 통일: 한국어 → ₩, 영어 → $ (5단계 "14,900원" 과 일치)
-                const planPrice = isPro
-                  ? (isEn ? '$19/mo' : '월 14,900원')
-                  : isTeam
-                  ? (isEn ? '$49/mo' : '월 39,000원')
-                  : (isEn ? 'Free' : '무료')
-                const planFeats = isPro
-                  ? (isEn
-                    ? ['2,000 AI requests/day', 'GPT-4o · Web search · Screen analysis', 'OpenAI TTS natural voice', 'Email assist · All Free features']
-                    : ['하루 2,000건 AI 요청', 'GPT-4o · 웹검색 · 화면분석', 'OpenAI 자연스러운 AI 음성', '이메일 보조 · 무료 기능 전체'])
-                  : isTeam
-                  ? (isEn
-                    ? ['All Pro features', 'Team sharing + API access', 'Brand customization', 'Priority support']
-                    : ['Pro 전체 기능 포함', '팀 공유 + API 접근', '기업 브랜딩 설정', '우선 지원'])
+                const planColor =
+                  isProPlus ? '#fbbf24' :
+                  isPro ? '#a855f7' :
+                  isTeam ? '#0ea5e9' :
+                  '#6b7280'
+                const planLabel =
+                  isProPlus ? (isEn ? '🔥 PRO+' : '🔥 PRO+') :
+                  isPro ? (isEn ? '✨ PRO' : '✨ PRO') :
+                  isTeam ? (isEn ? 'TEAM' : 'TEAM') :
+                  (isEn ? 'FREE' : 'FREE')
+                const planPrice =
+                  isProPlus ? (isEn ? '$49/mo' : '월 39,000원') :
+                  isPro ? (isEn ? '$19/mo' : '월 14,900원') :
+                  isTeam ? (isEn ? '$99/mo' : '월 79,000원') :
+                  (isEn ? 'Free' : '무료')
+                const planFeats =
+                  isProPlus ? (isEn
+                    ? ['1,000 AI requests/day', 'Vision unlimited', 'Priority Agent patches', 'All Pro features']
+                    : ['하루 1,000건', 'Vision 무제한', '우선 Agent 패치', 'Pro 전체 포함'])
+                  : isPro ? (isEn
+                    ? ['200 AI requests/day', '19 personas auto-match', 'Multi-action + RAG', '12 self-healing agents']
+                    : ['하루 200건', '19개 페르소나 자동 매칭', '멀티 액션 + RAG', '12 자가치유 Agent'])
+                  : isTeam ? (isEn
+                    ? ['3,000/day · 5+ seats', 'Workspace sharing', 'Custom branding', 'Priority support']
+                    : ['하루 3,000건 · 5인+', '팀 워크스페이스', '브랜딩 설정', '우선 지원'])
                   : (isEn
-                    ? ['15 AI requests/day', 'Basic chat & weather & news', 'Browser TTS voice (basic)', 'Groq Llama 3.3 70B + Tavily web search']
-                    : ['하루 15건 AI 요청', '기본 채팅 · 날씨 · 뉴스', '브라우저 기본 AI 음성', 'Groq Llama 3.3 70B + Tavily 웹 검색'])
+                    ? ['15 AI requests/day', 'Basic chat/weather/news', 'Browser TTS', 'Groq + Tavily']
+                    : ['하루 15건', '기본 채팅/날씨/뉴스', '브라우저 TTS', 'Groq + Tavily'])
 
                 return (
                   <button
