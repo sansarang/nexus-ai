@@ -1203,14 +1203,23 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {progressBar}
 
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 8 }}>
-                {isEn ? 'Get Started' : '시작하기'}
+              <div style={{
+                width: 72, height: 72, borderRadius: '50%',
+                background: 'radial-gradient(circle at 38% 32%, rgba(139,92,246,0.95), rgba(99,102,241,0.6) 70%)',
+                boxShadow: '0 0 32px rgba(139,92,246,0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 32, marginBottom: 16,
+              }}>🤖</div>
+              <h2 style={{
+                fontSize: 24, fontWeight: 800, color: '#f1f5f9', marginBottom: 8,
+                letterSpacing: '-0.01em',
+              }}>
+                {isEn ? 'Almost done!' : '거의 다 끝났어요'}
               </h2>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, margin: 0 }}>
                 {isEn
-                  ? <>Sign in with Google and your<br />3-day free trial starts automatically.</>
-                  : <>구글 계정으로 로그인하면<br />3일 무료 체험이 자동으로 시작됩니다.</>}
+                  ? <>Sign in with Google →<br />NEXUS instantly ready (Gmail integrated).</>
+                  : <>Google 한 번 로그인 →<br />NEXUS 즉시 시작 (Gmail 자동 연동).</>}
               </p>
             </div>
 
@@ -1467,8 +1476,32 @@ export function LoginScreen() {
   const { isLoggedIn, setLoggedIn } = useAppStore()
 
   useEffect(() => {
-    if (isLoggedIn) setLoading(false)
+    if (isLoggedIn) {
+      setLoading(false)
+      // ★ v2.8: 재로그인 완료 시 character 창(1280×860) 자동 전환
+      void (async () => {
+        try {
+          const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+          const charWin = await WebviewWindow.getByLabel('character')
+          if (charWin) {
+            await charWin.show()
+            await charWin.unminimize()
+            await charWin.setFocus()
+          }
+          const { getCurrentWindow } = await import('@tauri-apps/api/window')
+          const cur = getCurrentWindow()
+          if (cur.label === 'main') await cur.hide()
+        } catch { /* ignore */ }
+      })()
+    }
   }, [isLoggedIn])
+
+  // 로그인 실패 시 버튼 재활성화 보장 (안전 timeout)
+  useEffect(() => {
+    if (!loading) return
+    const t = setTimeout(() => setLoading(false), 60000) // 60초 후 자동 풀림
+    return () => clearTimeout(t)
+  }, [loading])
 
   const handleLogin = async () => {
     setLoading(true)
