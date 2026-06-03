@@ -312,24 +312,6 @@ export function FloatingCharacter() {
     // ★ OnboardingFlow 가 이미 데모 + 가입 완료 — Phase A4 Onboarding 중복 방지
     markOnboardingComplete()
     setShowOnboarding(false)
-    // ★ v2.8: 가입 완료 시 character 창(1280×860, 진짜 메인) 띄우고 main 창 숨김
-    // 사장님 지적: "옛 채팅창 나옴" = main 창(760×620 옛 사이즈)에서 진입했기 때문
-    void (async () => {
-      try {
-        const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
-        const charWin = await WebviewWindow.getByLabel('character')
-        if (charWin) {
-          await charWin.show()
-          await charWin.unminimize()
-          await charWin.setFocus()
-        }
-        const { getCurrentWindow } = await import('@tauri-apps/api/window')
-        const cur = getCurrentWindow()
-        if (cur.label === 'main') {
-          await cur.hide()
-        }
-      } catch (e) { console.warn('window transition failed', e) }
-    })()
     // Supabase에 설정 저장
     const userId = localStorage.getItem('nexus-user-id')
     if (userId) {

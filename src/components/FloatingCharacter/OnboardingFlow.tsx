@@ -1476,30 +1476,13 @@ export function LoginScreen() {
   const { isLoggedIn, setLoggedIn } = useAppStore()
 
   useEffect(() => {
-    if (isLoggedIn) {
-      setLoading(false)
-      // ★ v2.8: 재로그인 완료 시 character 창(1280×860) 자동 전환
-      void (async () => {
-        try {
-          const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
-          const charWin = await WebviewWindow.getByLabel('character')
-          if (charWin) {
-            await charWin.show()
-            await charWin.unminimize()
-            await charWin.setFocus()
-          }
-          const { getCurrentWindow } = await import('@tauri-apps/api/window')
-          const cur = getCurrentWindow()
-          if (cur.label === 'main') await cur.hide()
-        } catch { /* ignore */ }
-      })()
-    }
+    if (isLoggedIn) setLoading(false)
   }, [isLoggedIn])
 
   // 로그인 실패 시 버튼 재활성화 보장 (안전 timeout)
   useEffect(() => {
     if (!loading) return
-    const t = setTimeout(() => setLoading(false), 60000) // 60초 후 자동 풀림
+    const t = setTimeout(() => setLoading(false), 60000)
     return () => clearTimeout(t)
   }, [loading])
 
