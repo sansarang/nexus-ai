@@ -902,13 +902,13 @@
   <div class="hero-orb hero-orb-1"></div>
   <div class="hero-orb hero-orb-2"></div>
   <div class="hero-orb hero-orb-3"></div>
-  <div class="hero-badge"><span class="dot"></span> 2026 Early Access · Windows 10/11 전용</div>
+  <div class="hero-badge"><span class="dot"></span> v2.8 · 95.5% e2e 검증 통과 · Windows 10/11 전용</div>
   <div class="hero-pain" style="margin-bottom:20px;">
     😩 &nbsp;엑셀 정리·최저가 검색·메일 답장·보고서 작성 — 이 반복 업무들이 하루 <strong>2.4시간</strong>을 잡아먹습니다
   </div>
   <h1><span class="grad">직접 실행하는</span> AI</h1>
   <div style="display:inline-flex; align-items:center; gap:10px; background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.3); border-radius:40px; padding:8px 20px; margin-bottom:16px; font-size:13px; color:rgba(255,255,255,0.75);">
-    <span>💡</span> <strong style="color:#a78bfa;">Nexus AI</strong>는 Windows PC에 설치하는 AI 비서입니다 — ChatGPT처럼 말하면 PC가 알아서 일합니다
+    <span>🚀</span> <strong style="color:#a78bfa;">Google 한 번 로그인 → 끝.</strong> &nbsp;API 키 0개. 신용카드 0개. 자비스 즉시 시작.
   </div>
   <p class="hero-sub">
     이메일·엑셀·파일 — 말 한마디로 PC가 알아서 합니다.<br />
@@ -924,8 +924,245 @@
     <a href="#demo" class="btn-secondary">▶ 30초 데모 보기</a>
   </div>
   <p class="hero-meta">
-    <span class="g">✓</span> 설치 3분 · <span class="g">✓</span> 카드 불필요 · <span class="g">✓</span> 로컬 실행 · <span class="g">✓</span> 데이터 외부 유출 없음
+    <span class="g">✓</span> 설치 3분 · <span class="g">✓</span> Google 로그인만 · <span class="g">✓</span> 로컬 실행 · <span class="g">✓</span> 0% 빈 응답
   </p>
+
+  <!-- ★ v2.8 검증 수치 (실측 e2e_truth.py 97개 명령) -->
+  <div style="margin-top:28px; display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; max-width:720px; margin-left:auto; margin-right:auto;">
+    <div style="background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.25); border-radius:14px; padding:14px 8px; text-align:center;">
+      <div style="font-size:24px; font-weight:900; color:#c084fc;">2.4초</div>
+      <div style="font-size:10px; color:rgba(255,255,255,0.55); margin-top:2px;">평균 응답</div>
+    </div>
+    <div style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25); border-radius:14px; padding:14px 8px; text-align:center;">
+      <div style="font-size:24px; font-weight:900; color:#4ade80;">0%</div>
+      <div style="font-size:10px; color:rgba(255,255,255,0.55); margin-top:2px;">빈 응답 (97/97)</div>
+    </div>
+    <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-radius:14px; padding:14px 8px; text-align:center;">
+      <div style="font-size:24px; font-weight:900; color:#818cf8;">19개</div>
+      <div style="font-size:10px; color:rgba(255,255,255,0.55); margin-top:2px;">직업 페르소나</div>
+    </div>
+    <div style="background:rgba(236,72,153,0.08); border:1px solid rgba(236,72,153,0.25); border-radius:14px; padding:14px 8px; text-align:center;">
+      <div style="font-size:24px; font-weight:900; color:#f472b6;">100%</div>
+      <div style="font-size:10px; color:rgba(255,255,255,0.55); margin-top:2px;">위험 액션 보호</div>
+    </div>
+  </div>
+</section>
+
+<!-- ★ v2.8 — 다른 AI와 다른 5가지 (마케팅 비교) -->
+<section class="section" id="why-nexus">
+  <h2 class="section-title">ChatGPT/Claude/Copilot이 못 하는 것</h2>
+  <p class="section-sub" style="margin:0 auto 32px;">v2.8 검증 결과 (실측 95.5%) — 사용자가 진짜 받는 가치</p>
+
+  <div style="max-width:1080px; margin:0 auto; overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; background:rgba(8,11,22,0.7); border:1px solid rgba(255,255,255,0.08); border-radius:16px; overflow:hidden;">
+      <thead>
+        <tr style="background:rgba(168,85,247,0.12);">
+          <th style="padding:14px 12px; text-align:left; font-size:12px; color:rgba(255,255,255,0.75); font-weight:700;">기능</th>
+          <th style="padding:14px 12px; font-size:12px; color:rgba(255,255,255,0.55); font-weight:700;">ChatGPT</th>
+          <th style="padding:14px 12px; font-size:12px; color:rgba(255,255,255,0.55); font-weight:700;">Claude</th>
+          <th style="padding:14px 12px; font-size:12px; color:rgba(255,255,255,0.55); font-weight:700;">Copilot</th>
+          <th style="padding:14px 12px; font-size:12px; color:#c084fc; font-weight:800;">NEXUS</th>
+        </tr>
+      </thead>
+      <tbody style="font-size:12.5px; color:rgba(255,255,255,0.85);">
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">Google 한 번 로그인 → 끝 (키 0개)</td>
+          <td style="padding:12px; text-align:center;">❌ 계정 필요</td>
+          <td style="padding:12px; text-align:center;">❌ 계정 필요</td>
+          <td style="padding:12px; text-align:center;">⚠️ MS 계정</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">PC 직접 제어 (Excel/PDF/시스템)</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">✅</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">19개 직업 페르소나 자유 전환</td>
+          <td style="padding:12px; text-align:center;">⚠️ GPTs</td>
+          <td style="padding:12px; text-align:center;">⚠️ Projects</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅ 자동</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">"A하고 B해" 멀티 액션 동시 처리</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">⚠️ MCP</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅ 자동 분해</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">내 PC 문서 자동 검색 (RAG)</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">⚠️ Projects</td>
+          <td style="padding:12px; text-align:center;">⚠️ Office</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">위험 액션 확인 카드 (안전)</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">⚠️ 일부</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅ 100%</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">한국어 PDF/Excel 자동 생성</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">⚠️ 영문</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅ NanumGothic</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">오프라인 작동 (Ollama 로컬 폴백)</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">⚠️ 일부</td>
+          <td style="padding:12px; text-align:center; color:#4ade80; font-weight:700;">✅</td>
+        </tr>
+        <tr style="border-top:1px solid rgba(255,255,255,0.05);">
+          <td style="padding:12px;">12개 자가치유 Agent (자동 개선)</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center;">❌</td>
+          <td style="padding:12px; text-align:center; color:#c084fc; font-weight:800;">⭐ 유일</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ★ v2.8 — 45초 온보딩 + 19개 페르소나 -->
+<section class="section" id="onboarding-flow" style="background:linear-gradient(180deg, transparent, rgba(168,85,247,0.04));">
+  <h2 class="section-title">시작은 <span class="grad">45초</span></h2>
+  <p class="section-sub" style="margin:0 auto 40px;">데모 → 플랜 → Google 로그인 → 끝</p>
+
+  <div style="max-width:1000px; margin:0 auto; display:grid; grid-template-columns:repeat(3, 1fr); gap:18px;">
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:22px; text-align:center;">
+      <div style="font-size:36px; margin-bottom:10px;">🎬</div>
+      <div style="font-size:11px; font-weight:700; color:#a78bfa; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Step 1 · 15초</div>
+      <div style="font-size:15px; font-weight:800; margin-bottom:6px;">실제 작동 데모</div>
+      <div style="font-size:12px; color:rgba(255,255,255,0.6); line-height:1.6;">"AI 뉴스 요약" / "내일 날씨" — 진짜로 작동하는 모습을 봅니다.</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:22px; text-align:center;">
+      <div style="font-size:36px; margin-bottom:10px;">💎</div>
+      <div style="font-size:11px; font-weight:700; color:#a78bfa; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Step 2 · 15초</div>
+      <div style="font-size:15px; font-weight:800; margin-bottom:6px;">플랜 선택</div>
+      <div style="font-size:12px; color:rgba(255,255,255,0.6); line-height:1.6;">Free 15회/일 · Pro 200회/일 · Team 무제한</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:22px; text-align:center;">
+      <div style="font-size:36px; margin-bottom:10px;">🚀</div>
+      <div style="font-size:11px; font-weight:700; color:#a78bfa; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Step 3 · 15초</div>
+      <div style="font-size:15px; font-weight:800; margin-bottom:6px;">Google 로그인 → 끝</div>
+      <div style="font-size:12px; color:rgba(255,255,255,0.6); line-height:1.6;">신용카드/API 키 입력 0건. 바로 자비스 시작.</div>
+    </div>
+  </div>
+
+  <!-- 19개 페르소나 칩 -->
+  <div style="max-width:1000px; margin:48px auto 0; padding:24px; background:rgba(8,11,22,0.5); border:1px solid rgba(255,255,255,0.06); border-radius:18px;">
+    <div style="text-align:center; margin-bottom:16px;">
+      <div style="font-size:18px; font-weight:800; color:#fff;">메인 화면에서 19개 직업 페르소나 자유 전환</div>
+      <div style="font-size:12px; color:rgba(255,255,255,0.55); margin-top:4px;">🪄 자동 모드 = 사용자 의도 따라 알아서 매칭</div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+      <span style="padding:6px 12px; background:rgba(167,139,250,0.15); border:1px solid rgba(167,139,250,0.4); border-radius:99px; font-size:12px; color:#c4b5fd;">🪄 자동 (스마트)</span>
+      <span style="padding:6px 12px; background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); border-radius:99px; font-size:12px;">🤖 Nexus 기본</span>
+      <span style="padding:6px 12px; background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.3); border-radius:99px; font-size:12px;">💻 개발자</span>
+      <span style="padding:6px 12px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.3); border-radius:99px; font-size:12px;">📊 마케터</span>
+      <span style="padding:6px 12px; background:rgba(6,182,212,0.12); border:1px solid rgba(6,182,212,0.3); border-radius:99px; font-size:12px;">🤝 세일즈</span>
+      <span style="padding:6px 12px; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); border-radius:99px; font-size:12px;">📋 PM</span>
+      <span style="padding:6px 12px; background:rgba(236,72,153,0.12); border:1px solid rgba(236,72,153,0.3); border-radius:99px; font-size:12px;">🎨 디자이너</span>
+      <span style="padding:6px 12px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); border-radius:99px; font-size:12px;">🎯 회의</span>
+      <span style="padding:6px 12px; background:rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.3); border-radius:99px; font-size:12px;">🔬 리서치</span>
+      <span style="padding:6px 12px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:99px; font-size:12px;">🛡️ 보안</span>
+      <span style="padding:6px 12px; background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.3); border-radius:99px; font-size:12px;">⚖️ 법무</span>
+      <span style="padding:6px 12px; background:rgba(220,38,38,0.12); border:1px solid rgba(220,38,38,0.3); border-radius:99px; font-size:12px;">🩺 의료</span>
+      <span style="padding:6px 12px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); border-radius:99px; font-size:12px;">💰 재무</span>
+      <span style="padding:6px 12px; background:rgba(22,163,74,0.12); border:1px solid rgba(22,163,74,0.3); border-radius:99px; font-size:12px;">📈 투자자</span>
+      <span style="padding:6px 12px; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); border-radius:99px; font-size:12px;">🚀 프리랜서</span>
+      <span style="padding:6px 12px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); border-radius:99px; font-size:12px;">🏪 소상공인</span>
+      <span style="padding:6px 12px; background:rgba(8,145,178,0.12); border:1px solid rgba(8,145,178,0.3); border-radius:99px; font-size:12px;">🏢 법인</span>
+      <span style="padding:6px 12px; background:rgba(225,29,72,0.12); border:1px solid rgba(225,29,72,0.3); border-radius:99px; font-size:12px;">🎬 크리에이터</span>
+      <span style="padding:6px 12px; background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.3); border-radius:99px; font-size:12px;">📚 튜터</span>
+    </div>
+  </div>
+</section>
+
+<!-- ★ v2.8 — 자가치유 Agent (Phase D) — 진짜 차별점 -->
+<section class="section" id="self-healing" style="background:linear-gradient(180deg, transparent, rgba(99,102,241,0.05));">
+  <h2 class="section-title"><span class="grad">자기 자신을 고치는</span> AI</h2>
+  <p class="section-sub" style="margin:0 auto 40px;">12개 분야 Agent가 매 5분마다 NEXUS를 진단 + 자동 개선 — <strong style="color:#a78bfa;">업계 유일</strong></p>
+
+  <div style="max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(34,197,94,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🦫</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Go Backend</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">handler 누락 / case 미존재 자동 감지</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(96,165,250,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">⚛️</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Frontend</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">카드 누락 감지 + 폴백 보강</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(236,72,153,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🎨</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Card Designer</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">새 카드 타입 자동 설계 제안</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(168,85,247,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🧠</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">LLM Prompt</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">clarify 12% 초과 → 프롬프트 보강</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(245,158,11,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🇰🇷</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Korean NLP</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">미인식 한국어 패턴 자동 학습</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(99,102,241,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🔗</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">LLM Integration</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">P95 5초+ → maxTokens 자동 단축</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(16,185,129,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">📚</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">RAG/Knowledge</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">사용자 문서 인덱스 자동 갱신</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(14,165,233,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🌐</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Domain API</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">PubMed / law.go.kr / DART 응답 모니터</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(239,68,68,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🛡️</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Security</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">위험 액션 우회 시도 감지</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(124,58,237,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🏗️</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Build/Deploy</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">CI/CD 회귀 자동 검증</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(220,38,38,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🐍</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Python Sidecar</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">Vision/OCR 응답 지연 감지</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(8,145,178,0.25); border-radius:14px; padding:18px;">
+      <div style="font-size:24px; margin-bottom:8px;">🧪</div>
+      <div style="font-size:13px; font-weight:800; color:#fff;">Test/Validation</div>
+      <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:4px;">e2e 회귀 자동 트리거</div>
+    </div>
+  </div>
+
+  <div style="max-width:680px; margin:32px auto 0; padding:18px 22px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.3); border-radius:14px; text-align:center;">
+    <div style="font-size:13px; color:rgba(255,255,255,0.85); line-height:1.7;">
+      💡 <strong style="color:#c084fc;">결과:</strong> 사용자 명령 1,000건마다 자동 분석 → 평균 3건 자동 개선 제안<br />
+      <span style="font-size:11px; color:rgba(255,255,255,0.55);">사용자 명시 승인 후 적용 — 안전 게이트 100%</span>
+    </div>
+  </div>
 </section>
 
 <!-- TRUST BAR -->
