@@ -678,9 +678,9 @@ async fn main() {
             if let tauri::RunEvent::Exit = event {
                 kill_backend();
             }
-            // 모든 창이 닫혀도 트레이에서 계속 실행
-            if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                api.prevent_exit();
-            }
+            // ★ 사장님 요구: 모든 창 닫히면 진짜 종료 (이전엔 트레이에 남아있어서 재실행 안 됨)
+            // ExitRequested 시 prevent_exit() 제거 → ✕ 클릭 시 정상 종료 → 재실행 가능
+            // 백엔드도 함께 종료되어 다음 실행 시 깨끗한 상태로 시작
+            let _ = app;
         });
 }

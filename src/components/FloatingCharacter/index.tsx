@@ -342,6 +342,8 @@ export function FloatingCharacter() {
     historyRef.current = []
     if (isOnboarded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
+      // ★ 가입 완료 후에만 첫 인사 음성 (OnboardingFlow 중엔 차단)
+      if (!isOnboarded || !isLoggedIn) return
       const greeting = getGreeting(assistantName, userName, userLang)
       const tid = setTimeout(() => {
         const preview = greeting.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
@@ -571,9 +573,11 @@ export function FloatingCharacter() {
 
     const preview = alert.message.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
     setBubbleText(preview + (alert.message.length > 60 ? '...' : ''))
+    // ★ 가입 완료 전엔 Proactive 음성 차단 (OnboardingFlow 위에 음성 떨어지는 거 방지)
+    if (!isOnboarded || !isLoggedIn) return
     const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
     speak(alert.message, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) }, 'neutral', undefined, isPro)
-  }, [userLang, subscriptionStatus])
+  }, [userLang, subscriptionStatus, isOnboarded, isLoggedIn])
 
   /* ── Proactive AI — stats 폴링 (30초) ── */
   useEffect(() => {
