@@ -9,6 +9,7 @@ import { ChatBubble } from './ChatBubble'
 import type { ChatMessage, AttachedFile } from './ChatBubble'
 import { Sidebar } from './Sidebar'
 import { hasCompletedOnboarding, markOnboardingComplete } from './Onboarding'
+import { TeamManagement } from './TeamManagement'
 import { SettingsModal } from './SettingsModal'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
@@ -128,6 +129,7 @@ export function FloatingCharacter() {
   const [input, setInput]                 = useState('')
   const [minimized, setMinimized]         = useState(false)
   const [settingsOpen, setSettingsOpen]     = useState(false)
+  const [teamOpen, setTeamOpen]             = useState(false)
   const [showDesktopAgent, setShowDesktopAgent] = useState(false)
   const showWorkflowBuilder = storeShowWorkflowBuilder
   const setShowWorkflowBuilder = (val: boolean) => storeSetShowWorkflowBuilder(val)
@@ -1747,6 +1749,8 @@ export function FloatingCharacter() {
       tip: userLang === 'en' ? (isActive ? 'Deactivate' : 'Activate') : (isActive ? '비활성화' : '활성화') },
     { icon: '⚙️', active: false,       color: primaryColor,  onClick: () => setSettingsOpen(true),
       tip: userLang === 'en' ? 'Settings' : '설정' },
+    { icon: '🏢', active: false,       color: '#0ea5e9',     onClick: () => setTeamOpen(true),
+      tip: userLang === 'en' ? 'Team' : '팀 관리' },
     { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
       tip: userLang === 'en' ? 'Minimize' : '최소화' },
     { icon: '✕',  active: false,       color: '#ef4444',     onClick: async () => {
@@ -2406,6 +2410,13 @@ export function FloatingCharacter() {
         setPrimaryColor(c)
         localStorage.setItem('nexus-theme-color', c)
       }}
+    />
+
+    {/* Team 워크스페이스 관리 (Phase Team) */}
+    <TeamManagement
+      userEmail={userEmail}
+      isOpen={teamOpen}
+      onClose={() => setTeamOpen(false)}
     />
 
     {/* ── 페르소나 선택 팝업 ── */}
