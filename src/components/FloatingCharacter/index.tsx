@@ -338,8 +338,7 @@ export function FloatingCharacter() {
    * 수정 후엔 bubbleText 만 — chat 은 비워둠 → 추천 칩 자동 노출 */
   const hasGreetedRef = useRef(false)
   useEffect(() => {
-    // chat history 초기화 — 이전 setMessages 호출 제거
-    historyRef.current = []
+    // chat history 초기화 제거 — 저장된 히스토리 유지 (재시작 후 기억 위해)
     if (isOnboarded && !hasGreetedRef.current) {
       hasGreetedRef.current = true
       // ★ 가입 완료 후에만 첫 인사 음성 (OnboardingFlow 중엔 차단)
@@ -1758,8 +1757,13 @@ export function FloatingCharacter() {
     { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
       tip: userLang === 'en' ? 'Minimize' : '최소화' },
     { icon: '✕',  active: false,       color: '#ef4444',     onClick: async () => {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window')
-      getCurrentWindow().close()
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('exit_app')
+      } catch {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        getCurrentWindow().close()
+      }
     }, tip: userLang === 'en' ? 'Close' : '닫기' },
   ]
 
