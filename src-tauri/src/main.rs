@@ -359,6 +359,13 @@ fn launch_backend<R: Runtime>(app: &App<R>) {
     }
 }
 
+// ✕ 클릭 시 프론트가 호출 → 백엔드 kill + 앱 종료 (음성 잔재 즉시 제거)
+#[tauri::command]
+fn exit_app(app: tauri::AppHandle) {
+    kill_backend();
+    app.exit(0);
+}
+
 fn kill_backend() {
     if let Some(mutex) = BACKEND_PROCESS.get() {
         if let Ok(mut guard) = mutex.lock() {
@@ -670,6 +677,7 @@ async fn main() {
             check_backend_ready,
             get_setup_status,
             check_outlook_installed,
+            exit_app,
         ])
         .build(tauri::generate_context!())
         .expect("Nexus 실행 실패")

@@ -594,9 +594,21 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       {/* 닫기 버튼 — 우측 상단 고정 */}
       <button
         onClick={async () => {
+          // 1) 진행 중인 TTS 즉시 중단 (✕ 후 음성 잔재 방지)
+          try {
+            window.speechSynthesis?.cancel()
+            document.querySelectorAll('audio').forEach(a => { try { a.pause(); a.src = '' } catch {} })
+          } catch {}
+          // 2) Rust exit_app 커맨드 → kill_backend() + app.exit(0)
+          try {
+            const { invoke } = await import('@tauri-apps/api/core')
+            await invoke('exit_app')
+            return
+          } catch {}
+          // 3) 폴백
           try {
             const { getCurrentWindow } = await import('@tauri-apps/api/window')
-            getCurrentWindow().close()
+            await getCurrentWindow().close()
           } catch { window.close() }
         }}
         style={{
