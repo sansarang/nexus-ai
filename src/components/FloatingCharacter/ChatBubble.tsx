@@ -5,22 +5,61 @@ function renderMarkdown(text: string): React.ReactNode[] {
   const lines = text.split('\n')
   const nodes: React.ReactNode[] = []
   let codeBlock = false; let codeLines: string[] = []; let codeKey = 0
+  let tableRows: string[][] = []; let tableStartIdx = -1
 
   const inline = (line: string, k: number): React.ReactNode => {
     const parts: React.ReactNode[] = []; let i = 0; let buf = ''
+    const flushBuf = () => { if (buf) { parts.push(buf); buf = '' } }
     while (i < line.length) {
+      // URL auto-link
+      if ((line[i] === 'h' && line.slice(i, i + 8).match(/^https?:\/\//)) ||
+          (line[i] === 'w' && line.slice(i, i + 4) === 'www.')) {
+        const urlMatch = line.slice(i).match(/^(https?:\/\/[^\s)<>]+|www\.[^\s)<>]+)/)
+        if (urlMatch) {
+          flushBuf()
+          const url = urlMatch[1].startsWith('www.') ? 'https://' + urlMatch[1] : urlMatch[1]
+          const display = urlMatch[1].replace(/^https?:\/\//, '').slice(0, 40) + (urlMatch[1].length > 50 ? '…' : '')
+          parts.push(<a key={`u${i}`} href={url} target="_blank" rel="noopener noreferrer"
+            style={{ color: '#818cf8', textDecoration: 'underline', cursor: 'pointer', wordBreak: 'break-all' }}
+            onClick={e => { e.preventDefault(); window.open(url, '_blank') }}>{display}</a>)
+          i += urlMatch[1].length; continue
+        }
+      }
       if (line[i] === '`' && line[i+1] !== '`') {
         const end = line.indexOf('`', i+1)
-        if (end !== -1) { if (buf) parts.push(buf); buf = ''; parts.push(<code key={`c${i}`} style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 3, padding: '1px 4px', fontFamily: 'monospace', fontSize: 10.5 }}>{line.slice(i+1, end)}</code>); i = end+1; continue }
+        if (end !== -1) { flushBuf(); parts.push(<code key={`c${i}`} style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 3, padding: '1px 4px', fontFamily: 'monospace', fontSize: 10.5 }}>{line.slice(i+1, end)}</code>); i = end+1; continue }
       }
       if (line[i] === '*' && line[i+1] === '*') {
         const end = line.indexOf('**', i+2)
-        if (end !== -1) { if (buf) parts.push(buf); buf = ''; parts.push(<strong key={`b${i}`}>{line.slice(i+2, end)}</strong>); i = end+2; continue }
+        if (end !== -1) { flushBuf(); parts.push(<strong key={`b${i}`}>{line.slice(i+2, end)}</strong>); i = end+2; continue }
       }
       buf += line[i]; i++
     }
-    if (buf) parts.push(buf)
+    flushBuf()
     return <span key={k}>{parts}</span>
+  }
+
+  const flushTable = () => {
+    if (tableRows.length < 2) { tableRows = []; tableStartIdx = -1; return }
+    const headers = tableRows[0]
+    const dataRows = tableRows.slice(1).filter(r => !r.every(c => /^[-:]+$/.test(c.trim())))
+    nodes.push(
+      <div key={`tbl-${tableStartIdx}`} style={{ overflowX: 'auto', margin: '6px 0' }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 10.5, width: '100%' }}>
+          <thead>
+            <tr>{headers.map((h, i) => <th key={i} style={{ padding: '4px 8px', borderBottom: '1.5px solid rgba(255,255,255,0.2)', textAlign: 'left', fontWeight: 700, color: 'rgba(255,255,255,0.9)', whiteSpace: 'nowrap' }}>{h.trim()}</th>)}</tr>
+          </thead>
+          <tbody>
+            {dataRows.map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => <td key={ci} style={{ padding: '3px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.7)' }}>{cell.trim()}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+    tableRows = []; tableStartIdx = -1
   }
 
   lines.forEach((line, idx) => {
@@ -30,6 +69,16 @@ function renderMarkdown(text: string): React.ReactNode[] {
       return
     }
     if (codeBlock) { codeLines.push(line); return }
+    // Table detection
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      const cells = line.split('|').slice(1, -1)
+      if (cells.length >= 2) {
+        if (tableStartIdx === -1) tableStartIdx = idx
+        tableRows.push(cells.map(c => c.trim()))
+        return
+      }
+    }
+    if (tableRows.length > 0) flushTable()
     if (!line.trim()) { nodes.push(<div key={idx} style={{ height: 4 }} />); return }
     if (/^#{1,3}\s/.test(line)) {
       const lv = line.match(/^(#+)/)?.[1].length ?? 1
@@ -41,6 +90,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     if (line.startsWith('---') || line.startsWith('===')) { nodes.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '5px 0' }} />); return }
     nodes.push(<div key={idx} style={{ lineHeight: 1.65, marginTop: 1 }}>{inline(line, idx)}</div>)
   })
+  if (tableRows.length > 0) flushTable()
   return nodes
 }
 
@@ -115,6 +165,10 @@ export interface HistoryEntry {
   ts: number
   q: string
   a: string
+  /** 카드 타입 (재시작 후에도 어떤 결과였는지 표시) */
+  cardType?: string
+  /** 액션 키 (follow-up 연동) */
+  action?: string
 }
 
 const HISTORY_KEY = 'nexus-chat-history'
@@ -211,6 +265,25 @@ const FOLLOW_UP_MAP_KO: Record<string, Array<{ label: string; cmd: string }>> = 
   process_top:      [{ label: '🔫 프로세스 종료', cmd: '가장 많이 쓰는 프로세스 종료해줘' }, { label: '🔄 새로고침', cmd: '프로세스 다시 보여줘' }],
   schedule_add:     [{ label: '📅 일정 목록', cmd: '내 일정 보여줘' }, { label: '➕ 일정 추가', cmd: '일정 추가해줘' }],
   meeting_summary:  [{ label: '📁 저장', cmd: '요약 파일로 저장해줘' }, { label: '📧 이메일 전송', cmd: '요약 이메일로 보내줘' }],
+  email_draft:      [{ label: '📤 메일 전송', cmd: '이 초안으로 메일 보내줘' }, { label: '✏️ 수정', cmd: '초안 다시 써줘' }],
+  brain_search:     [{ label: '🧠 더 찾기', cmd: '관련 기억 더 찾아줘' }, { label: '📊 통계', cmd: '브레인 통계 보여줘' }],
+  recall_search:    [{ label: '📸 지금 저장', cmd: '지금 화면 기억해줘' }, { label: '🔍 다시 검색', cmd: '다른 키워드로 검색해줘' }],
+  meeting_list:     [{ label: '🎙️ 녹음 시작', cmd: '회의 녹음 시작해줘' }, { label: '📝 요약', cmd: '마지막 회의 요약해줘' }],
+  clipboard_history:[{ label: '📋 AI 분석', cmd: '클립보드 내용 분석해줘' }, { label: '🗑️ 기록 삭제', cmd: '클립보드 기록 삭제해줘' }],
+  defender_status:  [{ label: '🦠 바이러스 검사', cmd: '바이러스 검사해줘' }, { label: '🔒 보안 스캔', cmd: '보안 스캔 해줘' }],
+  remote_access:    [{ label: '🛡️ 프로세스 보안', cmd: '의심 프로세스 확인해줘' }, { label: '🔒 보안 스캔', cmd: '보안 스캔 해줘' }],
+  network_analysis: [{ label: '📶 Wi-Fi 상태', cmd: 'Wi-Fi 연결 상태 알려줘' }, { label: '🌐 IP 확인', cmd: '내 IP 주소 알려줘' }],
+  startup_items:    [{ label: '🔧 비활성화', cmd: '불필요한 시작 프로그램 비활성화해줘' }, { label: '📊 부팅 분석', cmd: '부팅 시간 분석해줘' }],
+  programs_list:    [{ label: '🗑️ 프로그램 삭제', cmd: '안 쓰는 프로그램 정리해줘' }, { label: '📊 용량 분석', cmd: '디스크 공간 분석해줘' }],
+  driver_check:     [{ label: '🔄 업데이트', cmd: '드라이버 업데이트해줘' }, { label: '📊 GPU 상태', cmd: 'GPU 상태 보여줘' }],
+  gpu_stats:        [{ label: '🔥 프로세스 TOP', cmd: 'GPU 많이 쓰는 프로세스 보여줘' }, { label: '📊 PC 상태', cmd: 'PC 전체 상태 보여줘' }],
+  virus_check:      [{ label: '🛡️ 보안 스캔', cmd: '보안 스캔 해줘' }, { label: '📋 결과 저장', cmd: '검사 결과 저장해줘' }],
+  windows_updates:  [{ label: '🔄 업데이트 시작', cmd: '윈도우 업데이트 해줘' }, { label: '📊 시스템 상태', cmd: 'PC 상태 보여줘' }],
+  price_compare:    [{ label: '🔍 더 찾기', cmd: '다른 쇼핑몰도 비교해줘' }, { label: '📊 엑셀로 저장', cmd: '비교 결과 엑셀로 만들어줘' }],
+  video_search:     [{ label: '⬇️ 다운로드', cmd: '첫 번째 영상 다운로드해줘' }, { label: '🔍 더 찾기', cmd: '더 찾아줘' }],
+  stock_analysis:   [{ label: '📰 관련 뉴스', cmd: '관련 뉴스 찾아줘' }, { label: '📊 차트 보기', cmd: '차트 보여줘' }],
+  legal_search:     [{ label: '📜 계약서 검토', cmd: '계약서 검토해줘' }, { label: '📁 저장', cmd: '결과 저장해줘' }],
+  medical_search:   [{ label: '🔍 더 자세히', cmd: '더 자세히 찾아줘' }, { label: '📁 저장', cmd: '결과 저장해줘' }],
 }
 
 const FOLLOW_UP_MAP_EN: Record<string, Array<{ label: string; cmd: string }>> = {
@@ -246,6 +319,25 @@ const FOLLOW_UP_MAP_EN: Record<string, Array<{ label: string; cmd: string }>> = 
   process_top:      [{ label: '🔫 Kill Process', cmd: 'Kill the top process' }, { label: '🔄 Refresh', cmd: 'Show processes again' }],
   schedule_add:     [{ label: '📅 My Schedule', cmd: 'Show my schedule' }, { label: '➕ Add Event', cmd: 'Add another event' }],
   meeting_summary:  [{ label: '📁 Save', cmd: 'Save summary to file' }, { label: '📧 Email', cmd: 'Send summary by email' }],
+  email_draft:      [{ label: '📤 Send', cmd: 'Send this draft' }, { label: '✏️ Revise', cmd: 'Rewrite the draft' }],
+  brain_search:     [{ label: '🧠 More', cmd: 'Find more related memories' }, { label: '📊 Stats', cmd: 'Show brain stats' }],
+  recall_search:    [{ label: '📸 Capture Now', cmd: 'Remember this screen' }, { label: '🔍 Search Again', cmd: 'Search with different keywords' }],
+  meeting_list:     [{ label: '🎙️ Start Recording', cmd: 'Start meeting recording' }, { label: '📝 Summarize', cmd: 'Summarize last meeting' }],
+  clipboard_history:[{ label: '📋 AI Analyze', cmd: 'Analyze clipboard content' }, { label: '🗑️ Clear', cmd: 'Clear clipboard history' }],
+  defender_status:  [{ label: '🦠 Virus Scan', cmd: 'Run virus scan' }, { label: '🔒 Security Scan', cmd: 'Run security scan' }],
+  remote_access:    [{ label: '🛡️ Process Check', cmd: 'Check suspicious processes' }, { label: '🔒 Security Scan', cmd: 'Run security scan' }],
+  network_analysis: [{ label: '📶 Wi-Fi Status', cmd: 'Check Wi-Fi status' }, { label: '🌐 My IP', cmd: 'What is my IP address?' }],
+  startup_items:    [{ label: '🔧 Disable', cmd: 'Disable unnecessary startup items' }, { label: '📊 Boot Analysis', cmd: 'Analyze boot time' }],
+  programs_list:    [{ label: '🗑️ Uninstall', cmd: 'Clean unused programs' }, { label: '📊 Disk Space', cmd: 'Analyze disk space' }],
+  driver_check:     [{ label: '🔄 Update', cmd: 'Update drivers' }, { label: '📊 GPU Status', cmd: 'Show GPU status' }],
+  gpu_stats:        [{ label: '🔥 Top Processes', cmd: 'Show GPU-heavy processes' }, { label: '📊 PC Status', cmd: 'Show full PC status' }],
+  virus_check:      [{ label: '🛡️ Security Scan', cmd: 'Run security scan' }, { label: '📋 Save Results', cmd: 'Save scan results' }],
+  windows_updates:  [{ label: '🔄 Update Now', cmd: 'Start Windows update' }, { label: '📊 System Status', cmd: 'Show PC status' }],
+  price_compare:    [{ label: '🔍 More Shops', cmd: 'Compare more stores' }, { label: '📊 Save to Excel', cmd: 'Save comparison to Excel' }],
+  video_search:     [{ label: '⬇️ Download', cmd: 'Download the first video' }, { label: '🔍 More', cmd: 'Find more videos' }],
+  stock_analysis:   [{ label: '📰 Related News', cmd: 'Find related news' }, { label: '📊 Chart', cmd: 'Show the chart' }],
+  legal_search:     [{ label: '📜 Review Contract', cmd: 'Review contract' }, { label: '📁 Save', cmd: 'Save results' }],
+  medical_search:   [{ label: '🔍 More Detail', cmd: 'Find more details' }, { label: '📁 Save', cmd: 'Save results' }],
 }
 
 interface ChatBubbleProps {
@@ -826,6 +918,11 @@ export function ChatBubble({
                     boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
                   }}>
                     {entry.q}
+                    {entry.action && entry.action !== 'chat' && (
+                      <span style={{ display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: 'rgba(255,255,255,0.2)', fontSize: 9, fontWeight: 600, verticalAlign: 'middle' }}>
+                        {entry.action.replace(/_/g, ' ')}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {/* AI 응답 버블 — 글래스 */}
@@ -982,6 +1079,29 @@ export function ChatBubble({
                         )}
                       </div>
                     )}
+                    {/* 인라인 카드 — 메시지 바로 아래 */}
+                    {!isUser && (msg.inlineCard || msg.inlineCard2 || msg.inlineCard3 || msg.inlineCard4 || msg.inlineCard5) && (
+                      <div style={{ width: '100%', overflow: 'hidden', marginTop: 6 }}>
+                        <CardSlots
+                          inlineCard={msg.inlineCard}
+                          inlineCard2={msg.inlineCard2}
+                          inlineCard3={msg.inlineCard3}
+                          inlineCard4={msg.inlineCard4}
+                          inlineCard5={msg.inlineCard5}
+                          accentColor={primaryColor}
+                          onRepair={onRepair}
+                          onMacroRun={msg.onMacroRun}
+                          onPersonaSelect={onPersonaSelect}
+                          onRetry={onRetry}
+                          onOpenSettings={onOpenSettings}
+                          onAction={onAction}
+                          onExpandToCanvas={onExpandToCanvas ? () => onExpandToCanvas(msg) : undefined}
+                          isCanvasOpen={isCanvasOpen}
+                          lang={lang}
+                          wrap
+                        />
+                      </div>
+                    )}
                     {/* 명확화 선택 버튼 */}
                     {!isUser && msg.clarifyOptions && msg.clarifyOptions.length > 0 && (
                       <div style={{ marginTop: 10, maxWidth: '90%' }}>
@@ -992,7 +1112,7 @@ export function ChatBubble({
                           {msg.clarifyOptions.map((opt, oi) => (
                             <button
                               key={oi}
-                              onClick={() => msg.onClarifySelect?.(opt)}
+                              onClick={() => (msg.onClarifySelect ?? onSend)(opt)}
                               style={{
                                 padding: '8px 14px',
                                 borderRadius: 10,
@@ -1033,105 +1153,18 @@ export function ChatBubble({
           </div>
         )}
 
-        {/* 이전 결과 히스토리 버튼 */}
-        {hiddenCardCount > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
-            <button
-              onClick={() => setShowCardHistory(v => !v)}
-              style={{
-                background: 'rgba(255,255,255,0.05)', border: `1px solid ${primaryColor}44`,
-                borderRadius: 12, color: `${primaryColor}bb`, fontSize: 10, fontWeight: 600,
-                padding: '4px 12px', cursor: 'pointer', transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}22` }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-            >
-              {showCardHistory
-                ? (lang === 'en' ? '▲ Hide history' : '▲ 이전 결과 숨기기')
-                : (lang === 'en' ? `▼ View ${hiddenCardCount} previous results` : `▼ 이전 결과 ${hiddenCardCount}개 보기`)}
-            </button>
-          </div>
-        )}
-
-        {/* 이전 결과 히스토리 패널 */}
-        <AnimatePresence>
-          {showCardHistory && hiddenCardCount > 0 && (
-            <motion.div
-              key="card-history-panel"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{
-                maxHeight: 320, overflowY: 'auto', border: `1px solid ${primaryColor}22`,
-                borderRadius: 10, padding: '8px 6px', marginTop: 6,
-                background: 'rgba(255,255,255,0.02)',
-              }}>
-                {allCardMessages.slice(0, -6).map(msg => (
-                  <div key={msg.id} style={{ marginBottom: 10, opacity: 0.75 }}>
-                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 3, paddingLeft: 2 }}>
-                      {msg.id.replace(/-res$/, '')}
-                    </div>
-                    <CardSlots
-                      inlineCard={msg.inlineCard}
-                      inlineCard2={msg.inlineCard2}
-                      inlineCard3={msg.inlineCard3}
-                      inlineCard4={msg.inlineCard4}
-                      inlineCard5={msg.inlineCard5}
-                      accentColor={primaryColor}
-                      onRepair={onRepair}
-                      onMacroRun={msg.onMacroRun}
-                      onPersonaSelect={onPersonaSelect}
-                      onRetry={onRetry}
-                      onOpenSettings={onOpenSettings}
-                      onAction={onAction}
-                    />
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 최근 인라인 카드 (실시간) */}
-        <AnimatePresence>
-          {liveCards.map(msg => (
-            <div key={msg.id} style={{ width: '100%', overflow: 'hidden' }}>
-              <CardSlots
-                inlineCard={msg.inlineCard}
-                inlineCard2={msg.inlineCard2}
-                inlineCard3={msg.inlineCard3}
-                inlineCard4={msg.inlineCard4}
-                inlineCard5={msg.inlineCard5}
-                accentColor={primaryColor}
-                onRepair={onRepair}
-                onMacroRun={msg.onMacroRun}
-                onPersonaSelect={onPersonaSelect}
-                onRetry={onRetry}
-                onOpenSettings={onOpenSettings}
-                onAction={onAction}
-                onExpandToCanvas={onExpandToCanvas ? () => onExpandToCanvas(msg) : undefined}
-                isCanvasOpen={isCanvasOpen}
-                lang={lang}
-                wrap
-              />
-            </div>
-          ))}
-        </AnimatePresence>
-
         {/* savedPreviews 카드 제거됨 — floatingPreview 팝업과 함께 제거 */}
 
         {/* 마지막 응답 후 follow-up 액션 */}
-        {!typing && history.length > 0 && (() => {
-          const last = history[history.length - 1]
-          const lastAction = messages.filter(m => m.role === 'nexus').slice(-1)[0]
-          const actionKey = lastAction?.action ?? ''
+        {!typing && liveMessages.length > 0 && (() => {
+          const lastAction = liveMessages.filter(m => m.role === 'nexus').slice(-1)[0]
+          if (!lastAction) return null
+          const actionKey = lastAction.action ?? ''
           const suggestions = FOLLOW_UP_MAP[actionKey] ?? (actionKey ? FOLLOW_UP_MAP['chat'] : [])
           return (
             <AnimatePresence>
               <motion.div
-                key={last.id + '-followup'}
+                key={lastAction.id + '-followup'}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6, marginBottom: 2 }}
@@ -1198,12 +1231,21 @@ export function ChatBubble({
             }}>
               {af.fileType === 'image' && af.dataUrl ? (
                 <img src={af.dataUrl} alt="preview"
-                  style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
+                  style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
+              ) : af.fileType === 'video' ? (
+                <div style={{ width: 48, height: 48, borderRadius: 6, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 18 }}>🎬</span>
+                  <span style={{ fontSize: 7, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{(af.size / 1024 / 1024).toFixed(1)}MB</span>
+                </div>
               ) : (
-                <span style={{ fontSize: 15 }}>
-                  {af.fileType === 'image' ? '🖼️' : af.fileType === 'video' ? '🎬'
-                    : af.fileType === 'spreadsheet' ? '📊' : af.fileType === 'document' ? '📄' : '📎'}
-                </span>
+                <div style={{ width: 48, height: 48, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 18 }}>
+                    {af.fileType === 'spreadsheet' ? '📊' : af.fileType === 'document' ? '📄' : '📎'}
+                  </span>
+                  <span style={{ fontSize: 7, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
+                    {af.name.split('.').pop()?.toUpperCase()}
+                  </span>
+                </div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 10.5, fontWeight: 600,

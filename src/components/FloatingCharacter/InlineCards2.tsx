@@ -323,7 +323,7 @@ export function SystemActionCard({ icon, title, detail, success = true, accentCo
         <div>
           <div style={{ fontSize: 13, fontWeight: 800, color: success ? accentColor : '#ef4444' }}>{title}</div>
           {detail && (
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+            <div style={{ fontSize:  11, color: 'rgba(255,255,255, 0.65)', marginTop: 2 }}>
               {detail.split('\n').map((line, i) => {
                 const urlMatch = line.match(/(https?:\/\/[^\s]+)/)
                 if (urlMatch) {

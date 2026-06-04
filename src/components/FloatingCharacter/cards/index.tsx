@@ -25,6 +25,8 @@ import { shouldExpandMessage } from './shouldExpand'
 
 export type { InlineCardData, InlineCardData2, InlineCard3Data, InlineCard4Data, InlineCard5Data }
 
+import { motion } from 'framer-motion'
+
 export interface CardCallbacks {
   onRepair?: (ids: string[]) => void
   onMacroRun?: (id: string, name: string) => void
@@ -69,47 +71,68 @@ export function CardSlots({
   const isWide = shouldExpandMessage({ inlineCard, inlineCard2, inlineCard3, inlineCard4, inlineCard5 })
   const showExpandBtn = isWide && !isCanvasOpen && onExpandToCanvas
 
+  // 카드 내용 텍스트 추출 (복사용)
+  const extractCardText = (): string => {
+    const parts: string[] = []
+    if (inlineCard2) {
+      const c = inlineCard2 as Record<string, unknown>
+      if (c.title) parts.push(String(c.title))
+      if (c.detail) parts.push(String(c.detail))
+      const d = c.data as Record<string, unknown> | undefined
+      if (d?.summary) parts.push(String(d.summary))
+      if (d?.message) parts.push(String(d.message))
+    }
+    if (inlineCard5) {
+      const c = inlineCard5 as Record<string, unknown>
+      if (c.summary) parts.push(String(c.summary))
+      const items = (c.items ?? []) as Array<{ title?: string; url?: string }>
+      items.forEach(it => { if (it.title) parts.push(`${it.title}${it.url ? ' - ' + it.url : ''}`) })
+    }
+    return parts.join('\n')
+  }
+
+  const hasAnyCard = inlineCard || inlineCard2 || inlineCard3 || inlineCard4 || inlineCard5
+  const slots = [
+    inlineCard && { key: 'c1', delay: 0, node: wrap
+      ? <CardWrapper variant="dark" accentColor={accentColor} animate={false}><InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} onAction={onAction} /></CardWrapper>
+      : <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} onAction={onAction} /> },
+    inlineCard2 && { key: 'c2', delay: 0.05, node: wrap
+      ? <CardWrapper variant="default" accentColor={accentColor} animate={false}><InlineCardRenderer2 card={inlineCard2} accentColor={accentColor} onPersonaSelect={onPersonaSelect} /></CardWrapper>
+      : <InlineCardRenderer2 card={inlineCard2} accentColor={accentColor} onPersonaSelect={onPersonaSelect} /> },
+    inlineCard3 && { key: 'c3', delay: 0.1, node: <InlineCardRenderer3 card={inlineCard3} /> },
+    inlineCard4 && { key: 'c4', delay: 0.15, node: <InlineCardRenderer4 card={inlineCard4} onMacroRun={onMacroRun} /> },
+    inlineCard5 && { key: 'c5', delay: 0.2, node: <InlineCard5Renderer card={inlineCard5} accentColor={accentColor} /> },
+  ].filter(Boolean) as Array<{ key: string; delay: number; node: React.ReactNode }>
+
   return (
     <>
-      {inlineCard && (
-        wrap
-          ? <CardWrapper variant="dark" accentColor={accentColor} animate={false}>
-              <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} onAction={onAction} />
-            </CardWrapper>
-          : <InlineCardRenderer card={inlineCard} accentColor={accentColor} onRepair={onRepair} onRetry={onRetry} onOpenSettings={onOpenSettings} onAction={onAction} />
-      )}
-      {inlineCard2 && (
-        wrap
-          ? <CardWrapper variant="default" accentColor={accentColor} animate={false}>
-              <InlineCardRenderer2 card={inlineCard2} accentColor={accentColor} onPersonaSelect={onPersonaSelect} />
-            </CardWrapper>
-          : <InlineCardRenderer2 card={inlineCard2} accentColor={accentColor} onPersonaSelect={onPersonaSelect} />
-      )}
-      {inlineCard3 && <InlineCardRenderer3 card={inlineCard3} />}
-      {inlineCard4 && <InlineCardRenderer4 card={inlineCard4} onMacroRun={onMacroRun} />}
-      {inlineCard5 && <InlineCard5Renderer card={inlineCard5} accentColor={accentColor} />}
-
-      {/* Jarvis 캔버스 트리거 — wide 카드일 때 "큰 화면으로 보기" 버튼 */}
-      {showExpandBtn && (
-        <button
-          onClick={onExpandToCanvas}
-          style={{
-            marginTop: 6, padding: '6px 12px',
-            background: `${accentColor}22`,
-            border: `1px solid ${accentColor}66`,
-            borderRadius: 8,
-            color: accentColor,
-            fontSize: 11, fontWeight: 700,
-            cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            alignSelf: 'flex-start',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}44`; e.currentTarget.style.transform = 'translateY(-1px)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = `${accentColor}22`; e.currentTarget.style.transform = 'translateY(0)' }}
+      {slots.map(s => (
+        <motion.div key={s.key}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: s.delay, duration: 0.25 }}
         >
-          🔍 {lang === 'en' ? 'Open in Canvas' : '캔버스에서 크게 보기'}
-        </button>
+          {s.node}
+        </motion.div>
+      ))}
+
+      {/* 카드 액션 버튼: 복사 + 캔버스 */}
+      {hasAnyCard && (
+        <div style={{ display: 'flex', gap: 5, marginTop: 4, opacity: 0.5 }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = '0.5' }}>
+          <button onClick={() => { const t = extractCardText(); if (t) navigator.clipboard?.writeText(t).catch(() => {}) }}
+            title={lang === 'en' ? 'Copy card content' : '카드 내용 복사'}
+            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${accentColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}>
+            📋 {lang === 'en' ? 'Copy' : '복사'}
+          </button>
+          {showExpandBtn && (
+            <button onClick={onExpandToCanvas}
+              style={{ background: `${accentColor}22`, border: `1px solid ${accentColor}66`, borderRadius: 5, color: accentColor, fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '3px 7px', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              🔍 {lang === 'en' ? 'Canvas' : '크게 보기'}
+            </button>
+          )}
+        </div>
       )}
     </>
   )

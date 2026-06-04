@@ -77,13 +77,14 @@ function Card5Wrap({ children, accentColor }: { children: React.ReactNode; accen
 /* ── 웹검색 카드 ────────────────────────────── */
 function WebSearchCard({ data, accentColor }: { data: Extract<InlineCard5Data, { type: 'web_search' }>; accentColor: string }) {
   const topItems = data.items.slice(0, 3)
+  const isEn = (typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') === 'en'
   return (
     <Card5Wrap accentColor={accentColor}>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span style={{ fontSize: 13 }}>🔍</span>
         <span style={{ fontSize: 11, color: accentColor, fontWeight: 800, letterSpacing: '0.04em' }}>
-          웹 검색: {data.query}
+          {isEn ? 'Web Search' : '웹 검색'}: {data.query}
         </span>
       </div>
       {/* 요약 */}
@@ -128,12 +129,13 @@ function WebSearchCard({ data, accentColor }: { data: Extract<InlineCard5Data, {
 /* ── 뉴스 카드 ──────────────────────────────── */
 function NewsCard({ data, accentColor }: { data: Extract<InlineCard5Data, { type: 'news_search' }>; accentColor: string }) {
   const topNews = data.items.slice(0, 4)
+  const isEn = (typeof localStorage !== 'undefined' ? localStorage.getItem('nexus-lang') : 'ko') === 'en'
   return (
     <Card5Wrap accentColor={'#f59e0b'}>
       {/* 헤더 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span style={{ fontSize: 13 }}>📰</span>
-        <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 800 }}>뉴스: {data.query}</span>
+        <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 800 }}>{isEn ? 'News' : '뉴스'}: {data.query}</span>
       </div>
       {/* 요약 */}
       {data.summary && (

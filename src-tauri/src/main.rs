@@ -327,6 +327,15 @@ fn launch_backend<R: Runtime>(app: &App<R>) {
 
     #[cfg(target_os = "windows")]
     {
+        // ★ 기존 백엔드/Python 프로세스 선제 종료 (설치 직후 재실행 시 포트 충돌 방지)
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/IM", "nexus-backend.exe"])
+            .output();
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/IM", "nexus-python.exe"])
+            .output();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
         let path = match app.path().resource_dir() {
             Ok(dir) => dir.join("nexus-backend.exe"),
             Err(e) => {

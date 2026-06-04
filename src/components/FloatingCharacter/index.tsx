@@ -2140,7 +2140,7 @@ export function FloatingCharacter() {
           {(() => {
             const cardItems: CardGridItem[] = messages
               .filter(m => m.role === 'nexus' && !!(m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5))
-              .slice(-4)
+              .slice(-8)
               .map(m => {
                 // 카드 타입별 아이콘/제목 추출 (Sidebar 와 동일 로직 재사용 아이디어)
                 let icon = '💬', title = '결과', preview: React.ReactNode = m.text.slice(0, 60)
@@ -2166,7 +2166,7 @@ export function FloatingCharacter() {
             return (
               <CardGrid
                 items={cardItems}
-                maxCards={4}
+                maxCards={8}
                 collapsible
                 onCardClick={(item) => {
                   const msg = messages.find(m => m.id === item.id)
@@ -2239,12 +2239,13 @@ export function FloatingCharacter() {
             exit={{ opacity: 0, y: 60 }}
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             style={{
-              position: 'absolute', left: 0, right: 0, bottom: 0,
-              zIndex: 200,
-              background: 'rgba(8,8,22,0.97)',
-              borderTop: `2px solid ${primaryColor}88`,
-              boxShadow: `0 -8px 32px rgba(0,0,0,0.7), 0 0 0 1px ${primaryColor}22`,
-              maxHeight: '62%',
+              position: 'absolute', left: 0, right: 0, bottom: 52,
+            zIndex: 200,
+            background: 'rgba(8,8,22,0.97)',
+            borderTop: `2px solid ${primaryColor}88`,
+            borderRadius: '12px 12px 0 0',
+            boxShadow: `0 -8px 32px rgba(0,0,0,0.7), 0 0 0 1px ${primaryColor}22`,
+            maxHeight: '50%',
               display: 'flex', flexDirection: 'column',
               backdropFilter: 'blur(24px)',
             }}

@@ -1074,7 +1074,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             )}
 
             {/* Plan cards — Free / Pro / Pro+ / Team (v2.8 신설) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 20 }}>
               {(['free', 'pro', 'pro_plus', 'team'] as const).map(plan => {
                 const isSelected = selectedPlan === plan
                 const isPro = plan === 'pro'

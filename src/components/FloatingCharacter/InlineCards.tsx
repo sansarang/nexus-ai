@@ -822,7 +822,7 @@ function ErrorCard({
   if (code === 'windows_only') {
     actions.push({
       label: ko ? '빌드 받기' : 'Get Windows Build', icon: '🪟',
-      onClick: () => { try { window.open('https://github.com/anthropics/nexus/releases', '_blank') } catch { /* ignore */ } },
+      onClick: () => { try { window.open('https://github.com/sansarang/nexus-ai/releases', '_blank') } catch { /* ignore */ } },
     })
   }
 
