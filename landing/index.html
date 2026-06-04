@@ -137,6 +137,7 @@
     }
 
     html { scroll-behavior: smooth; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       background: var(--bg);
       color: var(--text);
@@ -144,7 +145,20 @@
       line-height: 1.6;
       overflow-x: hidden;
       text-rendering: optimizeSpeed;
+      /* 한글 줄바꿈: 단어 중간 깨짐 방지 + 긴 영어 단어는 강제 줄바꿈 */
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      line-break: strict;
     }
+    /* 모든 텍스트 컨테이너 한글 안전 줄바꿈 상속 */
+    h1, h2, h3, h4, h5, h6, p, li, td, th, a, span, div, button {
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+    /* 입력/모노스페이스는 예외 (코드 줄바꿈 안 깨지게) */
+    pre, code, kbd, samp, .mono, [class*="mock"] { word-break: normal; overflow-wrap: normal; }
+    /* iOS Safari 입력 시 자동 확대 방지 (16px 미만이면 확대됨) */
+    input, textarea, select { font-size: 16px; }
     /* content-visibility: below-fold 섹션 렌더 지연으로 FID/CLS 개선 */
     .cv-auto { content-visibility: auto; contain-intrinsic-size: 0 600px; }
 
@@ -837,8 +851,13 @@
       .hero-badge { font-size: 12px; padding: 6px 14px; }
     }
 
-    /* ── 모바일 추가 최적화 (v2.8.1) ── */
+    /* ── 모바일 추가 최적화 (v2.8.2) ── */
     @media (max-width: 768px) {
+      /* 한글 가독성: 최소 14px + 행간 1.65 + 자간 -0.01em */
+      body { font-size: 15px; line-height: 1.7; letter-spacing: -0.01em; }
+      p, li, td { font-size: 15px; line-height: 1.75; }
+      /* 작은 캡션도 12px 이상 유지 */
+      .nav-logo { font-size: 18px; }
       /* iOS Safari safe-area */
       body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
       nav { padding-top: max(12px, env(safe-area-inset-top)); }
@@ -884,6 +903,17 @@
       .trust-label, .footer-link, .countdown-seg { font-size: 12px !important; }
       /* 동적 viewport (iOS Safari 주소창 변화 대응) */
       .hero { min-height: 100dvh; }
+    }
+
+    /* iPhone SE (375px 이하) — 가장 작은 디바이스 */
+    @media (max-width: 380px) {
+      .section { padding: 44px 12px; }
+      .hero { padding: 64px 12px 44px; }
+      .hero h1 { font-size: clamp(24px, 8.5vw, 32px); }
+      .section-title { font-size: clamp(20px, 6.5vw, 28px); }
+      .nav-logo { font-size: 16px; }
+      nav { padding: 10px 14px; }
+      .price-card, .step-card { padding: 20px 14px; }
     }
 
     /* 가로모드 (landscape) */
