@@ -108,6 +108,75 @@ export const ACTION_TO_CARD: Record<string, string> = {
   video_workflow:           'file_result',
   video_summary:            'file_result',
   video_download_summary:   'file_result',
+  video_transcript:         'doc_summary',
+
+  // ── 신규 추가 (v2.8.1) ──────────────────────────────────────
+  // 사업자 조회 (국세청 NTS)
+  business_lookup:     'business_card',
+
+  // 주식/금융
+  stock_price:         'stock_card',
+  stock_analysis:      'stock_card',
+
+  // 번역
+  translate:           'translate_result',
+
+  // 지도/경로
+  map_search:          'map_result',
+  directions:          'map_result',
+  travel_time:         'map_result',
+  place_view:          'map_result',
+
+  // 이메일 작성/캘린더 이벤트
+  email_draft_reply:   'email_draft',
+  email_send:          'email_draft',
+  calendar_add:        'calendar_event',
+  calendar_find_slot:  'calendar_event',
+  calendar_smart_add:  'calendar_event',
+
+  // 워크플로우/자동화 결과
+  workflow_run:        'workflow_result',
+  workflow_run_now:    'workflow_result',
+
+  // 브리핑 (Proactive AI)
+  briefing_now:        'briefing_card',
+  daily_briefing:      'briefing_card',
+
+  // 미팅 요약/전사
+  meeting_summarize:   'meeting_summary',
+  meeting_transcribe:  'meeting_summary',
+  meeting_stop:        'meeting_summary',
+
+  // 메모리/리콜 검색
+  memory_search:       'memory_card',
+  recall_search:       'memory_card',
+
+  // 시스템 명령 (볼륨/밝기/앱 실행 등)
+  launch_app:          'cmd_result',
+  process_kill:        'cmd_result',
+  power_action:        'cmd_result',
+  volume_control:      'cmd_result',
+  brightness:          'cmd_result',
+  wifi_toggle:         'cmd_result',
+  power_plan:          'cmd_result',
+  system_updates:      'cmd_result',
+  clipboard_history:   'cmd_result',
+
+  // 보안 경보 (VirusTotal / Shodan)
+  virustotal:          'security_alert',
+  shodan:              'security_alert',
+
+  // 소셜 미디어
+  tiktok_search:       'tiktok_result',
+  tiktok_trending:     'tiktok_result',
+  reddit_search:       'reddit_result',
+  netflix_trending:    'media_result',
+  ytmusic_search:      'youtube',
+
+  // Agent 실행 결과
+  desktop_agent:       'agent_result',
+  multi_agent:         'agent_result',
+  browser_agent:       'agent_result',
 }
 
 // 카드 슬롯 분류 — 어느 inlineCard{1-5} 슬롯에 들어가는지
@@ -116,20 +185,37 @@ export const CARD_SLOT: Record<string, 1 | 2 | 3 | 4 | 5> = {
   // Cards1
   pc_status: 1, scan_result: 1, daily_report: 1, clean_result: 1, repair_result: 1,
   folder_open: 1, agent_thinking: 1, preview_confirm: 1, error: 1, dynamic: 1,
+  security_alert: 1,   // ★ 신규: 보안 경보 (VirusTotal/Shodan)
   // Cards2
   price_compare: 2, remote_access: 2, process_security: 2, defender: 2, startup_items: 2,
   process_top: 2, system_action: 2, network: 2, drivers: 2, programs_list: 2,
   file_search: 2, duplicates: 2, notes: 2, boot_analysis: 2, focus_mode: 2,
   file_result: 2, email_list: 2, timeline: 2, gauge_bar: 2, text_block: 2,
   step_list: 2, item_list: 2, grid_select: 2, weather_card: 2,
+  // ★ 신규 Cards2
+  business_card: 2,    // 국세청 사업자 조회
+  translate_result: 2, // 번역 결과
+  map_result: 2,       // 지도/경로
+  email_draft: 2,      // 이메일 초안
+  calendar_event: 2,   // 캘린더 이벤트 추가
+  workflow_result: 2,  // 워크플로우 실행 결과
+  memory_card: 2,      // 메모리/리콜 검색
+  cmd_result: 2,       // 시스템 명령 결과
   // Cards3
   doc_compare: 3, doc_find: 3, deep_search: 3, vision_result: 3, vision_ocr: 3,
   smart_organize: 3,
+  agent_result: 3,     // ★ 신규: Agent 실행 결과
   // Cards4
   journal_today: 4, journal_history: 4, macro_list: 4, macro_created: 4, macro_run: 4,
   pc_report: 4, doc_summary: 4,
+  briefing_card: 4,    // ★ 신규: Proactive AI 브리핑
+  meeting_summary: 4,  // ★ 신규: 미팅 요약
   // Cards5
   web_search: 5, news_search: 5, youtube: 5,
+  stock_card: 5,       // ★ 신규: 주식/금융 정보
+  tiktok_result: 5,    // ★ 신규: 틱톡 결과
+  reddit_result: 5,    // ★ 신규: 레딧 결과
+  media_result: 5,     // ★ 신규: 넷플릭스/미디어
 }
 
 export type ResolvedCards = {
@@ -394,6 +480,180 @@ export function buildCardFromResult(
         type: 'youtube',
         query: (r.query as string) ?? query,
         items: (r.items as any[]) ?? [],
+      }
+      break
+
+    // ── 신규 Cards1 ──
+    case 'security_alert':
+      out.card = {
+        type: 'scan_result',   // scan_result 카드 재활용 (위협 경보)
+        data: {
+          ...(r as any),
+          alert: true,
+          severity: r.severity ?? 'high',
+          summary: r.summary ?? message ?? '보안 위협 감지',
+        } as any,
+      }
+      break
+
+    // ── 신규 Cards2 ──
+    case 'business_card':
+      out.card2 = {
+        type: 'system_action',
+        icon: '🏢',
+        title: `사업자 조회: ${r.brno ?? query}`,
+        detail: (r.raw as string) ?? (message ?? ''),
+        success: !String(r.raw ?? '').includes('❌'),
+      }
+      break
+    case 'translate_result':
+      out.card2 = {
+        type: 'system_action',
+        icon: '🌐',
+        title: `번역 결과 (→ ${r.target ?? ''})`,
+        detail: (r.translated ?? r.result ?? message ?? '') as string,
+        success: true,
+      }
+      break
+    case 'map_result':
+      out.card2 = {
+        type: 'system_action',
+        icon: '🗺️',
+        title: (r.title as string) ?? query,
+        detail: (r.description ?? r.duration ?? r.distance ?? message ?? '') as string,
+        success: true,
+      }
+      break
+    case 'email_draft':
+      out.card2 = {
+        type: 'system_action',
+        icon: '✉️',
+        title: (r.subject as string) ?? '이메일 초안',
+        detail: (r.body ?? r.draft ?? message ?? '').slice(0, 200) as string,
+        success: true,
+      }
+      break
+    case 'calendar_event':
+      out.card2 = {
+        type: 'system_action',
+        icon: '📅',
+        title: (r.title as string) ?? '일정 추가됨',
+        detail: `${r.datetime ?? r.date ?? ''} ${r.duration ? `(${r.duration}분)` : ''}`.trim() || (message ?? ''),
+        success: r.success !== false,
+      }
+      break
+    case 'workflow_result':
+      out.card2 = {
+        type: 'system_action',
+        icon: '⚡',
+        title: (r.name as string) ?? '워크플로우 실행',
+        detail: (r.summary ?? r.output ?? message ?? '') as string,
+        success: r.success !== false,
+      }
+      break
+    case 'memory_card':
+      out.card2 = {
+        type: 'notes',
+        data: {
+          items: (r.results as any[]) ?? (r.items as any[]) ?? [],
+          query,
+          total: r.total ?? 0,
+        } as any,
+      }
+      break
+    case 'cmd_result':
+      out.card2 = {
+        type: 'system_action',
+        icon: r.icon ?? '⚙️',
+        title: (r.title as string) ?? query.slice(0, 40),
+        detail: (r.output ?? r.detail ?? message ?? '') as string,
+        success: r.success !== false,
+      }
+      break
+
+    // ── 신규 Cards3 ──
+    case 'agent_result':
+      out.card3 = {
+        type: 'deep_search',   // deep_search 카드 재활용 (단계별 결과 표시)
+        data: {
+          query,
+          steps: (r.steps as any[]) ?? [],
+          result: r.output ?? r.result ?? message ?? '',
+          sources: (r.sources as any[]) ?? [],
+          summary: r.summary ?? message ?? '',
+        } as any,
+      }
+      break
+
+    // ── 신규 Cards4 ──
+    case 'briefing_card':
+      out.card4 = {
+        type: 'journal_today',  // 일지 카드 재활용 (브리핑 구조 유사)
+        data: {
+          date: new Date().toISOString().slice(0, 10),
+          content: (r.briefing ?? r.summary ?? message ?? '') as string,
+          weather: r.weather,
+          events: r.events,
+          news: r.news,
+        } as any,
+      }
+      break
+    case 'meeting_summary':
+      out.card4 = {
+        type: 'doc_summary',
+        data: {
+          title: (r.title as string) ?? '미팅 요약',
+          summary: (r.summary ?? r.transcript ?? message ?? '') as string,
+          keyPoints: (r.key_points as string[]) ?? [],
+          actionItems: (r.action_items as string[]) ?? [],
+        } as any,
+      }
+      break
+
+    // ── 신규 Cards5 ──
+    case 'stock_card':
+      out.card5 = {
+        type: 'web_search',   // web_search 카드 재활용 (주가 링크 목록)
+        query: (r.ticker as string) ?? query,
+        summary: (r.summary ?? message ?? '') as string,
+        items: [
+          ...(r.news ? (r.news as any[]).map((n: any) => ({
+            title: n.title ?? '', url: n.url ?? '', snippet: n.snippet ?? '',
+            source: n.source ?? 'finance', published: n.date ?? '',
+          })) : []),
+          ...(r.url ? [{ title: `${r.ticker} 주가 정보`, url: r.url, snippet: `현재가: ${r.price ?? '-'}  ${r.change ?? ''}`, source: r.exchange ?? 'market' }] : []),
+        ],
+      }
+      break
+    case 'tiktok_result':
+      out.card5 = {
+        type: 'youtube',   // youtube 카드 재활용
+        query: (r.query as string) ?? query,
+        items: (r.items as any[]) ?? (r.videos as any[]) ?? [],
+      }
+      break
+    case 'reddit_result':
+      out.card5 = {
+        type: 'news_search',
+        query: (r.query as string) ?? query,
+        summary: (r.summary ?? '') as string,
+        items: ((r.items as any[]) ?? (r.posts as any[]) ?? []).map((p: any) => ({
+          title: p.title ?? '', url: p.url ?? '', snippet: p.snippet ?? p.selftext ?? '',
+          source: `r/${p.subreddit ?? 'reddit'}`, published: p.created ?? '',
+        })),
+      }
+      break
+    case 'media_result':
+      out.card5 = {
+        type: 'web_search',
+        query: (r.query as string) ?? query,
+        summary: (r.summary ?? message ?? '') as string,
+        items: ((r.items as any[]) ?? []).map((m: any) => ({
+          title: m.title ?? '', url: m.url ?? '#',
+          snippet: m.description ?? m.genre ?? '',
+          source: m.platform ?? 'streaming',
+          thumbnail: m.poster ?? m.thumbnail ?? '',
+        })),
       }
       break
 
