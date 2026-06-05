@@ -1890,7 +1890,6 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 		// ★ 국세청 사업자번호 실시간 조회 (NTS OpenAPI)
 		brno := str("brno")
 		if brno == "" {
-			// 메시지에서 숫자 10자리 패턴 추출
 			for _, token := range strings.Fields(original) {
 				digits := strings.Map(func(r rune) rune {
 					if r >= '0' && r <= '9' { return r }
@@ -1903,17 +1902,11 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			}
 		}
 		if brno == "" {
-			return CommandResponse{
-				Success: false, Message: "사업자등록번호(10자리)를 입력해주세요.\n예: 123-45-67890",
-				Action: "clarify", CardType: "clarify",
-			}
+			msg := "사업자등록번호(10자리)를 입력해주세요.\n예: 123-45-67890"
+			return map[string]any{"brno": "", "raw": msg, "success": false}, msg
 		}
 		resultText := FormatBusinessLookupResult(brno)
-		return CommandResponse{
-			Success: true, Message: resultText,
-			Action: "business_lookup", CardType: "business_card",
-			Result: map[string]any{"brno": brno, "raw": resultText},
-		}
+		return map[string]any{"brno": brno, "raw": resultText, "success": true}, resultText
 
 	case "price_compare":
 		pcQuery := str("query")
