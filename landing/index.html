@@ -988,7 +988,7 @@
     <a href="#pricing">가격</a>
     <a href="#faq">FAQ</a>
     <a href="/en/index.html" style="color:var(--muted)" onclick="sessionStorage.setItem('lang','en')">EN</a>
-    <a href="#download" class="nav-cta">무료 체험 →</a>
+    <a href="#" class="nav-cta" onclick="handleProClick(); return false;">얼리 액세스 신청</a>
   </div>
   <button class="hamburger" id="hamburger" aria-label="메뉴" onclick="toggleMenu()">
     <span></span><span></span><span></span>
@@ -1000,7 +1000,7 @@
   <a href="#pricing" onclick="closeMenu()">가격</a>
   <a href="#faq" onclick="closeMenu()">FAQ</a>
   <a href="/en/index.html" onclick="sessionStorage.setItem('lang','en'); closeMenu()" style="color:var(--muted);">🌐 English (EN)</a>
-  <a href="#download" class="nav-cta" onclick="closeMenu()">무료 체험 다운로드</a>
+  <a href="#" class="nav-cta" onclick="handleProClick(); closeMenu(); return false;">얼리 액세스 신청</a>
 </div>
 
 <!-- HERO -->
@@ -1023,9 +1023,9 @@
   </p>
   <div id="hero-rotating-tagline" style="font-size:15px; color:var(--primary); font-weight:700; margin-bottom:16px; min-height:24px; transition:opacity 0.4s ease;"></div>
   <div class="hero-btns">
-    <a href="https://github.com/sansarang/nexus-ai-releases/releases/latest"
-       class="btn-primary" id="hero-download" target="_blank" rel="noopener">
-      ⬇ 무료 다운로드 — Windows
+    <a href="#" onclick="handleProClick(); return false;"
+       class="btn-primary" id="hero-download">
+      🚀 얼리 액세스 사전 신청
     </a>
     <a href="#demo" class="btn-secondary">▶ 30초 데모 보기</a>
   </div>
@@ -2047,9 +2047,9 @@
         <li style="color:var(--muted); font-size:13px;">✗ 멀티 액션 · RAG</li>
         <li style="color:var(--muted); font-size:13px;">✗ 이메일 자동화</li>
       </ul>
-      <a href="https://github.com/sansarang/nexus-ai-releases/releases/latest"
-         class="btn-plan outline" target="_blank" rel="noopener"
-         style="display:block; text-align:center; padding:14px 0;">무료로 시작하기 →</a>
+      <a href="#" onclick="handleProClick(); return false;"
+         class="btn-plan outline"
+         style="display:block; text-align:center; padding:14px 0;">무료 얼리 액세스 신청 →</a>
     </div>
 
     <!-- PRO -->
@@ -2267,10 +2267,9 @@
 <div class="cta-final" id="download">
   <h2 style="position:relative;">지금 바로 시작하세요<br /><span style="background:linear-gradient(135deg,var(--primary),var(--primary2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">설치 3분. 하루 2.4시간 돌려받으세요.</span></h2>
   <p style="position:relative;">Google 로그인 한 번. 신용카드 불필요. Free 15건 영원 무료.</p>
-  <a href="https://github.com/sansarang/nexus-ai-releases/releases/latest"
-     class="btn-primary" style="font-size:19px; padding:18px 48px; display:inline-flex;" id="main-download"
-     target="_blank" rel="noopener">
-    ⬇ 무료 다운로드 시작 — Windows
+  <a href="#" onclick="handleProClick(); return false;"
+     class="btn-primary" style="font-size:19px; padding:18px 48px; display:inline-flex;" id="main-download">
+    🚀 얼리 액세스 사전 신청하기
   </a>
   <div style="margin-top:14px; font-size:13px; color:var(--muted); position:relative;">
     <span style="color:#4ade80;">✓</span> Windows 10/11 · 15MB ·
