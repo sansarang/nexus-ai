@@ -429,43 +429,170 @@ Return JSON only with this structure:
 // GET /api/workflow/templates — 기본 템플릿 목록
 func handleWorkflowTemplates(w http.ResponseWriter, r *http.Request) {
 	templates := []map[string]any{
+		// ── 일상/생산성 ──────────────────────────────────
 		{
-			"id":          "tpl_morning",
-			"name":        "매일 아침 브리핑",
-			"description": "매일 오전 8시에 날씨·일정·PC 상태 브리핑",
-			"trigger":     WFTrigger{Type: "schedule", Value: "08:00", Label: "매일 오전 8시"},
+			"id": "tpl_morning", "name": "매일 아침 브리핑",
+			"description": "매일 오전 8시 날씨·뉴스·일정·PC 상태 자동 브리핑",
+			"category": "productivity",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 8 * * *", Label: "매일 오전 8시"},
 			"actions": []WFAction{
 				{ID: "a1", Type: "api_call", Label: "브리핑 생성", Endpoint: "/api/briefing/now", Method: "POST"},
+				{ID: "a2", Type: "notification", Label: "브리핑 알림", Params: map[string]any{"message": "오늘의 AI 브리핑이 준비됐습니다!"}},
 			},
 		},
 		{
-			"id":          "tpl_pc_optimize",
-			"name":        "PC 자동 최적화",
-			"description": "메모리 90% 이상 시 자동 정리",
-			"trigger":     WFTrigger{Type: "condition", Value: "memory>90", Label: "메모리 90% 초과"},
-			"conditions":  []WFCondition{{Field: "memory", Operator: "gt", Value: "90"}},
+			"id": "tpl_evening_summary", "name": "저녁 업무 일지",
+			"description": "매일 오후 6시 오늘 작업 정리 및 내일 일정 확인",
+			"category": "productivity",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 18 * * 1-5", Label: "평일 오후 6시"},
 			"actions": []WFAction{
-				{ID: "a1", Type: "api_call", Label: "파일 정리", Endpoint: "/api/clean", Method: "POST"},
+				{ID: "a1", Type: "api_call", Label: "오늘 일지 생성", Endpoint: "/api/journal/generate", Method: "POST"},
+				{ID: "a2", Type: "api_call", Label: "내일 일정 확인", Endpoint: "/api/calendar/today", Method: "GET"},
+			},
+		},
+		{
+			"id": "tpl_weekly_report", "name": "주간 리포트 이메일",
+			"description": "매주 금요일 오후 5시 PC 리포트 자동 발송",
+			"category": "report",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 17 * * 5", Label: "매주 금요일 오후 5시"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "리포트 생성", Endpoint: "/api/report/generate", Method: "GET"},
+				{ID: "a2", Type: "email", Label: "이메일 발송", Params: map[string]any{"subject": "주간 PC 리포트", "body": "이번 주 PC 상태 리포트입니다."}},
+			},
+		},
+		{
+			"id": "tpl_meeting_prep", "name": "미팅 자동 준비",
+			"description": "미팅 1시간 전 관련 자료·이메일·의제 자동 수집",
+			"category": "meeting",
+			"trigger": WFTrigger{Type: "event", Value: "meeting_1hour", Label: "미팅 1시간 전"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "받은 메일 확인", Endpoint: "/api/email/inbox", Method: "GET"},
+				{ID: "a2", Type: "multi_agent", Label: "자료 수집·요약", Goal: "미팅 참석자·의제 관련 자료 수집 및 핵심 3줄 요약"},
+				{ID: "a3", Type: "notification", Label: "준비 완료 알림", Params: map[string]any{"message": "미팅 자료 준비 완료!"}},
+			},
+		},
+		// ── PC 관리/보안 ──────────────────────────────────
+		{
+			"id": "tpl_pc_optimize", "name": "PC 자동 최적화",
+			"description": "메모리 90% 초과 시 자동 정리 + 알림",
+			"category": "system",
+			"trigger": WFTrigger{Type: "condition", Value: "memory>90", Label: "메모리 90% 초과"},
+			"conditions": []WFCondition{{Field: "memory", Operator: "gt", Value: "90"}},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "캐시 정리", Endpoint: "/api/clean", Method: "POST"},
 				{ID: "a2", Type: "notification", Label: "완료 알림", Params: map[string]any{"message": "PC 자동 최적화 완료!"}},
 			},
 		},
 		{
-			"id":          "tpl_weekly_report",
-			"name":        "주간 리포트 이메일",
-			"description": "매주 금요일 오후 5시 PC 리포트 이메일 발송",
-			"trigger":     WFTrigger{Type: "schedule", Value: "17:00", Label: "매주 금요일 오후 5시"},
+			"id": "tpl_daily_scan", "name": "야간 보안 스캔",
+			"description": "매일 새벽 2시 자동 보안 스캔 + 이상 시 알림",
+			"category": "security",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 2 * * *", Label: "매일 새벽 2시"},
 			"actions": []WFAction{
-				{ID: "a1", Type: "api_call", Label: "리포트 생성", Endpoint: "/api/report/generate", Method: "GET"},
-				{ID: "a2", Type: "email", Label: "이메일 발송", Params: map[string]any{"subject": "주간 PC 리포트", "body": "이번 주 PC 리포트입니다."}},
+				{ID: "a1", Type: "api_call", Label: "보안 스캔", Endpoint: "/api/scan", Method: "POST"},
+				{ID: "a2", Type: "api_call", Label: "감사 로그", Endpoint: "/api/security/audit", Method: "GET"},
+				{ID: "a3", Type: "notification", Label: "스캔 결과 알림", Params: map[string]any{"message": "야간 보안 스캔 완료"}},
 			},
 		},
 		{
-			"id":          "tpl_meeting_prep",
-			"name":        "미팅 자동 준비",
-			"description": "미팅 1시간 전 관련 자료 자동 수집",
-			"trigger":     WFTrigger{Type: "event", Value: "meeting_1hour", Label: "미팅 1시간 전"},
+			"id": "tpl_disk_alert", "name": "디스크 여유 경보",
+			"description": "디스크 여유 공간 10% 미만 시 자동 정리 제안",
+			"category": "system",
+			"trigger": WFTrigger{Type: "condition", Value: "disk<10", Label: "디스크 10% 미만"},
+			"conditions": []WFCondition{{Field: "disk", Operator: "lt", Value: "10"}},
 			"actions": []WFAction{
-				{ID: "a1", Type: "multi_agent", Label: "자료 수집", Goal: "미팅 관련 자료 수집 및 요약"},
+				{ID: "a1", Type: "api_call", Label: "큰 파일 탐색", Endpoint: "/api/file/large", Method: "POST", Params: map[string]any{"min_mb": 500}},
+				{ID: "a2", Type: "api_call", Label: "중복 파일 탐색", Endpoint: "/api/files/duplicates", Method: "POST"},
+				{ID: "a3", Type: "notification", Label: "경보 알림", Params: map[string]any{"message": "⚠️ 디스크 여유 공간 부족!"}},
+			},
+		},
+		// ── 이메일/커뮤니케이션 ──────────────────────────
+		{
+			"id": "tpl_email_digest", "name": "오전 이메일 요약",
+			"description": "매일 오전 9시 받은 메일 AI 요약 + 중요 메일 알림",
+			"category": "email",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 9 * * 1-5", Label: "평일 오전 9시"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "메일 수집", Endpoint: "/api/email/inbox", Method: "GET"},
+				{ID: "a2", Type: "api_call", Label: "메일 요약", Endpoint: "/api/email/summarize", Method: "POST"},
+				{ID: "a3", Type: "notification", Label: "요약 알림", Params: map[string]any{"message": "오늘 받은 메일 요약 준비됐어요!"}},
+			},
+		},
+		{
+			"id": "tpl_vip_alert", "name": "VIP 메일 즉시 알림",
+			"description": "특정 발신자 메일 수신 시 즉시 알림",
+			"category": "email",
+			"trigger": WFTrigger{Type: "event", Value: "email_received", Label: "메일 수신 시"},
+			"conditions": []WFCondition{{Field: "email_from", Operator: "contains", Value: "vip@company.com"}},
+			"actions": []WFAction{
+				{ID: "a1", Type: "notification", Label: "VIP 메일 알림", Params: map[string]any{"message": "⭐ VIP 발신자로부터 메일이 도착했습니다!"}},
+				{ID: "a2", Type: "api_call", Label: "메일 요약", Endpoint: "/api/email/summarize", Method: "POST"},
+			},
+		},
+		// ── 재무/비즈니스 ─────────────────────────────────
+		{
+			"id": "tpl_stock_alert", "name": "주가 모니터링",
+			"description": "매일 장 마감 후 관심 종목 시세 + 뉴스 요약",
+			"category": "finance",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 16 * * 1-5", Label: "평일 오후 4시 (장마감)"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "주가 조회", Endpoint: "/api/finance/stock", Method: "POST", Params: map[string]any{"ticker": "005930"}},
+				{ID: "a2", Type: "api_call", Label: "관련 뉴스", Endpoint: "/api/command", Method: "POST", Params: map[string]any{"message": "삼성전자 오늘 주요 뉴스"}},
+			},
+		},
+		{
+			"id": "tpl_tax_reminder", "name": "세금 납부 알림",
+			"description": "부가세·소득세 신고 마감 7일 전 자동 리마인더",
+			"category": "finance",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 9 18 1,4,7,10 *", Label: "분기별 세금 신고 7일 전"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "notification", Label: "세금 알림", Params: map[string]any{"message": "⚠️ 부가세 신고 마감 7일 전입니다!"}},
+				{ID: "a2", Type: "api_call", Label: "관련 정보 검색", Endpoint: "/api/command", Method: "POST", Params: map[string]any{"message": "이번 분기 부가세 신고 일정과 준비 서류"}},
+			},
+		},
+		// ── 콘텐츠/크리에이터 ────────────────────────────
+		{
+			"id": "tpl_content_research", "name": "콘텐츠 트렌드 수집",
+			"description": "매일 오전 유튜브·틱톡 트렌딩 + AI 뉴스 자동 수집",
+			"category": "content",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 7 * * *", Label: "매일 오전 7시"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "유튜브 트렌딩", Endpoint: "/api/video/quick-search", Method: "GET", Params: map[string]any{"query": "AI 트렌드"}},
+				{ID: "a2", Type: "api_call", Label: "틱톡 트렌딩", Endpoint: "/api/tiktok/trending", Method: "GET"},
+				{ID: "a3", Type: "api_call", Label: "AI 뉴스", Endpoint: "/api/command", Method: "POST", Params: map[string]any{"message": "오늘 AI 트렌드 뉴스 3줄 요약"}},
+				{ID: "a4", Type: "api_call", Label: "노트 저장", Endpoint: "/api/notes", Method: "POST"},
+			},
+		},
+		{
+			"id": "tpl_auto_subtitle", "name": "유튜브 영상 자막 추출",
+			"description": "유튜브 URL 입력 시 자막 추출 → 요약 → 노트 저장",
+			"category": "content",
+			"trigger": WFTrigger{Type: "manual", Value: "", Label: "수동 실행 (URL 입력)"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "자막 추출", Endpoint: "/api/video/transcript", Method: "POST"},
+				{ID: "a2", Type: "api_call", Label: "핵심 요약", Endpoint: "/api/llm/doc-summary", Method: "POST"},
+				{ID: "a3", Type: "api_call", Label: "노트 저장", Endpoint: "/api/notes", Method: "POST"},
+			},
+		},
+		// ── 개발/기술 ─────────────────────────────────────
+		{
+			"id": "tpl_github_digest", "name": "GitHub 트렌딩 일일 정리",
+			"description": "매일 오전 GitHub 트렌딩 저장소 + HackerNews 상위 글 수집",
+			"category": "developer",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 8 * * 1-5", Label: "평일 오전 8시"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "GitHub 트렌딩", Endpoint: "/api/command", Method: "POST", Params: map[string]any{"message": "GitHub 오늘 트렌딩 저장소 TOP 5", "persona": "developer"}},
+				{ID: "a2", Type: "api_call", Label: "노트 저장", Endpoint: "/api/notes", Method: "POST"},
+			},
+		},
+		{
+			"id": "tpl_backup_reminder", "name": "중요 파일 백업 알림",
+			"description": "매주 일요일 오후 중요 폴더 백업 리마인더",
+			"category": "system",
+			"trigger": WFTrigger{Type: "schedule", Value: "0 15 * * 0", Label: "매주 일요일 오후 3시"},
+			"actions": []WFAction{
+				{ID: "a1", Type: "api_call", Label: "디스크 상태 확인", Endpoint: "/api/stats", Method: "GET"},
+				{ID: "a2", Type: "notification", Label: "백업 알림", Params: map[string]any{"message": "📦 이번 주 중요 파일 백업을 잊지 마세요!"}},
 			},
 		},
 	}

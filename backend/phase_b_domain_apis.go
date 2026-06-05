@@ -237,6 +237,118 @@ func githubCodeSearch(query string, maxResults int) []DomainSearchResult {
 	return results
 }
 
+// ── 5. 국세청 사업자 상태 조회 (NTS OpenAPI) ──────────────────────
+// https://api.odcloud.kr/api/nts-businessman/v1/status
+// 무료 API 키: data.go.kr 회원가입 후 발급 (ODCLOUD_API_KEY 환경변수)
+// 키 없으면: 홈택스 웹 링크 + 프롬프트 기반 안내로 폴백
+
+type NTSBusinessResult struct {
+	BusinessNo     string `json:"b_no"`
+	StatusCode     string `json:"b_stt_cd"` // "01"=계속, "02"=휴업, "03"=폐업
+	Status         string `json:"b_stt"`    // 계속사업자/휴업자/폐업자
+	TaxType        string `json:"tax_type"`
+	TaxTypeName    string `json:"tax_type_nm"`
+	EndDate        string `json:"end_dt,omitempty"`
+	UTCTime        string `json:"utcc_yn"`
+}
+
+type ntsAPIResp struct {
+	StatusCode string              `json:"status_code"`
+	Data       []NTSBusinessResult `json:"data"`
+}
+
+// LookupBusinessNumber: 사업자등록번호로 국세청 API 조회
+// 반환: status(계속/휴업/폐업), taxType, 오류시 에러
+func LookupBusinessNumber(brno string) (*NTSBusinessResult, error) {
+	// 숫자만 추출 (하이픈 제거)
+	cleaned := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, brno)
+	if len(cleaned) != 10 {
+		return nil, fmt.Errorf("사업자등록번호는 10자리여야 합니다 (입력: %s)", brno)
+	}
+
+	apiKey := getEnvKey("ODCLOUD_API_KEY")
+	if apiKey == "" {
+		// 폴백: 홈택스 링크 안내
+		return &NTSBusinessResult{
+			BusinessNo: cleaned,
+			Status:     "홈택스 확인 필요",
+			TaxType:    fmt.Sprintf("https://teht.hometax.go.kr/websquare/websquare.wq?w2xPath=/ui/ab/a/a/UTEABAAA13.xml&qlSltPrno=%s", cleaned),
+		}, fmt.Errorf("ODCLOUD_API_KEY 미설정 — 홈택스 직접 조회 필요")
+	}
+
+	payload := map[string]any{"b_no": []string{cleaned}}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST",
+		"https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey="+apiKey,
+		strings.NewReader(string(body)))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("국세청 API 호출 실패: %w", err)
+	}
+	defer resp.Body.Close()
+	rawBody, _ := io.ReadAll(resp.Body)
+
+	var result ntsAPIResp
+	if err := json.Unmarshal(rawBody, &result); err != nil {
+		return nil, fmt.Errorf("국세청 API 응답 파싱 실패: %w", err)
+	}
+	if len(result.Data) == 0 {
+		return nil, fmt.Errorf("조회 결과 없음 (사업자번호 %s)", cleaned)
+	}
+
+	item := result.Data[0]
+	// 상태 코드 한글 변환
+	switch item.StatusCode {
+	case "01":
+		item.Status = "✅ 계속사업자 (정상)"
+	case "02":
+		item.Status = "⚠️ 휴업자"
+	case "03":
+		item.Status = "❌ 폐업자"
+	}
+	return &item, nil
+}
+
+// FormatBusinessLookupResult: LLM 응답에 삽입할 포맷 문자열 생성
+func FormatBusinessLookupResult(brno string) string {
+	result, err := LookupBusinessNumber(brno)
+	if err != nil {
+		if result != nil && result.TaxType != "" {
+			// 키 없는 폴백 — 링크 안내
+			return fmt.Sprintf(
+				"🏢 사업자번호 %s\n\n국세청 API 키가 설정되지 않았습니다.\n직접 확인: %s",
+				brno, result.TaxType)
+		}
+		return fmt.Sprintf("❌ 사업자 조회 실패: %v", err)
+	}
+
+	sb := &strings.Builder{}
+	sb.WriteString(fmt.Sprintf("🏢 사업자 조회 결과\n\n"))
+	sb.WriteString(fmt.Sprintf("📌 사업자번호: %s\n", result.BusinessNo))
+	sb.WriteString(fmt.Sprintf("📊 사업자 상태: %s\n", result.Status))
+	if result.TaxTypeName != "" {
+		sb.WriteString(fmt.Sprintf("💼 과세유형: %s\n", result.TaxTypeName))
+	}
+	if result.EndDate != "" && result.StatusCode == "03" {
+		sb.WriteString(fmt.Sprintf("📅 폐업일: %s\n", result.EndDate))
+	}
+	sb.WriteString("\n⚠️ 출처: 국세청 NTS OpenAPI")
+	return sb.String()
+}
+
 // getEnvKey — 환경변수 헬퍼 (없으면 빈 문자열)
 func getEnvKey(key string) string {
 	return strings.TrimSpace(osGetenv(key))
