@@ -7,9 +7,9 @@ import (
 	"fmt"
 )
 
-// haikuIntentPrompt: Claude Haiku 의도 분류용 시스템 프롬프트
-// Mac 빌드의 callClaudeIntent 와 동일 — 응답 포맷 일치 보장
-const haikuIntentPrompt = `You are an intent classifier for a Korean AI assistant. Analyze the user's request and output JSON.
+// haikuIntentPromptDefault: 기본 의도 분류 프롬프트 (자가치유 전 원본)
+// 힐링된 버전은 ~/.nexus/prompts/intent.txt 에서 로드됨
+const haikuIntentPromptDefault = `You are an intent classifier for a Korean AI assistant. Analyze the user's request and output JSON.
 
 Output format (STRICT — always include all keys):
 {"needs_clarify":false,"clarify_question":"","intents":[{"action":"action_name","params":{},"description":"brief"}]}
@@ -54,7 +54,7 @@ func callHaikuIntentClassifyViaProxy(userMsg string) (action string, params map[
 	payload := map[string]any{
 		"model":      claudeHaikuModel,
 		"max_tokens": 512,
-		"system":     haikuIntentPrompt,
+		"system":     getIntentPrompt(),
 		"messages":   []map[string]any{{"role": "user", "content": userMsg}},
 	}
 
@@ -144,4 +144,10 @@ func lastIndexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+// getIntentPrompt: 힐링된 버전 우선, 없으면 기본값
+// handlers_prompt_heal.go 의 loadHealedPrompt() 사용
+func getIntentPrompt() string {
+	return loadHealedPrompt("intent", haikuIntentPromptDefault)
 }

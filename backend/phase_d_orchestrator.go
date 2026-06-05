@@ -86,7 +86,7 @@ func getPendingProposals() []PatchProposal {
 	return out
 }
 
-// approvePatch — 사용자 승인 → 적용 큐로 이동 (실제 패치는 외부 도구)
+// approvePatch — 사용자 승인 → 상태 변경 + executeHeal() 실행
 func approvePatch(id string) (PatchProposal, bool) {
 	patchQueueMu.Lock()
 	defer patchQueueMu.Unlock()
@@ -96,6 +96,8 @@ func approvePatch(id string) (PatchProposal, bool) {
 			patchProposalQueue[i] = p
 			patchHistory = append(patchHistory, p)
 			go savePatchHistory()
+			// ★ 실제 힐링 실행 — LLM 호출 + 프롬프트 파일 저장
+			go executeHeal(p)
 			return p, true
 		}
 	}
@@ -135,6 +137,8 @@ func autoApplyTick() {
 			p.Status = "approved"
 			patchProposalQueue[i] = p
 			patchHistory = append(patchHistory, p)
+			// ★ 자동 승인도 실제 힐링 실행
+			go executeHeal(p)
 		}
 	}
 	go savePatchHistory()
@@ -224,16 +228,61 @@ func handleAgentStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	patchQueueMu.RUnlock()
+	// 힐링된 프롬프트 파일 목록 (실제 적용 여부 확인용)
+	healedPrompts := []string{}
+	for _, name := range []string{"system", "intent", "persona_base"} {
+		if _, err := os.Stat(promptFilePath(name)); err == nil {
+			healedPrompts = append(healedPrompts, name)
+		}
+	}
+
 	json200(w, map[string]any{
-		"success":     true,
-		"telemetry":   stats,
-		"pending":     pending,
-		"applied":     applied,
-		"rejected":    rejected,
-		"agent_count": len(phaseDAgents),
+		"success":        true,
+		"telemetry":      stats,
+		"pending":        pending,
+		"applied":        applied,
+		"rejected":       rejected,
+		"agent_count":    len(phaseDAgents),
+		"healed_prompts": healedPrompts,
 	})
 }
 
+
+// markPatchApplied — executeHeal 성공 후 상태 업데이트
+func markPatchApplied(id, promptName string) {
+	patchQueueMu.Lock()
+	defer patchQueueMu.Unlock()
+	for i, p := range patchProposalQueue {
+		if p.ID == id {
+			p.Status = "applied"
+			if p.Evidence == nil {
+				p.Evidence = map[string]any{}
+			}
+			p.Evidence["healed_prompt"] = promptName
+			patchProposalQueue[i] = p
+			break
+		}
+	}
+	go savePatchHistory()
+}
+
+// markPatchFailed — executeHeal 실패 후 상태 업데이트
+func markPatchFailed(id, reason string) {
+	patchQueueMu.Lock()
+	defer patchQueueMu.Unlock()
+	for i, p := range patchProposalQueue {
+		if p.ID == id {
+			p.Status = "failed"
+			if p.Evidence == nil {
+				p.Evidence = map[string]any{}
+			}
+			p.Evidence["fail_reason"] = reason
+			patchProposalQueue[i] = p
+			break
+		}
+	}
+	go savePatchHistory()
+}
 
 // handleAgentAnalyzeNow — POST /api/agent/analyze-now (수동 트리거, 검증/테스트용)
 func handleAgentAnalyzeNow(w http.ResponseWriter, r *http.Request) {

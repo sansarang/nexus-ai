@@ -130,12 +130,15 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.7.1-build${{ github.run_number }}
-          name: "NEXUS AI v2.7.1 (build ${{ github.run_number }})"
+          tag_name: v2.8.0-build${{ github.run_number }}
+          name: "NEXUS AI v2.8.0 (build ${{ github.run_number }})"
           files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           body: |
-            - admin 플랜 무제한(99999회/일)
-            - JWT app_metadata 파싱 추가
-            - 설치 파일 잠금 수정
+            ## 🧬 자가치유 AI — 실제 구현 완성
+            - 자가치유 엔진 신규: `handlers_prompt_heal.go`
+            - 12개 Agent 텔레메트리 분석 → LLM이 프롬프트 자동 개선
+            - `~/.nexus/prompts/` 에 힐링된 버전 저장, 재시작 없이 즉시 반영
+            - Free 15건 / Pro 200건 / Pro+ 1,000건 / Team 3,000건 통일
+            - 19개 직업 페르소나 자동 매칭
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

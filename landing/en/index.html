@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>if (!navigator.language.startsWith('en') && !sessionStorage.getItem('lang')) { window.location.replace('/index.html'); }</script>
   <title>NEXUS AI v2.8 — Self-Healing Windows AI · One Google Login, Zero API Keys</title>
-  <meta name="description" content="The only Windows AI that actually executes — Excel/PDF/email/PC. 95.5% e2e verified. 19 job personas auto-switch. 12 self-healing agents (industry first). Google login only, zero API keys, save 2.4h/day." />
+  <meta name="description" content="Your PC does it — you just talk. 12 self-healing agents (industry first) · 19 job personas auto-match · 95.5% e2e verified. Free 15/day, Pro $19 · Pro+ $49 · Team $99. Google login only, zero API keys, save 2.4h/day." />
   <meta name="keywords" content="self-healing AI, Jarvis-grade AI, Windows AI assistant, NEXUS AI, PC automation, Excel automation Korean, PDF generator AI, multi-action AI, RAG PC documents, persona AI, ChatGPT alternative Windows, Claude alternative, Copilot alternative, no API key AI, Ollama integration, local AI Windows, voice AI Korean, AI agent system, auto-improving AI, developer AI, legal AI, medical AI, investor AI, marketer AI" />
   <meta name="theme-color" content="#a855f7" />
   <meta name="format-detection" content="telephone=no" />
@@ -80,10 +80,10 @@
       "49+ inline card types"
     ],
     "offers": [
-      { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "15 AI requests/day. No credit card required." },
-      { "@type": "Offer", "name": "Pro", "price": "19", "priceCurrency": "USD", "priceValidUntil": "2026-12-31", "availability": "https://schema.org/InStock", "description": "200/day. 19 personas auto-match. Multi-action + RAG." },
-      { "@type": "Offer", "name": "Pro+", "price": "49", "priceCurrency": "USD", "priceValidUntil": "2026-12-31", "availability": "https://schema.org/InStock", "description": "1,000/day. Vision unlimited. Priority Agent patches. Power users." },
-      { "@type": "Offer", "name": "Team", "price": "99", "priceCurrency": "USD", "priceValidUntil": "2026-12-31", "availability": "https://schema.org/InStock", "description": "3,000/day. 5+ seats. Custom branding + priority support." }
+      { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "15 AI requests/day. No credit card. Google login only." },
+      { "@type": "Offer", "name": "Pro", "price": "19", "priceCurrency": "USD", "priceValidUntil": "2026-12-31", "availability": "https://schema.org/InStock", "description": "200/day. 19 job personas auto-match. Multi-action + RAG + Vision." },
+      { "@type": "Offer", "name": "Pro+", "price": "49", "priceCurrency": "USD", "priceValidUntil": "2026-12-31", "availability": "https://schema.org/InStock", "description": "1,000/day. Unlimited Vision. Priority Agent patches. Power users." },
+      { "@type": "Offer", "name": "Team", "price": "99", "priceCurrency": "USD", "priceValidUntil": "2026-12-31", "availability": "https://schema.org/InStock", "description": "3,000/day. 5+ seats. Custom branding + priority support + SLA." }
     ],
     "aggregateRating": {
       "@type": "AggregateRating",
@@ -495,6 +495,9 @@
 
     .compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+    @media (max-width: 900px) {
+      .pricing-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    }
     @media (max-width: 768px) {
       nav { padding: 14px 20px; }
       .nav-links { display: none; }
@@ -505,7 +508,7 @@
       footer { flex-direction: column; text-align: center; gap: 16px; padding: 32px 20px; }
       .footer-links { justify-content: center; }
       .price-card.featured { transform: scale(1); }
-      .pricing-grid { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr !important; }
       .demo-body { flex-direction: column; height: auto; }
       .demo-sidebar { width: 100%; flex-direction: row; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); overflow-x: auto; }
       .demo-avatar-zone { display: none; }
@@ -702,20 +705,19 @@
   <div class="hero-pain" style="margin-bottom:20px;">
     😩 &nbsp;Spreadsheets, price research, email replies, slow PC — these repetitive tasks steal <strong>2.4 hours</strong> every day
   </div>
-  <h1>The AI That <span class="grad">Actually Runs</span> Your PC</h1>
+  <h1>Your PC Does It — <span class="grad">You Just Talk</span></h1>
   <div style="display:inline-flex; align-items:center; gap:10px; background:rgba(124,58,237,0.12); border:1px solid rgba(124,58,237,0.3); border-radius:40px; padding:8px 20px; margin-bottom:16px; font-size:13px; color:rgba(255,255,255,0.75);">
-    <span>🚀</span> <strong style="color:#a78bfa;">One Google login → done.</strong> &nbsp;Zero API keys. Zero credit cards. Jarvis starts instantly.
+    <span>🚀</span> <strong style="color:#a78bfa;">One Google login → done.</strong> &nbsp;Zero API keys. Zero credit cards. Jarvis ready in 3 minutes.
   </div>
   <p class="hero-sub">
-    Email, Excel, files — one command, real execution.<br />
-    Install in 3 minutes · Save 2.4 hours/day · Windows native app
+    Email, Excel, files, research — one sentence, real execution.<br />
+    Industry's only <strong style="color:var(--text)">self-healing AI · 19 job personas · Save 2.4 h/day</strong>
   </p>
   <div id="hero-rotating-tagline" style="font-size:15px; color:var(--primary); font-weight:700; margin-bottom:16px; min-height:24px; transition:opacity 0.4s ease;"></div>
   <div class="hero-btns">
-    <a href="#" onclick="return false;"
-       class="btn-primary" id="hero-download"
-       style="opacity:0.5; cursor:not-allowed;">
-      🔧 In Testing — Coming Soon
+    <a href="https://github.com/sansarang/nexus-ai-releases/releases/latest"
+       class="btn-primary" id="hero-download" target="_blank" rel="noopener">
+      ⬇ Free Download — Windows
     </a>
     <a href="#demo" class="btn-secondary">▶ Watch 30-Second Demo</a>
   </div>
@@ -845,7 +847,7 @@
       <div style="font-size:36px; margin-bottom:10px;">💎</div>
       <div style="font-size:11px; font-weight:700; color:#a78bfa; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px;">Step 2 · 15s</div>
       <div style="font-size:15px; font-weight:800; margin-bottom:6px;">Pick a plan</div>
-      <div style="font-size:12px; color:rgba(255,255,255,0.6); line-height:1.6;">Free 15/day · Pro 200/day · Team unlimited</div>
+      <div style="font-size:12px; color:rgba(255,255,255,0.6); line-height:1.6;">Free 15/day · Pro 200/day · Pro+ 1,000/day · Team 3,000/day</div>
     </div>
     <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:22px; text-align:center;">
       <div style="font-size:36px; margin-bottom:10px;">🚀</div>
@@ -1335,7 +1337,7 @@
   <div style="max-width:1100px; margin:0 auto; text-align:center;">
     <div class="section-label">AI PERSONAS</div>
     <h2 class="section-title">Switch to the AI built for your job</h2>
-    <p class="section-sub" style="margin:0 auto;">One click switches to your role — 14 job personas with auto daily briefings + Marketplace presets</p>
+    <p class="section-sub" style="margin:0 auto;">One click switches to your role — 19 job personas with auto daily briefings + Marketplace presets</p>
     <div class="persona-grid" id="enPersonaGrid">
       <!-- cards injected by JS -->
     </div>
@@ -1601,62 +1603,80 @@
     <span style="background:rgba(74,222,128,0.15); border:1px solid rgba(74,222,128,0.3); color:#4ade80; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">Save 20% annually</span>
   </div>
 
-  <div class="pricing-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); max-width:1000px;">
+  <div class="pricing-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); max-width:1200px;">
 
     <!-- FREE -->
-    <div class="price-card">
+    <div class="price-card reveal-bounce">
       <div class="price-name">Free</div>
       <div class="price-amount" style="font-size:48px;">$0</div>
       <div class="price-period">Forever free · Google login only · No API key</div>
-      <ul class="price-features" style="margin:20px 0 28px;">
-        <li><span class="check">✓</span> <strong>30</strong> AI requests/day</li>
+      <ul class="price-features" style="margin:20px 0 24px;">
+        <li><span class="check">✓</span> <strong>15</strong> AI requests/day</li>
         <li><span class="check">✓</span> Basic chat · Weather · News</li>
         <li><span class="check">✓</span> Calendar · Translation</li>
         <li><span class="check">✓</span> 1 AI job persona</li>
-        <li style="color:var(--muted);">✗ Web search · Screen analysis</li>
-        <li style="color:var(--muted);">✗ Email assist · Content rec.</li>
-        <li style="color:var(--muted);">✗ Proactive AI 24/7</li>
-        <li style="color:var(--muted);">✗ Marketplace access</li>
+        <li style="color:var(--muted); font-size:13px;">✗ Web search · Screen analysis</li>
+        <li style="color:var(--muted); font-size:13px;">✗ Multi-action · RAG</li>
+        <li style="color:var(--muted); font-size:13px;">✗ Email automation</li>
       </ul>
-      <a href="#" onclick="return false;" class="btn-plan outline" style="opacity:0.5; cursor:not-allowed;">🔧 Coming Soon</a>
+      <a href="https://github.com/sansarang/nexus-ai-releases/releases/latest"
+         class="btn-plan outline" target="_blank" rel="noopener">Start Free →</a>
     </div>
 
     <!-- PRO -->
-    <div class="price-card featured">
+    <div class="price-card featured reveal-bounce">
       <div class="price-badge">🔥 Most Popular</div>
       <div class="price-name" style="margin-top:8px;">Pro</div>
       <div class="price-original" id="en-pro-original" style="font-size:14px; color:var(--muted); text-decoration:line-through; margin-top:10px;">Regular $29/mo</div>
       <div class="price-amount" style="font-size:64px;" id="en-pro-price">$19</div>
       <div class="price-period" id="en-pro-period">/month · 34% off · 3-day free trial</div>
-      <ul class="price-features" style="margin:20px 0 28px;">
-        <li><span class="check">✓</span> <strong>2,000</strong> AI requests/day</li>
-        <li><span class="check">✓</span> Web search · Screen analysis</li>
-        <li><span class="check">✓</span> Email assist · Content rec.</li>
-        <li><span class="check">✓</span> 14 AI job personas</li>
-        <li><span class="check">✓</span> Workflow Marketplace</li>
+      <ul class="price-features" style="margin:20px 0 24px;">
+        <li><span class="check">✓</span> <strong>200</strong> AI requests/day</li>
+        <li><span class="check">✓</span> 19 job personas, auto-match</li>
+        <li><span class="check">✓</span> Multi-action + RAG (PC docs)</li>
+        <li><span class="check">✓</span> Web search · Vision · Screen</li>
+        <li><span class="check">✓</span> Excel/PDF auto-generation</li>
+        <li><span class="check">✓</span> Email auto-send (Outlook)</li>
         <li><span class="check">✓</span> Proactive AI 24/7</li>
-        <li><span class="check">✓</span> Email auto-send</li>
         <li><span class="check">✓</span> Priority support</li>
       </ul>
       <a href="#" class="btn-plan" style="font-size:16px; padding:15px 0; display:block; text-align:center;" onclick="handleProClick(); return false;">Start 7-Day Free Trial →</a>
       <small style="display:block; margin-top:10px; color:var(--muted); font-size:12px; text-align:center;">✓ No credit card · ✓ Cancel anytime</small>
     </div>
 
-    <!-- TEAM -->
-    <div class="price-card">
-      <div class="price-name">Team & Enterprise</div>
-      <div class="price-amount" style="font-size:42px;">$49</div>
-      <div class="price-period">/mo · 5 seats · $89 for 10</div>
-      <ul class="price-features" style="margin:20px 0 28px;">
-        <li><span class="check">✓</span> Everything in Pro</li>
-        <li><span class="check">✓</span> Shared team workflows</li>
-        <li><span class="check">✓</span> Team persona settings</li>
-        <li><span class="check">✓</span> Enterprise API keys</li>
-        <li><span class="check">✓</span> /v1/chat·stock·legal API</li>
-        <li><span class="check">✓</span> Vertical app branding</li>
-        <li><span class="check">✓</span> Dedicated onboarding</li>
+    <!-- PRO+ -->
+    <div class="price-card reveal-bounce" style="border-color:rgba(251,191,36,0.4); background:linear-gradient(135deg,rgba(251,191,36,0.06),rgba(249,115,22,0.03));">
+      <div class="price-badge" style="background:linear-gradient(135deg,#fbbf24,#f97316); color:#1a1a2e;">🔥 Power User</div>
+      <div class="price-name" style="margin-top:8px;">Pro+</div>
+      <div class="price-amount" style="font-size:48px; background:linear-gradient(135deg,#fbbf24,#f97316); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">$49</div>
+      <div class="price-period">/month · Vision-heavy users</div>
+      <ul class="price-features" style="margin:20px 0 24px;">
+        <li><span class="check">✓</span> <strong>1,000</strong> AI requests/day</li>
+        <li><span class="check" style="color:#fbbf24;">✓</span> <strong>Unlimited Vision</strong></li>
+        <li><span class="check" style="color:#fbbf24;">✓</span> <strong>Priority Agent patches</strong></li>
+        <li><span class="check">✓</span> All Pro features included</li>
+        <li><span class="check">✓</span> Beta feature early access</li>
+        <li><span class="check">✓</span> All 12 self-healing agents</li>
       </ul>
-      <a href="mailto:support@nexusai.ai.kr?subject=Team%20Plan%20Inquiry" class="btn-plan outline">Contact for Team Plan →</a>
+      <a href="#" class="btn-plan" style="background:linear-gradient(135deg,#fbbf24,#f97316); display:block; text-align:center; padding:14px 0;" onclick="handleProClick(); return false;">Get Pro+ Early Bird →</a>
+    </div>
+
+    <!-- TEAM -->
+    <div class="price-card reveal-bounce" style="border-color:rgba(14,165,233,0.35); background:rgba(14,165,233,0.04);">
+      <div class="price-name" style="color:#7dd3fc;">Team</div>
+      <div class="price-amount" style="font-size:42px; background:linear-gradient(135deg,#38bdf8,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">$99</div>
+      <div class="price-period">/mo · 5+ seats · Enterprise on request</div>
+      <ul class="price-features" style="margin:20px 0 24px;">
+        <li><span class="check">✓</span> <strong>3,000</strong> AI requests/day</li>
+        <li><span class="check">✓</span> All Pro+ features</li>
+        <li><span class="check">✓</span> Shared team workflows</li>
+        <li><span class="check">✓</span> Custom branding</li>
+        <li><span class="check">✓</span> Enterprise API keys</li>
+        <li><span class="check">✓</span> Dedicated onboarding + SLA</li>
+        <li><span class="check">✓</span> Monthly invoicing</li>
+      </ul>
+      <a href="mailto:support@nexusai.ai.kr?subject=Team%20Plan%20Inquiry" class="btn-plan"
+         style="background:linear-gradient(135deg,#38bdf8,#0ea5e9); display:block; text-align:center; padding:14px 0;">Contact for Team Plan →</a>
     </div>
 
   </div>
@@ -1716,7 +1736,7 @@
       <span style="background:linear-gradient(135deg,var(--primary),#6366f1); color:#fff; border-radius:6px; padding:3px 12px; font-size:12px; font-weight:700;">v2.5.84 Latest</span>
       <span style="color:var(--muted); font-size:13px;">May 2026 · Auto-update included</span>
     </div>
-    <div style="font-size:13px; color:var(--muted);">✦ 14 AI job personas &nbsp;✦ Auto daily briefings &nbsp;✦ Marketplace open &nbsp;✦ Enterprise API keys</div>
+    <div style="font-size:13px; color:var(--muted);">✦ 19 job personas, auto-match &nbsp;✦ 12 self-healing agents &nbsp;✦ Auto daily briefings &nbsp;✦ Marketplace open &nbsp;✦ Enterprise API keys</div>
     <a href="https://github.com/sansarang/nexus-ai-releases/releases" target="_blank" style="font-size:13px; color:var(--primary); text-decoration:none; font-weight:600;">Full release notes →</a>
   </div>
 </div>
@@ -1798,11 +1818,12 @@
 
 <!-- CTA FINAL -->
 <div class="cta-final" id="download">
-  <h2>Start right now.<br /><span style="background:linear-gradient(135deg,var(--primary),var(--primary2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Free. In 3 minutes.</span></h2>
-  <p>Install it and say "Hey Nexus." It handles the rest.</p>
-  <a href="#" onclick="return false;"
-     class="btn-primary" style="font-size:20px; padding:20px 48px; display:inline-flex; opacity:0.5; cursor:not-allowed;" id="main-download">
-    🔧 In Testing — Coming Soon
+  <h2>Get 2.4 hours back — every day.<br /><span style="background:linear-gradient(135deg,var(--primary),var(--primary2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Free to start. 3-minute install.</span></h2>
+  <p>One Google login. Zero API keys. Your Jarvis starts instantly.</p>
+  <a href="https://github.com/sansarang/nexus-ai-releases/releases/latest"
+     class="btn-primary" style="font-size:20px; padding:20px 48px; display:inline-flex;" id="main-download"
+     target="_blank" rel="noopener">
+    ⬇ Free Download — Windows
   </a>
   <small style="display:block; margin-top:12px; opacity:0.7; position:relative;">
     ✓ Auto-update included · ✓ go-selfupdate · ✓ Runs locally

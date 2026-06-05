@@ -1203,3 +1203,9 @@ func cmdFrontendDispatch(cx cmdCtx, action string) {
 		Duration: cx.dur,
 	})
 }
+
+// getSystemPrompt — non-Windows stub
+// Windows 빌드에서는 handlers_command.go 의 전체 프롬프트 버전이 사용됨
+func getSystemPrompt() string {
+	return loadHealedPrompt("system", "")
+}

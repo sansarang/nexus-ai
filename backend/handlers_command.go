@@ -521,7 +521,9 @@ func buildNexusRoutingTools() []ToolDef {
 
 // Nexus가 할 수 있는 모든 일을 LLM에게 알려줍니다.
 // 사용자가 어떤 말을 해도 이 중 가장 적합한 action을 고릅니다.
-const nexusSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령을 분석하여 아래 액션 중 하나를 반드시 선택하세요.
+// nexusSystemPromptDefault: 기본 시스템 프롬프트 (자가치유 전 원본)
+// 힐링된 버전은 ~/.nexus/prompts/system.txt 에서 로드됨
+const nexusSystemPromptDefault = `당신은 Nexus AI 비서입니다. 사용자 명령을 분석하여 아래 액션 중 하나를 반드시 선택하세요.
 
 ⚠️ 규칙: 반드시 JSON만 출력하세요. 설명 금지.
 형식 (단일 액션): {"action":"액션명","params":{...}}
@@ -739,6 +741,12 @@ const nexusSystemPrompt = `당신은 Nexus AI 비서입니다. 사용자 명령�
 
 동일 이름 업체·상품 여러 개 검색 결과 → 목록 나열 후 "어느 것을 원하시나요?" 물어볼 것.
 `
+
+// getSystemPrompt: 힐링된 버전 우선, 없으면 기본값
+// handlers_prompt_heal.go 의 loadHealedPrompt() 사용
+func getSystemPrompt() string {
+	return loadHealedPrompt("system", nexusSystemPromptDefault)
+}
 
 // clarify 해소 시 사용하는 별도 시스템 프롬프트
 const nexusClarifyResolvePrompt = `당신은 Nexus AI 비서입니다. 사용자가 이전 질문에 대한 추가 정보를 제공했습니다.
@@ -1150,7 +1158,7 @@ func handleCommand(w http.ResponseWriter, r *http.Request) {
 			// ── 일반 모드: LLM 의도 파악 (대화 이력 포함) ────────────
 			// ★ 자동 페르소나 추천 (쿼리 기반) — 명시적 전환 안 해도 적절한 페르소나 사용
 			personaCtx := getPersonaSystemPromptForQuery(req.Message)
-			routingPrompt := nexusSystemPrompt
+			routingPrompt := getSystemPrompt()
 			if lang == "en" {
 				routingPrompt = "Respond in English.\n\n" + routingPrompt
 			}
