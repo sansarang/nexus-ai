@@ -176,7 +176,7 @@ export const ACTION_TO_CARD: Record<string, string> = {
   system_updates:      'cmd_result',
 
 
-: 'REMOVE_THIS_LINE'  virustotal:          'security_alert',
+  virustotal:          'security_alert',
   shodan:              'security_alert',
 
   // 소셜 미디어
