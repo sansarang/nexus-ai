@@ -1,0 +1,98 @@
+=== 이메일 1 (중요 — 계약 관련) ===
+From: lim.kim@samsungsds.com
+To: sales@nexusai.ai.kr
+Subject: [긴급] NEXUS AI 팀 플랜 계약 갱신 관련 문의
+Date: 2026-06-04 09:23:41
+
+안녕하세요, 삼성SDS 구매팀 임경태입니다.
+
+당사는 2025년 6월부터 NEXUS AI 팀 플랜을 이용해 왔으며,
+오는 2026년 6월 30일에 계약이 만료됩니다.
+
+갱신 조건과 관련하여 몇 가지 확인이 필요합니다:
+1. 현재 5인 플랜에서 10인으로 확장 시 요금은?
+2. 연간 결제 시 할인율은?
+3. Enterprise API 이용 가능 시점은?
+
+빠른 답변 부탁드립니다. (답변 기한: 6월 8일까지)
+
+임경태 드림
+삼성SDS | 구매팀 | 070-1234-5678
+
+=== 이메일 2 (스팸 의심) ===
+From: noreply@promo-deals.xyz
+To: team@nexusai.ai.kr
+Subject: 🎉 축하합니다! 당신이 선택되었습니다 - 특별 혜택 지금 바로 받으세요!
+Date: 2026-06-04 11:45:02
+
+안녕하세요!
+
+오늘만 특별 프로모션! 지금 클릭하면 500만원 상당의 상품권을!
+www.suspicious-link.xyz/promo?ref=nexus
+
+(이 이메일은 수신 거부하지 않은 분께 발송되었습니다)
+
+=== 이메일 3 (기술 문의) ===
+From: dev.park@lgcns.com
+To: support@nexusai.ai.kr
+Subject: NEXUS API v1 연동 문의 - 인증 토큰 관련
+Date: 2026-06-04 14:12:30
+
+안녕하세요 NEXUS 기술지원팀,
+
+LG CNS 개발팀 박준영입니다.
+
+현재 /v1/chat 엔드포인트 연동 테스트 중인데,
+Authorization 헤더에 Bearer 토큰을 넣으면 401이 반환됩니다.
+
+curl -X POST https://api.nexusai.ai.kr/v1/chat \
+  -H "Authorization: Bearer nxs_live_xxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "안녕하세요"}'
+
+혹시 토큰 형식이 다른가요? 아니면 별도 설정이 필요한가요?
+
+박준영 | LG CNS 솔루션사업부
+010-9876-5432
+
+=== 이메일 4 (불만 고객) ===
+From: angry.customer@gmail.com
+To: support@nexusai.ai.kr  
+Subject: 환불 요청 - Pro 플랜 결제 취소해주세요
+Date: 2026-06-03 22:05:11
+
+안녕하세요.
+
+지난달 Pro 플랜을 구독했는데 엑셀 자동 생성 기능이 계속 오류가 납니다.
+여러 번 시도해도 "파일 생성 실패"라고만 뜨고 파일이 생성되지 않아요.
+
+이미 고객센터에 2번 문의했는데 답변이 없어서 이렇게 메일 보냅니다.
+환불 처리해주시고, 버그도 빨리 고쳐주세요.
+
+홍길동 (회원 ID: user_1234567)
+결제일: 2026-05-15
+결제금액: 14,900원
+
+=== 이메일 5 (파트너십 제안) ===
+From: business@kakaoventures.com
+To: ceo@nexusai.ai.kr
+Subject: NEXUS AI 투자 미팅 요청 - 카카오벤처스
+Date: 2026-06-04 10:30:00
+
+안녕하세요, 넥서스AI 대표님.
+
+카카오벤처스 투자팀 이민정입니다.
+
+최근 NEXUS AI의 자가치유 AI 기술과 19개 직업군 페르소나 시스템에 큰 관심을 갖게 되었습니다.
+현재 저희 포트폴리오에서 AI 생산성 도구에 집중 투자 중이며,
+NEXUS AI와의 시너지 가능성을 검토하고 싶습니다.
+
+간단한 미팅을 요청드립니다:
+- 일정: 6월 둘째 주 (6/10~14) 중 대표님 편한 시간
+- 장소: 카카오 판교 오피스 또는 화상 미팅
+- 내용: 사업 현황 공유, 투자 구조 논의
+
+연락 주시면 감사하겠습니다.
+
+이민정 | 카카오벤처스 투자팀 파트너
+02-1234-5678 | mj.lee@kakaoventures.com

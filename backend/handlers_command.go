@@ -2528,6 +2528,74 @@ func dispatchAction(action string, params map[string]any, original, gKey, lang s
 			"frontend_dispatch": true,
 		}, msg
 
+	case "deep_search":
+		// 웹 딥 리서치 (Tavily + Groq 종합 분석)
+		drQuery := original
+		if q, ok := params["query"].(string); ok && q != "" {
+			drQuery = q
+		}
+		tvResult, _ := tavilySearch(llmTavilyKey, drQuery, 5)
+		var drPrompt string
+		if tvResult.Summary != "" {
+			if lang == "en" {
+				drPrompt = fmt.Sprintf("Research context from web:\n%s\n\nUser question: %s\n\nProvide a comprehensive, well-structured answer.", tvResult.Summary, drQuery)
+			} else {
+				drPrompt = fmt.Sprintf("웹 검색 컨텍스트:\n%s\n\n질문: %s\n\n위 정보를 바탕으로 심층적이고 구조화된 답변을 제공해줘.", tvResult.Summary, drQuery)
+			}
+		} else {
+			if lang == "en" {
+				drPrompt = fmt.Sprintf("Research and answer comprehensively: %s", drQuery)
+			} else {
+				drPrompt = fmt.Sprintf("다음 주제를 심층 리서치하고 구조화된 답변을 제공해줘: %s", drQuery)
+			}
+		}
+		drAnswer, _, _ := callGroqWithFallback([]groqMsg{{Role: "user", Content: drPrompt}}, 2048, false)
+		if drAnswer == "" {
+			drAnswer = msgT("리서치 실패: 결과를 가져올 수 없습니다.", "Research failed: no results.", lang)
+		}
+		return map[string]any{"query": drQuery, "answer": drAnswer}, drAnswer
+
+	case "stock_price", "get_stock_price":
+		// 주가/암호화폐 조회
+		stQuery := original
+		if q, ok := params["query"].(string); ok && q != "" {
+			stQuery = q
+		}
+		if sym, ok := params["symbol"].(string); ok && sym != "" {
+			stQuery = sym
+		}
+		if cryptoSym := detectCrypto(stQuery); cryptoSym != "" {
+			krw, usd, err := fetchCryptoPrice(cryptoSym)
+			if err != nil {
+				if tr, ok := tavilySearch(llmTavilyKey, cryptoSym+" 현재 가격", 3); ok {
+					return map[string]any{"symbol": cryptoSym, "source": "search"}, tr.Summary
+				}
+				return nil, msgT("암호화폐 조회 실패: ", "Crypto lookup failed: ", lang) + err.Error()
+			}
+			if lang == "en" {
+				return map[string]any{"symbol": cryptoSym, "krw": krw, "usd": usd},
+					fmt.Sprintf("**%s**: ₩%.0f KRW / $%.2f USD", cryptoSym, krw, usd)
+			}
+			return map[string]any{"symbol": cryptoSym, "krw": krw, "usd": usd},
+				fmt.Sprintf("**%s** 현재가: **₩%.0f** (KRW) / $%.2f (USD)", cryptoSym, krw, usd)
+		}
+		ticker, name := detectStockTicker(stQuery)
+		if ticker == "" {
+			if tr, ok := tavilySearch(llmTavilyKey, stQuery+" 주가 현재", 3); ok {
+				return map[string]any{"query": stQuery, "source": "search"}, tr.Summary
+			}
+			return nil, msgT("주가 정보를 찾을 수 없습니다.", "Could not find stock price.", lang)
+		}
+		price, change, currency, err := fetchStockInfo(ticker)
+		if err != nil {
+			if tr, ok := tavilySearch(llmTavilyKey, name+" 주가 현재", 3); ok {
+				return map[string]any{"ticker": ticker, "source": "search"}, tr.Summary
+			}
+			return nil, msgT("주가 조회 실패: ", "Stock lookup failed: ", lang) + err.Error()
+		}
+		msg := formatStockMsg(name, ticker, price, change, currency, lang == "en" || isEnglishQuery(original))
+		return map[string]any{"ticker": ticker, "price": price, "change": change, "currency": currency}, msg
+
 	default:
 		// 분류 안 된 질문 → 이력 보완 후 web_search
 		resolved := resolveWithHistory(original, history)

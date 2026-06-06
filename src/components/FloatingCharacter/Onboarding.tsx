@@ -16,13 +16,33 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const ONBOARDED_KEY = 'nexus-onboarded'
+const APP_VERSION   = '2.8.1'
+const VERSION_KEY   = 'nexus-app-version'
+
+// ★ 버전 업그레이드 시 이전 온보딩 상태 초기화 (import 시 즉시 실행 X)
+function clearIfVersionChanged() {
+  try {
+    const saved = localStorage.getItem(VERSION_KEY)
+    if (saved !== APP_VERSION) {
+      localStorage.removeItem(ONBOARDED_KEY)
+      localStorage.setItem(VERSION_KEY, APP_VERSION)
+      console.log(`[Nexus] 버전 변경 (${saved} → ${APP_VERSION}): 온보딩 초기화`)
+    }
+  } catch { /* ignore */ }
+}
 
 export function hasCompletedOnboarding(): boolean {
-  try { return localStorage.getItem(ONBOARDED_KEY) === '1' } catch { return false }
+  try {
+    clearIfVersionChanged()  // ← 여기서 호출 (import 사이드 이펙트 제거)
+    return localStorage.getItem(ONBOARDED_KEY) === '1'
+  } catch { return false }
 }
 
 export function markOnboardingComplete() {
-  try { localStorage.setItem(ONBOARDED_KEY, '1') } catch { /* ignore */ }
+  try {
+    localStorage.setItem(ONBOARDED_KEY, '1')
+    localStorage.setItem(VERSION_KEY, APP_VERSION)
+  } catch { /* ignore */ }
 }
 
 interface OnboardingProps {

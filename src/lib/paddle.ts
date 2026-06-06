@@ -1,5 +1,10 @@
 import { initializePaddle, Paddle } from '@paddle/paddle-js'
-import { PADDLE_CLIENT_TOKEN, PADDLE_PRICE_ID, PADDLE_ENVIRONMENT } from '../config/services'
+import {
+  PADDLE_CLIENT_TOKEN, PADDLE_ENVIRONMENT,
+  PADDLE_PRICE_ID, PADDLE_PRICE_YEARLY,
+  PADDLE_PRICE_PROPLUS, PADDLE_PRICE_PROPLUS_YEARLY,
+  PADDLE_PRICE_TEAM5, PADDLE_PRICE_TEAM10, PADDLE_PRICE_ENT,
+} from '../config/services' // paddle plan prices
 
 // Paddle price IDs
 // pro_monthly: 실제 운영 중 ($19/mo · ₩14,900)
@@ -7,12 +12,12 @@ import { PADDLE_CLIENT_TOKEN, PADDLE_PRICE_ID, PADDLE_ENVIRONMENT } from '../con
 // team_*: Paddle 대시보드에서 가격 ID 생성 후 환경변수 갱신
 export const PADDLE_PRICES = {
   pro_monthly:       PADDLE_PRICE_ID,
-  pro_yearly:        PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_YEARLY
-  pro_plus_monthly:  PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_PROPLUS — Pro+ $49/mo
-  pro_plus_yearly:   PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_PROPLUS_YEARLY
-  team_5:            PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_TEAM5
-  team_10:           PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_TEAM10
-  enterprise:        PADDLE_PRICE_ID, // TODO: VITE_PADDLE_PRICE_ENT
+  pro_yearly:        PADDLE_PRICE_YEARLY       || PADDLE_PRICE_ID,
+  pro_plus_monthly:  PADDLE_PRICE_PROPLUS      || PADDLE_PRICE_ID,
+  pro_plus_yearly:   PADDLE_PRICE_PROPLUS_YEARLY || PADDLE_PRICE_ID,
+  team_5:            PADDLE_PRICE_TEAM5        || PADDLE_PRICE_ID,
+  team_10:           PADDLE_PRICE_TEAM10       || PADDLE_PRICE_ID,
+  enterprise:        PADDLE_PRICE_ENT          || PADDLE_PRICE_ID,
 }
 
 // 플랜 메타 (UI 표시용)
@@ -49,11 +54,14 @@ export async function openCheckout(emailOrPriceId: string, userIdOrEmail?: strin
   const paddle = await initPaddle()
   // Detect if first arg looks like a Paddle price ID (starts with 'pri_')
   const isPriceId = emailOrPriceId.startsWith('pri_')
-  const priceId = isPriceId ? emailOrPriceId : PADDLE_PRICE_ID
-  const email   = isPriceId ? userIdOrEmail : emailOrPriceId
+  const priceId  = isPriceId ? emailOrPriceId : PADDLE_PRICE_ID
+  const email    = isPriceId ? userIdOrEmail : emailOrPriceId
+  // When called as openCheckout(email, userId), second arg is userId → inject as custom_data
+  const userId   = isPriceId ? undefined : userIdOrEmail
   paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
     customer: email ? { email } : undefined,
+    customData: userId ? { user_id: userId } : undefined,
     settings: {
       displayMode: 'overlay',
       theme: 'dark',

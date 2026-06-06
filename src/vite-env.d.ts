@@ -10,6 +10,14 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY: string
   readonly VITE_PADDLE_CLIENT_TOKEN: string
   readonly VITE_PADDLE_PRICE_ID: string
+  readonly VITE_PADDLE_PRICE_YEARLY: string
+  readonly VITE_PADDLE_PRICE_PROPLUS: string
+  readonly VITE_PADDLE_PRICE_PROPLUS_YEARLY: string
+  readonly VITE_PADDLE_PRICE_TEAM5: string
+  readonly VITE_PADDLE_PRICE_TEAM10: string
+  readonly VITE_PADDLE_PRICE_ENT: string
+  readonly VITE_PADDLE_ENVIRONMENT: 'sandbox' | 'production'
+  readonly VITE_PADDLE_WEBHOOK_SECRET: string
 }
 
 interface ImportMeta {

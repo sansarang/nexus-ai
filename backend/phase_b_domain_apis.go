@@ -271,7 +271,11 @@ func LookupBusinessNumber(brno string) (*NTSBusinessResult, error) {
 		return nil, fmt.Errorf("사업자등록번호는 10자리여야 합니다 (입력: %s)", brno)
 	}
 
-	apiKey := getEnvKey("ODCLOUD_API_KEY")
+	// 키 우선순위: VerticalAPIKeys.DataGOKR → 환경변수 ODCLOUD_API_KEY (공공데이터포털 통합키)
+	apiKey := loadVerticalAPIKeys().DataGOKR
+	if apiKey == "" {
+		apiKey = getEnvKey("ODCLOUD_API_KEY")
+	}
 	if apiKey == "" {
 		// 폴백: 홈택스 링크 안내
 		return &NTSBusinessResult{

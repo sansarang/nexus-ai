@@ -1,0 +1,43 @@
+NEXUS AI Backend API 기술 명세서 v2.8
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[아키텍처 개요]
+- Backend: Go 1.22 (고성능 HTTP 서버, 포트 17892)
+- Frontend: React + TypeScript + Tauri (Windows 네이티브)
+- LLM: Groq API (Llama 3.3 70B) → Ollama 로컬 폴백
+- 데이터베이스: Supabase (PostgreSQL)
+- 파일저장: 로컬 (~/.nexus/)
+
+[주요 엔드포인트]
+POST /api/command     - 자연어 명령 처리 (핵심)
+GET  /api/agent/status - 자가치유 Agent 상태
+POST /api/agent/analyze-now - 수동 분석 트리거
+GET  /api/persona/list - 19개 페르소나 목록
+POST /api/llm/chat    - LLM 직접 호출
+POST /v1/chat         - Enterprise API
+
+[자가치유 시스템]
+- 12개 분야 Agent: GoBackend, FrontendTauri, CardDesigner,
+  PythonSidecar, LLMPrompt, KoreanNLP, LLMIntegration,
+  RAGKnowledge, DomainAPI, Security, BuildDeploy, TestValidation
+- 분석 주기: 5분마다 telemetry 분석
+- 자동 승인: Low(1분), Medium(10분)
+- 힐링 방식: LLM이 프롬프트 개선 → ~/.nexus/prompts/ 저장
+- 재시작 없이 즉시 반영
+
+[보안 정책]
+- 모든 AI 처리: 127.0.0.1 로컬
+- API 키: ~/.nexus/.env 암호화 저장
+- 위험 액션: confirm 카드 필수 (재시작/삭제/결제)
+- 데이터 외부 전송: 사용자 쿼리 텍스트만 (파일/이메일/시스템 정보 제외)
+
+[성능 지표 (v2.8 실측)]
+- 평균 응답시간: 2.4초
+- 빈 응답률: 0% (97/97 명령)
+- e2e 검증: 95.5%
+- 업타임: 99.5% SLA 목표
+
+[알려진 이슈]
+- Vision API: P95 응답시간 8.2초 (목표 5초, 개선 중)
+- 배달앱 크롤링: Coupang Eats 차단 이슈 (User-Agent 우회 필요)
+- Outlook COM: Windows 11 24H2 일부 호환성 이슈

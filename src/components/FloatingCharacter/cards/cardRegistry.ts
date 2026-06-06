@@ -110,6 +110,22 @@ export const ACTION_TO_CARD: Record<string, string> = {
   video_download_summary:   'file_result',
   video_transcript:         'doc_summary',
 
+  // ── 백엔드 불일치 보완 (v2.8.1 전수검사) ───────────────────
+  gpu_stats:          'pc_status',
+  autoclean:          'clean_result',
+  defender_status:    'defender',
+  drivers:            'drivers',
+  wayback:            'web_search',
+  file_organize:      'file_search',
+  file_large:         'duplicates',
+  ocr_clipboard:      'vision_ocr',
+  imap_inbox:         'email_list',
+  gmail_inbox:        'email_list',
+  smart_agent:        'agent_result',
+  place_view:         'map_result',
+  meeting_stop:       'meeting_summary',
+  clipboard_history:  'cmd_result',
+
   // ── 신규 추가 (v2.8.1) ──────────────────────────────────────
   // 사업자 조회 (국세청 NTS)
   business_lookup:     'business_card',
@@ -125,7 +141,6 @@ export const ACTION_TO_CARD: Record<string, string> = {
   map_search:          'map_result',
   directions:          'map_result',
   travel_time:         'map_result',
-  place_view:          'map_result',
 
   // 이메일 작성/캘린더 이벤트
   email_draft_reply:   'email_draft',
@@ -145,7 +160,6 @@ export const ACTION_TO_CARD: Record<string, string> = {
   // 미팅 요약/전사
   meeting_summarize:   'meeting_summary',
   meeting_transcribe:  'meeting_summary',
-  meeting_stop:        'meeting_summary',
 
   // 메모리/리콜 검색
   memory_search:       'memory_card',
