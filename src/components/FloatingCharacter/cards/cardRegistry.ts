@@ -174,10 +174,9 @@ export const ACTION_TO_CARD: Record<string, string> = {
   wifi_toggle:         'cmd_result',
   power_plan:          'cmd_result',
   system_updates:      'cmd_result',
-  clipboard_history:   'cmd_result',
 
-  // 보안 경보 (VirusTotal / Shodan)
-  virustotal:          'security_alert',
+
+: 'REMOVE_THIS_LINE'  virustotal:          'security_alert',
   shodan:              'security_alert',
 
   // 소셜 미디어
