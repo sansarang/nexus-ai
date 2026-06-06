@@ -347,8 +347,7 @@ export function FloatingCharacter() {
       const tid = setTimeout(() => {
         const preview = greeting.replace(/\*\*/g, '').replace(/\n/g, ' ').slice(0, 60)
         setBubbleText(preview + (greeting.length > 60 ? '...' : ''))
-        const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
-        speak(greeting, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) }, 'neutral', undefined, isPro)
+        // TTS 음성 완전 제거
       }, 800)
       return () => clearTimeout(tid)
     }
@@ -574,8 +573,7 @@ export function FloatingCharacter() {
     setBubbleText(preview + (alert.message.length > 60 ? '...' : ''))
     // ★ 가입 완료 전엔 Proactive 음성 차단 (OnboardingFlow 위에 음성 떨어지는 거 방지)
     if (!isOnboarded || !isLoggedIn) return
-    const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
-    speak(alert.message, userLang, () => setSpeaking(true), () => { setSpeaking(false); setTimeout(() => setBubbleText(''), 1500) }, 'neutral', undefined, isPro)
+    // TTS 음성 완전 제거
   }, [userLang, subscriptionStatus, isOnboarded, isLoggedIn])
 
   /* ── Proactive AI — stats 폴링 (30초) ── */
@@ -648,8 +646,7 @@ export function FloatingCharacter() {
         setMinimized(false)
         setChatOpen(true)
         setMessages(prev => [...prev, { id: `focus-done-${Date.now()}`, role: 'nexus', text: msg }])
-        const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
-        speak(msg, userLang, () => setSpeaking(true), () => setSpeaking(false), 'neutral', undefined, isPro)
+        // TTS 음성 완전 제거
         clearInterval(focusTimerRef.current!)
       }
     }, 1_000)

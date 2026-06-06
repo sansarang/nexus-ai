@@ -16,7 +16,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const ONBOARDED_KEY = 'nexus-onboarded'
-const APP_VERSION   = '2.8.1'
+const APP_VERSION   = '2.9.0'
 const VERSION_KEY   = 'nexus-app-version'
 
 // ★ 버전 업그레이드 시 이전 온보딩 상태 초기화 (import 시 즉시 실행 X)
