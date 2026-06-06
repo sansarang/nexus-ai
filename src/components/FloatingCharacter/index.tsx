@@ -670,41 +670,10 @@ export function FloatingCharacter() {
    *  - 음성은 (soundEnabled || forceVoiceNextRef) 일 때만
    *  - 강제 ON일 땐 첫 문장만 읽고 1회용 플래그 reset (긴 결과 안 드론)
    */
-  const speakText = useCallback((text: string, em?: CharacterEmotion) => {
-    const clean = text.replace(/\*\*/g, '').replace(/\n+/g, ' ').trim()
-    setBubbleText(clean)
-
-    const forced = forceVoiceNextRef.current
-    if (!soundEnabled && !forced) return  // 디폴트 OFF — 시각만 갱신
-    if (forced) forceVoiceNextRef.current = false  // 1회용 플래그 소진
-
-    // 음성 입력 응답 — 간략하게 주요 내용만 (사장님 정책)
-    let toRead = clean
-    if (forced && !soundEnabled) {
-      // 1) 첫 문장 추출
-      const firstSentence = clean.split(/(?<=[.!?。!?])\s+/)[0] ?? clean
-      // 2) URL/마크다운 잡음 제거
-      const stripped = firstSentence
-        .replace(/https?:\/\/\S+/g, '')
-        .replace(/\[[^\]]*\]/g, '')
-        .replace(/[•·\-*]+\s*/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-      // 3) 80자 컷 (음성 자연스러움 ~7초)
-      toRead = stripped.length > 80 ? stripped.slice(0, 78) + '…' : stripped
-    }
-
-    const ttsEmotion = em ?? emotion
-    const isPro = subscriptionStatus === 'active' || subscriptionStatus === 'trial'
-    speak(
-      toRead, userLang,
-      () => setSpeaking(true),
-      () => setSpeaking(false),
-      ttsEmotion as import('../../lib/nexus/tts').SpeakEmotion,
-      ttsVoice,
-      isPro,
-    )
-  }, [userLang, emotion, ttsVoice, soundEnabled, subscriptionStatus])
+  // TTS 음성 완전 제거 (9번 수정) — speakText는 no-op으로 유지 (호출부 유지)
+  const speakText = useCallback((_text: string, _em?: CharacterEmotion) => {
+    // 음성 및 말풍선 모두 제거됨
+  }, [])
 
   /* STT */
 
@@ -1739,22 +1708,22 @@ export function FloatingCharacter() {
   ── */
   /* 드래그 가능한 전체 블록 */
   const btnList = [
-    ...(speaking ? [{
-      icon: '⏹', active: true, color: '#ef4444',
-      onClick: () => { stopSpeaking(); setSpeaking(false) }, tip: '음성 중지',
-    }] : [
-      { icon: soundEnabled ? '🔊' : '🔇', active: soundEnabled, color: soundEnabled ? primaryColor : '#6b7280',
-        onClick: () => setSoundEnabled(p => { const next = !p; localStorage.setItem('nexus-sound', next ? 'on' : 'off'); return next }),
-        tip: userLang === 'en' ? (soundEnabled ? 'Mute AI' : 'Unmute AI') : (soundEnabled ? 'AI 소리 끄기' : 'AI 소리 켜기') },
-    ]),
+    // TTS 음성 버튼 제거됨 (9번 수정)
     { icon: isActive ? '💬' : '😴',    active: isActive,     color: isActive ? primaryColor : '#6b7280',
-      onClick: () => { setIsActive(p => !p); if (isActive) stopSpeaking() },
+      onClick: () => { setIsActive(p => !p) },
       tip: userLang === 'en' ? (isActive ? 'Deactivate' : 'Activate') : (isActive ? '비활성화' : '활성화') },
     { icon: '⚙️', active: false,       color: primaryColor,  onClick: () => setSettingsOpen(true),
       tip: userLang === 'en' ? 'Settings' : '설정' },
     { icon: '🏢', active: false,       color: '#0ea5e9',     onClick: () => setTeamOpen(true),
       tip: userLang === 'en' ? 'Team' : '팀 관리' },
-    { icon: '—',  active: false,       color: '#6b7280',     onClick: () => setMinimized(true),
+    { icon: '—',  active: false,       color: '#6b7280',     onClick: async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        await getCurrentWindow().hide()
+      } catch {
+        setMinimized(true) // 브라우저 개발환경 fallback
+      }
+    },
       tip: userLang === 'en' ? 'Minimize' : '최소화' },
     { icon: '✕',  active: false,       color: '#ef4444',     onClick: async () => {
       try {
@@ -1821,53 +1790,6 @@ export function FloatingCharacter() {
           }} />
         )}
 
-        {/* ─ Siri Orb ─ */}
-        <div
-          onClick={handleCharacterClick}
-          title="클릭해서 대화하기"
-          style={{ flexShrink: 0, cursor: 'pointer', position: 'relative', zIndex: 1 }}
-        >
-          <motion.div
-            animate={speaking
-              ? { scale: [1, 1.12, 1], boxShadow: [`0 0 18px ${(activePersona?.color ?? primaryColor)}99`, `0 0 36px ${(activePersona?.color ?? primaryColor)}ee`, `0 0 18px ${(activePersona?.color ?? primaryColor)}99`] }
-              : { scale: [1, 1.04, 1], boxShadow: [`0 0 14px ${(activePersona?.color ?? primaryColor)}77`, `0 0 24px ${(activePersona?.color ?? primaryColor)}aa`, `0 0 14px ${(activePersona?.color ?? primaryColor)}77`] }
-            }
-            transition={{ duration: speaking ? 0.5 : 3.5, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              // UI-6: 캐릭터 키우기 46 → 56px
-              width: 56, height: 56, borderRadius: '50%',
-              // UI-13: 페르소나 색 우선 사용
-              background: `radial-gradient(circle at 38% 32%, ${(activePersona?.color ?? accentColor)}ee, ${(activePersona?.color ?? primaryColor)}cc 40%, ${(activePersona?.color ?? primaryColor)}88 68%, ${(activePersona?.color ?? primaryColor)}44)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 22,
-              opacity: isActive ? 1 : 0.55,
-            }}
-          >
-            {!isActive && '😴'}
-            {/* UI-12: 활성 페르소나 아이콘을 캐릭터 위에 미니 뱃지로 */}
-            {isActive && activePersona && (
-              <span style={{
-                position: 'absolute', bottom: -2, right: -2,
-                fontSize: 14, background: '#0a0a14',
-                borderRadius: '50%', width: 22, height: 22,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: `2px solid ${activePersona.color}`,
-                boxShadow: `0 0 8px ${activePersona.color}66`,
-              }}>
-                {activePersona.emoji}
-              </span>
-            )}
-          </motion.div>
-          {speaking && (
-            <div style={{
-              position: 'absolute', inset: -4, borderRadius: '50%',
-              border: `1.5px solid ${primaryColor}66`,
-              animation: 'orb-speak 0.5s ease-in-out infinite alternate',
-              pointerEvents: 'none',
-            }} />
-          )}
-        </div>
-
         {/* ─ 헤더는 미니멀: 페르소나/사용량은 좌측 Sidebar 에서 전담 ─ */}
         <div style={{ flex: 1, minWidth: 0, zIndex: 1 }} />
 
@@ -1907,51 +1829,7 @@ export function FloatingCharacter() {
         </div>
       </div>
 
-      {/* ── TTS 말풍선 ── */}
-      <AnimatePresence>
-        {bubbleText && (
-          <motion.div
-            key="bubble"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            style={{
-              overflow: 'hidden',
-              background: `${primaryColor}12`,
-              borderBottom: `1px solid ${primaryColor}28`,
-              flexShrink: 0,
-            }}
-          >
-            <div style={{
-              padding: '10px 14px',
-              fontSize: 12.5, color: 'rgba(255,255,255,0.93)',
-              lineHeight: 1.6, wordBreak: 'keep-all',
-              display: 'flex', alignItems: 'flex-start', gap: 8,
-            }}>
-              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>💬</span>
-              <span style={{ flex: 1 }}>
-                {bubbleExpanded ? bubbleText : bubbleText.slice(0, 200) + (bubbleText.length > 200 ? '…' : '')}
-              </span>
-              <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                {bubbleText.length > 200 && (
-                  <button onClick={() => setBubbleExpanded(e => !e)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: primaryColor, fontSize: 11, padding: '2px 4px' }}>
-                    {bubbleExpanded ? '▲' : '▼'}
-                  </button>
-                )}
-                <button onClick={() => navigator.clipboard.writeText(bubbleText).catch(() => {})}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '2px 4px' }}>
-                  ⎘
-                </button>
-                <button onClick={() => { setBubbleText(''); setBubbleExpanded(false) }}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '2px 4px' }}>
-                  ✕
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* TTS 말풍선 제거됨 (8번 수정) */}
 
       {/* ── 비활성화 상태 배너 ── */}
       {!isActive && (
@@ -2060,7 +1938,11 @@ export function FloatingCharacter() {
 
         {/* ── 좌: Sidebar (페르소나 + 최근 결과 + 음성 + 단축키) ── */}
         <Sidebar
-          messages={messages}
+          messages={messages.filter(m => {
+            if (m.role !== 'nexus') return true
+            const errKw = ['오류', '실패', '에러', 'error', '미실행', '불가', '없어요', '안 돼요']
+            return !errKw.some(kw => m.text?.toLowerCase().includes(kw))
+          })}
           accentColor={primaryColor}
           primaryColor={primaryColor}
           activePersona={activePersona ? { name: activePersona.name, emoji: activePersona.emoji, color: activePersona.color } : null}
@@ -2134,57 +2016,8 @@ export function FloatingCharacter() {
           onSearch={(q) => sendText(q)}
         />
 
-        {/* ── 중: 채팅 영역 (CardGrid 위젯 + Chat) ── */}
+        {/* ── 중: 채팅 영역 ── */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* ── CardGrid (Apple 날씨 위젯) — 카드 있는 최근 4개 메시지 ── */}
-          {(() => {
-            const cardItems: CardGridItem[] = messages
-              .filter(m => m.role === 'nexus' && !!(m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5))
-              .slice(-8)
-              .map(m => {
-                // 카드 타입별 아이콘/제목 추출 (Sidebar 와 동일 로직 재사용 아이디어)
-                let icon = '💬', title = '결과', preview: React.ReactNode = m.text.slice(0, 60)
-                if (m.inlineCard?.type === 'pc_status') { icon = '🖥️'; title = 'PC 상태' }
-                else if (m.inlineCard?.type === 'scan_result') { icon = '🔒'; title = '보안 스캔' }
-                else if (m.inlineCard?.type === 'clean_result') { icon = '🧹'; title = '정리 완료' }
-                else if (m.inlineCard2?.type === 'weather_card') { icon = '🌤'; title = '날씨' }
-                else if (m.inlineCard2?.type === 'price_compare') { icon = '🛒'; title = '가격 비교' }
-                else if (m.inlineCard2?.type === 'file_result') { icon = '📄'; title = '파일 생성' }
-                else if (m.inlineCard5?.type === 'web_search') { icon = '🌐'; title = '웹 검색' }
-                else if (m.inlineCard5?.type === 'news_search') { icon = '📰'; title = '뉴스' }
-                else if (m.inlineCard5?.type === 'youtube') { icon = '▶️'; title = '유튜브' }
-                preview = (m.text || '').split('\n').slice(0, 2).join('\n').slice(0, 100)
-                return {
-                  id: m.id,
-                  icon, title,
-                  preview,
-                  accent: 'default' as const,
-                  timestamp: parseInt(m.id) || Date.now(),
-                }
-              })
-            if (cardItems.length === 0) return null
-            return (
-              <CardGrid
-                items={cardItems}
-                maxCards={8}
-                collapsible
-                onCardClick={(item) => {
-                  const msg = messages.find(m => m.id === item.id)
-                  if (msg) {
-                    setCanvasContent({
-                      title: item.title,
-                      inlineCard: msg.inlineCard,
-                      inlineCard2: msg.inlineCard2,
-                      inlineCard3: msg.inlineCard3,
-                      inlineCard4: msg.inlineCard4,
-                      inlineCard5: msg.inlineCard5,
-                    })
-                  }
-                }}
-              />
-            )
-          })()}
-
           <ChatBubble
             messages={messages}
             typing={typing}
@@ -2226,7 +2059,85 @@ export function FloatingCharacter() {
           />
         </div>
 
-        {/* (이전 우측 172px "최근 결과" 패널은 좌측 Sidebar 로 통합됨) */}
+        {/* ── 우: 결과 패널 (196px) ── */}
+        {(() => {
+          const ERROR_KEYWORDS = ['오류', '실패', '에러', 'error', '미실행', '불가', '없어요', '안 돼요']
+          const resultMsgs = messages
+            .filter(m => m.role === 'nexus' && !!(m.inlineCard || m.inlineCard2 || m.inlineCard3 || m.inlineCard4 || m.inlineCard5))
+            .filter(m => !ERROR_KEYWORDS.some(kw => m.text?.toLowerCase().includes(kw)))
+            .slice(-10)
+          if (resultMsgs.length === 0) return null
+          return (
+            <div style={{
+              width: 188, flexShrink: 0,
+              borderLeft: '1px solid rgba(255,255,255,0.07)',
+              background: 'rgba(0,0,0,0.18)',
+              display: 'flex', flexDirection: 'column',
+              overflow: 'hidden',
+            }}>
+              {/* 패널 헤더 */}
+              <div style={{
+                padding: '10px 10px 6px',
+                fontSize: 10.5, fontWeight: 600,
+                color: 'rgba(255,255,255,0.35)',
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                flexShrink: 0,
+              }}>
+                {userLang === 'en' ? 'Results' : '결과'}
+              </div>
+              {/* 결과 목록 */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
+                {[...resultMsgs].reverse().map(m => {
+                  let icon = '💬', title = userLang === 'en' ? 'Result' : '결과'
+                  if (m.inlineCard?.type === 'pc_status')    { icon = '🖥️'; title = userLang === 'en' ? 'PC Status' : 'PC 상태' }
+                  else if (m.inlineCard?.type === 'scan_result')  { icon = '🔒'; title = userLang === 'en' ? 'Security Scan' : '보안 스캔' }
+                  else if (m.inlineCard?.type === 'clean_result') { icon = '🧹'; title = userLang === 'en' ? 'Cleanup' : '정리 완료' }
+                  else if (m.inlineCard2?.type === 'weather_card')  { icon = '🌤'; title = userLang === 'en' ? 'Weather' : '날씨' }
+                  else if (m.inlineCard2?.type === 'price_compare') { icon = '🛒'; title = userLang === 'en' ? 'Prices' : '가격 비교' }
+                  else if (m.inlineCard2?.type === 'file_result')   { icon = '📄'; title = userLang === 'en' ? 'File' : '파일 생성' }
+                  else if (m.inlineCard5?.type === 'web_search')  { icon = '🌐'; title = userLang === 'en' ? 'Web Search' : '웹 검색' }
+                  else if (m.inlineCard5?.type === 'news_search') { icon = '📰'; title = userLang === 'en' ? 'News' : '뉴스' }
+                  else if (m.inlineCard5?.type === 'youtube')     { icon = '▶️'; title = 'YouTube' }
+                  const preview = (m.text || '').split('\n').slice(0, 2).join(' ').slice(0, 60)
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        setCanvasContent({
+                          title,
+                          inlineCard: m.inlineCard,
+                          inlineCard2: m.inlineCard2,
+                          inlineCard3: m.inlineCard3,
+                          inlineCard4: m.inlineCard4,
+                          inlineCard5: m.inlineCard5,
+                        })
+                      }}
+                      style={{
+                        padding: '7px 10px', cursor: 'pointer',
+                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.05)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                        <span style={{ fontSize: 12 }}>{icon}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', background: 'rgba(100,220,100,0.15)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                          {userLang === 'en' ? 'Done' : '완료'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
+                        {preview}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── 동적 결과창 (결과 완료 시만 슬라이드인) ── */}
@@ -2549,8 +2460,14 @@ export function FloatingCharacter() {
               boxShadow: '0 8px 32px rgba(0,0,0,0.5)', pointerEvents: 'auto',
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 12, color: '#fff', marginBottom: 4 }}>
-              {toast.title}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#fff', marginBottom: 4 }}>
+                {toast.title}
+              </div>
+              <button
+                onClick={() => setToastAlerts(prev => prev.filter(t => t.id !== toast.id))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 14, padding: 0, lineHeight: 1, flexShrink: 0 }}
+              >✕</button>
             </div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
               {toast.message.slice(0, 120)}{toast.message.length > 120 ? '...' : ''}

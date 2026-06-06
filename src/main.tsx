@@ -52,7 +52,7 @@ async function setupTauriEvents() {
         if (code) {
           _oauthProcessing = true
           try {
-            const { supabase, fetchSubscription, createTrialSubscription, resolveStatus } = await import('./lib/supabase')
+            const { supabase, fetchSubscription, createTrialSubscription, resolveStatus, fetchUserSettings } = await import('./lib/supabase')
             const { data, error } = await supabase.auth.exchangeCodeForSession(code)
             if (!error && data.session?.user) {
               const user = data.session.user
@@ -65,6 +65,23 @@ async function setupTauriEvents() {
               const status = resolveStatus(row)
               const expiry = row?.current_period_end ?? row?.trial_ends_at ?? ''
               useAppStore.getState().setLoggedIn(email, status, expiry, user.id)
+              // 온보딩 상태 복원 — oauth-callback은 onAuthStateChange를 건너뛰므로 직접 호출
+              try {
+                const settings = await fetchUserSettings(user.id)
+                if (settings?.is_onboarded) {
+                  if (settings.assistant_name) { localStorage.setItem('nexus-assistant-name', settings.assistant_name); useAppStore.getState().setAssistantName(settings.assistant_name) }
+                  if (settings.user_name) { localStorage.setItem('nexus-user-name', settings.user_name); useAppStore.getState().setUserName(settings.user_name) }
+                  if (settings.user_lang) { localStorage.setItem('nexus-lang', settings.user_lang); useAppStore.getState().setUserLang(settings.user_lang as 'ko' | 'en') }
+                  if (settings.primary_color) { localStorage.setItem('nexus-primary-color', settings.primary_color); useAppStore.getState().setPrimaryColor(settings.primary_color) }
+                  if (settings.accent_color) { localStorage.setItem('nexus-accent-color', settings.accent_color); useAppStore.getState().setAccentColor(settings.accent_color) }
+                  if (settings.glb_url) localStorage.setItem('nexus-glb-url', settings.glb_url)
+                  if (settings.preset) localStorage.setItem('nexus-preset', settings.preset)
+                  if (settings.tts_voice) { localStorage.setItem('nexus-tts-voice', settings.tts_voice); useAppStore.getState().setTtsVoice(settings.tts_voice) }
+                  if (settings.character_id) localStorage.setItem('nexus-character', settings.character_id)
+                  localStorage.setItem('nexus-onboarded', 'true')
+                  useAppStore.setState({ isOnboarded: true })
+                }
+              } catch { /* 설정 복원 실패 시 무시 */ }
             }
           } finally {
             setTimeout(() => { _oauthProcessing = false }, 3000)

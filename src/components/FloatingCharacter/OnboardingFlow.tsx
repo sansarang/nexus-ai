@@ -635,7 +635,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             style={{
-              width: '100%', maxWidth: 620,
+              width: '100%', maxWidth: 520,
               position: 'relative',
             }}
           >
@@ -1046,7 +1046,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            style={{ ...card, maxWidth: 620 }}
+            style={{
+              width: '100%', maxWidth: 560,
+              position: 'relative',
+              display: 'flex', flexDirection: 'column',
+              padding: '28px 24px',
+            }}
           >
             {progressBar}
 
@@ -1115,14 +1120,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => setSelectedPlan(plan)}
                     style={{
                       background: isSelected
-                        ? `linear-gradient(135deg, ${planColor}28, ${planColor}12)`
-                        : 'rgba(255,255,255,0.04)',
+                        ? `linear-gradient(135deg, ${planColor}35, ${planColor}15)`
+                        : 'rgba(255,255,255,0.03)',
                       border: isSelected
-                        ? `2px solid ${planColor}88`
-                        : '1.5px solid rgba(255,255,255,0.08)',
+                        ? `2px solid ${planColor}`
+                        : '1.5px solid rgba(255,255,255,0.07)',
                       borderRadius: 16, padding: '16px 12px',
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'all 0.18s', position: 'relative',
+                      boxShadow: isSelected ? `0 0 16px ${planColor}33` : 'none',
+                      opacity: isSelected ? 1 : 0.7,
+                      transform: isSelected ? 'scale(1.02)' : 'scale(1)',
                     } as React.CSSProperties}
                   >
                     {isPro && (
@@ -1210,29 +1218,57 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            style={card}
+            style={{
+              width: '100%', maxWidth: 420,
+              position: 'relative',
+              display: 'flex', flexDirection: 'column',
+              padding: '32px 28px',
+            }}
           >
             {progressBar}
 
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              {/* Nexus 로고 Orb */}
               <div style={{
-                width: 72, height: 72, borderRadius: '50%',
-                background: 'radial-gradient(circle at 38% 32%, rgba(139,92,246,0.95), rgba(99,102,241,0.6) 70%)',
-                boxShadow: '0 0 32px rgba(139,92,246,0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
+                width: 68, height: 68, borderRadius: 18,
+                background: `linear-gradient(135deg, ${selectedStyle.primaryColor}dd, ${selectedStyle.accentColor}bb)`,
+                boxShadow: `0 0 28px ${selectedStyle.primaryColor}55, inset 0 1px 0 rgba(255,255,255,0.25)`,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 32, marginBottom: 16,
-              }}>🤖</div>
+                marginBottom: 14,
+              }}>
+                <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+                  <circle cx="17" cy="17" r="13" stroke="white" strokeWidth="2" strokeOpacity="0.9"/>
+                  <circle cx="17" cy="17" r="6" fill="white" fillOpacity="0.9"/>
+                  <circle cx="10" cy="11" r="2.5" fill="white" fillOpacity="0.6"/>
+                  <circle cx="24" cy="11" r="2.5" fill="white" fillOpacity="0.6"/>
+                  <circle cx="17" cy="25" r="2.5" fill="white" fillOpacity="0.6"/>
+                </svg>
+              </div>
+              <div style={{ fontSize: 10.5, letterSpacing: '0.12em', color: selectedStyle.primaryColor, fontWeight: 700, marginBottom: 6 }}>NEXUS AI</div>
               <h2 style={{
-                fontSize: 24, fontWeight: 800, color: '#f1f5f9', marginBottom: 8,
+                fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 8,
                 letterSpacing: '-0.01em',
               }}>
                 {isEn ? 'Almost done!' : '거의 다 끝났어요'}
               </h2>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, margin: 0 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 10px' }}>
                 {isEn
-                  ? <>Sign in with Google →<br />NEXUS instantly ready (Gmail integrated).</>
-                  : <>Google 한 번 로그인 →<br />NEXUS 즉시 시작 (Gmail 자동 연동).</>}
+                  ? <>Sign in with Google to save your settings<br />and start using NEXUS.</>
+                  : <>Google로 로그인하면 설정이 저장되고<br />바로 사용할 수 있어요.</>}
               </p>
+              {/* 신뢰 텍스트 */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+                {(isEn
+                  ? ['Free to start', 'No card required', 'Cancel anytime']
+                  : ['무료로 시작', '카드 불필요', '언제든 취소']
+                ).map(t => (
+                  <span key={t} style={{
+                    fontSize: 10.5, color: 'rgba(255,255,255,0.35)',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 20, padding: '2px 10px',
+                  }}>{t}</span>
+                ))}
+              </div>
             </div>
 
             {!googleEmail ? (

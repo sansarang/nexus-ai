@@ -374,45 +374,25 @@ export function Sidebar({
         )}
       </div>
 
-      {/* ── 하단: 음성 + 단축키 ── */}
+      {/* ── 하단: 단축키 ── */}
       <div style={{
         padding: `${NEXUS.spacing.md}px ${NEXUS.spacing.lg}px ${NEXUS.spacing.lg}px`,
         borderTop: `1px solid ${NEXUS.border.subtle}`,
-        display: 'flex', flexDirection: 'column', gap: NEXUS.spacing.md,
+        display: 'flex', flexDirection: 'column', gap: 4,
       }}>
-        {onVoiceToggle && (
-          <button
-            onClick={onVoiceToggle}
-            style={{
-              width: '100%', padding: '10px 12px',
-              background: voiceActive ? NEXUS.brand.gradient : NEXUS.bg.input,
-              border: voiceActive
-                ? `1px solid ${NEXUS.border.glow}`
-                : `1px solid ${NEXUS.border.subtle}`,
-              borderRadius: NEXUS.radius.md,
-              color: voiceActive ? '#ffffff' : NEXUS.text.secondary,
-              fontSize: NEXUS.font.size.sm,
-              fontWeight: NEXUS.font.weight.bold,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              boxShadow: voiceActive ? NEXUS.shadow.glow : 'none',
-              transition: `all ${NEXUS.motion.standard}`,
-            }}
-          >
-            🎤 {voiceActive
-              ? (lang === 'en' ? 'Listening…' : '듣는 중…')
-              : (lang === 'en' ? 'Voice input' : '음성 입력')}
-          </button>
-        )}
-        <div style={{
-          fontSize: NEXUS.font.size.xs,
-          color: NEXUS.text.tertiary,
-          lineHeight: 1.6,
-          textAlign: 'center',
-        }}>
-          <div>⌨️ <span style={{ color: NEXUS.text.secondary }}>Alt+Space</span> 빠른 호출</div>
-          <div>🔊 <span style={{ color: NEXUS.text.secondary }}>&quot;헤이 넥서스&quot;</span></div>
+        <div style={{ fontSize: 9, color: NEXUS.text.tertiary, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>
+          {lang === 'en' ? 'Shortcuts' : '단축키'}
         </div>
+        {[
+          { key: 'Alt+Space', label: lang === 'en' ? 'Quick launch' : '빠른 호출' },
+          { key: 'Alt+S', label: lang === 'en' ? 'Screen capture' : '화면 분석' },
+          { key: 'Alt+C', label: lang === 'en' ? 'Clipboard' : '클립보드' },
+        ].map(({ key, label }) => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10.5, color: NEXUS.text.tertiary }}>
+            <span>{label}</span>
+            <span style={{ background: NEXUS.bg.input, border: `1px solid ${NEXUS.border.subtle}`, borderRadius: 4, padding: '1px 5px', fontSize: 9.5, color: NEXUS.text.secondary, fontFamily: 'monospace' }}>{key}</span>
+          </div>
+        ))}
       </div>
     </div>
   )

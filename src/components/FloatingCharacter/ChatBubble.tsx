@@ -911,11 +911,11 @@ export function ChatBubble({
                   <div style={{
                     maxWidth: '86%', padding: '10px 14px',
                     borderRadius: '16px 16px 4px 16px',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    border: '1px solid rgba(139,92,246,0.45)',
+                    background: 'rgba(79,108,247,0.88)',
+                    border: '1px solid rgba(99,130,255,0.4)',
                     fontSize: 13, color: '#ffffff', fontWeight: 500,
                     lineHeight: 1.6, wordBreak: 'break-word',
-                    boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+                    boxShadow: 'none',
                   }}>
                     {entry.q}
                     {entry.action && entry.action !== 'chat' && (
@@ -930,13 +930,11 @@ export function ChatBubble({
                   <div style={{
                     maxWidth: '86%', padding: '10px 14px',
                     borderRadius: '4px 16px 16px 16px',
-                    background: 'rgba(255,255,255,0.08)',
-                    backdropFilter: 'blur(20px) saturate(1.4)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    fontSize: 13, color: '#f1f5f9', fontWeight: 400,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    fontSize: 13, color: '#e8ecf0', fontWeight: 400,
                     lineHeight: 1.65, wordBreak: 'break-word',
-                    boxShadow: '0 4px 14px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.07)',
+                    boxShadow: 'none',
                   }}>
                     {renderMarkdown(entry.a)}
                   </div>
@@ -1001,22 +999,20 @@ export function ChatBubble({
                       borderRadius: isUser ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
                       // NEXUS 디자인: iMessage 스타일 (사용자 = 인디고-바이올렛, AI = 글래스)
                       background: isUser
-                        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'   // 인디고 → 바이올렛
-                        : 'rgba(255,255,255,0.08)',                     // 글래스 화이트
-                      backdropFilter: isUser ? 'none' : 'blur(20px) saturate(1.4)',
-                      WebkitBackdropFilter: isUser ? 'none' : 'blur(20px) saturate(1.4)',
+                        ? 'rgba(79,108,247,0.88)'
+                        : 'rgba(255,255,255,0.05)',
+                      backdropFilter: 'none',
+                      WebkitBackdropFilter: 'none',
                       border: isUser
-                        ? '1px solid rgba(139,92,246,0.5)'
-                        : '1px solid rgba(255,255,255,0.12)',
+                        ? '1px solid rgba(99,130,255,0.4)'
+                        : '1px solid rgba(255,255,255,0.10)',
                       fontSize: 13,
-                      color: isUser ? '#ffffff' : '#f1f5f9',
+                      color: isUser ? '#ffffff' : '#e8ecf0',
                       fontWeight: isUser ? 500 : 400,
                       lineHeight: 1.65,
                       whiteSpace: isUser ? 'pre-wrap' : 'normal',
                       wordBreak: 'break-word',
-                      boxShadow: isUser
-                        ? '0 4px 16px rgba(99,102,241,0.45)'
-                        : '0 4px 16px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08)',
+                      boxShadow: 'none',
                     }}>
                       {isUser ? displayText : renderMarkdown(displayText)}
                       {isLong && (
@@ -1030,15 +1026,15 @@ export function ChatBubble({
                     </div>
                     {/* ── AI 답변 액션 버튼 (복사/저장/재실행/링크) ── */}
                     {!isUser && msg.text && !msg.clarifyOptions && (
-                      <div style={{ display: 'flex', gap: 4, marginTop: 4, marginLeft: 6, opacity: 0.6 }}
+                      <div style={{ display: 'flex', gap: 3, marginTop: 4, marginLeft: 4, opacity: 0 }}
                            onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-                           onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
+                           onMouseLeave={e => { e.currentTarget.style.opacity = '0' }}
                       >
                         <button
                           onClick={() => { navigator.clipboard?.writeText(msg.text).catch(() => {}) }}
                           title={isEn ? 'Copy' : '복사'}
-                          style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
-                        >📋</button>
+                          style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                        >{isEn ? 'Copy' : '복사'}</button>
                         <button
                           onClick={() => {
                             try {
@@ -1052,14 +1048,14 @@ export function ChatBubble({
                             } catch { /* ignore */ }
                           }}
                           title={isEn ? 'Save' : '저장'}
-                          style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
-                        >💾</button>
+                          style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                        >{isEn ? 'Save' : '저장'}</button>
                         {prevUserMsg && (
                           <button
                             onClick={() => onSend(prevUserMsg)}
                             title={isEn ? 'Rerun' : '재실행'}
-                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
-                          >🔄</button>
+                            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                          >{isEn ? 'Rerun' : '재실행'}</button>
                         )}
                         {urlMatch && (
                           <button
@@ -1074,8 +1070,8 @@ export function ChatBubble({
                             title={allUrls.length > 1
                               ? (isEn ? `Open ${allUrls.length} links` : `링크 ${allUrls.length}개 열기`)
                               : (isEn ? 'Open link' : '링크 열기')}
-                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${primaryColor}33`, color: 'rgba(255,255,255,0.7)', padding: '3px 7px', borderRadius: 5, fontSize: 10, cursor: 'pointer' }}
-                          >🌐{allUrls.length > 1 ? `·${allUrls.length}` : ''}</button>
+                            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                          >{isEn ? `Links${allUrls.length > 1 ? ` (${allUrls.length})` : ''}` : `링크${allUrls.length > 1 ? ` (${allUrls.length})` : ''}`}</button>
                         )}
                       </div>
                     )}
@@ -1290,12 +1286,9 @@ export function ChatBubble({
 
       {/* 입력 바 */}
       <div style={{
-        padding: attachedFiles.length > 0 ? '6px 10px 10px' : '8px 10px 10px',
-        borderTop: `1px solid ${primaryColor}33`,
-        background: `${primaryColor}08`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
+        padding: '8px 10px 10px',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        background: 'transparent',
         flexShrink: 0,
       }}>
         {/* 숨겨진 파일 인풋 */}
@@ -1308,68 +1301,109 @@ export function ChatBubble({
           onChange={e => { if (e.target.files && e.target.files.length > 0) handleFileSelect(e.target.files) }}
         />
 
-        {/* 📎 첨부 버튼 (UI-11: 파일 종류 안내 강화) */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={fileLoading}
-          title={lang === 'en'
-            ? 'Attach file (max 3): images · PDF · Word · Excel · CSV · TXT · video'
-            : '파일 첨부 (최대 3개)\n• 이미지 (JPG/PNG/GIF/WebP)\n• 문서 (PDF/Word/TXT/MD)\n• 표 (Excel/CSV)\n• 동영상 (MP4)'}
-          style={{
-            width: 32, height: 32, borderRadius: '50%', border: 'none',
-            background: attachedFiles.length > 0 ? `${primaryColor}44` : 'rgba(255,255,255,0.07)',
-            color: attachedFiles.length > 0 ? primaryColor : 'rgba(255,255,255,0.5)',
-            fontSize: 15, cursor: 'pointer', flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.2s',
-          }}
-        >
-          {fileLoading ? '⏳' : '📎'}
-        </button>
+        {/* 입력 컨테이너 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: clarifyPending ? `${primaryColor}12` : 'rgba(255,255,255,0.05)',
+          border: `1px solid ${clarifyPending ? `${primaryColor}66` : 'rgba(255,255,255,0.12)'}`,
+          borderRadius: 10, padding: '0 6px 0 4px',
+          transition: 'border-color 0.2s',
+        }}>
+          {/* + 첨부 버튼 */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={fileLoading}
+            title={lang === 'en'
+              ? 'Attach file (max 3): images · PDF · Word · Excel · CSV · TXT · video'
+              : '파일 첨부 (최대 3개)\n• 이미지 (JPG/PNG/GIF/WebP)\n• 문서 (PDF/Word/TXT/MD)\n• 표 (Excel/CSV)\n• 동영상 (MP4)'}
+            style={{
+              width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+              border: '1px solid rgba(255,255,255,0.14)',
+              background: attachedFiles.length > 0 ? `${primaryColor}33` : 'rgba(255,255,255,0.06)',
+              color: attachedFiles.length > 0 ? primaryColor : 'rgba(255,255,255,0.45)',
+              fontSize: 16, fontWeight: 300, lineHeight: 1,
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
+            }}
+          >
+            {fileLoading ? (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.5" strokeDasharray="6 6">
+                  <animateTransform attributeName="transform" type="rotate" from="0 6 6" to="360 6 6" dur="0.8s" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <line x1="6" y1="1" x2="6" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="1" y1="6" x2="11" y2="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            )}
+          </button>
 
-        <input
-          value={input}
-          onChange={e => onInputChange(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey && (input.trim() || attachedFile)) {
-              e.preventDefault()
-              if (e.nativeEvent.isComposing) {
-                setTimeout(() => handleSendAll(), 10)
-              } else {
-                handleSendAll()
+          <input
+            value={input}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey && (input.trim() || attachedFile)) {
+                e.preventDefault()
+                if (e.nativeEvent.isComposing) {
+                  setTimeout(() => handleSendAll(), 10)
+                } else {
+                  handleSendAll()
+                }
               }
+            }}
+            placeholder={
+              attachedFile
+                ? (lang === 'en' ? 'Ask about this file or press Enter...' : '파일 질문 또는 Enter로 분석...')
+                : clarifyPending
+                  ? (lang === 'en' ? 'Type your answer...' : '답변을 입력하세요...')
+                  : rotatingPlaceholder
             }
-          }}
-          placeholder={
-            attachedFile
-              ? (lang === 'en' ? 'Ask about this file or press Enter to analyze...' : '파일에 대해 질문하거나 Enter로 바로 분석...')
-              : clarifyPending
-                ? (lang === 'en' ? 'Type your answer...' : '답변을 입력하세요...')
-                : rotatingPlaceholder  // UI-9: 회전 placeholder (3초마다 예시 교체)
-          }
-          style={{
-            flex: 1, background: clarifyPending ? `${primaryColor}18` : 'rgba(255,255,255,0.07)',
-            border: `1.5px solid ${clarifyPending ? primaryColor : attachedFile ? primaryColor : primaryColor}${clarifyPending || attachedFile ? 'bb' : '55'}`,
-            borderRadius: 16, padding: '8px 14px',
-            color: 'rgba(255,255,255,0.97)', fontSize: 13, outline: 'none',
-            fontFamily: 'Pretendard, Inter, sans-serif',
-            transition: 'border-color 0.2s, background 0.2s',
-          }}
-        />
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              padding: '8px 4px',
+              color: 'rgba(255,255,255,0.92)', fontSize: 13,
+              fontFamily: 'Pretendard, Inter, sans-serif',
+            }}
+          />
 
-        <button
-          onClick={handleSendAll}
-          disabled={!input.trim() && !attachedFile}
-          style={{
-            width: 32, height: 32, borderRadius: '50%', border: 'none',
-            background: (input.trim() || attachedFile) ? primaryColor : `${primaryColor}22`,
-            color: '#fff', fontSize: 13, cursor: (input.trim() || attachedFile) ? 'pointer' : 'default',
-            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            opacity: (input.trim() || attachedFile) ? 1 : 0.4, transition: 'all 0.2s',
-          }}
-        >
-          ➤
-        </button>
+          {/* ↑ 전송 버튼 */}
+          <button
+            onClick={handleSendAll}
+            disabled={!input.trim() && !attachedFile}
+            style={{
+              width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+              border: 'none',
+              background: (input.trim() || attachedFile) ? primaryColor : 'rgba(255,255,255,0.08)',
+              color: (input.trim() || attachedFile) ? '#fff' : 'rgba(255,255,255,0.3)',
+              cursor: (input.trim() || attachedFile) ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 10V2M2 6l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* 첨부 가능 파일 힌트 (파일 미첨부 시) */}
+        {attachedFiles.length === 0 && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 5, paddingLeft: 2, flexWrap: 'wrap' }}>
+            {(lang === 'en'
+              ? ['Image', 'PDF', 'Excel', 'Video', 'Clipboard']
+              : ['이미지', 'PDF', '엑셀', '동영상', '클립보드']
+            ).map(label => (
+              <span key={label} style={{
+                fontSize: 9.5, color: 'rgba(255,255,255,0.25)',
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 4, padding: '1px 6px',
+              }}>{label}</span>
+            ))}
+          </div>
+        )}
       </div>
 
       <style>{`
