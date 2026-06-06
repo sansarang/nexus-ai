@@ -517,7 +517,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     zIndex: 99999,
     width: '100%',
     height: '100%',
-    background: '#080a12',
+    background: '#f8faff',
     overflowX: 'hidden',
     overflowY: 'auto',
     display: 'flex',
@@ -530,10 +530,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const progressBar = (
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em' }}>NEXUS SETUP</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{stepProgressIndex(step)} / {STEPS_TOTAL}</span>
+        <span style={{ fontSize: 11, color: 'rgba(15,20,40,0.4)', letterSpacing: '0.06em' }}>NEXUS SETUP</span>
+        <span style={{ fontSize: 11, color: 'rgba(15,20,40,0.4)' }}>{stepProgressIndex(step)} / {STEPS_TOTAL}</span>
       </div>
-      <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }}>
+      <div style={{ height: 3, background: 'rgba(15,20,40,0.1)', borderRadius: 4 }}>
         <motion.div
           animate={{ width: `${(stepProgressIndex(step) / STEPS_TOTAL) * 100}%` }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -551,14 +551,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       onClick={onClick}
       style={{
         width: '100%', padding: '11px 0',
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: 'rgba(15,20,40,0.04)',
+        border: '1px solid rgba(15,20,40,0.1)',
         borderRadius: 14,
-        color: 'rgba(255,255,255,0.45)', fontSize: 14, fontWeight: 600,
+        color: 'rgba(15,20,40,0.5)', fontSize: 14, fontWeight: 600,
         cursor: 'pointer', letterSpacing: '0.02em', transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(15,20,40,0.08)'; e.currentTarget.style.color = 'rgba(15,20,40,0.75)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(15,20,40,0.04)'; e.currentTarget.style.color = 'rgba(15,20,40,0.5)' }}
     >
       {label}
     </button>
@@ -571,10 +571,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       style={{
         width: '100%', padding: '14px 0',
         background: disabled
-          ? 'rgba(255,255,255,0.08)'
+          ? 'rgba(15,20,40,0.08)'
           : `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})`,
         border: 'none', borderRadius: 14,
-        color: disabled ? 'rgba(255,255,255,0.3)' : 'white',
+        color: disabled ? 'rgba(15,20,40,0.3)' : 'white',
         fontSize: 15, fontWeight: 700,
         cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '0.03em',
         boxShadow: disabled ? 'none' : `0 4px 24px ${selectedStyle.primaryColor}55`,
@@ -590,7 +590,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   )
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#080a12', zIndex: 99995, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#f8faff', zIndex: 99995, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px',
+      backgroundImage: 'radial-gradient(ellipse at 20% 20%, rgba(99,102,241,0.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.05) 0%, transparent 50%)',
+    }}>
       {/* 닫기 버튼 — 우측 상단 고정 */}
       <button
         onClick={async () => {
@@ -614,13 +616,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         style={{
           position: 'fixed', top: 16, right: 16, zIndex: 100000,
           width: 32, height: 32, borderRadius: '50%',
-          background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.2)',
-          color: 'rgba(255,255,255,0.7)', fontSize: 16, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.1)',
+          color: 'rgba(15,20,40,0.6)', fontSize: 16, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           backdropFilter: 'blur(8px)', transition: 'all 0.15s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.7)'; e.currentTarget.style.color = 'white' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.35)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.85)'; e.currentTarget.style.color = 'white' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.9)'; e.currentTarget.style.color = 'rgba(15,20,40,0.6)' }}
       >✕</button>
 
       <AnimatePresence mode="wait">
@@ -654,9 +656,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   }}
                   style={{
                     padding: '3px 9px', borderRadius: 8,
-                    background: lang === l ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
-                    border: lang === l ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.1)',
-                    color: lang === l ? 'white' : 'rgba(255,255,255,0.4)',
+                    background: lang === l ? 'rgba(79,108,247,0.15)' : 'rgba(15,20,40,0.05)',
+                    border: lang === l ? '1px solid rgba(79,108,247,0.35)' : '1px solid rgba(15,20,40,0.1)',
+                    color: lang === l ? '#4f6cf7' : 'rgba(15,20,40,0.45)',
                     fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   }}
                 >{l === 'ko' ? '🇰🇷 KO' : '🇺🇸 EN'}</button>
@@ -675,25 +677,25 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               }}>🚀</div>
               <div>
                 <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 4, fontWeight: 600 }}>NEXUS AI</div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 3, lineHeight: 1.3 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1a1d2e', marginBottom: 3, lineHeight: 1.3 }}>
                   {isEn ? 'Your AI PC Assistant' : 'AI PC 비서를 만나보세요'}
                 </h2>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 12, color: 'rgba(15,20,40,0.45)', lineHeight: 1.5 }}>
                   {isEn ? 'Watch Nexus work in real-time ↓' : '넥서스가 실시간으로 일하는 모습을 보세요 ↓'}
                 </p>
               </div>
             </div>
 
             {/* Demo area */}
-            <div style={{ margin: '0 24px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ margin: '0 24px', background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, overflow: 'hidden' }}>
               {/* Fake input */}
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{
                   flex: 1, padding: '8px 12px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${gDemoRunning ? selectedStyle.primaryColor + '55' : 'rgba(255,255,255,0.1)'}`,
+                  background: 'rgba(15,20,40,0.05)',
+                  border: `1px solid ${gDemoRunning ? selectedStyle.primaryColor + '55' : 'rgba(15,20,40,0.1)'}`,
                   borderRadius: 10, fontSize: 13,
-                  color: gDemoInput ? 'white' : 'rgba(255,255,255,0.25)',
+                  color: gDemoInput ? '#1a1d2e' : 'rgba(15,20,40,0.3)',
                   minHeight: 20, transition: 'border-color 0.2s',
                 }}>
                   {gDemoInput || (isEn ? 'Asking Nexus...' : 'Nexus에게 묻는 중...')}
@@ -701,7 +703,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 </div>
                 <div style={{
                   width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                  background: gDemoRunning ? `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})` : 'rgba(255,255,255,0.08)',
+                  background: gDemoRunning ? `linear-gradient(135deg, ${selectedStyle.primaryColor}, ${selectedStyle.accentColor})` : 'rgba(15,20,40,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
                 }}>{gDemoRunning ? '⚡' : '↑'}</div>
               </div>
@@ -714,13 +716,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   </motion.div>
                 )}
                 {(gDemoTyping || gDemoResult) && (
-                  <div style={{ padding: '10px 14px', borderRadius: '4px 16px 16px 16px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: 'rgba(255,255,255,0.92)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                  <div style={{ padding: '10px 14px', borderRadius: '4px 16px 16px 16px', background: '#f4f6fc', border: '1px solid rgba(0,0,0,0.07)', fontSize: 12, color: '#1a1d2e', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
                     {gDemoTyping || gDemoResult}
                     {gDemoTyping && <span style={{ animation: 'blink 0.8s step-end infinite', opacity: 0.7 }}>▌</span>}
                   </div>
                 )}
                 {!gDemoRunning && !gDemoResult && !gDemoThink && (
-                  <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, textAlign: 'center', paddingTop: 50 }}>
+                  <div style={{ color: 'rgba(15,20,40,0.25)', fontSize: 12, textAlign: 'center', paddingTop: 50 }}>
                     {isEn ? 'Starting demo...' : '데모 시작 중...'}
                   </div>
                 )}
@@ -735,7 +737,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   onClick={() => { if (!gDemoRunning) { setGDemoResult(''); setGDemoTyping(''); void runGenericDemo(i) } }}
                   style={{
                     width: i === gDemoIdx ? 20 : 7, height: 7, borderRadius: 4,
-                    background: i === gDemoIdx ? selectedStyle.primaryColor : 'rgba(255,255,255,0.2)',
+                    background: i === gDemoIdx ? selectedStyle.primaryColor : 'rgba(15,20,40,0.2)',
                     border: 'none', cursor: gDemoRunning ? 'default' : 'pointer', transition: 'all 0.3s', padding: 0,
                   }}
                 />
@@ -749,7 +751,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 isEn ? 'I want this! →' : '나도 써보고 싶다! →',
                 false,
               )}
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: 0 }}>
+              <p style={{ fontSize: 11, color: 'rgba(15,20,40,0.3)', textAlign: 'center', margin: 0 }}>
                 {isEn ? 'Free plan available → switch personas anytime in chat' : '무료로 시작 → 채팅창에서 페르소나 자유 전환'}
               </p>
             </div>
@@ -781,9 +783,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   }}
                   style={{
                     padding: '3px 9px', borderRadius: 8,
-                    background: lang === l ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
-                    border: lang === l ? '1px solid rgba(255,255,255,0.35)' : '1px solid rgba(255,255,255,0.1)',
-                    color: lang === l ? 'white' : 'rgba(255,255,255,0.4)',
+                    background: lang === l ? 'rgba(79,108,247,0.15)' : 'rgba(15,20,40,0.05)',
+                    border: lang === l ? '1px solid rgba(79,108,247,0.35)' : '1px solid rgba(15,20,40,0.1)',
+                    color: lang === l ? '#4f6cf7' : 'rgba(15,20,40,0.45)',
                     fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
                   }}
                 >
@@ -796,10 +798,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 8, fontWeight: 600 }}>
                 NEXUS AI
               </div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 6 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1a1d2e', marginBottom: 6 }}>
                 {isEn ? 'What do you do?' : '어떤 일을 하세요?'}
               </h2>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13, color: 'rgba(15,20,40,0.5)', lineHeight: 1.6 }}>
                 {isEn ? 'AI responses & workflows will be optimized for your role.' : 'AI 응답과 워크플로우가 내 직업에 맞게 최적화됩니다.'}
               </p>
             </div>
@@ -836,10 +838,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     style={{
                       background: isSelected
                         ? `linear-gradient(135deg, ${p.color}28, ${p.color}12)`
-                        : 'rgba(255,255,255,0.04)',
+                        : 'rgba(255,255,255,0.88)',
                       border: isSelected
                         ? `1.5px solid ${p.color}88`
-                        : '1.5px solid rgba(255,255,255,0.08)',
+                        : '1.5px solid rgba(0,0,0,0.08)',
                       borderRadius: 14, padding: '14px',
                       cursor: 'pointer', textAlign: 'left',
                       transition: 'all 0.18s', position: 'relative',
@@ -858,10 +860,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     <div style={{ fontSize: 20, marginBottom: 5 }}>{p.emoji}</div>
                     <div style={{
                       fontSize: 12, fontWeight: 700,
-                      color: isSelected ? 'white' : 'rgba(255,255,255,0.75)',
+                      color: isSelected ? 'white' : '#1a1d2e',
                       marginBottom: 3, lineHeight: 1.3,
                     }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>
+                    <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.4)', lineHeight: 1.4 }}>
                       {p.desc}
                     </div>
                     {isSelected && (
@@ -881,7 +883,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               })}
             </div>
 
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 12 }}>
+            <p style={{ fontSize: 11, color: 'rgba(15,20,40,0.35)', textAlign: 'center', marginBottom: 12 }}>
               {isEn ? 'Click to select and continue' : '선택하면 자동으로 다음으로 넘어갑니다'}
             </p>
             {backBtn(() => setStep(0), isEn ? '← Back to Demo' : '← 데모로 돌아가기')}
@@ -919,10 +921,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 {selectedJob.emoji}
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1d2e' }}>
                   {isEn ? `${selectedJob.name} — Live Demo` : `${selectedJob.name} 전용 데모`}
                 </div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                <div style={{ fontSize: 11, color: 'rgba(15,20,40,0.4)' }}>
                   {isEn ? 'Nexus executes this in real-time' : 'Nexus가 실시간으로 실행합니다'}
                 </div>
               </div>
@@ -931,22 +933,22 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* Demo chat area */}
             <div style={{
               margin: '0 24px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.07)',
+              background: 'rgba(255,255,255,0.9)',
+              border: '1px solid rgba(0,0,0,0.08)',
               borderRadius: 16, overflow: 'hidden',
             }}>
               {/* Fake input */}
               <div style={{
                 padding: '12px 16px',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                borderBottom: '1px solid rgba(0,0,0,0.08)',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 <div style={{
                   flex: 1, padding: '8px 12px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${demoRunning ? jobColor + '55' : 'rgba(255,255,255,0.1)'}`,
+                  background: 'rgba(15,20,40,0.05)',
+                  border: `1px solid ${demoRunning ? jobColor + '55' : 'rgba(15,20,40,0.1)'}`,
                   borderRadius: 10, fontSize: 13,
-                  color: demoInputTyping ? 'white' : 'rgba(255,255,255,0.25)',
+                  color: demoInputTyping ? '#1a1d2e' : 'rgba(15,20,40,0.3)',
                   transition: 'border-color 0.2s', minHeight: 20,
                 }}>
                   {demoInputTyping || (isEn ? 'Asking Nexus...' : 'Nexus에게 묻는 중...')}
@@ -956,7 +958,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   width: 34, height: 34, borderRadius: 9, flexShrink: 0,
                   background: demoRunning
                     ? `linear-gradient(135deg, ${jobColor}, ${jobColor}99)`
-                    : 'rgba(255,255,255,0.08)',
+                    : 'rgba(15,20,40,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
                 }}>
                   {demoRunning ? '⚡' : '↑'}
@@ -984,9 +986,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <div style={{
                     padding: '10px 14px',
                     borderRadius: '4px 16px 16px 16px',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    fontSize: 12, color: 'rgba(255,255,255,0.92)',
+                    background: '#f4f6fc',
+                    border: '1px solid rgba(0,0,0,0.07)',
+                    fontSize: 12, color: '#1a1d2e',
                     lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'monospace',
                   }}>
                     {demoTyping || demoResult}
@@ -994,7 +996,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   </div>
                 )}
                 {!demoRunning && !demoResult && !demoThinkStep && (
-                  <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, textAlign: 'center', paddingTop: 60 }}>
+                  <div style={{ color: 'rgba(15,20,40,0.25)', fontSize: 12, textAlign: 'center', paddingTop: 60 }}>
                     {isEn ? 'Starting demo...' : '데모 시작 중...'}
                   </div>
                 )}
@@ -1057,7 +1059,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>💎</div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 6 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1a1d2e', marginBottom: 6 }}>
                 {isEn ? 'Choose Your Plan' : '딱 맞는 플랜을 선택하세요'}
               </h2>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
@@ -1121,10 +1123,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     style={{
                       background: isSelected
                         ? `linear-gradient(135deg, ${planColor}35, ${planColor}15)`
-                        : 'rgba(255,255,255,0.03)',
+                        : 'rgba(255,255,255,0.95)',
                       border: isSelected
                         ? `2px solid ${planColor}`
-                        : '1.5px solid rgba(255,255,255,0.07)',
+                        : '1.5px solid rgba(0,0,0,0.08)',
                       borderRadius: 16, padding: '16px 12px',
                       cursor: 'pointer', textAlign: 'center',
                       transition: 'all 0.18s', position: 'relative',
@@ -1143,15 +1145,15 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     )}
                     <div style={{
                       fontSize: 13, fontWeight: 800,
-                      color: isSelected ? planColor : 'rgba(255,255,255,0.6)',
+                      color: isSelected ? planColor : 'rgba(15,20,40,0.7)',
                       marginBottom: 6, marginTop: isPro ? 10 : 0,
                     }}>{planLabel}</div>
                     <div style={{
-                      fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 10,
+                      fontSize: 16, fontWeight: 800, color: isSelected ? 'white' : '#1a1d2e', marginBottom: 10,
                     }}>{planPrice}</div>
                     {planFeats.map(f => (
                       <div key={f} style={{
-                        fontSize: 10, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6,
+                        fontSize: 10, color: 'rgba(15,20,40,0.55)', lineHeight: 1.6,
                       }}>{f}</div>
                     ))}
                     {isSelected && (
@@ -1167,12 +1169,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             {/* 무료 플랜 선택 시 제한 안내 */}
             {selectedPlan === 'free' ? (
               <div style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.10)',
+                background: 'rgba(79,108,247,0.05)',
+                border: '1px solid rgba(79,108,247,0.12)',
                 borderRadius: 12, padding: '12px 14px',
                 marginBottom: 16,
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(15,20,40,0.6)', marginBottom: 6 }}>
                   {isEn ? '📋 Free plan includes:' : '📋 무료 플랜에서 제공되는 기능:'}
                 </div>
                 {(isEn ? [
@@ -1187,17 +1189,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <div key={title as string} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
                     <span style={{ fontSize: 13 }}>{icon}</span>
                     <div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>{title} </span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{desc}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(15,20,40,0.7)' }}>{title} </span>
+                      <span style={{ fontSize: 11, color: 'rgba(15,20,40,0.45)' }}>{desc}</span>
                     </div>
                   </div>
                 ))}
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 8 }}>
+                <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.35)', marginTop: 8 }}>
                   {isEn ? '→ Upgrade anytime from Settings.' : '→ 설정에서 언제든 Pro로 업그레이드할 수 있어요.'}
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginBottom: 16 }}>
+              <p style={{ fontSize: 11, color: 'rgba(15,20,40,0.35)', textAlign: 'center', marginBottom: 16 }}>
                 {isEn ? 'Payment will start after Google login' : 'Google 로그인 후 결제가 시작됩니다'}
               </p>
             )}
@@ -1246,12 +1248,12 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               </div>
               <div style={{ fontSize: 10.5, letterSpacing: '0.12em', color: selectedStyle.primaryColor, fontWeight: 700, marginBottom: 6 }}>NEXUS AI</div>
               <h2 style={{
-                fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 8,
+                fontSize: 22, fontWeight: 800, color: '#1a1d2e', marginBottom: 8,
                 letterSpacing: '-0.01em',
               }}>
                 {isEn ? 'Almost done!' : '거의 다 끝났어요'}
               </h2>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: '0 0 10px' }}>
+              <p style={{ fontSize: 13, color: 'rgba(15,20,40,0.55)', lineHeight: 1.6, margin: '0 0 10px' }}>
                 {isEn
                   ? <>Sign in with Google to save your settings<br />and start using NEXUS.</>
                   : <>Google로 로그인하면 설정이 저장되고<br />바로 사용할 수 있어요.</>}
@@ -1263,8 +1265,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   : ['무료로 시작', '카드 불필요', '언제든 취소']
                 ).map(t => (
                   <span key={t} style={{
-                    fontSize: 10.5, color: 'rgba(255,255,255,0.35)',
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                    fontSize: 10.5, color: 'rgba(15,20,40,0.5)',
+                    background: 'rgba(79,108,247,0.06)', border: '1px solid rgba(79,108,247,0.12)',
                     borderRadius: 20, padding: '2px 10px',
                   }}>{t}</span>
                 ))}
@@ -1318,8 +1320,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       onChange={e => setLoginEmail(e.target.value)}
                       style={{
                         width: '100%', padding: '10px 14px', boxSizing: 'border-box',
-                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: 10, color: 'white', fontSize: 13, outline: 'none',
+                        background: 'rgba(15,20,40,0.05)', border: '1px solid rgba(15,20,40,0.12)',
+                        borderRadius: 10, color: '#1a1d2e', fontSize: 13, outline: 'none',
                       } as React.CSSProperties}
                     />
                     <input
@@ -1328,8 +1330,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
                       style={{
                         width: '100%', padding: '10px 14px', boxSizing: 'border-box',
-                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: 10, color: 'white', fontSize: 13, outline: 'none',
+                        background: 'rgba(15,20,40,0.05)', border: '1px solid rgba(15,20,40,0.12)',
+                        borderRadius: 10, color: '#1a1d2e', fontSize: 13, outline: 'none',
                       } as React.CSSProperties}
                     />
                     {loginError && <p style={{ fontSize: 11, color: '#f87171', margin: 0 }}>{loginError}</p>}
@@ -1353,7 +1355,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               }}>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#4ade80' }}>{googleEmail}</div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'rgba(15,20,40,0.5)', marginTop: 4 }}>
                   {isEn ? '3-day free trial ready to start' : '3일 무료 체험 시작 준비 완료'}
                 </div>
               </div>
@@ -1364,7 +1366,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               background: `${selectedStyle.primaryColor}10`,
               border: `1px solid ${selectedStyle.primaryColor}25`,
               borderRadius: 12, padding: '14px 18px', marginTop: 16, fontSize: 12,
-              color: 'rgba(255,255,255,0.6)', lineHeight: 2,
+              color: 'rgba(15,20,40,0.65)', lineHeight: 2,
             }}>
               {(isEn
                 ? ['✦ Unlimited access to all AI features', '✦ Deep Search · Real-time web search', '✦ Auto updates', '✦ Early Bird $12.99/mo after 3 days · Cancel anytime']
@@ -1376,13 +1378,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               {googleEmail
                 ? nextBtn(() => setStep(5), isEn ? 'Continue →' : '다음 →')
                 : <>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'rgba(15,20,40,0.35)', textAlign: 'center' }}>
                       {isEn ? 'Sign in with Google to continue' : '구글 로그인 후 계속 진행할 수 있습니다'}
                     </div>
                     {/* 기존 가입자 로그인 */}
                     <button
                       onClick={() => setShowAdminLogin(v => !v)}
-                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 0', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}
+                      style={{ background: 'none', border: '1px solid rgba(15,20,40,0.15)', borderRadius: 10, padding: '10px 0', color: 'rgba(15,20,40,0.5)', fontSize: 13, cursor: 'pointer' }}
                     >
                       {isEn ? 'Already have an account? Log in' : '이미 계정이 있어요 → 로그인'}
                     </button>
@@ -1420,16 +1422,16 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           >
             {progressBar}
 
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 6 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1a1d2e', marginBottom: 6 }}>
               {isEn ? 'Personalize Your AI' : 'AI를 나에게 맞게 설정하세요'}
             </h2>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 20, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 12, color: 'rgba(15,20,40,0.5)', marginBottom: 20, lineHeight: 1.6 }}>
               {isEn ? 'Set your assistant name and your nickname.' : 'AI 비서 이름과 내 호칭을 설정하세요.'}
             </p>
 
             {/* Name input */}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: 'rgba(15,20,40,0.5)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
                 {isEn ? 'ASSISTANT NAME' : '비서 이름'}
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -1438,9 +1440,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => { setNameInput(n); setName(n) }}
                     style={{
                       padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
-                      background: nameInput === n ? `${selectedStyle.primaryColor}44` : 'rgba(255,255,255,0.06)',
-                      border: nameInput === n ? `1px solid ${selectedStyle.primaryColor}88` : '1px solid rgba(255,255,255,0.08)',
-                      color: nameInput === n ? selectedStyle.primaryColor : 'rgba(255,255,255,0.6)',
+                      background: nameInput === n ? `${selectedStyle.primaryColor}22` : 'rgba(15,20,40,0.06)',
+                      border: nameInput === n ? `1px solid ${selectedStyle.primaryColor}88` : '1px solid rgba(15,20,40,0.1)',
+                      color: nameInput === n ? selectedStyle.primaryColor : 'rgba(15,20,40,0.6)',
                       fontSize: 12, fontWeight: 600, transition: 'all 0.18s',
                     } as React.CSSProperties}
                   >{n}</button>
@@ -1452,9 +1454,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 placeholder={isEn ? 'Custom name...' : '직접 입력...'}
                 style={{
                   width: '100%', padding: '10px 14px',
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'rgba(15,20,40,0.05)',
                   border: `1px solid ${selectedStyle.primaryColor}44`,
-                  borderRadius: 10, color: 'white', fontSize: 13,
+                  borderRadius: 10, color: '#1a1d2e', fontSize: 13,
                   outline: 'none', boxSizing: 'border-box',
                 } as React.CSSProperties}
               />
@@ -1462,7 +1464,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             {/* User nickname */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: 'rgba(15,20,40,0.5)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
                 {isEn ? 'YOUR NICKNAME' : '내 호칭'}
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -1471,9 +1473,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     onClick={() => { setUserInput(n); setUserName(n) }}
                     style={{
                       padding: '4px 12px', borderRadius: 20, cursor: 'pointer',
-                      background: userInput === n ? `${selectedStyle.primaryColor}44` : 'rgba(255,255,255,0.06)',
-                      border: userInput === n ? `1px solid ${selectedStyle.primaryColor}88` : '1px solid rgba(255,255,255,0.08)',
-                      color: userInput === n ? selectedStyle.primaryColor : 'rgba(255,255,255,0.6)',
+                      background: userInput === n ? `${selectedStyle.primaryColor}22` : 'rgba(15,20,40,0.06)',
+                      border: userInput === n ? `1px solid ${selectedStyle.primaryColor}88` : '1px solid rgba(15,20,40,0.1)',
+                      color: userInput === n ? selectedStyle.primaryColor : 'rgba(15,20,40,0.6)',
                       fontSize: 12, fontWeight: 600, transition: 'all 0.18s',
                     } as React.CSSProperties}
                   >{n}</button>
@@ -1485,9 +1487,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 placeholder={isEn ? 'Custom nickname...' : '직접 입력...'}
                 style={{
                   width: '100%', padding: '10px 14px',
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'rgba(15,20,40,0.05)',
                   border: `1px solid ${selectedStyle.primaryColor}44`,
-                  borderRadius: 10, color: 'white', fontSize: 13,
+                  borderRadius: 10, color: '#1a1d2e', fontSize: 13,
                   outline: 'none', boxSizing: 'border-box',
                 } as React.CSSProperties}
               />
@@ -1569,16 +1571,16 @@ export function LoginScreen() {
           zIndex: 99999,
           width: 420,
           // NEXUS 글래스 통일 (Apple 날씨 영감)
-          background: 'rgba(15,23,42,0.85)',
-          backdropFilter: 'blur(40px) saturate(1.8)',
-          WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          borderTop: '2px solid rgba(139,92,246,0.6)',
+          background: '#ffffff',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+          border: '1px solid rgba(0,0,0,0.08)',
+          borderTop: '2px solid rgba(99,102,241,0.6)',
           borderRadius: 24,
           padding: '40px 36px',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
-          color: '#f1f5f9',
+          color: '#1a1d2e',
         }}
       >
         <div style={{ textAlign: 'center' }}>
@@ -1587,10 +1589,10 @@ export function LoginScreen() {
             filter: 'drop-shadow(0 6px 24px rgba(139,92,246,0.4))',
           }}>👋</div>
           <h2 style={{
-            fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 8,
+            fontSize: 22, fontWeight: 800, color: '#1a1d2e', marginBottom: 8,
             letterSpacing: '-0.01em',
           }}>다시 오셨군요!</h2>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'rgba(15,20,40,0.6)', lineHeight: 1.6, margin: 0 }}>
             Google 계정으로 로그인하면<br />바로 시작됩니다.
           </p>
         </div>
@@ -1618,7 +1620,7 @@ export function LoginScreen() {
         </button>
 
         {loading && (
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'rgba(15,20,40,0.45)', textAlign: 'center', margin: 0 }}>
             브라우저에서 로그인 후 자동으로 돌아옵니다
           </p>
         )}
@@ -1626,18 +1628,18 @@ export function LoginScreen() {
         {/* 관리자 전용 이메일/비밀번호 로그인 */}
         {!showAdmin ? (
           <button onClick={() => setShowAdmin(true)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.2)', padding: 0 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'rgba(15,20,40,0.25)', padding: 0 }}>
             관리자
           </button>
         ) : (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <input type="email" placeholder="관리자 이메일" value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
-              style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'white', fontSize: 13, boxSizing: 'border-box' }} />
+              style={{ width: '100%', padding: '10px 14px', background: 'rgba(15,20,40,0.05)', border: '1px solid rgba(15,20,40,0.12)', borderRadius: 10, color: '#1a1d2e', fontSize: 13, boxSizing: 'border-box' }} />
             <input type="password" placeholder="비밀번호" value={adminPw}
               onChange={e => setAdminPw(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAdminBypass()}
-              style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'white', fontSize: 13, boxSizing: 'border-box' }} />
+              style={{ width: '100%', padding: '10px 14px', background: 'rgba(15,20,40,0.05)', border: '1px solid rgba(15,20,40,0.12)', borderRadius: 10, color: '#1a1d2e', fontSize: 13, boxSizing: 'border-box' }} />
             <button onClick={handleAdminBypass}
               style={{ width: '100%', padding: '10px', background: 'rgba(99,102,241,0.8)', border: 'none', borderRadius: 10, color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               로그인

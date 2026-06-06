@@ -27,7 +27,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
       }
       if (line[i] === '`' && line[i+1] !== '`') {
         const end = line.indexOf('`', i+1)
-        if (end !== -1) { flushBuf(); parts.push(<code key={`c${i}`} style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 3, padding: '1px 4px', fontFamily: 'monospace', fontSize: 10.5 }}>{line.slice(i+1, end)}</code>); i = end+1; continue }
+        if (end !== -1) { flushBuf(); parts.push(<code key={`c${i}`} style={{ background: 'rgba(79,108,247,0.08)', borderRadius: 3, padding: '1px 4px', fontFamily: 'monospace', fontSize: 10.5, color: '#4f3aba' }}>{line.slice(i+1, end)}</code>); i = end+1; continue }
       }
       if (line[i] === '*' && line[i+1] === '*') {
         const end = line.indexOf('**', i+2)
@@ -47,12 +47,12 @@ function renderMarkdown(text: string): React.ReactNode[] {
       <div key={`tbl-${tableStartIdx}`} style={{ overflowX: 'auto', margin: '6px 0' }}>
         <table style={{ borderCollapse: 'collapse', fontSize: 10.5, width: '100%' }}>
           <thead>
-            <tr>{headers.map((h, i) => <th key={i} style={{ padding: '4px 8px', borderBottom: '1.5px solid rgba(255,255,255,0.2)', textAlign: 'left', fontWeight: 700, color: 'rgba(255,255,255,0.9)', whiteSpace: 'nowrap' }}>{h.trim()}</th>)}</tr>
+            <tr>{headers.map((h, i) => <th key={i} style={{ padding: '4px 8px', borderBottom: '1.5px solid rgba(0,0,0,0.12)', textAlign: 'left', fontWeight: 700, color: 'rgba(15,20,40,0.88)', whiteSpace: 'nowrap' }}>{h.trim()}</th>)}</tr>
           </thead>
           <tbody>
             {dataRows.map((row, ri) => (
               <tr key={ri}>
-                {row.map((cell, ci) => <td key={ci} style={{ padding: '3px 8px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.7)' }}>{cell.trim()}</td>)}
+                {row.map((cell, ci) => <td key={ci} style={{ padding: '3px 8px', borderBottom: '1px solid rgba(0,0,0,0.06)', color: 'rgba(15,20,40,0.7)' }}>{cell.trim()}</td>)}
               </tr>
             ))}
           </tbody>
@@ -65,7 +65,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
   lines.forEach((line, idx) => {
     if (line.startsWith('```')) {
       if (!codeBlock) { codeBlock = true; codeLines = [] }
-      else { const k = `code-${codeKey++}`; nodes.push(<pre key={k} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: '6px 10px', overflowX: 'auto', fontSize: 10.5, fontFamily: 'monospace', margin: '4px 0', lineHeight: 1.5 }}><code style={{ color: '#e2e8f0' }}>{codeLines.join('\n')}</code></pre>); codeBlock = false }
+      else { const k = `code-${codeKey++}`; nodes.push(<pre key={k} style={{ background: 'rgba(15,20,40,0.05)', borderRadius: 6, padding: '6px 10px', overflowX: 'auto', fontSize: 10.5, fontFamily: 'monospace', margin: '4px 0', lineHeight: 1.5, border: '1px solid rgba(15,20,40,0.08)' }}><code style={{ color: '#1a1d2e' }}>{codeLines.join('\n')}</code></pre>); codeBlock = false }
       return
     }
     if (codeBlock) { codeLines.push(line); return }
@@ -87,7 +87,7 @@ function renderMarkdown(text: string): React.ReactNode[] {
     }
     if (/^[-*]\s/.test(line)) { nodes.push(<div key={idx} style={{ display: 'flex', gap: 5, marginTop: 1 }}><span style={{ opacity: 0.5, flexShrink: 0 }}>•</span><span>{inline(line.replace(/^[-*]\s/, ''), idx)}</span></div>); return }
     if (/^\d+\.\s/.test(line)) { const n = line.match(/^(\d+)/)?.[1]; nodes.push(<div key={idx} style={{ display: 'flex', gap: 5, marginTop: 1 }}><span style={{ opacity: 0.5, flexShrink: 0, minWidth: 14 }}>{n}.</span><span>{inline(line.replace(/^\d+\.\s/, ''), idx)}</span></div>); return }
-    if (line.startsWith('---') || line.startsWith('===')) { nodes.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '5px 0' }} />); return }
+    if (line.startsWith('---') || line.startsWith('===')) { nodes.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid rgba(0,0,0,0.08)', margin: '5px 0' }} />); return }
     nodes.push(<div key={idx} style={{ lineHeight: 1.65, marginTop: 1 }}>{inline(line, idx)}</div>)
   })
   if (tableRows.length > 0) flushTable()
@@ -112,7 +112,7 @@ function TypingBar({ primaryColor, steps, lang }: { primaryColor: string; steps?
   }, [msgs.length])
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.07)', border: `1px solid ${primaryColor}33`,
+      background: '#f4f6fc', border: `1px solid ${primaryColor}33`,
       borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
       display: 'flex', alignItems: 'center', gap: 8, width: 'fit-content',
     }}>
@@ -866,14 +866,14 @@ export function ChatBubble({
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
                     padding: '10px 11px', borderRadius: 12, cursor: 'pointer',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: 'rgba(79,108,247,0.05)',
                     border: `1px solid ${primaryColor}33`,
-                    color: 'rgba(255,255,255,0.88)', fontSize: 11.5, fontWeight: 600,
+                    color: 'rgba(15,20,40,0.88)', fontSize: 11.5, fontWeight: 600,
                     textAlign: 'left', transition: 'all 0.15s',
                     minHeight: 56,
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}22`; e.currentTarget.style.borderColor = `${primaryColor}99`; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = `${primaryColor}33`; e.currentTarget.style.transform = 'translateY(0)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(79,108,247,0.05)'; e.currentTarget.style.borderColor = `${primaryColor}33`; e.currentTarget.style.transform = 'translateY(0)' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
                     <span style={{ fontSize: 16 }}>{a.emoji}</span>
@@ -885,7 +885,7 @@ export function ChatBubble({
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 14, lineHeight: 1.7 }}>
+            <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.35)', textAlign: 'center', marginTop: 14, lineHeight: 1.7 }}>
               {isEn
                 ? '⌨️ Alt+Space quick call · 🔊 "Hey Nexus" voice'
                 : '⌨️ Alt+Space 빠른 호출 · 🔊 "헤이 넥서스" 음성'}
@@ -919,7 +919,7 @@ export function ChatBubble({
                   }}>
                     {entry.q}
                     {entry.action && entry.action !== 'chat' && (
-                      <span style={{ display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: 'rgba(255,255,255,0.2)', fontSize: 9, fontWeight: 600, verticalAlign: 'middle' }}>
+                      <span style={{ display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: 'rgba(79,108,247,0.15)', fontSize: 9, fontWeight: 600, verticalAlign: 'middle' }}>
                         {entry.action.replace(/_/g, ' ')}
                       </span>
                     )}
@@ -930,9 +930,9 @@ export function ChatBubble({
                   <div style={{
                     maxWidth: '86%', padding: '10px 14px',
                     borderRadius: '4px 16px 16px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                    fontSize: 13, color: '#e8ecf0', fontWeight: 400,
+                    background: '#f4f6fc',
+                    border: '1px solid rgba(0,0,0,0.07)',
+                    fontSize: 13, color: '#1a1d2e', fontWeight: 400,
                     lineHeight: 1.65, wordBreak: 'break-word',
                     boxShadow: 'none',
                   }}>
@@ -943,11 +943,11 @@ export function ChatBubble({
                     title="이 대화 삭제"
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'rgba(255,255,255,0.2)', fontSize: 10, padding: '0 4px',
+                      color: 'rgba(15,20,40,0.2)', fontSize: 10, padding: '0 4px',
                       alignSelf: 'flex-start', marginTop: 4, transition: 'color 0.15s',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.2)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(15,20,40,0.2)')}
                   >✕</button>
                 </div>
                 <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', textAlign: 'right', marginTop: 2, paddingRight: 22 }}>
@@ -1000,14 +1000,14 @@ export function ChatBubble({
                       // NEXUS 디자인: iMessage 스타일 (사용자 = 인디고-바이올렛, AI = 글래스)
                       background: isUser
                         ? 'rgba(79,108,247,0.88)'
-                        : 'rgba(255,255,255,0.05)',
+                        : '#f4f6fc',
                       backdropFilter: 'none',
                       WebkitBackdropFilter: 'none',
                       border: isUser
                         ? '1px solid rgba(99,130,255,0.4)'
-                        : '1px solid rgba(255,255,255,0.10)',
+                        : '1px solid rgba(0,0,0,0.07)',
                       fontSize: 13,
-                      color: isUser ? '#ffffff' : '#e8ecf0',
+                      color: isUser ? '#ffffff' : '#1a1d2e',
                       fontWeight: isUser ? 500 : 400,
                       lineHeight: 1.65,
                       whiteSpace: isUser ? 'pre-wrap' : 'normal',
@@ -1033,7 +1033,7 @@ export function ChatBubble({
                         <button
                           onClick={() => { navigator.clipboard?.writeText(msg.text).catch(() => {}) }}
                           title={isEn ? 'Copy' : '복사'}
-                          style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                          style={{ background: 'none', border: '1px solid rgba(0,0,0,0.12)', color: 'rgba(15,20,40,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
                         >{isEn ? 'Copy' : '복사'}</button>
                         <button
                           onClick={() => {
@@ -1048,13 +1048,13 @@ export function ChatBubble({
                             } catch { /* ignore */ }
                           }}
                           title={isEn ? 'Save' : '저장'}
-                          style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                          style={{ background: 'none', border: '1px solid rgba(0,0,0,0.12)', color: 'rgba(15,20,40,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
                         >{isEn ? 'Save' : '저장'}</button>
                         {prevUserMsg && (
                           <button
                             onClick={() => onSend(prevUserMsg)}
                             title={isEn ? 'Rerun' : '재실행'}
-                            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                            style={{ background: 'none', border: '1px solid rgba(0,0,0,0.12)', color: 'rgba(15,20,40,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
                           >{isEn ? 'Rerun' : '재실행'}</button>
                         )}
                         {urlMatch && (
@@ -1070,7 +1070,7 @@ export function ChatBubble({
                             title={allUrls.length > 1
                               ? (isEn ? `Open ${allUrls.length} links` : `링크 ${allUrls.length}개 열기`)
                               : (isEn ? 'Open link' : '링크 열기')}
-                            style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
+                            style={{ background: 'none', border: '1px solid rgba(0,0,0,0.12)', color: 'rgba(15,20,40,0.55)', padding: '2px 8px', borderRadius: 5, fontSize: 10.5, cursor: 'pointer' }}
                           >{isEn ? `Links${allUrls.length > 1 ? ` (${allUrls.length})` : ''}` : `링크${allUrls.length > 1 ? ` (${allUrls.length})` : ''}`}</button>
                         )}
                       </div>
@@ -1101,7 +1101,7 @@ export function ChatBubble({
                     {/* 명확화 선택 버튼 */}
                     {!isUser && msg.clarifyOptions && msg.clarifyOptions.length > 0 && (
                       <div style={{ marginTop: 10, maxWidth: '90%' }}>
-                        <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
+                        <div style={{ fontSize: 9.5, color: 'rgba(15,20,40,0.4)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.05em' }}>
                           {isEn ? '▸ SELECT AN OPTION' : '▸ 아래에서 선택하세요'}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -1171,13 +1171,13 @@ export function ChatBubble({
                     onClick={() => onSend(s.cmd)}
                     style={{
                       padding: '4px 10px', borderRadius: 12, cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: 'rgba(79,108,247,0.06)',
                       border: `1px solid ${primaryColor}33`,
                       color: `${primaryColor}cc`, fontSize: 10, fontWeight: 600,
                       transition: 'all 0.15s', whiteSpace: 'nowrap',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = `${primaryColor}22` }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(79,108,247,0.06)' }}
                   >{s.label}</button>
                 ))}
               </motion.div>
@@ -1304,8 +1304,8 @@ export function ChatBubble({
         {/* 입력 컨테이너 */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          background: clarifyPending ? `${primaryColor}12` : 'rgba(255,255,255,0.05)',
-          border: `1px solid ${clarifyPending ? `${primaryColor}66` : 'rgba(255,255,255,0.12)'}`,
+          background: clarifyPending ? `${primaryColor}12` : '#f4f6fc',
+          border: `1px solid ${clarifyPending ? `${primaryColor}66` : 'rgba(0,0,0,0.1)'}`,
           borderRadius: 10, padding: '0 6px 0 4px',
           transition: 'border-color 0.2s',
         }}>
@@ -1318,9 +1318,9 @@ export function ChatBubble({
               : '파일 첨부 (최대 3개)\n• 이미지 (JPG/PNG/GIF/WebP)\n• 문서 (PDF/Word/TXT/MD)\n• 표 (Excel/CSV)\n• 동영상 (MP4)'}
             style={{
               width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-              border: '1px solid rgba(255,255,255,0.14)',
-              background: attachedFiles.length > 0 ? `${primaryColor}33` : 'rgba(255,255,255,0.06)',
-              color: attachedFiles.length > 0 ? primaryColor : 'rgba(255,255,255,0.45)',
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: attachedFiles.length > 0 ? `${primaryColor}22` : 'rgba(15,20,40,0.06)',
+              color: attachedFiles.length > 0 ? primaryColor : 'rgba(15,20,40,0.45)',
               fontSize: 16, fontWeight: 300, lineHeight: 1,
               cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1364,7 +1364,7 @@ export function ChatBubble({
             style={{
               flex: 1, background: 'transparent', border: 'none', outline: 'none',
               padding: '8px 4px',
-              color: 'rgba(255,255,255,0.92)', fontSize: 13,
+              color: 'rgba(15,20,40,0.9)', fontSize: 13,
               fontFamily: 'Pretendard, Inter, sans-serif',
             }}
           />
@@ -1376,8 +1376,8 @@ export function ChatBubble({
             style={{
               width: 28, height: 28, borderRadius: 6, flexShrink: 0,
               border: 'none',
-              background: (input.trim() || attachedFile) ? primaryColor : 'rgba(255,255,255,0.08)',
-              color: (input.trim() || attachedFile) ? '#fff' : 'rgba(255,255,255,0.3)',
+              background: (input.trim() || attachedFile) ? primaryColor : 'rgba(15,20,40,0.08)',
+              color: (input.trim() || attachedFile) ? '#fff' : 'rgba(15,20,40,0.3)',
               cursor: (input.trim() || attachedFile) ? 'pointer' : 'default',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.15s',

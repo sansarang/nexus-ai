@@ -25,29 +25,29 @@ export const NEXUS = {
   },
 
   bg: {
-    base:     'rgba(15, 23, 42, 0.78)',     // 메인 (월페이퍼 살짝 보임)
-    panel:    'rgba(15, 23, 42, 0.92)',     // Sidebar (덜 투명)
-    card:     'rgba(255, 255, 255, 0.06)',  // 카드 글래스
-    cardHover: 'rgba(255, 255, 255, 0.10)',
-    cardActive: 'rgba(255, 255, 255, 0.14)',
-    input:    'rgba(255, 255, 255, 0.05)',
-    inputFocus: 'rgba(255, 255, 255, 0.09)',
-    overlay:  'rgba(0, 0, 0, 0.45)',         // 모달 배경
+    base:     '#ffffff',                     // 메인 (흰색)
+    panel:    '#f5f7ff',                     // Sidebar (연한 파란빛 흰색)
+    card:     'rgba(255, 255, 255, 0.85)',   // 카드 (흰색 베이스)
+    cardHover: 'rgba(79, 108, 247, 0.06)',
+    cardActive: 'rgba(79, 108, 247, 0.10)',
+    input:    'rgba(15, 20, 40, 0.05)',
+    inputFocus: 'rgba(79, 108, 247, 0.08)',
+    overlay:  'rgba(0, 0, 0, 0.35)',         // 모달 배경
   },
 
   border: {
-    subtle:  'rgba(255, 255, 255, 0.08)',    // 기본 카드
-    medium:  'rgba(255, 255, 255, 0.15)',    // 강조
-    accent:  'rgba(139, 92, 246, 0.4)',      // 호버/포커스 (바이올렛)
-    glow:    'rgba(139, 92, 246, 0.6)',      // 강조 (네온)
+    subtle:  'rgba(0, 0, 0, 0.08)',          // 기본 카드
+    medium:  'rgba(0, 0, 0, 0.14)',          // 강조
+    accent:  'rgba(99, 102, 241, 0.4)',      // 호버/포커스 (인디고)
+    glow:    'rgba(99, 102, 241, 0.55)',     // 강조
   },
 
   text: {
-    primary:   '#f1f5f9',
-    secondary: 'rgba(255, 255, 255, 0.65)',
-    tertiary:  'rgba(255, 255, 255, 0.40)',
-    quaternary: 'rgba(255, 255, 255, 0.25)',
-    accent:    '#a78bfa',                     // 강조 텍스트 (바이올렛 lighter)
+    primary:   '#1a1d2e',
+    secondary: 'rgba(15, 20, 40, 0.65)',
+    tertiary:  'rgba(15, 20, 40, 0.40)',
+    quaternary: 'rgba(15, 20, 40, 0.25)',
+    accent:    '#6366f1',                     // 강조 텍스트 (인디고)
     onAccent:  '#ffffff',                     // 그라디언트 위 텍스트
   },
 
@@ -60,12 +60,12 @@ export const NEXUS = {
 
   // ── 그림자 ──
   shadow: {
-    sm:      '0 2px 8px rgba(0, 0, 0, 0.25)',
-    md:      '0 4px 16px rgba(0, 0, 0, 0.30)',
-    card:    '0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-    cardHover: '0 12px 40px rgba(99, 102, 241, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.10)',
-    raised:  '0 20px 60px rgba(0, 0, 0, 0.5)',
-    glow:    '0 0 24px rgba(139, 92, 246, 0.35)',
+    sm:      '0 2px 8px rgba(0, 0, 0, 0.08)',
+    md:      '0 4px 16px rgba(0, 0, 0, 0.10)',
+    card:    '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+    cardHover: '0 8px 24px rgba(99, 102, 241, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+    raised:  '0 12px 40px rgba(0, 0, 0, 0.15)',
+    glow:    '0 0 20px rgba(99, 102, 241, 0.25)',
   },
 
   // ── 반지름 ──

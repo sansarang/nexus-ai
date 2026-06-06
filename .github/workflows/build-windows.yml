@@ -132,7 +132,7 @@ jobs:
         with:
           tag_name: v2.8.0-build${{ github.run_number }}
           name: "NEXUS AI v2.8.0 (build ${{ github.run_number }})"
-          draft: true
+          draft: false
           prerelease: true
           files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           body: |

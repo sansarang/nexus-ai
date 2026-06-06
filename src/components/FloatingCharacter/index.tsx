@@ -1759,12 +1759,12 @@ export function FloatingCharacter() {
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
       // NEXUS 디자인 — Apple 날씨 영감, 인디고-바이올렛 강조
-      background: 'rgba(15, 23, 42, 0.78)',
-      backdropFilter: 'blur(40px) saturate(1.8)',
-      WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+      background: '#ffffff',
+      backdropFilter: 'none',
+      WebkitBackdropFilter: 'none',
       borderRadius: 18,
-      border: '1px solid rgba(255,255,255,0.08)',
-      boxShadow: '0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)',
+      border: '1px solid rgba(79,108,247,0.18)',
+      boxShadow: '0 24px 64px rgba(79,108,247,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
       overflow: 'hidden',
       zIndex: 9999,
       fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif",
@@ -1774,7 +1774,7 @@ export function FloatingCharacter() {
       <div data-tauri-drag-region style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 14px 8px',
-        background: 'rgba(8,8,24,0.85)',
+        background: '#f5f7ff',
         borderBottom: `1px solid ${primaryColor}28`,
         flexShrink: 0,
         position: 'relative', overflow: 'hidden',
@@ -1805,8 +1805,8 @@ export function FloatingCharacter() {
               : (beamEnabled ? '✦ 캐릭터 빛 효과: 켜짐 (클릭하면 끔)' : '✦ 캐릭터 빛 효과: 꺼짐 (클릭하면 켬)')}
             style={{
               width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: beamEnabled ? `${primaryColor}28` : 'rgba(255,255,255,0.08)',
-              color: beamEnabled ? primaryColor : 'rgba(255,255,255,0.45)',
+              background: beamEnabled ? `${primaryColor}28` : 'rgba(15,20,40,0.07)',
+              color: beamEnabled ? primaryColor : 'rgba(15,20,40,0.45)',
               fontSize: 12,
             }}
           >✦</motion.button>
@@ -1818,8 +1818,8 @@ export function FloatingCharacter() {
               title={btn.tip}
               style={{
                 width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: btn.active ? `${btn.color}28` : 'rgba(255,255,255,0.08)',
-                color: btn.active ? btn.color : 'rgba(255,255,255,0.45)',
+                background: btn.active ? `${btn.color}28` : 'rgba(15,20,40,0.07)',
+                color: btn.active ? btn.color : 'rgba(15,20,40,0.45)',
                 fontSize: btn.icon === '—' ? 16 : 12,
               } as React.CSSProperties}
             >
@@ -1835,9 +1835,9 @@ export function FloatingCharacter() {
       {!isActive && (
         <div style={{
           padding: '5px 14px', fontSize: 10,
-          color: 'rgba(255,255,255,0.45)',
-          background: 'rgba(100,100,120,0.2)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          color: 'rgba(15,20,40,0.5)',
+          background: 'rgba(15,20,40,0.04)',
+          borderBottom: '1px solid rgba(15,20,40,0.08)',
           flexShrink: 0, textAlign: 'center',
         }}>
           😴 비활성화 상태 — {assistantName}을(를) 불러주세요
@@ -1883,7 +1883,7 @@ export function FloatingCharacter() {
                     : '🔍 검색 결과'} ({floatingPreview.length})
                 </span>
                 <button onClick={() => setFloatingPreview(null)}
-                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>✕</button>
+                  style={{ background: 'none', border: 'none', color: 'rgba(15,20,40,0.45)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}>✕</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {floatingPreview.slice(0, 6).map((item, i) => {
@@ -1916,10 +1916,10 @@ export function FloatingCharacter() {
                         {isYt ? '▶' : mode ? modeEmoji[mode] ?? '→' : (i + 1)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                        <div style={{ fontSize: 10.5, color: 'rgba(15,20,40,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
                           {item.title}
                         </div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>
+                        <div style={{ fontSize: 9, color: 'rgba(15,20,40,0.35)', marginTop: 1 }}>
                           {(() => { try { return new URL(item.url).hostname.replace('www.','') } catch { return '' } })()}
                         </div>
                       </div>
@@ -2070,8 +2070,8 @@ export function FloatingCharacter() {
           return (
             <div style={{
               width: 188, flexShrink: 0,
-              borderLeft: '1px solid rgba(255,255,255,0.07)',
-              background: 'rgba(0,0,0,0.18)',
+              borderLeft: '1px solid rgba(0,0,0,0.08)',
+              background: '#f0f3ff',
               display: 'flex', flexDirection: 'column',
               overflow: 'hidden',
             }}>
@@ -2079,9 +2079,9 @@ export function FloatingCharacter() {
               <div style={{
                 padding: '10px 10px 6px',
                 fontSize: 10.5, fontWeight: 600,
-                color: 'rgba(255,255,255,0.35)',
+                color: 'rgba(15,20,40,0.4)',
                 letterSpacing: '0.06em', textTransform: 'uppercase',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                borderBottom: '1px solid rgba(0,0,0,0.07)',
                 flexShrink: 0,
               }}>
                 {userLang === 'en' ? 'Results' : '결과'}
@@ -2115,20 +2115,20 @@ export function FloatingCharacter() {
                       }}
                       style={{
                         padding: '7px 10px', cursor: 'pointer',
-                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        borderBottom: '1px solid rgba(0,0,0,0.05)',
                         transition: 'background 0.15s',
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.05)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(79,108,247,0.06)' }}
                       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
                         <span style={{ fontSize: 12 }}>{icon}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', background: 'rgba(100,220,100,0.15)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(15,20,40,0.8)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+                        <span style={{ fontSize: 9, color: '#16a34a', background: 'rgba(22,163,74,0.12)', borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
                           {userLang === 'en' ? 'Done' : '완료'}
                         </span>
                       </div>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
+                      <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 }}>
                         {preview}
                       </div>
                     </div>
@@ -2152,13 +2152,13 @@ export function FloatingCharacter() {
             style={{
               position: 'absolute', left: 0, right: 0, bottom: 52,
             zIndex: 200,
-            background: 'rgba(8,8,22,0.97)',
+            background: '#ffffff',
             borderTop: `2px solid ${primaryColor}88`,
             borderRadius: '12px 12px 0 0',
-            boxShadow: `0 -8px 32px rgba(0,0,0,0.7), 0 0 0 1px ${primaryColor}22`,
+            boxShadow: `0 -4px 20px rgba(0,0,0,0.12), 0 0 0 1px ${primaryColor}22`,
             maxHeight: '50%',
               display: 'flex', flexDirection: 'column',
-              backdropFilter: 'blur(24px)',
+              backdropFilter: 'none',
             }}
           >
             {/* 헤더 */}
@@ -2169,7 +2169,7 @@ export function FloatingCharacter() {
               </span>
               <button
                 onClick={() => setDynamicResult(null)}
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px' }}
+                style={{ background: 'none', border: 'none', color: 'rgba(15,20,40,0.4)', cursor: 'pointer', fontSize: 14, padding: '0 2px' }}
               >✕</button>
             </div>
 
@@ -2184,7 +2184,7 @@ export function FloatingCharacter() {
                       borderRadius: 8, padding: '4px 10px',
                       fontSize: 11, fontWeight: 700, color: primaryColor,
                     }}>
-                      {s.label}: <span style={{ color: '#fff' }}>{s.value}</span>
+                      {s.label}: <span style={{ color: '#1a1d2e' }}>{s.value}</span>
                     </div>
                   ))}
                 </div>
@@ -2193,7 +2193,7 @@ export function FloatingCharacter() {
               {dynamicResult.items && dynamicResult.items.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
                   {dynamicResult.items.map((item, i) => (
-                    <div key={i} style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <div key={i} style={{ fontSize: 11, color: 'rgba(15,20,40,0.75)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                       <span style={{ color: primaryColor, flexShrink: 0 }}>•</span>
                       <span style={{ wordBreak: 'break-all' }}>{item}</span>
                     </div>
@@ -2203,7 +2203,7 @@ export function FloatingCharacter() {
               {/* 동영상 파일 결과 */}
               {dynamicResult.fileInfo && (
                 <div style={{
-                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${primaryColor}33`,
+                  background: 'rgba(79,108,247,0.05)', border: `1px solid ${primaryColor}33`,
                   borderRadius: 10, padding: '8px 12px', marginBottom: 8,
                   display: 'flex', alignItems: 'center', gap: 10,
                 }}>
@@ -2211,16 +2211,16 @@ export function FloatingCharacter() {
                     {dynamicResult.fileInfo.mimeType?.startsWith('video/') ? '🎬' : dynamicResult.fileInfo.mimeType?.startsWith('image/') ? '🖼️' : '📄'}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#1a1d2e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {dynamicResult.fileInfo.name}
                     </div>
                     {dynamicResult.fileInfo.size && (
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
+                      <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.5)', marginTop: 2 }}>
                         {dynamicResult.fileInfo.size}
                       </div>
                     )}
                     {dynamicResult.fileInfo.path && (
-                      <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 9.5, color: 'rgba(15,20,40,0.35)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         📁 {dynamicResult.fileInfo.path}
                       </div>
                     )}
@@ -2237,15 +2237,15 @@ export function FloatingCharacter() {
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '5px 8px', borderRadius: 8, cursor: 'pointer',
-                        background: 'rgba(255,255,255,0.04)',
+                        background: 'rgba(79,108,247,0.04)',
                         border: `1px solid ${primaryColor}22`,
                         transition: 'background 0.15s',
                       }}
                       onMouseEnter={e => (e.currentTarget.style.background = `${primaryColor}18`)}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(79,108,247,0.04)')}
                     >
                       <span style={{ fontSize: 11, color: primaryColor, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
-                      <span style={{ flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.title}</span>
+                      <span style={{ flex: 1, fontSize: 11, color: 'rgba(15,20,40,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.title}</span>
                       <span style={{ fontSize: 9, color: primaryColor, flexShrink: 0 }}>↗</span>
                     </div>
                   ))}
@@ -2289,12 +2289,12 @@ export function FloatingCharacter() {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <div style={{
-          background: 'rgba(12,12,28,0.97)', border: `1.5px solid ${primaryColor}55`,
+          background: '#ffffff', border: `1.5px solid ${primaryColor}55`,
           borderRadius: 18, padding: '22px 24px', width: 300,
-          boxShadow: `0 12px 40px ${primaryColor}44`,
+          boxShadow: `0 8px 30px rgba(0,0,0,0.12)`,
         }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>🎬 영상을 어떻게 할까요?</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>{videoIntentPending.file.name}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1d2e', marginBottom: 6 }}>🎬 영상을 어떻게 할까요?</div>
+          <div style={{ fontSize: 11, color: 'rgba(15,20,40,0.55)', marginBottom: 16 }}>{videoIntentPending.file.name}</div>
           {[
             { label: '🔍 내용 분석 / 요약', text: '이 영상 내용을 분석하고 요약해줘' },
             { label: '✂️ 구간 자르기', text: '이 영상에서 구간을 잘라줘' },
@@ -2306,7 +2306,7 @@ export function FloatingCharacter() {
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 background: `${primaryColor}18`, border: `1px solid ${primaryColor}33`,
-                color: '#fff', fontSize: 12, fontWeight: 600,
+                color: primaryColor, fontSize: 12, fontWeight: 600,
                 padding: '8px 12px', borderRadius: 10, marginBottom: 8, cursor: 'pointer',
                 transition: 'background 0.15s',
               }}
@@ -2315,7 +2315,7 @@ export function FloatingCharacter() {
             >{label}</button>
           ))}
           <button onClick={() => setVideoIntentPending(null)}
-            style={{ width: '100%', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', marginTop: 2 }}>
+            style={{ width: '100%', background: 'transparent', border: 'none', color: 'rgba(15,20,40,0.4)', fontSize: 11, cursor: 'pointer', marginTop: 2 }}>
             취소
           </button>
         </div>
@@ -2350,17 +2350,17 @@ export function FloatingCharacter() {
           position: 'fixed', top: '50%', left: '50%',
           transform: 'translate(-50%, -50%)',
           zIndex: 10201,
-          background: 'rgba(10,10,24,0.98)',
+          background: '#ffffff',
           border: `1.5px solid ${primaryColor}44`,
           borderRadius: 18,
           padding: '20px 18px',
           width: 320,
-          boxShadow: `0 16px 48px rgba(0,0,0,0.8), 0 0 0 1px ${primaryColor}22`,
+          boxShadow: `0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px ${primaryColor}22`,
         }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: primaryColor, marginBottom: 4 }}>
             🤖 AI 모드 선택
           </div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.45)', marginBottom: 14 }}>
             현재: {activePersona?.name ?? '일반 모드'}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -2376,17 +2376,17 @@ export function FloatingCharacter() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '10px 12px', borderRadius: 12,
-                    background: isCurrentPersona ? `${p.color}22` : 'rgba(255,255,255,0.04)',
-                    border: isCurrentPersona ? `1.5px solid ${p.color}88` : '1px solid rgba(255,255,255,0.1)',
+                    background: isCurrentPersona ? `${p.color}22` : 'rgba(15,20,40,0.04)',
+                    border: isCurrentPersona ? `1.5px solid ${p.color}88` : '1px solid rgba(15,20,40,0.08)',
                     cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
                   }}
-                  onMouseEnter={e => { if (!isCurrentPersona) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-                  onMouseLeave={e => { if (!isCurrentPersona) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                  onMouseEnter={e => { if (!isCurrentPersona) e.currentTarget.style.background = 'rgba(79,108,247,0.06)' }}
+                  onMouseLeave={e => { if (!isCurrentPersona) e.currentTarget.style.background = 'rgba(15,20,40,0.04)' }}
                 >
                   <span style={{ fontSize: 20, flexShrink: 0 }}>{p.emoji}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: isCurrentPersona ? p.color : 'rgba(255,255,255,0.9)' }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: isCurrentPersona ? p.color : '#1a1d2e' }}>{p.name}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(15,20,40,0.45)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
                   </div>
                   {isCurrentPersona && <span style={{ fontSize: 10, color: p.color, fontWeight: 700, flexShrink: 0 }}>✓ 현재</span>}
                 </button>
@@ -2397,8 +2397,8 @@ export function FloatingCharacter() {
             onClick={() => setShowPersonaPopup(false)}
             style={{
               marginTop: 14, width: '100%', padding: '8px 0',
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 10, color: 'rgba(255,255,255,0.5)', fontSize: 11, cursor: 'pointer',
+              background: 'rgba(15,20,40,0.05)', border: '1px solid rgba(15,20,40,0.1)',
+              borderRadius: 10, color: 'rgba(15,20,40,0.5)', fontSize: 11, cursor: 'pointer',
             }}
           >닫기</button>
         </div>
@@ -2451,25 +2451,25 @@ export function FloatingCharacter() {
             style={{
               background: toast.level === 'critical' ? 'rgba(239,68,68,0.95)' :
                           toast.level === 'warn'     ? 'rgba(245,158,11,0.95)' :
-                                                       'rgba(30,30,50,0.95)',
-              backdropFilter: 'blur(12px)',
+                                                       '#ffffff',
+              backdropFilter: 'none',
               border: `1px solid ${toast.level === 'critical' ? 'rgba(239,68,68,0.5)' :
                                     toast.level === 'warn'    ? 'rgba(245,158,11,0.5)' :
                                                                 `${primaryColor}44`}`,
               borderRadius: 14, padding: '12px 16px', maxWidth: 320,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)', pointerEvents: 'auto',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.12)', pointerEvents: 'auto',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: '#fff', marginBottom: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: toast.level === 'critical' || toast.level === 'warn' ? '#fff' : '#1a1d2e', marginBottom: 4 }}>
                 {toast.title}
               </div>
               <button
                 onClick={() => setToastAlerts(prev => prev.filter(t => t.id !== toast.id))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 14, padding: 0, lineHeight: 1, flexShrink: 0 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: toast.level === 'critical' || toast.level === 'warn' ? 'rgba(255,255,255,0.6)' : 'rgba(15,20,40,0.4)', fontSize: 14, padding: 0, lineHeight: 1, flexShrink: 0 }}
               >✕</button>
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: toast.level === 'critical' || toast.level === 'warn' ? 'rgba(255,255,255,0.85)' : 'rgba(15,20,40,0.7)', lineHeight: 1.5 }}>
               {toast.message.slice(0, 120)}{toast.message.length > 120 ? '...' : ''}
             </div>
           </motion.div>

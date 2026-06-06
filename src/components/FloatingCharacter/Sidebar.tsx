@@ -230,13 +230,13 @@ export function Sidebar({
               style={{
                 position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
                 zIndex: 50,
-                background: 'rgba(15,23,42,0.95)',
-                backdropFilter: 'blur(40px) saturate(1.6)',
-                WebkitBackdropFilter: 'blur(40px) saturate(1.6)',
+                background: '#ffffff',
+                backdropFilter: 'none',
+                WebkitBackdropFilter: 'none',
                 border: `1px solid ${NEXUS.border.subtle}`,
                 borderRadius: NEXUS.radius.md,
                 maxHeight: 320, overflowY: 'auto',
-                boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                 padding: 4,
               }}
             >
