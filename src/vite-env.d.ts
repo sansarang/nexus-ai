@@ -23,3 +23,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// vite define으로 주입되는 빌드 버전 (CI: 2.9.<run_number> / dev: tauri.conf.json)
+declare const __APP_VERSION__: string

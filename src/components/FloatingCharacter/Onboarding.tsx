@@ -16,17 +16,27 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const ONBOARDED_KEY = 'nexus-onboarded'
-const APP_VERSION   = '2.9.0'
+// 실제 빌드 버전(vite define 주입). 하드코딩 제거 → 설치 바이너리 버전과 동기화.
+const APP_VERSION   = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
 const VERSION_KEY   = 'nexus-app-version'
 
-// ★ 버전 업그레이드 시 이전 온보딩 상태 초기화 (import 시 즉시 실행 X)
+// major.minor만 추출 ("2.9.47" → "2.9"). 온보딩 재표시는 minor 변경에서만 일어나고
+// 패치단위 자동업데이트(2.9.N → 2.9.N+1)는 온보딩을 유지한다.
+function minorVersion(v: string | null): string {
+  return v ? v.split('.').slice(0, 2).join('.') : ''
+}
+const APP_MINOR = minorVersion(APP_VERSION)
+
+// ★ major.minor 업그레이드 시에만 이전 온보딩 상태 초기화 (import 시 즉시 실행 X)
 function clearIfVersionChanged() {
   try {
-    const saved = localStorage.getItem(VERSION_KEY)
-    if (saved !== APP_VERSION) {
+    // 저장값이 full version(구버전 포맷, 예: "2.9.0")이어도 major.minor로 정규화 비교 →
+    // 기존 사용자 1회성 재표시 회귀 방지.
+    const savedMinor = minorVersion(localStorage.getItem(VERSION_KEY))
+    if (savedMinor !== APP_MINOR) {
       localStorage.removeItem(ONBOARDED_KEY)
-      localStorage.setItem(VERSION_KEY, APP_VERSION)
-      console.log(`[Nexus] 버전 변경 (${saved} → ${APP_VERSION}): 온보딩 초기화`)
+      localStorage.setItem(VERSION_KEY, APP_MINOR)
+      console.log(`[Nexus] 버전 변경 (${savedMinor || '없음'} → ${APP_MINOR}): 온보딩 초기화`)
     }
   } catch { /* ignore */ }
 }
@@ -44,7 +54,7 @@ export function hasCompletedOnboarding(): boolean {
 export function markOnboardingComplete() {
   try {
     localStorage.setItem(ONBOARDED_KEY, '1')
-    localStorage.setItem(VERSION_KEY, APP_VERSION)
+    localStorage.setItem(VERSION_KEY, APP_MINOR)
   } catch { /* ignore */ }
 }
 

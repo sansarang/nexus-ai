@@ -118,26 +118,23 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
-      # ── 업데이터 버전 단조 증가 주입 ──────────────────────────────
+      # ── 업데이터 버전 단조 증가 (Tauri --config 머지, 파일 변형 없음) ──────
       # 기존 버그: 앱 버전(tauri.conf.json)과 latest.json version이 매 빌드 "2.9.0"으로 동일
       #   → Tauri 업데이터가 신버전을 절대 감지 못해 자동 업데이트가 영구 미동작.
-      # 수정: 빌드마다 2.9.<run_number>를 tauri.conf.json에 주입 → 설치 앱이 자기 버전을 가짐.
-      #       latest.json도 동일 버전으로 생성(아래 step) → 구버전 < 신버전 비교 성립.
-      - name: Set build version (updater monotonic increment)
-        shell: pwsh
-        run: |
-          $v = "2.9.${{ github.run_number }}"
-          $conf = "src-tauri/tauri.conf.json"
-          $content = Get-Content $conf -Raw
-          $content = $content -replace '"version":\s*"[^"]*"', ('"version": "' + $v + '"')
-          Set-Content -Path $conf -Value $content -Encoding utf8 -NoNewline
-          Write-Host "App version set to $v (updater compares this against latest.json)"
-
+      # 수정: 빌드마다 2.9.<run_number>를 Tauri --config(JSON Merge Patch)로 주입.
+      #       tauri.conf.json을 변형하지 않고(정규식 제거) 설치 바이너리 버전만 덮어씀.
+      #       APP_VERSION env는 vite의 __APP_VERSION__ 주입(온보딩 버전 동기화)에도 함께 사용.
       - name: Build Tauri app
+        shell: pwsh
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --target x86_64-pc-windows-msvc
+          APP_VERSION: 2.9.${{ github.run_number }}
+        run: |
+          $cfgPath = Join-Path $PWD 'version-override.json'
+          "{""version"":""$env:APP_VERSION""}" | Out-File -FilePath $cfgPath -Encoding utf8NoBOM
+          Write-Host "Tauri version override → $(Get-Content $cfgPath -Raw)"
+          npx tauri build --target x86_64-pc-windows-msvc --config $cfgPath
 
       - name: Generate latest.json for Tauri updater
         shell: pwsh

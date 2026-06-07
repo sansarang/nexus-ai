@@ -10,3 +10,4 @@ windows-dist/
 .vercel
 __pycache__/
 *.pyc
+version-override.json
