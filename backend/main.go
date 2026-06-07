@@ -322,6 +322,9 @@ func main() {
 	mux.HandleFunc("POST /api/workflow/plan", handleWorkflowPlan)
 	mux.HandleFunc("POST /api/workflow/run", handleWorkflowRun)
 
+	// ── 🤖 데스크탑 자동화 엔진 (UIA 닫힌 루프) ─────────────────────
+	registerAutomationRoutes(mux)
+
 	// ── ☀️ Proactive Briefing ─────────────────────────────────────
 	mux.HandleFunc("POST /api/briefing/now", handleBriefingNow)
 	mux.HandleFunc("GET /api/briefing/config", handleBriefingConfig)

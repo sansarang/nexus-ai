@@ -85,7 +85,8 @@ jobs:
             pyyaml==6.0.2 sqlalchemy==2.0.36 pillow==10.4.0 numpy==1.26.4 `
             yt-dlp==2024.11.4 ytmusicapi==1.7.4 `
             PyMuPDF==1.24.11 pandas==2.2.3 openpyxl==3.1.5 `
-            yfinance==0.2.43 groq==0.11.0 ollama==0.3.3 pyautogui==0.9.54 pygetwindow==0.0.9
+            yfinance==0.2.43 groq==0.11.0 ollama==0.3.3 pyautogui==0.9.54 pygetwindow==0.0.9 `
+            pywinauto==0.6.8 pyperclip==1.9.0
           # 무거운 ML 의존성 (easyocr, faiss, sentence-transformers) — 실패해도 빌드 계속
           pip install --no-cache-dir easyocr==1.7.2 faiss-cpu==1.9.0 sentence-transformers==3.2.1 scikit-learn==1.5.2 2>&1 | Out-Null
           if ($LASTEXITCODE -ne 0) {

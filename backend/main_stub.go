@@ -169,6 +169,7 @@ func main() {
 	// ── 워크플로우 ────────────────────────────────────────────
 	mux.HandleFunc("POST /api/workflow/plan", handleWorkflowPlan)
 	mux.HandleFunc("POST /api/workflow/run", handleWorkflowRun)
+	registerAutomationRoutes(mux) // 🤖 데스크탑 자동화 엔진 라우트
 	mux.HandleFunc("GET /api/workflow/list", handleWorkflowList)
 	mux.HandleFunc("POST /api/workflow/save", handleWorkflowSave)
 	mux.HandleFunc("DELETE /api/workflow/delete", handleWorkflowDelete)

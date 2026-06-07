@@ -661,6 +661,20 @@ export const schedulerAdd = (command: string, useWindows = false) =>
 export const schedulerList = () =>
   request<{ success: boolean; tasks: ScheduledTask[]; total: number }>('GET', '/api/scheduler/list')
 
+/* ── 🤖 데스크탑 자동화 엔진 (UIA 닫힌 루프) ── */
+export interface AutomationStatusResult { success: boolean; available: boolean; platform: string; message: string }
+export interface AutoStepDef { kind: string; selector?: { name?: string; role?: string; automation_id?: string; index?: number }; value?: string; expect?: string }
+export const automationStatus = () =>
+  request<AutomationStatusResult>('GET', '/api/automation/status')
+export const automationWorkflows = () =>
+  request<{ success: boolean; workflows: string[]; count: number }>('GET', '/api/automation/workflows')
+export const automationSaveWorkflow = (name: string, steps: AutoStepDef[]) =>
+  request<{ success: boolean; name: string; path: string; steps: number }>('POST', '/api/automation/workflows', { name, steps })
+export const automationRun = (steps: AutoStepDef[], dryRun = false) =>
+  request<{ success: boolean; dry_run?: boolean; result?: unknown; message?: string; code?: string }>('POST', '/api/automation/run', { steps, dry_run: dryRun })
+export const automationReplay = (name: string) =>
+  request<{ success: boolean; result?: unknown; message?: string; code?: string }>('POST', `/api/automation/workflows/${encodeURIComponent(name)}/replay`, {})
+
 export const schedulerDelete = (id: string) =>
   request<{ success: boolean; message: string }>('DELETE', `/api/scheduler/delete?id=${encodeURIComponent(id)}`)
 

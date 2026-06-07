@@ -11,6 +11,7 @@ import { Sidebar } from './Sidebar'
 import { hasCompletedOnboarding, markOnboardingComplete } from './Onboarding'
 import { TeamManagement } from './TeamManagement'
 import { SettingsModal } from './SettingsModal'
+import { AutomationPanel } from './AutomationPanel'
 import type { InlineCardData } from './InlineCards'
 import type { InlineCardData2 } from './InlineCards2'
 import type { InlineCard3Data } from './InlineCards3'
@@ -129,6 +130,7 @@ export function FloatingCharacter() {
   const [input, setInput]                 = useState('')
   const [minimized, setMinimized]         = useState(false)
   const [settingsOpen, setSettingsOpen]     = useState(false)
+  const [automationOpen, setAutomationOpen] = useState(false)
   const [teamOpen, setTeamOpen]             = useState(false)
   const [showDesktopAgent, setShowDesktopAgent] = useState(false)
   const showWorkflowBuilder = storeShowWorkflowBuilder
@@ -1713,6 +1715,8 @@ export function FloatingCharacter() {
       tip: userLang === 'en' ? 'Settings' : '설정' },
     { icon: '🏢', active: false,       color: '#0ea5e9',     onClick: () => setTeamOpen(true),
       tip: userLang === 'en' ? 'Team' : '팀 관리' },
+    { icon: '🤖', active: false,       color: '#7c5cff',     onClick: () => setAutomationOpen(true),
+      tip: userLang === 'en' ? 'Automation' : '자동화' },
     { icon: '—',  active: false,       color: '#6b7280',     onClick: async () => {
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window')
@@ -2334,6 +2338,14 @@ export function FloatingCharacter() {
       userEmail={userEmail}
       isOpen={teamOpen}
       onClose={() => setTeamOpen(false)}
+    />
+
+    {/* 🤖 데스크탑 자동화 라이브러리/실행 */}
+    <AutomationPanel
+      open={automationOpen}
+      onClose={() => setAutomationOpen(false)}
+      lang={userLang}
+      primaryColor={primaryColor}
     />
 
     {/* ── 페르소나 선택 팝업 ── */}

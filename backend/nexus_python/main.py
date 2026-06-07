@@ -1039,6 +1039,149 @@ def desktop_status():
         return fail(str(e))
 
 
+# ══════════════════════════════════════════════════════════════
+#  Windows UI Automation (UIA) — 좌표가 아닌 '의미' 기반 데스크탑 자동화
+#  ⚠️ pywinauto는 Windows 전용. import-guard로 Mac에서도 사이드카가 부팅된다.
+#  ⚠️ [Windows QA 필요] 실제 클릭/입력 동작은 Windows 머신에서 검증해야 한다.
+#     Go windowsAutomator가 /desktop/uia/*를 호출하고, RunSteps 닫힌 루프가
+#     /desktop/uia/status(=Available()) 게이트를 통과해야만 실행된다.
+# ══════════════════════════════════════════════════════════════
+_uia_desktop = None
+_uia_err = ""
+
+
+def _uia():
+    """pywinauto UIA Desktop 핸들 lazy 초기화 (실패 시 None + 사유 기록)."""
+    global _uia_desktop, _uia_err
+    if _uia_desktop is not None:
+        return _uia_desktop
+    try:
+        import platform as _pf
+        if _pf.system() != "Windows":
+            _uia_err = "UIA는 Windows 전용"
+            return None
+        from pywinauto import Desktop  # Windows 전용 — import-guard로 보호
+        _uia_desktop = Desktop(backend="uia")
+        return _uia_desktop
+    except Exception as e:
+        _uia_err = f"pywinauto 미설치/초기화 실패: {e}"
+        return None
+
+
+def _uia_find(sel: dict):
+    """셀렉터(name/role/automation_id/index)로 포그라운드 윈도우에서 요소 검색.
+       returns (element|None, error_str)."""
+    d = _uia()
+    if d is None:
+        return None, _uia_err or "UIA 미가용"
+    try:
+        kwargs = {}
+        if sel.get("automation_id"):
+            kwargs["auto_id"] = sel["automation_id"]
+        if sel.get("role"):
+            kwargs["control_type"] = sel["role"]
+        idx = int(sel.get("index", 0) or 0)
+        top = d.window(active_only=True)  # 포그라운드(활성) 최상위 윈도우
+        cands = top.descendants(**kwargs) if kwargs else top.descendants()
+        name = sel.get("name")
+        if name:  # 접근성 이름 부분 일치
+            cands = [c for c in cands if name in (c.window_text() or "")]
+        if not cands:
+            return None, f"요소 없음: {sel}"
+        if idx >= len(cands):
+            idx = 0
+        return cands[idx], ""
+    except Exception as e:
+        return None, str(e)
+
+
+@app.get("/desktop/uia/status")
+def uia_status():
+    import platform as _pf
+    d = _uia()
+    avail = d is not None
+    return ok(available=avail, platform=_pf.system().lower(),
+              message=("UIA 준비됨" if avail else "데스크탑 자동화는 Windows에서 사용 가능 (UIA 미가용)"),
+              detail=(_uia_err or None))
+
+
+@app.post("/desktop/uia/find")
+def uia_find(body: dict):
+    el, err = _uia_find(body.get("selector", body))
+    if el is None:
+        return fail(err)
+    try:
+        return ok(found=True, name=el.window_text(), role=str(el.element_info.control_type))
+    except Exception:
+        return ok(found=True)
+
+
+@app.post("/desktop/uia/click")
+def uia_click(body: dict):
+    el, err = _uia_find(body.get("selector", body))
+    if el is None:
+        return fail(err)
+    try:
+        el.click_input()
+        return ok(message="클릭 완료")
+    except Exception as e:
+        return fail(str(e))
+
+
+@app.post("/desktop/uia/set_text")
+def uia_set_text(body: dict):
+    text = body.get("text", body.get("value", ""))
+    el, err = _uia_find(body.get("selector", body))
+    if el is None:
+        return fail(err)
+    try:
+        el.set_focus()
+        # 한글/유니코드 안전: 클립보드 경유 (pyautogui.typewrite는 ASCII 전용)
+        try:
+            import pyperclip
+            import pyautogui
+            pyperclip.copy(text)
+            pyautogui.hotkey('ctrl', 'a')
+            pyautogui.hotkey('ctrl', 'v')
+        except Exception:
+            el.type_keys(text, with_spaces=True)
+        return ok(message=f"{len(text)}자 입력 완료")
+    except Exception as e:
+        return fail(str(e))
+
+
+@app.post("/desktop/uia/send_keys")
+def uia_send_keys(body: dict):
+    combo = body.get("keys", body.get("value", ""))
+    if not combo:
+        return fail("keys 필요")
+    try:
+        import pyautogui
+        keys = [k.strip() for k in combo.replace('+', ' ').split() if k.strip()]
+        if len(keys) > 1:
+            pyautogui.hotkey(*keys)
+        elif keys:
+            pyautogui.press(keys[0])
+        return ok(message=f"키 입력: {combo}")
+    except Exception as e:
+        return fail(str(e))
+
+
+@app.post("/desktop/uia/verify")
+def uia_verify(body: dict):
+    sel = body.get("selector", {})
+    expect = body.get("expect", "")
+    el, err = _uia_find(sel)
+    if el is None:
+        return ok(verified=False, reason=err)
+    try:
+        txt = el.window_text() or ""
+        verified = (expect in txt) if expect else True
+        return ok(verified=verified, text=txt)
+    except Exception as e:
+        return ok(verified=False, reason=str(e))
+
+
 @app.post("/desktop/agent/run")
 @app.post("/desktop-agent/run")
 def desktop_agent_run(body: dict):
