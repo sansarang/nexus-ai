@@ -66,8 +66,8 @@ interface OnboardingProps {
 const STEPS = [
   {
     icon: '🤖',
-    title: 'NEXUS AI에 오신 것을 환영합니다',
-    body: '한국어 자비스급 PC 비서.\n명령 60+ 종 / 카드 49+ / 자동 문서 생성.',
+    title: '직접 PC를 조작하는 AI',
+    body: '말만 하는 AI가 아니에요.\n파일 정리·화면 분석·엑셀 작성·예약 실행까지 직접 해드려요.',
     cta: '시작',
     cmd: '',
   },

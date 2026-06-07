@@ -209,27 +209,28 @@ function groupByDate(entries: HistoryEntry[]): { date: string; items: HistoryEnt
 
 /* HistoryItem 제거 — 이력은 HistoryBubbles 형식으로 렌더링 */
 
-// 빈 상태에서 표시되는 추천 칩 — 카테고리별 8개 (시스템 / 검색 / 쇼핑 / 영상 / AI)
+// 빈 상태에서 표시되는 추천 칩 — 자동화 유스케이스 우선(전면), 일반 Q&A는 후순위.
+// ★ 모든 cmd는 이미 동작하는 기능에 매핑(파일정리/화면분석/워크플로/엑셀/예약/클립보드).
 const FEATURED_ACTIONS_KO = [
-  { emoji: '📊', label: 'PC 상태',    cmd: '내 PC 메모리랑 디스크 상태 알려줘',  cat: '시스템' },
-  { emoji: '🔐', label: '보안 스캔',   cmd: '보안 스캔 해줘',                       cat: '시스템' },
-  { emoji: '🧹', label: '캐시 정리',   cmd: '캐시랑 임시파일 정리해줘',            cat: '시스템' },
-  { emoji: '🌤️', label: '날씨',        cmd: '오늘 서울 날씨 어때',                   cat: '검색' },
-  { emoji: '📰', label: '오늘 뉴스',   cmd: '오늘 IT 뉴스 알려줘',                  cat: '검색' },
-  { emoji: '🛒', label: '가격 비교',   cmd: '아이폰 15 최저가 알려줘',              cat: '쇼핑' },
-  { emoji: '▶️', label: '유튜브',      cmd: '잔잔한 노래 유튜브에서 추천',          cat: '영상' },
-  { emoji: '⚖️', label: '비교 분석',   cmd: 'ChatGPT vs Claude 차이 알려줘',         cat: 'AI' },
+  { emoji: '📂', label: '파일 자동정리', cmd: '다운로드 폴더 파일 종류별로 정리해줘',     cat: '자동화' },
+  { emoji: '👁️', label: '화면 보고 처리', cmd: '지금 화면 분석해서 뭘 해야 할지 알려줘',  cat: '자동화' },
+  { emoji: '🔁', label: '멀티 작업',     cmd: '오늘 IT 뉴스 찾아서 PDF로 저장해줘',       cat: '자동화' },
+  { emoji: '📊', label: '엑셀 자동작성', cmd: '엑셀로 이번 달 가계부 표 만들어줘',         cat: '자동화' },
+  { emoji: '⏰', label: '예약 실행',     cmd: '매일 아침 9시에 크롬 열어줘',              cat: '자동화' },
+  { emoji: '📋', label: '클립보드 처리', cmd: '방금 복사한 내용 번역해줘',               cat: '자동화' },
+  { emoji: '🖥️', label: 'PC 상태',      cmd: '내 PC 메모리랑 디스크 상태 알려줘',        cat: '시스템' },
+  { emoji: '📰', label: '오늘 뉴스',     cmd: '오늘 IT 뉴스 알려줘',                      cat: '검색' },
 ]
 
 const FEATURED_ACTIONS_EN = [
-  { emoji: '📊', label: 'PC Status',      cmd: 'Show my PC memory and disk usage', cat: 'System' },
-  { emoji: '🔐', label: 'Security Scan',  cmd: 'Run a security scan',              cat: 'System' },
-  { emoji: '🧹', label: 'Clean Cache',    cmd: 'Clean up cache and temp files',    cat: 'System' },
-  { emoji: '🌤️', label: 'Weather',        cmd: "What's the weather in Seoul",      cat: 'Search' },
-  { emoji: '📰', label: 'Today News',     cmd: "Today's tech news",                cat: 'Search' },
-  { emoji: '🛒', label: 'Price Compare',  cmd: 'Cheapest iPhone 15',               cat: 'Shop' },
-  { emoji: '▶️', label: 'YouTube',        cmd: 'Find lo-fi music on YouTube',      cat: 'Video' },
-  { emoji: '⚖️', label: 'Compare',        cmd: 'ChatGPT vs Claude',                cat: 'AI' },
+  { emoji: '📂', label: 'Auto-Organize', cmd: 'Organize my Downloads folder by file type', cat: 'Automate' },
+  { emoji: '👁️', label: 'See & Act',     cmd: 'Analyze my screen and tell me what to do',  cat: 'Automate' },
+  { emoji: '🔁', label: 'Multi-Step',    cmd: "Find today's tech news and save it as a PDF", cat: 'Automate' },
+  { emoji: '📊', label: 'Excel Auto',    cmd: 'Create a monthly budget table in Excel',    cat: 'Automate' },
+  { emoji: '⏰', label: 'Schedule',      cmd: 'Open Chrome every day at 9am',              cat: 'Automate' },
+  { emoji: '📋', label: 'Clipboard',     cmd: 'Translate what I just copied',              cat: 'Automate' },
+  { emoji: '🖥️', label: 'PC Status',     cmd: 'Show my PC memory and disk usage',          cat: 'System' },
+  { emoji: '📰', label: 'Today News',    cmd: "Today's tech news",                         cat: 'Search' },
 ]
 
 const FOLLOW_UP_MAP_KO: Record<string, Array<{ label: string; cmd: string }>> = {
@@ -431,14 +432,14 @@ export function ChatBubble({
 
   /* UI-9: 회전 placeholder — 3초마다 예시 교체 (입력 안 한 동안) */
   const PLACEHOLDER_EXAMPLES_KO = [
-    '예: 오늘 날씨', '예: PC 상태 알려줘', '예: 도움말',
-    '예: 개발자 모드로', '예: 보안 점검', '예: 엑셀 A1에 100 입력',
-    '예: 최신 AI 뉴스', '예: 아이폰 vs 갤럭시 비교',
+    '예: 다운로드 폴더 정리해줘', '예: 지금 화면 분석해줘', '예: 엑셀로 표 만들어줘',
+    '예: 뉴스 찾아서 PDF로 저장해줘', '예: 매일 9시에 크롬 열어줘', '예: 방금 복사한 거 번역해줘',
+    '예: PC 상태 알려줘', '예: 오늘 IT 뉴스',
   ]
   const PLACEHOLDER_EXAMPLES_EN = [
-    'e.g. today\'s weather', 'e.g. show PC status', 'e.g. help',
-    'e.g. switch to developer mode', 'e.g. security scan', 'e.g. set A1 to 100',
-    'e.g. latest AI news', 'e.g. compare iPhone vs Galaxy',
+    'e.g. organize my Downloads folder', 'e.g. analyze my screen', 'e.g. create a budget table in Excel',
+    'e.g. find news and save as PDF', 'e.g. open Chrome every day at 9am', 'e.g. translate what I copied',
+    'e.g. show PC status', "e.g. today's tech news",
   ]
   const [phIdx, setPhIdx] = useState(0)
   useEffect(() => {

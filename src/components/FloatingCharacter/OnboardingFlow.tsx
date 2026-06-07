@@ -678,10 +678,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <div>
                 <div style={{ fontSize: 11, letterSpacing: '0.12em', color: selectedStyle.primaryColor, marginBottom: 4, fontWeight: 600 }}>NEXUS AI</div>
                 <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1a1d2e', marginBottom: 3, lineHeight: 1.3 }}>
-                  {isEn ? 'Your AI PC Assistant' : 'AI PC 비서를 만나보세요'}
+                  {isEn ? 'The AI that runs your PC' : '직접 PC를 조작하는 AI'}
                 </h2>
                 <p style={{ fontSize: 12, color: 'rgba(15,20,40,0.45)', lineHeight: 1.5 }}>
-                  {isEn ? 'Watch Nexus work in real-time ↓' : '넥서스가 실시간으로 일하는 모습을 보세요 ↓'}
+                  {isEn ? 'Not just answers — Nexus does the work ↓' : '말만 하는 게 아니라, 직접 일을 합니다 ↓'}
                 </p>
               </div>
             </div>
