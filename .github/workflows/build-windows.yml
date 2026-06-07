@@ -172,6 +172,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.RELEASE_TOKEN }}
           repository: sansarang/nexus-ai-releases
           tag_name: v2.9.0-build${{ github.run_number }}
           name: "NEXUS AI v2.9.0 (build ${{ github.run_number }})"
@@ -196,5 +197,4 @@ jobs:
             - 인터넷 연결 필요
 
             [전체 기능 보기 -> nexusai.ai.kr](https://nexusai.ai.kr)
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
