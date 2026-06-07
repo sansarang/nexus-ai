@@ -8,3 +8,5 @@ windows-dist/
 *.exe
 !build-on-windows.ps1
 .vercel
+__pycache__/
+*.pyc

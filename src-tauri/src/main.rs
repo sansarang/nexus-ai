@@ -691,13 +691,20 @@ async fn main() {
         .build(tauri::generate_context!())
         .expect("Nexus 실행 실패")
         .run(|app, event| {
-            // 앱 종료 직전 백엔드 kill
-            if let tauri::RunEvent::Exit = event {
-                kill_backend();
+            match event {
+                tauri::RunEvent::Exit => {
+                    kill_backend();
+                }
+                tauri::RunEvent::WindowEvent {
+                    event: tauri::WindowEvent::CloseRequested { .. },
+                    ..
+                } => {
+                    kill_backend();
+                    app.exit(0);
+                }
+                _ => {
+                    let _ = app;
+                }
             }
-            // ★ 사장님 요구: 모든 창 닫히면 진짜 종료 (이전엔 트레이에 남아있어서 재실행 안 됨)
-            // ExitRequested 시 prevent_exit() 제거 → ✕ 클릭 시 정상 종료 → 재실행 가능
-            // 백엔드도 함께 종료되어 다음 실행 시 깨끗한 상태로 시작
-            let _ = app;
         });
 }

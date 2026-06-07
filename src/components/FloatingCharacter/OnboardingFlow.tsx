@@ -1062,7 +1062,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1a1d2e', marginBottom: 6 }}>
                 {isEn ? 'Choose Your Plan' : '딱 맞는 플랜을 선택하세요'}
               </h2>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+              <p style={{ fontSize: 13, color: 'rgba(15,20,40,0.45)', lineHeight: 1.6 }}>
                 {isEn ? 'Change anytime · No credit card required to start' : '언제든 변경 가능 · 카드 등록 불필요'}
               </p>
             </div>
@@ -1149,7 +1149,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                       marginBottom: 6, marginTop: isPro ? 10 : 0,
                     }}>{planLabel}</div>
                     <div style={{
-                      fontSize: 16, fontWeight: 800, color: isSelected ? 'white' : '#1a1d2e', marginBottom: 10,
+                      fontSize: 16, fontWeight: 800, color: isSelected ? planColor : '#1a1d2e', marginBottom: 10,
                     }}>{planPrice}</div>
                     {planFeats.map(f => (
                       <div key={f} style={{
@@ -1206,7 +1206,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {nextBtn(() => setStep(4), isEn ? 'Continue →' : '다음 →')}
-              {backBtn(() => setStep(2), isEn ? '← Back to Demo' : '← 데모로 돌아가기')}
+              {backBtn(() => setStep(0), isEn ? '← Back' : '← 이전')}
             </div>
           </motion.div>
         )}
