@@ -1451,7 +1451,7 @@ def cron_run_now(body: dict):
 
 @app.get("/health")
 def health():
-    return ok(service="nexus-python", port=17892, message="Python sidecar running")
+    return ok(service="nexus-python", port=17893, message="Python sidecar running")
 
 
 if __name__ == "__main__":
@@ -1465,4 +1465,4 @@ if __name__ == "__main__":
             os.environ["NEXUS_TAVILY_KEY"] = arg.split("=", 1)[1]
     if groq_key:
         GROQ_KEY = groq_key
-    uvicorn.run(app, host="127.0.0.1", port=17892, log_level="error")
+    uvicorn.run(app, host="127.0.0.1", port=17893, log_level="error")
