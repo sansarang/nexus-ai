@@ -344,7 +344,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch { /* 오프라인 시 무시 */ }
   },
   setOnboarded: () => {
-    localStorage.setItem('nexus-onboarded', 'true')
+    // '1'로 통일 — Onboarding.tsx(markOnboardingComplete)·main.tsx·oauth 경로와 동일 값.
+    // 과거엔 'true'를 기록해 hasCompletedOnboarding()의 엄격한 === '1' 판정과 불일치했음.
+    localStorage.setItem('nexus-onboarded', '1')
     set({ isOnboarded: true })
   },
   setAssistantName: (name) => {

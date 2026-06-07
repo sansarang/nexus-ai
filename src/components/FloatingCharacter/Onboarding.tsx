@@ -34,7 +34,10 @@ function clearIfVersionChanged() {
 export function hasCompletedOnboarding(): boolean {
   try {
     clearIfVersionChanged()  // ← 여기서 호출 (import 사이드 이펙트 제거)
-    return localStorage.getItem(ONBOARDED_KEY) === '1'
+    // '1'(현재) 또는 'true'(구버전 appStore.setOnboarded가 남긴 값) 모두 완료로 인정 →
+    // 메인 게이트(appStore.isOnboarded = !!value)와 판정 일관성 확보, 온보딩 재표시 방지.
+    const v = localStorage.getItem(ONBOARDED_KEY)
+    return v === '1' || v === 'true'
   } catch { return false }
 }
 
