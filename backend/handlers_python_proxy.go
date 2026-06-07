@@ -103,7 +103,7 @@ func handlePythonHealth(w http.ResponseWriter, r *http.Request) {
 //  Python 사이드카 프록시 헬퍼 (포트 17893) — 공통
 // ══════════════════════════════════════════════════════════════
 
-const pythonBase = "http://127.0.0.1:17893"
+const pythonBase = "http://127.0.0.1:17892"
 
 var pythonClient = &http.Client{Timeout: 60 * time.Second}
 

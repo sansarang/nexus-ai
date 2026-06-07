@@ -548,7 +548,7 @@ func main() {
 	// ── Team Workspace 영속 데이터 로드 ──
 	loadWorkspaceStore()
 
-	const port = "127.0.0.1:17892"
+	const port = "127.0.0.1:17891"
 
 	log.Printf("[Nexus Backend] 포트 바인딩 확인: %s", port)
 	// 포트 충돌 선제 해결: 이전 인스턴스가 남아있으면 강제 종료

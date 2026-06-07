@@ -78,7 +78,7 @@ async function setupTauriEvents() {
                   if (settings.preset) localStorage.setItem('nexus-preset', settings.preset)
                   if (settings.tts_voice) { localStorage.setItem('nexus-tts-voice', settings.tts_voice); useAppStore.getState().setTtsVoice(settings.tts_voice) }
                   if (settings.character_id) localStorage.setItem('nexus-character', settings.character_id)
-                  localStorage.setItem('nexus-onboarded', 'true')
+                  localStorage.setItem('nexus-onboarded', '1')
                   useAppStore.setState({ isOnboarded: true })
                 }
               } catch { /* 설정 복원 실패 시 무시 */ }
@@ -141,7 +141,7 @@ async function bootstrap() {
               if (settings.preset) localStorage.setItem('nexus-preset', settings.preset)
               if (settings.tts_voice) { localStorage.setItem('nexus-tts-voice', settings.tts_voice); useAppStore.getState().setTtsVoice(settings.tts_voice) }
               if (settings.character_id) localStorage.setItem('nexus-character', settings.character_id)
-              localStorage.setItem('nexus-onboarded', 'true')
+              localStorage.setItem('nexus-onboarded', '1')
               useAppStore.setState({ isOnboarded: true })
             }
           } catch { /* 설정 복원 실패 시 localStorage 유지 */ }
