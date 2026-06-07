@@ -45,7 +45,7 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg0RTJCMjRCRjFCRjMyQ0MKUldUTU1yL3hTN0xpaEZudzBzY1Npczl1SUdJSk13WTFmUTlJWkhNL1c3TW1HUTYrZjdWczJDZlkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUyQ0MxMDRFMDZGNUVBRjIKUldUeTZ2VUdUaERNVWhVUzBaa2IwWUJORjZ4UGJULytBWnp6ODZ2d09DZTNRVVIwWkxvenVpQkYK",
       "endpoints": [
         "https://github.com/sansarang/nexus-ai-releases/releases/latest/download/latest.json"
       ],

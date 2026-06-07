@@ -119,7 +119,49 @@ jobs:
         run: npm install
 
       - name: Build Tauri app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --target x86_64-pc-windows-msvc
+
+      - name: Generate latest.json for Tauri updater
+        shell: pwsh
+        env:
+          TAG_NAME: v2.9.0-build${{ github.run_number }}
+        run: |
+          $version = "2.9.0"
+          $bundleDir = "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
+          # 서명 파일 읽기
+          $sigFile = Get-ChildItem "$bundleDir" -Filter "*.sig" | Select-Object -First 1
+          $signature = ""
+          if ($sigFile) {
+            $signature = (Get-Content $sigFile.FullName -Raw).Trim()
+            Write-Host "Signature file found: $($sigFile.Name)"
+          } else {
+            Write-Host "Warning: No .sig file found — updater signature will be empty"
+          }
+          # nsis.zip 파일명 확인
+          $zipFile = Get-ChildItem "$bundleDir" -Filter "*.nsis.zip" | Select-Object -First 1
+          $zipName = if ($zipFile) { $zipFile.Name } else { "Nexus_${version}_x64-setup.nsis.zip" }
+          # 다운로드 URL (태그 기준)
+          $tagName = $env:TAG_NAME
+          $downloadBase = "https://github.com/sansarang/nexus-ai-releases/releases/download/$tagName"
+          $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+          # latest.json 생성
+          $json = [ordered]@{
+            version  = $version
+            notes    = "NEXUS AI v$version"
+            pub_date = $pubDate
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = $signature
+                url       = "$downloadBase/$zipName"
+              }
+            }
+          } | ConvertTo-Json -Depth 5
+          $json | Out-File -FilePath "latest.json" -Encoding utf8NoBOM
+          Write-Host "latest.json 생성 완료:"
+          Get-Content "latest.json"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -130,17 +172,29 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.8.0-build${{ github.run_number }}
-          name: "NEXUS AI v2.8.0 (build ${{ github.run_number }})"
+          repository: sansarang/nexus-ai-releases
+          tag_name: v2.9.0-build${{ github.run_number }}
+          name: "NEXUS AI v2.9.0 (build ${{ github.run_number }})"
           draft: false
-          prerelease: true
-          files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          prerelease: false
+          make_latest: true
+          files: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.nsis.zip
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.nsis.zip.sig
+            latest.json
           body: |
-            ## 🧬 자가치유 AI — 실제 구현 완성
-            - 자가치유 엔진 신규: `handlers_prompt_heal.go`
-            - 12개 Agent 텔레메트리 분석 → LLM이 프롬프트 자동 개선
-            - `~/.nexus/prompts/` 에 힐링된 버전 저장, 재시작 없이 즉시 반영
-            - Free 15건 / Pro 200건 / Pro+ 1,000건 / Team 3,000건 통일
-            - 19개 직업 페르소나 자동 매칭
+            ## NEXUS AI v2.9.0
+
+            ### 설치 방법
+            1. 아래 `Nexus_x64-setup.exe` 다운로드
+            2. 더블클릭 -> 다음 -> 설치 완료
+            3. Google 계정으로 로그인 후 시작
+
+            ### 시스템 요구사항
+            - Windows 10/11 64-bit
+            - 인터넷 연결 필요
+
+            [전체 기능 보기 -> nexusai.ai.kr](https://nexusai.ai.kr)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
