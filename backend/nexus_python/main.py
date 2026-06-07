@@ -390,7 +390,7 @@ def excel_save(body: dict):
 def screenshot_analyze(body: dict):
     image_base64 = body.get("image_base64", "")
     question = body.get("question", "이 화면에서 무엇을 볼 수 있나요?")
-    claude_key = body.get("claude_key", os.environ.get("NEXUS_CLAUDE_KEY", ""))
+    claude_key = body.get("claude_key", "") or CLAUDE_KEY
     if not image_base64:
         return fail("image_base64 필요")
     if not claude_key:
@@ -418,7 +418,7 @@ def screenshot_analyze(body: dict):
 def screenshot_translate(body: dict):
     image_base64 = body.get("image_base64", "")
     target_lang = body.get("target_lang", "ko")
-    claude_key = body.get("claude_key", os.environ.get("NEXUS_CLAUDE_KEY", ""))
+    claude_key = body.get("claude_key", "") or CLAUDE_KEY
     if not image_base64 or not claude_key:
         return fail("image_base64, claude_key 필요")
     try:
@@ -955,7 +955,13 @@ def desktop_type(body: dict):
         return fail("text 필요")
     try:
         import pyautogui
-        pyautogui.typewrite(text, interval=interval)
+        # pyautogui.typewrite()는 ASCII 전용 — 한글/유니코드는 클립보드 경유
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            pyautogui.hotkey('ctrl', 'v')
+        except Exception:
+            pyautogui.typewrite(text, interval=interval)
         return ok(message=f"{len(text)}자 입력 완료")
     except Exception as e:
         return fail(str(e))
@@ -1037,7 +1043,7 @@ def desktop_status():
 @app.post("/desktop-agent/run")
 def desktop_agent_run(body: dict):
     task   = body.get("task", "")
-    claude_key = body.get("claude_key", os.environ.get("NEXUS_CLAUDE_KEY", ""))
+    claude_key = body.get("claude_key", "") or CLAUDE_KEY
     if not task:
         return fail("task 필요")
     plan_prompt = f"""다음 작업을 수행하기 위한 단계별 컴퓨터 제어 액션을 JSON 배열로만 반환해줘.
@@ -1065,8 +1071,14 @@ def desktop_agent_run(body: dict):
                 pyautogui.click(action["x"], action["y"])
                 results.append(f"클릭 ({action['x']},{action['y']})")
             elif a == "type":
-                pyautogui.typewrite(action.get("text",""), interval=0.03)
-                results.append(f"입력: {action.get('text','')[:20]}")
+                _t = action.get("text", "")
+                try:
+                    import pyperclip
+                    pyperclip.copy(_t)
+                    pyautogui.hotkey('ctrl', 'v')
+                except Exception:
+                    pyautogui.typewrite(_t, interval=0.03)
+                results.append(f"입력: {_t[:20]}")
             elif a == "key":
                 keys = action.get("keys", [])
                 if isinstance(keys, list):

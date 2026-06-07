@@ -810,7 +810,7 @@ func handleLLMConfig(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/llm/chat
 func handleLLMChat(w http.ResponseWriter, r *http.Request) {
-lang := getLang(r)
+	lang := getLang(r)
 	var req struct {
 		Messages  []groqMsg `json:"messages"`
 		MaxTokens int       `json:"max_tokens"`
