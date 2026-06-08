@@ -1620,4 +1620,9 @@ if __name__ == "__main__":
             os.environ["NEXUS_TAVILY_KEY"] = arg.split("=", 1)[1]
     if groq_key:
         GROQ_KEY = groq_key
-    uvicorn.run(app, host="127.0.0.1", port=17893, log_level="error")
+    # 바인드 주소: 기본은 127.0.0.1(보안 — localhost 전용).
+    # ⚠️ 원격 테스트(예: Mac→Parallels VM)로 노출하려면 NEXUS_SIDECAR_HOST=0.0.0.0 설정.
+    #    데스크탑 제어(pyautogui/UIA)를 네트워크에 여는 것이므로 신뢰된 망에서만 사용하고
+    #    테스트 후 해제할 것. (방화벽 인바운드 17893 허용 필요)
+    host = os.environ.get("NEXUS_SIDECAR_HOST", "127.0.0.1")
+    uvicorn.run(app, host=host, port=17893, log_level="error")
