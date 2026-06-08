@@ -119,6 +119,49 @@ jobs:
       - name: Install npm dependencies
         run: npm install
 
+      # ── 프론트엔드 VITE_* 주입 (관리자/구글 로그인·Supabase·Paddle) ──────────
+      # 기존 버그: CI가 VITE_* 를 안 넣어 설치본의 import.meta.env.VITE_*가 전부 빈값.
+      #   → ADMIN_EMAIL/PASSWORD='' (관리자 로그인 불일치), SUPABASE_URL=placeholder
+      #     (구글 OAuth 실패 → trial 폴백 → 메인 직행). vite build 전에 .env.production 생성.
+      # 필요 GitHub Secrets(없으면 빈값=현상태, 회귀 없음):
+      #   VITE_ADMIN_EMAIL, VITE_ADMIN_PASSWORD, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY,
+      #   VITE_PADDLE_CLIENT_TOKEN, VITE_PADDLE_PRICE_ID, VITE_PADDLE_PRICE_YEARLY,
+      #   VITE_PADDLE_PRICE_PROPLUS, VITE_PADDLE_PRICE_PROPLUS_YEARLY,
+      #   VITE_PADDLE_PRICE_TEAM5, VITE_PADDLE_PRICE_TEAM10, VITE_PADDLE_PRICE_ENT,
+      #   VITE_PADDLE_ENVIRONMENT
+      - name: Write frontend env (.env.production)
+        shell: pwsh
+        env:
+          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+          VITE_ADMIN_PASSWORD: ${{ secrets.VITE_ADMIN_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PADDLE_CLIENT_TOKEN: ${{ secrets.VITE_PADDLE_CLIENT_TOKEN }}
+          VITE_PADDLE_PRICE_ID: ${{ secrets.VITE_PADDLE_PRICE_ID }}
+          VITE_PADDLE_PRICE_YEARLY: ${{ secrets.VITE_PADDLE_PRICE_YEARLY }}
+          VITE_PADDLE_PRICE_PROPLUS: ${{ secrets.VITE_PADDLE_PRICE_PROPLUS }}
+          VITE_PADDLE_PRICE_PROPLUS_YEARLY: ${{ secrets.VITE_PADDLE_PRICE_PROPLUS_YEARLY }}
+          VITE_PADDLE_PRICE_TEAM5: ${{ secrets.VITE_PADDLE_PRICE_TEAM5 }}
+          VITE_PADDLE_PRICE_TEAM10: ${{ secrets.VITE_PADDLE_PRICE_TEAM10 }}
+          VITE_PADDLE_PRICE_ENT: ${{ secrets.VITE_PADDLE_PRICE_ENT }}
+          VITE_PADDLE_ENVIRONMENT: ${{ secrets.VITE_PADDLE_ENVIRONMENT }}
+        run: |
+          # 값은 env로만 전달(스크립트 텍스트에 secret 미주입 → 특수문자 안전).
+          $keys = @(
+            'VITE_ADMIN_EMAIL','VITE_ADMIN_PASSWORD','VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY',
+            'VITE_PADDLE_CLIENT_TOKEN','VITE_PADDLE_PRICE_ID','VITE_PADDLE_PRICE_YEARLY',
+            'VITE_PADDLE_PRICE_PROPLUS','VITE_PADDLE_PRICE_PROPLUS_YEARLY',
+            'VITE_PADDLE_PRICE_TEAM5','VITE_PADDLE_PRICE_TEAM10','VITE_PADDLE_PRICE_ENT','VITE_PADDLE_ENVIRONMENT'
+          )
+          $set = 0
+          $lines = foreach ($k in $keys) {
+            $v = [Environment]::GetEnvironmentVariable($k)
+            if ($v) { $set++ }
+            "$k=$v"
+          }
+          ($lines -join "`n") | Out-File -FilePath ".env.production" -Encoding utf8NoBOM
+          Write-Host "Wrote .env.production: $set/$($keys.Count) VITE_ vars set (values masked)"
+
       # ── 업데이터 버전 단조 증가 (Tauri --config 머지, 파일 변형 없음) ──────
       # 기존 버그: 앱 버전(tauri.conf.json)과 latest.json version이 매 빌드 "2.9.0"으로 동일
       #   → Tauri 업데이터가 신버전을 절대 감지 못해 자동 업데이트가 영구 미동작.

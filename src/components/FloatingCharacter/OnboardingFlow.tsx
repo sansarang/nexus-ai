@@ -278,6 +278,29 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const [selectedPlan, setSelectedPlan]   = useState<'free' | 'pro' | 'pro_plus' | 'team'>('free')
 
+  // 온보딩/로그인 화면 동안 창을 콤팩트하게 (1280→760, 여백 과다 해소).
+  // 완료(언마운트) 시 메인용 1280x860으로 원복. (minWidth 720이라 760은 안전)
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
+        const win = getCurrentWindow()
+        await win.setSize(new LogicalSize(760, 820))
+        await win.center()
+      } catch { /* 비-Tauri/개발 무시 */ }
+    })()
+    return () => {
+      void (async () => {
+        try {
+          const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
+          const win = getCurrentWindow()
+          await win.setSize(new LogicalSize(1280, 860))
+          await win.center()
+        } catch { /* 무시 */ }
+      })()
+    }
+  }, [])
+
   // ★ v9: 로그인 완료 시 기본 config로 즉시 완료 (Avatar/이름 Step 제거)
   const completeOnboardingNow = () => {
     if (didAutoComplete.current) return
@@ -448,15 +471,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     try {
       const hint = localStorage.getItem('nexus-user-email') ?? undefined
       await signInWithGoogle(hint)
+      // 성공 시: 브라우저 OAuth → deep-link 콜백(main.tsx)이 실제 로그인 완료를 처리.
+      // 여기서 가짜 계정을 만들지 않는다(이전엔 user@gmail.com 가짜 trial을 써서
+      // 다음 실행에 그대로 로그인된 채 메인 직행하는 버그가 있었음).
     } catch (e) {
-      console.warn('Google OAuth failed, starting trial:', e)
-      const trialExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      const demoEmail = 'user@gmail.com'
-      localStorage.setItem('nexus-user-email', demoEmail)
-      localStorage.setItem('nexus-sub-status', 'trial')
-      localStorage.setItem('nexus-sub-expiry', trialExpiry)
-      setGoogleEmail(demoEmail)
-      completeOnboardingNow()
+      console.warn('Google OAuth open failed:', e)
+      // 실패 시 가짜 trial로 메인 직행하지 않고, 사용자에게 알리고 로그인 화면 유지.
+      try { window.alert(isEn ? 'Google sign-in failed. Please try again.' : '구글 로그인에 실패했어요. 다시 시도해주세요.') } catch { /* webview alert 미지원 무시 */ }
     } finally {
       setGoogleLoading(false)
     }
@@ -551,14 +572,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       onClick={onClick}
       style={{
         width: '100%', padding: '11px 0',
-        background: 'rgba(15,20,40,0.04)',
-        border: '1px solid rgba(15,20,40,0.1)',
+        background: '#eef1f8',
+        border: '1.5px solid rgba(15,20,40,0.22)',
         borderRadius: 14,
-        color: 'rgba(15,20,40,0.5)', fontSize: 14, fontWeight: 600,
+        color: 'rgba(15,20,40,0.72)', fontSize: 14, fontWeight: 600,
         cursor: 'pointer', letterSpacing: '0.02em', transition: 'all 0.15s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(15,20,40,0.08)'; e.currentTarget.style.color = 'rgba(15,20,40,0.75)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(15,20,40,0.04)'; e.currentTarget.style.color = 'rgba(15,20,40,0.5)' }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#e2e7f3'; e.currentTarget.style.color = 'rgba(15,20,40,0.9)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = '#eef1f8'; e.currentTarget.style.color = 'rgba(15,20,40,0.72)' }}
     >
       {label}
     </button>
