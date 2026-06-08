@@ -14,9 +14,10 @@ type mockAutomator struct {
 	clickErr        error
 	setErr          error
 	keyErr          error
-	verifyOK        bool
-	verifyErr       error
-	verifyFailFirst int // 첫 N회 verify를 false로 (재시도 검증용)
+	verifyOK           bool
+	verifyErr          error
+	verifyFailFirst    int    // 첫 N회 verify를 false로 (재시도 검증용)
+	failVerifyIfExpect string // 이 expect 값이면 항상 false (특정 행 영구 실패 시뮬)
 
 	findCalls, clickCalls, setCalls, keyCalls, verifyCalls int
 }
@@ -32,10 +33,13 @@ func (m *mockAutomator) FindElement(sel AutoSelector) (AutoElement, error) {
 func (m *mockAutomator) Click(_ AutoElement) error            { m.clickCalls++; return m.clickErr }
 func (m *mockAutomator) SetText(_ AutoElement, _ string) error { m.setCalls++; return m.setErr }
 func (m *mockAutomator) SendKeys(_ string) error              { m.keyCalls++; return m.keyErr }
-func (m *mockAutomator) Verify(_ AutoSelector, _ string) (bool, error) {
+func (m *mockAutomator) Verify(_ AutoSelector, expect string) (bool, error) {
 	m.verifyCalls++
 	if m.verifyErr != nil {
 		return false, m.verifyErr
+	}
+	if m.failVerifyIfExpect != "" && expect == m.failVerifyIfExpect {
+		return false, nil // 특정 행 영구 실패
 	}
 	if m.verifyFailFirst > 0 {
 		m.verifyFailFirst--
