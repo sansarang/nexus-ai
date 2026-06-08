@@ -512,8 +512,9 @@ export function FloatingCharacter() {
       // 승인 요청 알림 처리
       if (alert.action?.startsWith('approve:')) {
         const taskId = alert.action.replace('approve:', '')
-        setMessages(prev => [...prev, {
-          id: `approval-${taskId}`,
+        const approvalId = `approval-${taskId}`
+        setMessages(prev => prev.some(m => m.id === approvalId) ? prev : [...prev, {
+          id: approvalId,
           role: 'nexus' as const,
           text: userLang === 'en'
             ? `⚠️ **Approval Required**\n${alert.message}\n\nType [Approve] or [Deny].`
@@ -524,12 +525,16 @@ export function FloatingCharacter() {
         return
       }
       // 일반 알림 → 말풍선 표시
+      // ★ 중복 방지: 같은 id 또는 같은 text가 이미 있으면 재추가 안 함.
+      //   (백엔드 프로액티브 엔진이 동일 알림을 주기적으로 재전송해 같은 말풍선이
+      //    8개씩 스팸되던 버그 수정.)
       setBubbleText(alert.message.slice(0, 80))
-      setMessages(prev => [...prev, {
-        id: `sse-alert-${alert.id}`,
-        role: 'nexus' as const,
-        text: `${alert.title}: ${alert.message}`,
-      }])
+      setMessages(prev => {
+        const sseId = `sse-alert-${alert.id}`
+        const txt = `${alert.title}: ${alert.message}`
+        if (prev.some(m => m.id === sseId || m.text === txt)) return prev
+        return [...prev, { id: sseId, role: 'nexus' as const, text: txt }]
+      })
     })
 
     const unsubTask = nexusSSE.onTask((update: TaskUpdate) => {
@@ -564,10 +569,12 @@ export function FloatingCharacter() {
       ? `\n\n${alert.actions.map(a => `→ "${a.autoText}"`).join('\n')}`
       : ''
 
-    setMessages(prev => [...prev, {
+    // ★ 중복 방지: 동일 프로액티브 메시지가 이미 있으면 재추가 안 함(쿨다운 실패 2차 방어).
+    const proText = alert.message + actionHint
+    setMessages(prev => prev.some(m => m.text === proText) ? prev : [...prev, {
       id:   `proactive-${alert.timestamp}`,
-      role: 'nexus',
-      text: alert.message + actionHint,
+      role: 'nexus' as const,
+      text: proText,
       inlineCard: undefined,
     }])
 
