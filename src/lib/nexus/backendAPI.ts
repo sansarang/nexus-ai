@@ -674,6 +674,18 @@ export const automationRun = (steps: AutoStepDef[], dryRun = false) =>
   request<{ success: boolean; dry_run?: boolean; result?: unknown; message?: string; code?: string }>('POST', '/api/automation/run', { steps, dry_run: dryRun })
 export const automationReplay = (name: string) =>
   request<{ success: boolean; result?: unknown; message?: string; code?: string }>('POST', `/api/automation/workflows/${encodeURIComponent(name)}/replay`, {})
+export const automationWorkflowGet = (name: string) =>
+  request<{ success: boolean; workflow?: { name: string; steps: AutoStepDef[] } }>('GET', `/api/automation/workflows/${encodeURIComponent(name)}`)
+
+// ── 배치 (엑셀 N행 반복) ──────────────────────────────────────
+export interface BatchRowResult { index: number; row: Record<string, string>; ok: boolean }
+export interface BatchResult { total: number; succeeded: number; success_rate: number; rows?: BatchRowResult[] }
+export const automationBatch = (payload: {
+  steps?: AutoStepDef[]; workflow_name?: string
+  rows: Record<string, string>[]
+  stop_on_error?: boolean; dry_run?: boolean
+}) =>
+  request<{ success: boolean; dry_run?: boolean; total?: number; columns?: string[]; preview?: AutoStepDef[]; result?: BatchResult; message?: string; code?: string }>('POST', '/api/automation/batch', payload, 10 * 60 * 1000) // 배치는 오래 걸림 — 10분
 
 // ── 녹화기(Recorder) ──────────────────────────────────────────
 export interface RecordStatusResult { success: boolean; recording: boolean; count: number; last?: unknown; elapsed?: number }

@@ -129,15 +129,25 @@ Copy-Item $goOut "$Root\src-tauri\backend-bin\nexus-backend.exe" -Force
 $goSize = (Get-Item $goOut).Length / 1MB
 Ok ("Go backend: {0:F1}MB" -f $goSize)
 
-# nexus-python.exe: 실제 Python sidecar 있으면 사용, 없으면 stub
+# ── [2.5/4] Python 사이드카 빌드 (자동화·녹화기의 실제 엔진 — 없으면 그 기능 전부 죽음) ──
 $pythonExe = "$Root\src-tauri\backend-bin\nexus-python.exe"
-$pythonSrc = "$Root\python-sidecar\dist\nexus-python.exe"
+$pythonSrc = "$Root\backend-bin\nexus-python.exe"   # build_python.ps1 출력 경로
+
+# 1) 아직 안 빌드됐으면 PyInstaller로 빌드 (python + pip 필요)
+if (-not (Test-Path $pythonSrc)) {
+    Step "[2.5/4] Python sidecar build (pywinauto/pynput 포함)"
+    & powershell -ExecutionPolicy Bypass -File "$Root\backend\nexus_python\build_python.ps1"
+    if ($LASTEXITCODE -ne 0) { Warn "Python sidecar 빌드 실패 — 아래 stub 폴백" }
+}
+
+# 2) 산출물 복사 — 실패 시에만 stub 폴백 (경고 강하게)
 if (Test-Path $pythonSrc) {
     Copy-Item $pythonSrc $pythonExe -Force
-    Ok "nexus-python.exe (real sidecar)"
+    $pySize = (Get-Item $pythonExe).Length / 1MB
+    Ok ("nexus-python.exe (real sidecar, {0:F0}MB)" -f $pySize)
 } else {
     Copy-Item "$Root\src-tauri\backend-bin\nexus-backend.exe" $pythonExe -Force
-    Warn "nexus-python.exe = stub (Python sidecar not built)"
+    Warn "⚠️⚠️ nexus-python.exe = STUB — 자동화/녹화/OCR 전부 비활성! python+pip 설치 후 재실행 필요"
 }
 
 # ── [3/4] npm 의존성 ─────────────────────────────────────────────

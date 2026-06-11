@@ -8,8 +8,9 @@ import "errors"
 // 실제 요소 탐색/조작은 Python 사이드카(/desktop/uia/*, pywinauto)에 위임한다.
 //
 // ⚠️ [Windows QA 필요] pywinauto 실제 클릭/입력 동작은 Windows 머신에서 검증해야 한다.
-//    RunSteps 닫힌 루프는 Available()(=Python /desktop/uia/status) 게이트를 통과해야만
-//    실행되므로, UIA 미설치/비-Windows 환경에서는 자동으로 거부된다(무단 실행 없음).
+//
+//	RunSteps 닫힌 루프는 Available()(=Python /desktop/uia/status) 게이트를 통과해야만
+//	실행되므로, UIA 미설치/비-Windows 환경에서는 자동으로 거부된다(무단 실행 없음).
 type windowsAutomator struct{}
 
 func newPlatformAutomator() UIAutomator { return &windowsAutomator{} }
@@ -69,6 +70,41 @@ func (w *windowsAutomator) Click(el AutoElement) error {
 func (w *windowsAutomator) SetText(el AutoElement, text string) error {
 	sel, _ := el.handle.(AutoSelector)
 	res, err := callPython("POST", "/desktop/uia/set_text", map[string]any{"selector": sel, "text": text})
+	if err != nil {
+		return err
+	}
+	if !pyOK(res) {
+		return errors.New(pyMsg(res))
+	}
+	return nil
+}
+
+func (w *windowsAutomator) DoubleClick(el AutoElement) error {
+	sel, _ := el.handle.(AutoSelector)
+	res, err := callPython("POST", "/desktop/uia/dclick", map[string]any{"selector": sel})
+	if err != nil {
+		return err
+	}
+	if !pyOK(res) {
+		return errors.New(pyMsg(res))
+	}
+	return nil
+}
+
+func (w *windowsAutomator) RightClick(el AutoElement) error {
+	sel, _ := el.handle.(AutoSelector)
+	res, err := callPython("POST", "/desktop/uia/rclick", map[string]any{"selector": sel})
+	if err != nil {
+		return err
+	}
+	if !pyOK(res) {
+		return errors.New(pyMsg(res))
+	}
+	return nil
+}
+
+func (w *windowsAutomator) Scroll(sel AutoSelector, amount int) error {
+	res, err := callPython("POST", "/desktop/uia/scroll", map[string]any{"selector": sel, "amount": amount})
 	if err != nil {
 		return err
 	}

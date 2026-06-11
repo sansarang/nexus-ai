@@ -2,18 +2,25 @@ package main
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 )
 
+// TestMain — 재시도 백오프를 0으로 (테스트 속도; 실 로직은 backoff 유무와 무관).
+func TestMain(m *testing.M) {
+	autoRetryBackoff = 0
+	os.Exit(m.Run())
+}
+
 // mockAutomator — 닫힌 루프 로직을 플랫폼 없이 검증하기 위한 가짜 구현.
 type mockAutomator struct {
-	available       bool
-	findErr         error
-	clickErr        error
-	setErr          error
-	keyErr          error
+	available          bool
+	findErr            error
+	clickErr           error
+	setErr             error
+	keyErr             error
 	verifyOK           bool
 	verifyErr          error
 	verifyFailFirst    int    // 첫 N회 verify를 false로 (재시도 검증용)
@@ -30,9 +37,12 @@ func (m *mockAutomator) FindElement(sel AutoSelector) (AutoElement, error) {
 	}
 	return AutoElement{Found: true, Name: sel.Name, Role: sel.Role}, nil
 }
-func (m *mockAutomator) Click(_ AutoElement) error            { m.clickCalls++; return m.clickErr }
+func (m *mockAutomator) Click(_ AutoElement) error             { m.clickCalls++; return m.clickErr }
+func (m *mockAutomator) DoubleClick(_ AutoElement) error       { m.clickCalls++; return m.clickErr }
+func (m *mockAutomator) RightClick(_ AutoElement) error        { m.clickCalls++; return m.clickErr }
 func (m *mockAutomator) SetText(_ AutoElement, _ string) error { m.setCalls++; return m.setErr }
-func (m *mockAutomator) SendKeys(_ string) error              { m.keyCalls++; return m.keyErr }
+func (m *mockAutomator) SendKeys(_ string) error               { m.keyCalls++; return m.keyErr }
+func (m *mockAutomator) Scroll(_ AutoSelector, _ int) error    { return nil }
 func (m *mockAutomator) Verify(_ AutoSelector, expect string) (bool, error) {
 	m.verifyCalls++
 	if m.verifyErr != nil {

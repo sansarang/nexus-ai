@@ -624,31 +624,84 @@ def _uia():
         return None
 
 
-def _uia_find(sel: dict):
-    """셀렉터(name/role/automation_id/index)로 포그라운드 윈도우에서 요소 검색.
-       returns (element|None, error_str)."""
-    d = _uia()
-    if d is None:
-        return None, _uia_err or "UIA 미가용"
+def _find_in_top(top, sel: dict):
+    """주어진 최상위 창에서 셀렉터로 후보 검색. returns 리스트(예외 시 [])."""
     try:
         kwargs = {}
         if sel.get("automation_id"):
             kwargs["auto_id"] = sel["automation_id"]
         if sel.get("role"):
             kwargs["control_type"] = sel["role"]
-        idx = int(sel.get("index", 0) or 0)
-        top = d.window(active_only=True)  # 포그라운드(활성) 최상위 윈도우
         cands = top.descendants(**kwargs) if kwargs else top.descendants()
         name = sel.get("name")
         if name:  # 접근성 이름 부분 일치
             cands = [c for c in cands if name in (c.window_text() or "")]
-        if not cands:
-            return None, f"요소 없음: {sel}"
-        if idx >= len(cands):
-            idx = 0
-        return cands[idx], ""
+        return cands
+    except Exception:
+        return []
+
+
+def _uia_find(sel: dict):
+    """셀렉터(name/role/automation_id/index[/window])로 요소 검색.
+       1) window 힌트가 있으면 제목 부분일치 창에서 우선 검색
+       2) 활성(포그라운드) 창
+       3) 그래도 없으면 모든 최상위 창 순회 (팝업/멀티윈도우 흐름 지원)
+       returns (element|None, error_str)."""
+    d = _uia()
+    if d is None:
+        return None, _uia_err or "UIA 미가용"
+    try:
+        idx = int(sel.get("index", 0) or 0)
+        tried = []
+
+        # 1) window 제목 힌트 우선
+        win_hint = (sel.get("window") or "").strip()
+        if win_hint:
+            try:
+                for w in d.windows():
+                    try:
+                        if win_hint in (w.window_text() or ""):
+                            tried.append(w)
+                            cands = _find_in_top(w, sel)
+                            if cands:
+                                return cands[idx if idx < len(cands) else 0], ""
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # 2) 활성 창
+        try:
+            top = d.window(active_only=True)
+            cands = _find_in_top(top, sel)
+            if cands:
+                return cands[idx if idx < len(cands) else 0], ""
+        except Exception:
+            pass
+
+        # 3) 전체 최상위 창 스캔 (마지막 수단 — 팝업이 포커스를 안 가진 경우)
+        try:
+            for w in d.windows():
+                if w in tried:
+                    continue
+                cands = _find_in_top(w, sel)
+                if cands:
+                    return cands[idx if idx < len(cands) else 0], ""
+        except Exception:
+            pass
+
+        return None, f"요소 없음: {sel}"
     except Exception as e:
         return None, str(e)
+
+
+def _is_admin() -> bool:
+    """관리자 권한 여부 — 대상 앱이 관리자인데 사이드카가 아니면 UIPI로 후킹/UIA가 막힌다."""
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
 
 
 @app.get("/desktop/uia/status")
@@ -656,9 +709,12 @@ def uia_status():
     import platform as _pf
     d = _uia()
     avail = d is not None
-    return ok(available=avail, platform=_pf.system().lower(),
-              message=("UIA 준비됨" if avail else "데스크탑 자동화는 Windows에서 사용 가능 (UIA 미가용)"),
-              detail=(_uia_err or None))
+    admin = _is_admin()
+    msg = "UIA 준비됨" if avail else "데스크탑 자동화는 Windows에서 사용 가능 (UIA 미가용)"
+    if avail and not admin:
+        msg += " · 일반 권한 (관리자 권한 앱은 제어 불가 — UIPI)"
+    return ok(available=avail, platform=_pf.system().lower(), admin=admin,
+              message=msg, detail=(_uia_err or None))
 
 
 @app.post("/desktop/uia/find")
@@ -738,6 +794,54 @@ def uia_verify(body: dict):
         return ok(verified=False, reason=str(e))
 
 
+@app.post("/desktop/uia/dclick")
+def uia_dclick(body: dict):
+    el, err = _uia_find(body.get("selector", body))
+    if el is None:
+        return fail(err)
+    try:
+        el.double_click_input()
+        return ok(message="더블클릭 완료")
+    except Exception as e:
+        return fail(str(e))
+
+
+@app.post("/desktop/uia/rclick")
+def uia_rclick(body: dict):
+    el, err = _uia_find(body.get("selector", body))
+    if el is None:
+        return fail(err)
+    try:
+        el.click_input(button="right")
+        return ok(message="우클릭 완료")
+    except Exception as e:
+        return fail(str(e))
+
+
+@app.post("/desktop/uia/scroll")
+def uia_scroll(body: dict):
+    amount = int(body.get("amount", 0) or 0)
+    if amount == 0:
+        return ok(message="스크롤 0 — no-op")
+    sel = body.get("selector") or {}
+    try:
+        # 셀렉터가 있으면 해당 요소 위로 커서 이동 후 스크롤 (스크롤 컨테이너 타겟팅)
+        if sel.get("name") or sel.get("role") or sel.get("automation_id"):
+            el, err = _uia_find(sel)
+            if el is not None:
+                try:
+                    r = el.rectangle()
+                    import pyautogui
+                    pyautogui.moveTo((r.left + r.right) // 2, (r.top + r.bottom) // 2)
+                except Exception:
+                    pass
+        import pyautogui
+        pyautogui.scroll(amount)
+        return ok(message=f"스크롤 {amount}")
+    except Exception as e:
+        return fail(str(e))
+
+
 # ──────────────────────────────────────────────────────────────
 #  UIA 녹화기 (Recorder) — 사용자 클릭/입력을 AutoStep으로 자동 캡처
 #  핵심: "한 번 시연하면 알아서 반복"의 '시연(녹화)' 부분.
@@ -752,8 +856,15 @@ _rec_active = False
 _rec_steps: List[dict] = []
 _rec_pending = None          # (selector, UIAElementInfo, initial_value) — 입력 중인 필드
 _rec_started_at = 0.0
+_rec_last_ts = 0.0           # 마지막 사용자 행동 시각 — 간격을 wait 단계로 캡처
+_rec_last_error = ""         # 캡처 실패 사유 (원격 디버깅용 — status로 노출)
+_rec_skipped = 0             # 셀렉터 추출 실패로 버린 이벤트 수
 _rec_mouse_listener = None
 _rec_kb_listener = None
+
+_REC_GAP_MIN_MS = 1200       # 이 이상 간격이면 wait 단계 삽입 (페이지 로딩 등)
+_REC_GAP_MAX_MS = 8000       # wait 상한 (사용자 딴짓 과대 기록 방지)
+_REC_DCLICK_SEC = 0.45       # 같은 요소 재클릭이 이 시간 내면 더블클릭으로 승격
 
 _REC_CLICKABLE = ("Button", "Hyperlink", "MenuItem", "CheckBox",
                   "RadioButton", "ListItem", "TabItem", "SplitButton")
@@ -769,16 +880,51 @@ def _uia_iface():
 
 
 def _element_from_point(x, y):
+    """좌표 → UIA 요소. comtypes 환경별 POINT 타입이 달라 다중 폴백으로 방어.
+       (B1: 실기에서 가장 먼저 깨질 지점 — 실패 사유를 _rec_last_error로 노출)"""
+    global _rec_last_error
     iface = _uia_iface()
     if iface is None:
+        _rec_last_error = "IUIA 인터페이스 없음"
         return None
     try:
-        from pywinauto import win32structures
         from pywinauto.uia_element_info import UIAElementInfo
-        com = iface.ElementFromPoint(win32structures.POINT(int(x), int(y)))
-        return UIAElementInfo(com) if com is not None else None
-    except Exception:
+    except Exception as e:
+        _rec_last_error = f"UIAElementInfo import 실패: {e}"
         return None
+
+    # POINT 타입 후보: comtypes 생성 tagPOINT → ctypes.wintypes → pywinauto
+    candidates = []
+    try:
+        from comtypes.gen.UIAutomationClient import tagPOINT  # comtypes가 요구하는 정석 타입
+        candidates.append(tagPOINT)
+    except Exception:
+        pass
+    try:
+        from ctypes import wintypes
+        candidates.append(wintypes.POINT)
+    except Exception:
+        pass
+    try:
+        from pywinauto import win32structures
+        candidates.append(win32structures.POINT)
+    except Exception:
+        pass
+
+    last = None
+    for P in candidates:
+        try:
+            pt = P()
+            pt.x = int(x)
+            pt.y = int(y)
+            com = iface.ElementFromPoint(pt)
+            if com is not None:
+                return UIAElementInfo(com)
+        except Exception as e:
+            last = e
+            continue
+    _rec_last_error = f"ElementFromPoint 실패({len(candidates)}개 타입 시도): {last}"
+    return None
 
 
 def _elem_info_to_selector(info) -> dict:
@@ -819,21 +965,80 @@ def _normalize_target(info):
 
 
 def _read_value(info) -> str:
+    """입력 필드 값 읽기 — ValuePattern → LegacyIAccessible → window_text 3단 폴백.
+       (B2: 컨트롤 종류별로 지원 패턴이 달라 단일 경로는 잘 깨진다)"""
     try:
         from pywinauto.controls.uiawrapper import UIAWrapper
         w = UIAWrapper(info)
-        try:
-            v = w.iface_value.CurrentValue
-            if v is not None:
-                return v
-        except Exception:
-            pass
-        try:
-            return w.window_text() or ""
-        except Exception:
-            return ""
     except Exception:
         return ""
+    try:  # 1) UIA ValuePattern
+        v = w.iface_value.CurrentValue
+        if v:
+            return v
+    except Exception:
+        pass
+    try:  # 2) Legacy IAccessible (옛 win32 컨트롤·일부 브라우저)
+        v = (w.legacy_properties() or {}).get("Value")
+        if v:
+            return v
+    except Exception:
+        pass
+    try:  # 3) 접근성 텍스트
+        return w.window_text() or ""
+    except Exception:
+        return ""
+
+
+def _top_level_of(info):
+    """요소의 최상위 창(루트 바로 아래) element_info. 실패 시 None."""
+    try:
+        cur = info
+        for _ in range(48):
+            p = cur.parent
+            if p is None:
+                return cur  # cur == 데스크탑 루트 (이례적)
+            if p.parent is None:
+                return cur  # 부모가 루트 → cur가 최상위 창
+            cur = p
+    except Exception:
+        pass
+    return None
+
+
+def _rt_id(info):
+    try:
+        rid = info.runtime_id
+        return tuple(rid) if rid else None
+    except Exception:
+        return None
+
+
+def _compute_index(info, sel: dict, top) -> int:
+    """같은 셀렉터에 매칭되는 형제들 중 이 요소가 몇 번째인지 (C4: 동명 버튼 구분).
+       runtime_id 비교로 자기 위치를 찾는다. 실패 시 0 (기존 동작과 동일)."""
+    try:
+        target = _rt_id(info)
+        if target is None or top is None:
+            return 0
+        matches = []
+        for d in top.descendants():
+            try:
+                if sel.get("role") and str(d.control_type) != sel["role"]:
+                    continue
+                if sel.get("automation_id") and d.automation_id != sel["automation_id"]:
+                    continue
+                if sel.get("name") and sel["name"] not in (d.name or ""):
+                    continue
+                matches.append(d)
+            except Exception:
+                continue
+        for i, d in enumerate(matches):
+            if _rt_id(d) == target:
+                return i
+        return 0
+    except Exception:
+        return 0
 
 
 def _rec_flush_pending():
@@ -848,36 +1053,106 @@ def _rec_flush_pending():
         _rec_steps.append({"kind": "set_text", "selector": sel, "value": cur})
 
 
+def _rec_append(step: dict):
+    """행동 간격이 크면 wait 단계를 먼저 삽입 후 step 기록 (C1: 페이지 로딩 시간 보존).
+       lock 보유 상태에서 호출."""
+    global _rec_last_ts
+    now = time.time()
+    gap_ms = int((now - _rec_last_ts) * 1000) if _rec_last_ts else 0
+    if _rec_steps and gap_ms >= _REC_GAP_MIN_MS:
+        _rec_steps.append({"kind": "wait", "value": str(min(gap_ms, _REC_GAP_MAX_MS))})
+    _rec_steps.append(step)
+    _rec_last_ts = now
+
+
+def _rec_build_selector(x, y):
+    """클릭 좌표 → (selector, info). 의미 상승 + index + window 힌트까지 채움.
+       실패 시 (None, None) — 사유는 _rec_last_error/_rec_skipped에."""
+    global _rec_skipped, _rec_last_error
+    info = _element_from_point(x, y)
+    if info is None:
+        _rec_skipped += 1
+        return None, None
+    info = _normalize_target(info)
+    sel = _elem_info_to_selector(info)
+    if not sel:
+        _rec_skipped += 1
+        _rec_last_error = "요소에 name/role/automation_id 없음 (접근성 미지원 컨트롤)"
+        return None, None
+    top = _top_level_of(info)
+    if top is not None:
+        try:
+            title = (top.name or "").strip()
+            if title:
+                sel["window"] = title[:60]  # C5: 멀티윈도우 재생 힌트
+        except Exception:
+            pass
+    idx = _compute_index(info, sel, top)  # C4: 동명 요소 N번째
+    if idx > 0:
+        sel["index"] = idx
+    return sel, info
+
+
 def _rec_on_click(x, y, button, pressed):
     if not pressed:
         return
-    try:
-        if "left" not in str(button).lower():
-            return
-    except Exception:
-        pass
+    btn = str(button).lower()
     with _rec_lock:
         if not _rec_active:
             return
+        global _rec_last_ts
         _rec_flush_pending()
-        info = _element_from_point(x, y)
-        if info is None:
+        sel, info = _rec_build_selector(x, y)
+        if sel is None:
+            _rec_last_ts = time.time()
             return
-        info = _normalize_target(info)
-        sel = _elem_info_to_selector(info)
-        if not sel:
+        if "right" in btn:  # C6: 우클릭
+            _rec_append({"kind": "right_click", "selector": sel})
+            return
+        if "left" not in btn:
+            _rec_last_ts = time.time()
             return
         role = sel.get("role", "")
         if role in _REC_EDITABLE:
             _rec_pending = (sel, info, _read_value(info))   # 입력 시작 — 값은 flush 때 확정
-        else:
-            _rec_steps.append({"kind": "click", "selector": sel})
+            _rec_last_ts = time.time()
+            return
+        # C6: 같은 요소를 짧은 간격으로 재클릭 → 더블클릭으로 승격
+        now = time.time()
+        if (_rec_steps and _rec_steps[-1].get("kind") == "click"
+                and _rec_steps[-1].get("selector") == sel
+                and (now - _rec_last_ts) <= _REC_DCLICK_SEC):
+            _rec_steps[-1]["kind"] = "double_click"
+            _rec_last_ts = now
+            return
+        _rec_append({"kind": "click", "selector": sel})
+
+
+def _rec_on_scroll(x, y, dx, dy):
+    """C6: 휠 스크롤 — 연속 스크롤은 직전 scroll 단계에 합산(coalesce)."""
+    with _rec_lock:
+        if not _rec_active or not dy:
+            return
+        global _rec_last_ts
+        now = time.time()
+        if (_rec_steps and _rec_steps[-1].get("kind") == "scroll"
+                and (now - _rec_last_ts) <= 1.0):
+            try:
+                cur = int(_rec_steps[-1].get("value", "0"))
+            except Exception:
+                cur = 0
+            _rec_steps[-1]["value"] = str(cur + int(dy))
+            _rec_last_ts = now
+            return
+        _rec_append({"kind": "scroll", "value": str(int(dy))})
 
 
 def _rec_on_press(key):
     with _rec_lock:
         if not _rec_active:
             return
+        global _rec_last_ts
+        _rec_last_ts = time.time()  # 타이핑도 '행동' — gap wait 과대 삽입 방지
         try:
             from pynput import keyboard as _kb
             if key in (_kb.Key.enter, _kb.Key.tab):
@@ -889,6 +1164,7 @@ def _rec_on_press(key):
 @app.post("/desktop/uia/record/start")
 def uia_record_start():
     global _rec_active, _rec_steps, _rec_pending, _rec_started_at
+    global _rec_last_ts, _rec_last_error, _rec_skipped
     global _rec_mouse_listener, _rec_kb_listener
     if _uia() is None:
         return fail(_uia_err or "UIA 미가용 — 녹화는 Windows에서만 가능")
@@ -903,8 +1179,11 @@ def uia_record_start():
         _rec_pending = None
         _rec_active = True
         _rec_started_at = time.time()
+        _rec_last_ts = 0.0
+        _rec_last_error = ""
+        _rec_skipped = 0
     try:
-        _rec_mouse_listener = mouse.Listener(on_click=_rec_on_click)
+        _rec_mouse_listener = mouse.Listener(on_click=_rec_on_click, on_scroll=_rec_on_scroll)
         _rec_mouse_listener.start()
         _rec_kb_listener = keyboard.Listener(on_press=_rec_on_press)
         _rec_kb_listener.start()
@@ -912,7 +1191,10 @@ def uia_record_start():
         with _rec_lock:
             _rec_active = False
         return fail(f"입력 후킹 실패: {e}")
-    return ok(recording=True, message="녹화 시작 — 대상 앱에서 평소처럼 클릭/입력하세요")
+    msg = "녹화 시작 — 대상 앱에서 평소처럼 클릭/입력하세요"
+    if not _is_admin():
+        msg += " (일반 권한: 관리자 권한 앱은 캡처 안 됨)"
+    return ok(recording=True, admin=_is_admin(), message=msg)
 
 
 @app.get("/desktop/uia/record/status")
@@ -920,7 +1202,8 @@ def uia_record_status():
     with _rec_lock:
         last = _rec_steps[-1] if _rec_steps else None
         elapsed = int(time.time() - _rec_started_at) if _rec_active else 0
-        return ok(recording=_rec_active, count=len(_rec_steps), last=last, elapsed=elapsed)
+        return ok(recording=_rec_active, count=len(_rec_steps), last=last, elapsed=elapsed,
+                  skipped=_rec_skipped, last_error=(_rec_last_error or None))
 
 
 @app.post("/desktop/uia/record/stop")
@@ -938,8 +1221,11 @@ def uia_record_stop():
             pass
     _rec_mouse_listener = None
     _rec_kb_listener = None
+    msg = f"녹화 완료 — {len(steps)}단계 캡처됨"
+    if _rec_skipped:
+        msg += f" (캡처 실패 {_rec_skipped}건)"
     return ok(recording=False, steps=steps, count=len(steps),
-              message=f"녹화 완료 — {len(steps)}단계 캡처됨")
+              skipped=_rec_skipped, last_error=(_rec_last_error or None), message=msg)
 
 
 @app.post("/desktop/agent/run")

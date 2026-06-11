@@ -14,9 +14,14 @@ func (u *unsupportedAutomator) Available() bool { return false }
 func (u *unsupportedAutomator) FindElement(_ AutoSelector) (AutoElement, error) {
 	return AutoElement{}, ErrAutomationUnsupported
 }
-func (u *unsupportedAutomator) Click(_ AutoElement) error             { return ErrAutomationUnsupported }
-func (u *unsupportedAutomator) SetText(_ AutoElement, _ string) error { return ErrAutomationUnsupported }
-func (u *unsupportedAutomator) SendKeys(_ string) error               { return ErrAutomationUnsupported }
+func (u *unsupportedAutomator) Click(_ AutoElement) error       { return ErrAutomationUnsupported }
+func (u *unsupportedAutomator) DoubleClick(_ AutoElement) error { return ErrAutomationUnsupported }
+func (u *unsupportedAutomator) RightClick(_ AutoElement) error  { return ErrAutomationUnsupported }
+func (u *unsupportedAutomator) SetText(_ AutoElement, _ string) error {
+	return ErrAutomationUnsupported
+}
+func (u *unsupportedAutomator) SendKeys(_ string) error            { return ErrAutomationUnsupported }
+func (u *unsupportedAutomator) Scroll(_ AutoSelector, _ int) error { return ErrAutomationUnsupported }
 func (u *unsupportedAutomator) Verify(_ AutoSelector, _ string) (bool, error) {
 	return false, ErrAutomationUnsupported
 }

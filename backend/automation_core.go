@@ -2,13 +2,20 @@
 //
 // 피벗 핵심: "말하는 AI"가 아니라 "실제로 PC를 조작하는 AI".
 // 신뢰성의 열쇠 = 픽셀 좌표가 아닌 UI Automation(접근성 트리) 기반 '의미' 타겟팅 +
-//   perceive → act → verify → retry 닫힌 루프.
+//
+//	perceive → act → verify → retry 닫힌 루프.
 //
 // ⚠️ 실제 Windows UIA 구현(pywinauto/uiautomation 연동)은 Windows 런타임에서 완성한다.
-//    이 파일은 플랫폼 독립 계약/타입/닫힌 루프 실행기만 정의한다 (macOS에서 단위 검증 가능).
+//
+//	이 파일은 플랫폼 독립 계약/타입/닫힌 루프 실행기만 정의한다 (macOS에서 단위 검증 가능).
 package main
 
-import "errors"
+import (
+	"errors"
+	"strconv"
+	"strings"
+	"time"
+)
 
 var (
 	// ErrAutomationNotImplemented — Windows UIA 엔진 미완성(런타임 연동 대기).
@@ -25,18 +32,22 @@ type AutoSelector struct {
 	Role         string `json:"role,omitempty"`          // 컨트롤 타입 ("button","edit","checkbox")
 	AutomationID string `json:"automation_id,omitempty"` // UIA AutomationId
 	Index        int    `json:"index,omitempty"`         // 동일 매칭 중 N번째 (0-base)
+	Window       string `json:"window,omitempty"`        // 최상위 창 제목 힌트 (멀티윈도우/팝업 재생용, 부분 일치)
 }
 
 // AutoActionKind — 한 단계가 수행할 동작.
 type AutoActionKind string
 
 const (
-	ActFind    AutoActionKind = "find"
-	ActClick   AutoActionKind = "click"
-	ActSetText AutoActionKind = "set_text"
-	ActKey     AutoActionKind = "key"
-	ActWait    AutoActionKind = "wait"
-	ActVerify  AutoActionKind = "verify"
+	ActFind        AutoActionKind = "find"
+	ActClick       AutoActionKind = "click"
+	ActDoubleClick AutoActionKind = "double_click"
+	ActRightClick  AutoActionKind = "right_click"
+	ActSetText     AutoActionKind = "set_text"
+	ActKey         AutoActionKind = "key"
+	ActScrollStep  AutoActionKind = "scroll"
+	ActWait        AutoActionKind = "wait"
+	ActVerify      AutoActionKind = "verify"
 )
 
 // AutoStep — 녹화/재생되는 단일 자동화 단계 (JSON 직렬화 = 녹화 포맷).
@@ -60,8 +71,12 @@ type AutoElement struct {
 type UIAutomator interface {
 	FindElement(sel AutoSelector) (AutoElement, error)
 	Click(el AutoElement) error
+	DoubleClick(el AutoElement) error
+	RightClick(el AutoElement) error
 	SetText(el AutoElement, text string) error
 	SendKeys(combo string) error
+	// Scroll — 휠 스크롤 (amount: 양수=위, 음수=아래; selector 비면 현재 위치).
+	Scroll(sel AutoSelector, amount int) error
 	// Verify — 액션 후 기대 상태 확인 (닫힌 루프의 핵심: "진짜 됐나?").
 	Verify(sel AutoSelector, expect string) (bool, error)
 	// Available — 실제 동작 가능 여부 (스텁은 false).
@@ -89,6 +104,12 @@ type RunResult struct {
 // autoMaxRetries — verify/액션 실패 시 추가 재시도 횟수 (self-heal 훅 자리).
 const autoMaxRetries = 2
 
+// autoRetryBackoff — 재시도 사이 대기 (페이지 로딩/렌더 지연 흡수). 테스트는 0으로 재정의.
+var autoRetryBackoff = 700 * time.Millisecond
+
+// autoMaxWaitMs — wait 단계 상한 (폭주 방지).
+const autoMaxWaitMs = 15000
+
 // RunSteps — perceive → act → verify → retry 닫힌 루프 실행기 (플랫폼 독립).
 // 실제 액션은 주입된 UIAutomator로 위임 → 코어 로직은 macOS에서도 mock으로 검증 가능.
 func RunSteps(a UIAutomator, steps []AutoStep) RunResult {
@@ -111,6 +132,9 @@ func runOneStep(a UIAutomator, st AutoStep) StepResult {
 	sr := StepResult{Step: st}
 	for attempt := 1; attempt <= autoMaxRetries+1; attempt++ {
 		sr.Attempts = attempt
+		if attempt > 1 && autoRetryBackoff > 0 {
+			time.Sleep(autoRetryBackoff) // 로딩/렌더 지연 흡수 후 재시도
+		}
 		if err := execStep(a, st); err != nil {
 			sr.Error = err.Error()
 			continue // 재시도 (향후 self-heal: 셀렉터 보정/대기 후 재시도)
@@ -138,9 +162,23 @@ func runOneStep(a UIAutomator, st AutoStep) StepResult {
 func execStep(a UIAutomator, st AutoStep) error {
 	switch st.Kind {
 	case ActWait:
-		return nil // 대기 시간은 재생기에서 처리 (코어는 no-op)
+		// Value = 대기 ms (녹화 시 사용자 행동 간격에서 캡처). 상한으로 폭주 방지.
+		ms, _ := strconv.Atoi(strings.TrimSpace(st.Value))
+		if ms > autoMaxWaitMs {
+			ms = autoMaxWaitMs
+		}
+		if ms > 0 {
+			time.Sleep(time.Duration(ms) * time.Millisecond)
+		}
+		return nil
 	case ActKey:
 		return a.SendKeys(st.Value)
+	case ActScrollStep:
+		amt, _ := strconv.Atoi(strings.TrimSpace(st.Value))
+		if amt == 0 {
+			return nil
+		}
+		return a.Scroll(st.Selector, amt)
 	case ActFind, ActVerify:
 		_, err := a.FindElement(st.Selector)
 		return err
@@ -150,6 +188,18 @@ func execStep(a UIAutomator, st AutoStep) error {
 			return err
 		}
 		return a.Click(el)
+	case ActDoubleClick:
+		el, err := a.FindElement(st.Selector)
+		if err != nil {
+			return err
+		}
+		return a.DoubleClick(el)
+	case ActRightClick:
+		el, err := a.FindElement(st.Selector)
+		if err != nil {
+			return err
+		}
+		return a.RightClick(el)
 	case ActSetText:
 		el, err := a.FindElement(st.Selector)
 		if err != nil {
