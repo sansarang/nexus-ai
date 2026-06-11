@@ -201,18 +201,6 @@ func executeWFActions(wf VisualWorkflow) string {
 				}
 			}
 
-		case "email":
-			to, _ := action.Params["to"].(string)
-			subject, _ := action.Params["subject"].(string)
-			body, _ := action.Params["body"].(string)
-			if to != "" {
-				err := sendOutlookEmail(to, subject, body)
-				if err == nil {
-					result = "이메일 발송 완료"
-				} else {
-					result = "이메일 발송 실패: " + err.Error()
-				}
-			}
 		}
 
 		results = append(results, fmt.Sprintf("[%s] %s", action.Label, result))

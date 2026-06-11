@@ -56,19 +56,8 @@ func main() {
 	mux.HandleFunc("POST /api/team/accept", handleTeamAccept)
 	mux.HandleFunc("POST /api/team/remove", handleTeamRemove)
 	// Gmail OAuth
-	mux.HandleFunc("GET /api/gmail/inbox", handleGmailInbox)
-	mux.HandleFunc("POST /api/gmail/send", handleGmailSend)
-	mux.HandleFunc("GET /api/gmail/search", handleGmailSearch)
 
 	// ── 🛒 워크플로우 마켓플레이스 ───────────────────────────────
-	mux.HandleFunc("GET /api/marketplace/presets", handleMarketplaceList)
-	mux.HandleFunc("GET /api/marketplace/preset/{id}", handleMarketplaceDetail)
-	mux.HandleFunc("POST /api/marketplace/publish", handleMarketplacePublish)
-	mux.HandleFunc("POST /api/marketplace/purchase/{id}", handleMarketplacePurchase)
-	mux.HandleFunc("POST /api/marketplace/purchase/{id}/confirm", handleMarketplacePurchaseConfirm)
-	mux.HandleFunc("GET /api/marketplace/my-presets", handleMarketplaceMyPresets)
-	mux.HandleFunc("GET /api/marketplace/purchased", handleMarketplacePurchased)
-	mux.HandleFunc("DELETE /api/marketplace/preset/{id}", handleMarketplaceDelete)
 
 	// ── 사용량 관리 ──────────────────────────────────────────
 	mux.HandleFunc("GET /api/usage", handleUsageStatus)
@@ -82,26 +71,9 @@ func main() {
 	mux.HandleFunc("GET /api/network/analysis", func(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"available": false, "platform": "mac-dev", "message": "네트워크 분석은 Windows 환경에서만 지원됩니다."})
 	})
-	// 편의 alias: /api/calendar → /api/calendar/today
-	mux.HandleFunc("GET /api/calendar", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/api/calendar/today", http.StatusFound)
-	})
-	// /api/weather/current → /api/weather
-	mux.HandleFunc("GET /api/weather/current", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/api/weather", http.StatusFound)
-	})
 	// /api/news shim
 	mux.HandleFunc("GET /api/news", func(w http.ResponseWriter, r *http.Request) {
 		json200(w, map[string]any{"items": []any{}, "message": "뉴스는 /api/command 채팅으로 검색하세요."})
-	})
-	// /api/stock shim (올바른 경로: /api/stock/quote)
-	mux.HandleFunc("GET /api/stock", func(w http.ResponseWriter, r *http.Request) {
-		sym := r.URL.Query().Get("symbol")
-		if sym == "" {
-			json200(w, map[string]any{"error": "symbol required"})
-			return
-		}
-		http.Redirect(w, r, "/api/stock/quote?symbol="+sym, http.StatusFound)
 	})
 
 	// ── 사이트 직접 검색 (LLM 우회, 항상 링크 반환) ─────────
@@ -122,32 +94,16 @@ func main() {
 	mux.HandleFunc("POST /api/browser/smart-agent", handleBrowserSmartAgent)
 	mux.HandleFunc("POST /api/browser/collect-price", handleBrowserCollectPrice)
 	mux.HandleFunc("POST /api/browser/news-collect", handleBrowserNewsCollect)
-	mux.HandleFunc("POST /api/video/quick-search", handleVideoQuickSearch)
 	mux.HandleFunc("POST /api/browser/search-and-pdf", handleBrowserSearchAndPDF)
 	mux.HandleFunc("GET /api/browser/open-file", handleOpenFile)
 
 	// ── 날씨 ─────────────────────────────────────────────────
-	mux.HandleFunc("GET /api/weather", handleWeather)
-	mux.HandleFunc("POST /api/travel/time", handleTravelTime)
 
 	// ── 캘린더 ───────────────────────────────────────────────
-	mux.HandleFunc("GET /api/calendar/today", handleCalendarToday)
-	mux.HandleFunc("GET /api/calendar/week", handleCalendarWeek)
-	mux.HandleFunc("POST /api/calendar/add", handleCalendarAdd)
-	mux.HandleFunc("GET /api/calendar/google/auth", handleGCalAuth)
-	mux.HandleFunc("GET /api/calendar/google/callback", handleGCalCallback)
-	mux.HandleFunc("GET /api/calendar/google/status", handleGCalStatus)
-	mux.HandleFunc("POST /api/calendar/google/disconnect", handleGCalDisconnect)
 
 	// ── 이메일 ───────────────────────────────────────────────
-	mux.HandleFunc("GET /api/email/inbox", handleEmailInbox)
-	mux.HandleFunc("POST /api/email/send", handleEmailSend)
-	mux.HandleFunc("POST /api/email/summarize", handleEmailSummarize)
 
 	// ── 메모리 / Second Brain ─────────────────────────────────
-	mux.HandleFunc("GET /api/memory/list", handleMemoryList)
-	mux.HandleFunc("POST /api/memory/search", handleMemorySearch)
-	mux.HandleFunc("GET /api/memory/stats", handleMemoryStats)
 	mux.HandleFunc("POST /api/brain/search", handleBrainSearch)
 	mux.HandleFunc("GET /api/brain/stats", handleBrainStats)
 	mux.HandleFunc("POST /api/brain/rebuild", handleBrainRebuild)
@@ -199,16 +155,8 @@ func main() {
 	mux.HandleFunc("GET /api/agent/multi/agents", handleAgentList)
 
 	// ── Email Deep Agency ─────────────────────────────────────
-	mux.HandleFunc("POST /api/email/classify", handleEmailClassify)
-	mux.HandleFunc("POST /api/email/draft-reply", handleEmailDraftReply)
-	mux.HandleFunc("POST /api/email/extract-events", handleEmailExtractEvents)
-	mux.HandleFunc("POST /api/calendar/find-slot", handleCalendarFindSlot)
-	mux.HandleFunc("POST /api/calendar/smart-add", handleCalendarSmartAdd)
 
 	// ── Briefing ──────────────────────────────────────────────
-	mux.HandleFunc("POST /api/briefing/now", handleBriefingNow)
-	mux.HandleFunc("GET /api/briefing/config", handleBriefingConfig)
-	mux.HandleFunc("POST /api/briefing/config", handleBriefingConfig)
 
 	// ── Desktop Agent ─────────────────────────────────────────
 	mux.HandleFunc("POST /api/agent/desktop/run", handleDesktopAgentRun)
@@ -252,13 +200,9 @@ func main() {
 	mux.HandleFunc("GET /api/security/accounts", winOnly)
 	mux.HandleFunc("GET /api/drivers", winOnly)
 	mux.HandleFunc("POST /api/registry/clean", winOnly)
-	mux.HandleFunc("POST /api/recall/capture", winOnly)
-	mux.HandleFunc("POST /api/recall/search", winOnly)
 	mux.HandleFunc("POST /api/vision/screenshot", winOnly)
 	mux.HandleFunc("POST /api/dictation/type", winOnly)
 	mux.HandleFunc("POST /api/dictation/paste", winOnly)
-	mux.HandleFunc("POST /api/meeting/start", winOnly)
-	mux.HandleFunc("POST /api/meeting/stop", winOnly)
 	mux.HandleFunc("POST /api/caption/start", winOnly)
 	mux.HandleFunc("POST /api/caption/stop", winOnly)
 	mux.HandleFunc("GET /api/caption/latest", winOnly)
@@ -269,22 +213,11 @@ func main() {
 	mux.HandleFunc("POST /api/files/duplicates", handleFilesDuplicates)
 
 	// ── 이메일 IMAP (cross-platform) ────────────────────────
-	mux.HandleFunc("GET /api/imap/accounts", handleIMAPAccountList)
-	mux.HandleFunc("POST /api/imap/accounts", handleIMAPAccountAdd)
-	mux.HandleFunc("DELETE /api/imap/accounts", handleIMAPAccountDelete)
-	mux.HandleFunc("GET /api/imap/inbox", handleIMAPInbox)
-	mux.HandleFunc("POST /api/imap/send", handleIMAPSend)
-	mux.HandleFunc("POST /api/imap/classify", handleIMAPClassify)
-	mux.HandleFunc("GET /api/imap/reply-suggestions", handleIMAPReplySuggestions)
 
 	// ── 비전·OCR stub ────────────────────────────────────────
 	mux.HandleFunc("POST /api/vision/ocr-clipboard", handleOCRClipboard)
 
 	// ── 주식 (cross-platform) ─────────────────────────────────
-	mux.HandleFunc("GET /api/stock/quote", handleStockQuote)
-	mux.HandleFunc("GET /api/stock/watchlist", handleStockWatchlist)
-	mux.HandleFunc("POST /api/stock/watchlist", handleStockWatchlistAdd)
-	mux.HandleFunc("DELETE /api/stock/watchlist", handleStockWatchlistDelete)
 
 	// ── cron 실행 엔진 ────────────────────────────────────────
 	mux.HandleFunc("POST /api/cron/add", handleCronAdd)
@@ -317,21 +250,11 @@ func main() {
 	mux.HandleFunc("GET /api/history/summary", handleHistorySummary)
 
 	// ── YouTube 자동화 ────────────────────────────────────────
-	mux.HandleFunc("GET /api/youtube/subscriptions", handleYouTubeSubscriptions)
-	mux.HandleFunc("POST /api/youtube/playlist/add", handleYouTubePlaylistAdd)
-	mux.HandleFunc("POST /api/youtube/playlist/batch", handleYouTubePlaylistBatch)
-	mux.HandleFunc("POST /api/youtube/search", handleYouTubeSearch)
 
 	// ── TikTok + YouTube Music ────────────────────────────────
-	mux.HandleFunc("GET /api/tiktok/hot-songs", handleTikTokHotSongs)
-	mux.HandleFunc("POST /api/ytmusic/search", handleYTMusicSearch)
-	mux.HandleFunc("POST /api/ytmusic/playlist/add", handleYTMusicPlaylistAdd)
-	mux.HandleFunc("POST /api/tiktok/songs-to-ytmusic", handleTikTokSongsToYTMusic)
 
 	// ── 콘텐츠 추천 ───────────────────────────────────────────
 	mux.HandleFunc("POST /api/recommend/content", handleContentRecommend)
-	mux.HandleFunc("GET /api/netflix/trending", handleNetflixTrending)
-	mux.HandleFunc("GET /api/recall/keywords", handleRecallKeywordsMac)
 	mux.HandleFunc("GET /api/wishlist/content", handleContentWishlist)
 	mux.HandleFunc("POST /api/wishlist/content", handleContentWishlistAdd)
 
@@ -350,11 +273,6 @@ func main() {
 	mux.HandleFunc("GET /api/security/myip", handleMyIPAudit)
 
 	// ── 영상 수집 강화 ────────────────────────────────────────
-	mux.HandleFunc("POST /api/video/search-enhanced", handleVideoSearchEnhanced)
-	mux.HandleFunc("POST /api/video/download-with-cookie", handleVideoDownloadCookie)
-	mux.HandleFunc("POST /api/video/set-cookie", handleVideoSetCookie)
-	mux.HandleFunc("GET /api/video/cookie-status", handleVideoCookieStatus)
-	mux.HandleFunc("POST /api/video/ytdlp-info", handleVideoInfo)
 
 	// Enterprise API Key Management
 	mux.HandleFunc("GET /api/enterprise/keys", handleEnterpriseListKeys)
@@ -387,7 +305,6 @@ func main() {
 	startRAGBackgroundWatcher()
 	startSelfHealingLoop()
 	loadWorkspaceStore()
-	go startBriefingScheduler()
 	go startMacProactiveMonitor()
 
 	srv := &http.Server{

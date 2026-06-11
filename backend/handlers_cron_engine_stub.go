@@ -198,14 +198,6 @@ func cronWeeklyReport() (string, error) {
 	content := fmt.Sprintf("# 주간 생산성 리포트\n\n*%s 생성*\n\n%s", now.Format("2006-01-02 15:04"), text)
 	os.WriteFile(path, []byte(content), 0644)
 
-	// 이메일 발송 시도
-	llmMu.RLock()
-	accounts := imapAccounts
-	llmMu.RUnlock()
-	if len(accounts) > 0 {
-		go sendIMAPEmail(accounts[0], accounts[0].Email, "이번 주 생산성 리포트", content)
-	}
-
 	return fmt.Sprintf("주간 리포트 생성 완료: %s", path), nil
 }
 

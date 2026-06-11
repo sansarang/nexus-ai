@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chromedp/chromedp"
 )
 
 // ── 콘텐츠 추천 ───────────────────────────────────────────
@@ -154,58 +153,6 @@ JSON 배열로만 출력: [{"title":"제목","genre":"장르","reason":"추천 �
 
 // ── Netflix 크롤링 ────────────────────────────────────────
 
-// GET /api/netflix/trending
-func handleNetflixTrending(w http.ResponseWriter, r *http.Request) {
-	// chromedp로 Netflix 인기 콘텐츠 가져오기 (로그인 상태 활용)
-	ctx, cancel := newChromedpCtx(30 * time.Second)
-	defer cancel()
-
-	var titles []string
-	err := chromedp.Run(ctx,
-		chromedp.Navigate("https://www.netflix.com/browse"),
-		chromedp.WaitVisible(`.slider-item, .title-card`, chromedp.ByQuery),
-		chromedp.Sleep(3*time.Second),
-		chromedp.Evaluate(`
-			Array.from(document.querySelectorAll('.slider-item .fallback-text, .title-card .fallback-text, [data-uia="content-card-title"]')).slice(0,20).map(e=>e.textContent.trim()).filter(t=>t)
-		`, &titles),
-	)
-
-	if err != nil || len(titles) == 0 {
-		// 폴백: Tavily
-		llmMu.RLock()
-		tKey := llmTavilyKey
-		llmMu.RUnlock()
-		if tKey != "" {
-			tr, ok := tavilySearch(tKey, "넷플릭스 지금 인기 TOP10 2025", 8)
-			if ok {
-				json200(w, map[string]any{
-					"success": true,
-					"source":  "search_fallback",
-					"summary": tr.Summary,
-					"items":   tr.Items,
-					"message": "Netflix 로그인 필요 — 검색 결과로 대체",
-				})
-				return
-			}
-		}
-		writeJSON(w, 500, map[string]any{"success": false, "message": fmt.Sprintf("Netflix 크롤링 실패: %v", err)})
-		return
-	}
-
-	var items []ContentItem
-	for _, t := range titles {
-		if t != "" {
-			items = append(items, ContentItem{Title: t, Platform: "netflix"})
-		}
-	}
-
-	json200(w, map[string]any{
-		"success": true,
-		"items":   items,
-		"count":   len(items),
-		"message": fmt.Sprintf("Netflix 인기 콘텐츠 %d개", len(items)),
-	})
-}
 
 // ── Recall 키워드 분석 → 콘텐츠 추천 ────────────────────
 

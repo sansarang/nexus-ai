@@ -81,19 +81,6 @@ func handleLLMDeepSearchWeb(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ── 소스 3: YouTube 영상 검색 + 메타데이터 보강 ──────────
-	if tKey != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if r, ok := tavilySearchDomain(tKey, req.Query, req.MaxResults/2+2, "youtube.com"); ok {
-				// yt-dlp가 있으면 watch URL에 대해 메타데이터 보강
-				enriched := enrichYouTubeItems(r.Items)
-				ch <- source{name: "youtube", items: enriched}
-			}
-		}()
-	}
-
 	// ── 소스 4: 한국어 전용 추가 소스 ────────────────────────
 	if tKey != "" && isKoreanQuery {
 		// 네이버 블로그/카페
