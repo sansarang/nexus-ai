@@ -7,9 +7,13 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 	"runtime"
+	"sort"
 	"strings"
+
+	"github.com/xuri/excelize/v2"
 )
 
 func automationPlatform() string { return runtime.GOOS }
@@ -147,6 +151,141 @@ func handleAutomationReplay(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, code, map[string]any{"success": res.OK, "result": res})
 }
 
+// POST /api/automation/batch — 템플릿을 N행 데이터로 반복 실행 (RPA 핵심: "한 번 가르치면 N행 반복").
+// 템플릿: {steps:[...]} 직접 전달 또는 {workflow_name} 로 저장된 워크플로 로드.
+// 데이터셋: {rows:[{col:val}]} 직접 전달 또는 {excel_path[, sheet]} (첫 행=헤더=placeholder 키).
+// 단계의 {{col}} placeholder가 행값으로 치환되며, 행별 성공/실패 + 전체 성공률을 집계한다.
+// dry_run=true면 실행 없이 첫 행 확장 결과만 미리보기.
+func handleAutomationBatch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Steps        []AutoStep          `json:"steps"`
+		WorkflowName string              `json:"workflow_name"`
+		Rows         []map[string]string `json:"rows"`
+		ExcelPath    string              `json:"excel_path"`
+		Sheet        string              `json:"sheet"`
+		StopOnError  bool                `json:"stop_on_error"`
+		DryRun       bool                `json:"dry_run"`
+	}
+	tryDecodeBody(r, &req)
+
+	// 1) 템플릿 단계 확정: steps 직접 전달 또는 저장된 워크플로 로드.
+	steps := req.Steps
+	if len(steps) == 0 && strings.TrimSpace(req.WorkflowName) != "" {
+		wf, err := LoadAutoWorkflow(req.WorkflowName)
+		if err != nil {
+			writeJSON(w, 404, map[string]any{"success": false, "message": "워크플로 없음: " + req.WorkflowName})
+			return
+		}
+		steps = wf.Steps
+	}
+	if len(steps) == 0 {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "steps 또는 workflow_name 필요"})
+		return
+	}
+
+	// 2) 데이터셋 확정: rows 직접 전달 또는 엑셀 파일(첫 행=헤더=치환 키)에서 로드.
+	rows := req.Rows
+	if len(rows) == 0 && strings.TrimSpace(req.ExcelPath) != "" {
+		parsed, err := excelRowsToMaps(req.ExcelPath, req.Sheet)
+		if err != nil {
+			writeJSON(w, 400, map[string]any{"success": false, "message": "엑셀 읽기 실패: " + err.Error()})
+			return
+		}
+		rows = parsed
+	}
+	if len(rows) == 0 {
+		writeJSON(w, 400, map[string]any{"success": false, "message": "rows 또는 excel_path 필요"})
+		return
+	}
+
+	// 3) dry-run: 실행 없이 첫 행 확장 결과 미리보기 (파괴적 동작/치환 사전 확인).
+	if req.DryRun {
+		json200(w, map[string]any{
+			"success": true,
+			"dry_run": true,
+			"total":   len(rows),
+			"columns": rowKeys(rows[0]),
+			"preview": expandSteps(steps, rows[0]),
+		})
+		return
+	}
+
+	// 4) 가용성 게이트 — 미가용 시 501 (무단 실행 금지).
+	a := GetAutomator()
+	if !a.Available() {
+		writeJSON(w, 501, map[string]any{
+			"success":   false,
+			"code":      "automation_unavailable",
+			"available": false,
+			"platform":  automationPlatform(),
+			"message":   automationStatusMessage(false),
+		})
+		return
+	}
+
+	// 5) 배치 실행 + 성공률 집계.
+	res := BatchRun(a, steps, rows, req.StopOnError)
+	code := http.StatusOK
+	if res.Succeeded < res.Total {
+		code = http.StatusMultiStatus // 207 — 일부/전체 행 실패
+	}
+	writeJSON(w, code, map[string]any{"success": res.Succeeded == res.Total, "result": res})
+}
+
+// excelRowsToMaps — 엑셀 파일을 [{header: cell}] 배열로 변환 (첫 행 = 헤더 = placeholder 키).
+// 빈 헤더 열은 건너뛰고, 누락 셀은 빈 문자열로 채운다.
+func excelRowsToMaps(path, sheet string) ([]map[string]string, error) {
+	f, err := excelize.OpenFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	target := strings.TrimSpace(sheet)
+	if target == "" {
+		sheets := f.GetSheetList()
+		if len(sheets) == 0 {
+			return nil, errors.New("시트가 없습니다")
+		}
+		target = sheets[0]
+	}
+	rows, err := f.GetRows(target)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) < 2 {
+		return nil, errors.New("데이터 행이 없습니다 (첫 행=헤더 + 데이터 1행 이상 필요)")
+	}
+	headers := rows[0]
+	out := make([]map[string]string, 0, len(rows)-1)
+	for _, row := range rows[1:] {
+		m := make(map[string]string, len(headers))
+		for i, h := range headers {
+			h = strings.TrimSpace(h)
+			if h == "" {
+				continue // 빈 헤더 열 무시
+			}
+			if i < len(row) {
+				m[h] = row[i]
+			} else {
+				m[h] = "" // 짧은 행은 빈 문자열로 보정
+			}
+		}
+		out = append(out, m)
+	}
+	return out, nil
+}
+
+// rowKeys — 행의 치환 가능 컬럼 키 목록 (dry-run 미리보기에서 노출, 정렬해 안정적 출력).
+func rowKeys(row map[string]string) []string {
+	keys := make([]string, 0, len(row))
+	for k := range row {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // registerAutomationRoutes — main.go / main_stub.go 양쪽에서 호출 (라우트 중복 정의 방지).
 func registerAutomationRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/automation/status", handleAutomationStatus)
@@ -155,4 +294,5 @@ func registerAutomationRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/automation/workflows/{name}", handleAutomationWorkflowGet)
 	mux.HandleFunc("POST /api/automation/workflows/{name}/replay", handleAutomationReplay)
 	mux.HandleFunc("POST /api/automation/run", handleAutomationRun)
+	mux.HandleFunc("POST /api/automation/batch", handleAutomationBatch)
 }

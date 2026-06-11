@@ -50,11 +50,16 @@ pyinstaller `
     --hidden-import "faiss" `
     --hidden-import "pyautogui" `
     --hidden-import "pygetwindow" `
+    --hidden-import "pywinauto" `
+    --hidden-import "pyperclip" `
+    --hidden-import "comtypes" `
     --hidden-import "groq" `
     --hidden-import "sklearn" `
     --collect-all "yt_dlp" `
     --collect-all "ytmusicapi" `
     --collect-all "sentence_transformers" `
+    --collect-all "comtypes" `
+    --collect-submodules "pywinauto" `
     --noconfirm `
     "$ScriptDir\main.py"
 

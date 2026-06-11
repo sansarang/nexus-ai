@@ -13,6 +13,10 @@ sentence-transformers==3.2.1
 faiss-cpu==1.9.0
 pyautogui==0.9.54
 pygetwindow==0.0.9
+# 데스크탑 자동화 (UIA) — Windows 전용. Mac/Linux 개발환경은 sys_platform 마커로 설치 건너뜀.
+pywinauto==0.6.8 ; sys_platform == "win32"
+comtypes ; sys_platform == "win32"
+pyperclip==1.9.0
 ollama==0.3.3
 groq==0.11.0
 requests==2.32.3
