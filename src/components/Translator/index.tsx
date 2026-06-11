@@ -1,1 +1,0 @@
-export { TranslatorView } from './SmartTranslator'
