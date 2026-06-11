@@ -109,167 +109,16 @@ def admin_set_keys(body: dict):
 # 2단계 — 검색
 # ════════════════════════════════════════════════════════════
 
-@app.post("/youtube/search")
-def youtube_search(body: dict):
-    query = body.get("query", "")
-    max_items = body.get("max_items", 10)
-    if not query:
-        return fail("query 필요")
-    try:
-        import yt_dlp
-        ydl_opts = {
-            "quiet": True, "no_warnings": True,
-            "extract_flat": True, "skip_download": True,
-        }
-        results = []
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ytsearch{max_items}:{query}", download=False)
-            for e in (info.get("entries") or []):
-                if e:
-                    results.append({
-                        "title":    e.get("title", ""),
-                        "url":      e.get("webpage_url") or f"https://www.youtube.com/watch?v={e.get('id','')}",
-                        "channel":  e.get("channel") or e.get("uploader", ""),
-                        "duration": str(e.get("duration", "")),
-                        "views":    str(e.get("view_count", "")),
-                    })
-        return ok(items=results, count=len(results),
-                  message=f"YouTube '{query}' 검색 결과 {len(results)}개",
-                  summary=f"유튜브에서 '{query}' 관련 영상 {len(results)}개를 찾았어요!")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.get("/tiktok/trending")
-def tiktok_trending():
-    """TikTok 트렌딩 — yt-dlp ttsearch fallback"""
-    try:
-        import yt_dlp
-        ydl_opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
-        results = []
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info("ttsearch15:trending korea viral 2025", download=False)
-            for e in (info.get("entries") or []):
-                if e:
-                    results.append({
-                        "title":   e.get("title", ""),
-                        "url":     e.get("webpage_url", ""),
-                        "author":  e.get("uploader", ""),
-                        "views":   str(e.get("view_count", "")),
-                    })
-        return ok(items=results, count=len(results), source="yt_dlp",
-                  message=f"🔥 TikTok 트렌딩 {len(results)}개")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.post("/tiktok/profile")
-def tiktok_profile(body: dict):
-    """특정 TikTok 계정의 최근 영상 — yt-dlp"""
-    username = body.get("username", "").lstrip("@")
-    limit = body.get("limit", 10)
-    if not username:
-        return fail("username 필요")
-    try:
-        import yt_dlp
-        url = f"https://www.tiktok.com/@{username}"
-        ydl_opts = {
-            "quiet": True, "no_warnings": True,
-            "extract_flat": True, "skip_download": True,
-            "playlistend": limit,
-        }
-        results = []
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            for e in (info.get("entries") or []):
-                if e:
-                    results.append({
-                        "title":  e.get("title", ""),
-                        "url":    e.get("webpage_url", ""),
-                        "author": username,
-                        "views":  str(e.get("view_count", "")),
-                    })
-        return ok(items=results, count=len(results),
-                  message=f"👤 @{username} 최근 영상 {len(results)}개")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.post("/tiktok/search")
-def tiktok_search(body: dict):
-    query = body.get("query", "")
-    max_items = body.get("max_items", 10)
-    if not query:
-        return fail("query 필요")
-    try:
-        import yt_dlp
-        ydl_opts = {"quiet": True, "no_warnings": True, "extract_flat": True, "skip_download": True}
-        results = []
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ttsearch{max_items}:{query}", download=False)
-            for e in (info.get("entries") or []):
-                if e:
-                    results.append({
-                        "title":   e.get("title", ""),
-                        "url":     e.get("webpage_url", ""),
-                        "channel": e.get("uploader", ""),
-                        "views":   str(e.get("view_count", "")),
-                    })
-        return ok(items=results, count=len(results),
-                  message=f"TikTok '{query}' 검색 결과 {len(results)}개",
-                  summary=f"틱톡에서 '{query}' 관련 영상 {len(results)}개를 찾았어요!")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.post("/ytmusic/search")
-def ytmusic_search(body: dict):
-    query = body.get("query", "")
-    limit = body.get("limit", 10)
-    if not query:
-        return fail("query 필요")
-    try:
-        from ytmusicapi import YTMusic
-        yt = YTMusic()
-        raw = yt.search(query, filter="songs", limit=limit)
-        items = []
-        for r in raw:
-            items.append({
-                "title":   r.get("title", ""),
-                "artist":  ", ".join(a["name"] for a in r.get("artists", [])),
-                "album":   (r.get("album") or {}).get("name", ""),
-                "url":     f"https://music.youtube.com/watch?v={r.get('videoId','')}",
-                "thumbnail": ((r.get("thumbnails") or [{}])[-1]).get("url", ""),
-            })
-        return ok(items=items, count=len(items), message=f"YouTube Music '{query}' {len(items)}개")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.post("/video/search-enhanced")
-def video_search_enhanced(body: dict):
-    query = body.get("query", "")
-    platform = body.get("platform", "youtube")
-    max_items = body.get("max_items", 10)
-    if not query:
-        return fail("query 필요")
-    search_prefix = {"youtube": "ytsearch", "tiktok": "ttsearch"}.get(platform, "ytsearch")
-    try:
-        import yt_dlp
-        ydl_opts = {"quiet": True, "no_warnings": True, "extract_flat": True}
-        results = []
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"{search_prefix}{max_items}:{query}", download=False)
-            for e in (info.get("entries") or []):
-                if e:
-                    results.append({
-                        "title": e.get("title", ""), "url": e.get("webpage_url", ""),
-                        "channel": e.get("uploader", ""), "duration": str(e.get("duration", "")),
-                        "views": str(e.get("view_count", "")), "upload_date": e.get("upload_date", ""),
-                    })
-        return ok(items=results, count=len(results))
-    except Exception as e:
-        return fail(str(e))
 
 
 # ════════════════════════════════════════════════════════════
@@ -414,174 +263,26 @@ def screenshot_analyze(body: dict):
         return fail(str(e))
 
 
-@app.post("/screenshot/translate")
-def screenshot_translate(body: dict):
-    image_base64 = body.get("image_base64", "")
-    target_lang = body.get("target_lang", "ko")
-    claude_key = body.get("claude_key", "") or CLAUDE_KEY
-    if not image_base64 or not claude_key:
-        return fail("image_base64, claude_key 필요")
-    try:
-        prompt = f"이 이미지의 모든 텍스트를 {'한국어' if target_lang=='ko' else '영어'}로 번역해줘. 원본 레이아웃 구조를 유지해."
-        r = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": claude_key, "anthropic-version": "2023-06-01",
-                     "Content-Type": "application/json"},
-            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 2048,
-                  "messages": [{"role": "user", "content": [
-                      {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_base64}},
-                      {"type": "text", "text": prompt}
-                  ]}]},
-            timeout=30
-        )
-        text = r.json()["content"][0]["text"]
-        return ok(translated=text, message="번역 완료")
-    except Exception as e:
-        return fail(str(e))
 
 
 # ════════════════════════════════════════════════════════════
 # 4단계 — Email AI
 # ════════════════════════════════════════════════════════════
 
-@app.post("/email/classify")
-def email_classify(body: dict):
-    emails = body.get("emails", [])
-    if not emails:
-        return fail("emails 필요")
-    classified = []
-    for email in emails:
-        subject = email.get("subject", "")
-        sender  = email.get("from", "")
-        preview = email.get("preview", "")[:300]
-        prompt = f"""다음 이메일을 분류해줘. JSON만 반환:
-{{"category": "업무|광고|뉴스레터|개인|청구서|알림|기타", "priority": "높음|보통|낮음", "summary": "한줄요약", "action": "답장필요|확인만|삭제가능"}}
-
-제목: {subject}
-발신: {sender}
-내용: {preview}"""
-        result_str = groq_chat([{"role": "user", "content": prompt}], max_tokens=200)
-        try:
-            result = json.loads(re.search(r'\{.*\}', result_str, re.DOTALL).group())
-        except Exception:
-            result = {"category": "기타", "priority": "보통", "summary": subject, "action": "확인만"}
-        classified.append({**email, **result})
-    return ok(emails=classified, count=len(classified), message=f"이메일 {len(classified)}개 분류 완료")
 
 
-@app.post("/email/draft-reply")
-def email_draft_reply(body: dict):
-    original = body.get("original", "")
-    context  = body.get("context", "")
-    tone     = body.get("tone", "professional")
-    lang     = body.get("lang", "ko")
-    if not original:
-        return fail("original 이메일 내용 필요")
-    tone_map = {"professional": "전문적이고 공손한", "casual": "친근한", "formal": "격식있는"}
-    tone_str = tone_map.get(tone, "전문적이고 공손한")
-    prompt = f"""{tone_str} 어투로 다음 이메일에 대한 답장 초안을 작성해줘.
-추가 맥락: {context}
-
-원본 이메일:
-{original}
-
-답장 초안만 작성해줘."""
-    draft = groq_chat([{"role": "user", "content": prompt}], max_tokens=800)
-    return ok(draft=draft, message="답장 초안 생성 완료")
 
 
-@app.post("/email/extract-events")
-def email_extract_events(body: dict):
-    content = body.get("content", "")
-    if not content:
-        return fail("content 필요")
-    prompt = f"""다음 이메일에서 일정/이벤트 정보를 추출해줘. JSON 배열만 반환:
-[{{"title": "제목", "date": "날짜", "time": "시간", "location": "장소", "description": "설명"}}]
-
-이메일:
-{content[:2000]}"""
-    result_str = groq_chat([{"role": "user", "content": prompt}], max_tokens=500)
-    try:
-        events = json.loads(re.search(r'\[.*\]', result_str, re.DOTALL).group())
-    except Exception:
-        events = []
-    return ok(events=events, count=len(events), message=f"일정 {len(events)}개 추출")
 
 
-@app.post("/calendar/find-slot")
-def calendar_find_slot(body: dict):
-    duration_min = body.get("duration_min", 60)
-    prefer_time  = body.get("prefer_time", "morning")
-    within_days  = body.get("within_days", 7)
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    prefer_hour = {"morning": 9, "afternoon": 14, "evening": 17}.get(prefer_time, 9)
-    slots = []
-    for day in range(1, within_days + 1):
-        if len(slots) >= 5:
-            break
-        date = now + timedelta(days=day)
-        if date.weekday() >= 5:
-            continue
-        end_hour = prefer_hour + duration_min // 60
-        slots.append({
-            "date":       date.strftime("%Y-%m-%d"),
-            "start_time": f"{prefer_hour:02d}:00",
-            "end_time":   f"{end_hour:02d}:{duration_min%60:02d}",
-        })
-    return ok(slots=slots, message=f"{duration_min}분 미팅 가능 시간대 {len(slots)}개")
 
 
-@app.post("/calendar/smart-add")
-def calendar_smart_add(body: dict):
-    text = body.get("text", "")
-    if not text:
-        return fail("text 필요")
-    prompt = f"""다음 자연어 문장에서 일정 정보를 추출해줘. JSON만 반환:
-{{"title":"제목","date":"YYYY-MM-DD","time":"HH:MM","duration_min":60,"location":"장소"}}
-문장: {text}"""
-    result_str = groq_chat([{"role": "user", "content": prompt}], max_tokens=200)
-    try:
-        event = json.loads(re.search(r'\{.*\}', result_str, re.DOTALL).group())
-    except Exception:
-        return fail("일정 파싱 실패")
-    return ok(event=event, message=f"일정 추출 완료: {event.get('title','')}")
 
 
-@app.post("/content/script")
-def content_script(body: dict):
-    topic    = body.get("topic", "")
-    platform = body.get("platform", "youtube")
-    duration = body.get("duration", "3분")
-    style    = body.get("style", "informative")
-    if not topic:
-        return fail("topic 필요")
-    prompt = f"""다음 주제로 {platform} {duration} 영상 스크립트를 {style} 스타일로 작성해줘.
-주제: {topic}
-형식: 인트로 → 본론 → 아웃트로 구조. 한국어로 작성."""
-    script = groq_chat([{"role": "user", "content": prompt}], max_tokens=1500)
-    return ok(script=script, topic=topic, platform=platform,
-              message=f"'{topic}' {platform} 스크립트 생성 완료")
 
 
-@app.post("/imap/classify")
-def imap_classify(body: dict):
-    return email_classify(body)
 
 
-@app.post("/imap/reply-suggestions")
-def imap_reply_suggestions(body: dict):
-    email_content = body.get("content", "")
-    prompt = f"""다음 이메일에 대한 간단한 답장 3가지를 제안해줘. JSON 배열만:
-[{{"label": "버튼 텍스트", "text": "답장 내용"}}]
-
-이메일: {email_content[:1000]}"""
-    result_str = groq_chat([{"role": "user", "content": prompt}], max_tokens=400)
-    try:
-        suggestions = json.loads(re.search(r'\[.*\]', result_str, re.DOTALL).group())
-    except Exception:
-        suggestions = [{"label": "확인했습니다", "text": "네, 확인했습니다. 감사합니다."}]
-    return ok(suggestions=suggestions)
 
 
 # ════════════════════════════════════════════════════════════
@@ -761,167 +462,22 @@ def memory_clear():
 # 6단계 — 주식/보안/웹
 # ════════════════════════════════════════════════════════════
 
-@app.post("/stock/quote")
-def stock_quote(body: dict):
-    symbol = body.get("symbol", "").upper()
-    if not symbol:
-        return fail("symbol 필요")
-    try:
-        import yfinance as yf
-        t = yf.Ticker(symbol)
-        info = t.info
-        hist = t.history(period="5d")
-        current = float(hist["Close"].iloc[-1]) if len(hist) else 0
-        prev    = float(hist["Close"].iloc[-2]) if len(hist) > 1 else current
-        change  = current - prev
-        pct     = (change / prev * 100) if prev else 0
-        return ok(symbol=symbol, price=round(current, 2),
-                  change=round(change, 2), change_pct=round(pct, 2),
-                  currency=info.get("currency", "USD"),
-                  company=info.get("longName", symbol),
-                  market_cap=info.get("marketCap", 0),
-                  message=f"{symbol} ${current:.2f} ({pct:+.2f}%)")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.post("/stock/analysis")
-def stock_analysis(body: dict):
-    symbol = body.get("symbol", "").upper()
-    period = body.get("period", "3mo")
-    if not symbol:
-        return fail("symbol 필요")
-    try:
-        import yfinance as yf, pandas as pd
-        t = yf.Ticker(symbol)
-        hist = t.history(period=period)
-        if hist.empty:
-            return fail("데이터 없음")
-        hist["MA20"] = hist["Close"].rolling(20).mean()
-        hist["MA60"] = hist["Close"].rolling(60).mean()
-        hist["RSI"]  = 100 - (100 / (1 + hist["Close"].diff().clip(lower=0).rolling(14).mean() /
-                                         (-hist["Close"].diff().clip(upper=0)).rolling(14).mean()))
-        latest = hist.iloc[-1]
-        trend = "상승" if latest["MA20"] > latest["MA60"] else "하락"
-        rsi_signal = "과매수" if latest["RSI"] > 70 else ("과매도" if latest["RSI"] < 30 else "중립")
-        return ok(symbol=symbol, period=period,
-                  high=round(float(hist["High"].max()), 2),
-                  low=round(float(hist["Low"].min()), 2),
-                  current=round(float(latest["Close"]), 2),
-                  ma20=round(float(latest["MA20"]) if pd.notna(latest["MA20"]) else 0, 2),
-                  ma60=round(float(latest["MA60"]) if pd.notna(latest["MA60"]) else 0, 2),
-                  rsi=round(float(latest["RSI"]) if pd.notna(latest["RSI"]) else 0, 1),
-                  trend=trend, rsi_signal=rsi_signal,
-                  message=f"{symbol} {period} 분석: {trend} 추세, RSI {rsi_signal}")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.get("/stock/watchlist")
-def stock_watchlist_get():
-    con = sqlite3.connect(DB_PATH)
-    rows = con.execute("SELECT symbol, name, added_at FROM stock_watchlist").fetchall()
-    con.close()
-    return ok(watchlist=[{"symbol": r[0], "name": r[1], "added_at": r[2]} for r in rows])
 
 
-@app.post("/stock/watchlist/add")
-def stock_watchlist_add(body: dict):
-    symbol = body.get("symbol", "").upper()
-    name   = body.get("name", symbol)
-    if not symbol:
-        return fail("symbol 필요")
-    con = sqlite3.connect(DB_PATH)
-    try:
-        con.execute("INSERT OR IGNORE INTO stock_watchlist (symbol, name) VALUES (?, ?)", (symbol, name))
-        con.commit()
-    finally:
-        con.close()
-    return ok(message=f"{symbol} 관심목록 추가")
 
 
-@app.delete("/stock/watchlist/delete")
-def stock_watchlist_delete(body: dict):
-    symbol = body.get("symbol", "").upper()
-    con = sqlite3.connect(DB_PATH)
-    con.execute("DELETE FROM stock_watchlist WHERE symbol=?", (symbol,))
-    con.commit(); con.close()
-    return ok(message=f"{symbol} 삭제됨")
 
 
-@app.post("/security/shodan")
-def shodan_audit(body: dict):
-    api_key = body.get("api_key", os.environ.get("NEXUS_SHODAN_KEY", ""))
-    ip      = body.get("ip", "")
-    if not api_key:
-        return fail("Shodan API 키 필요")
-    try:
-        import shodan as shodan_lib
-        api = shodan_lib.Shodan(api_key)
-        if ip:
-            host = api.host(ip)
-            return ok(ip=ip, hostnames=host.get("hostnames", []),
-                      ports=host.get("ports", []), vulns=list(host.get("vulns", [])),
-                      org=host.get("org", ""), country=host.get("country_name", ""),
-                      message=f"{ip} Shodan 분석 완료")
-        else:
-            myip = api.tools.myip()
-            return ok(my_ip=myip, message=f"내 IP: {myip}")
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.get("/wayback/available")
-def wayback_available(url: str = ""):
-    if not url:
-        return fail("url 필요")
-    try:
-        from waybackpy import WaybackMachineSaveAPI, WaybackMachineAvailabilityAPI
-        avail = WaybackMachineAvailabilityAPI(url)
-        archive = avail.newest()
-        return ok(available=True, archive_url=archive.archive_url,
-                  timestamp=str(archive.timestamp), message="Wayback Machine 아카이브 있음")
-    except Exception as e:
-        return ok(available=False, message=str(e))
 
 
-@app.get("/wayback/snapshots")
-def wayback_snapshots(url: str = "", limit: int = 10):
-    if not url:
-        return fail("url 필요")
-    try:
-        from waybackpy import WaybackMachineCDXServerAPI
-        cdx = WaybackMachineCDXServerAPI(url, user_agent="NexusBot/1.0")
-        snapshots = []
-        for s in cdx.snapshots():
-            snapshots.append({"timestamp": str(s.timestamp), "archive_url": s.archive_url,
-                               "status": s.statuscode})
-            if len(snapshots) >= limit:
-                break
-        return ok(snapshots=snapshots, count=len(snapshots))
-    except Exception as e:
-        return fail(str(e))
 
 
-@app.post("/search/anonymous")
-def anonymous_search(body: dict):
-    query = body.get("query", "")
-    engine = body.get("engine", "ddg")
-    if not query:
-        return fail("query 필요")
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        if engine == "ddg":
-            r = requests.get("https://api.duckduckgo.com/",
-                             params={"q": query, "format": "json", "no_html": 1},
-                             headers=headers, timeout=10)
-            data = r.json()
-            results = [{"title": t.get("Text", ""), "url": t.get("FirstURL", "")}
-                       for t in data.get("RelatedTopics", [])[:10] if t.get("FirstURL")]
-            return ok(results=results, count=len(results), source="DuckDuckGo")
-        return fail("지원하지 않는 엔진")
-    except Exception as e:
-        return fail(str(e))
 
 
 # ════════════════════════════════════════════════════════════
