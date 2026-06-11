@@ -50,6 +50,8 @@ pyinstaller `
     --hidden-import "pywinauto" `
     --hidden-import "pyperclip" `
     --hidden-import "comtypes" `
+    --hidden-import "pynput" `
+    --collect-submodules "pynput" `
     --hidden-import "groq" `
     --hidden-import "sklearn" `
     --collect-all "sentence_transformers" `

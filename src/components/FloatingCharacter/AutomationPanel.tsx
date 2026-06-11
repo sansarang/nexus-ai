@@ -1,8 +1,9 @@
 // AutomationPanel — 데스크탑 자동화 라이브러리/실행 셸 (UIA 엔진 상태 + 워크플로 재생)
 // 엔진 미가용(Mac / UIA 미완성) 시 graceful degrade: 'Windows 전용' 안내 + 실행 버튼 비활성.
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   automationStatus, automationWorkflows, automationReplay,
+  automationRecordStart, automationRecordStatus, automationRecordStop,
   type AutomationStatusResult,
 } from '../../lib/nexus/backendAPI'
 
@@ -19,6 +20,12 @@ export function AutomationPanel({ open, onClose, lang = 'ko', primaryColor = '#4
   const [workflows, setWorkflows] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [recCount, setRecCount] = useState(0)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const refreshWorkflows = () =>
+    automationWorkflows().then((w) => setWorkflows(w.workflows ?? [])).catch(() => {})
 
   useEffect(() => {
     if (!open) return
@@ -31,9 +38,40 @@ export function AutomationPanel({ open, onClose, lang = 'ko', primaryColor = '#4
     })
   }, [open])
 
+  // 패널 닫힐 때 폴링 정리
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
+
   if (!open) return null
 
   const available = status?.available ?? false
+
+  const startRecording = async () => {
+    setToast('')
+    try {
+      const r = await automationRecordStart()
+      if (!r.success) { setToast(r.message ?? (isEn ? 'Recorder unavailable' : '녹화 엔진 미가용 (Windows 전용)')); return }
+      setRecording(true); setRecCount(0)
+      pollRef.current = setInterval(async () => {
+        try { const s = await automationRecordStatus(); setRecCount(s.count ?? 0); if (!s.recording) stopPolling() } catch {}
+      }, 1000)
+    } catch { setToast(isEn ? 'Failed to start' : '시작 실패') }
+  }
+
+  const stopPolling = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
+
+  const stopRecording = async () => {
+    stopPolling()
+    const def = isEn ? 'my-automation' : '내자동화'
+    const name = window.prompt(isEn ? 'Name this automation:' : '이 자동화의 이름을 정하세요:', def)
+    setRecording(false)
+    if (name === null) { setToast(isEn ? 'Discarded' : '취소됨'); return }
+    setToast(isEn ? 'Saving...' : '저장 중...')
+    try {
+      const r = await automationRecordStop(name.trim() || def)
+      if (r.saved) { setToast(isEn ? `✅ Saved "${r.workflow}" (${r.count} steps)` : `✅ "${r.workflow}" 저장됨 (${r.count}단계)`); refreshWorkflows() }
+      else setToast(r.message ?? (isEn ? `Captured ${r.count ?? 0} steps` : `${r.count ?? 0}단계 캡처됨`))
+    } catch { setToast(isEn ? 'Save failed' : '저장 실패') }
+  }
 
   const replay = async (name: string) => {
     setToast(isEn ? `Running "${name}"...` : `"${name}" 실행 중...`)
@@ -61,6 +99,32 @@ export function AutomationPanel({ open, onClose, lang = 'ko', primaryColor = '#4
           <div style={{ marginTop: 4, color: '#555' }}>{status?.message ?? (isEn ? 'Checking...' : '확인 중...')}</div>
         </div>
 
+        {/* 녹화기 — 시연 한 번으로 자동화 만들기 */}
+        {!recording ? (
+          <button
+            onClick={startRecording}
+            disabled={!available}
+            style={{ width: '100%', border: 'none', borderRadius: 10, padding: '12px', marginBottom: 16, background: available ? '#ff3b30' : '#ccc', color: '#fff', cursor: available ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}
+          >
+            ● {isEn ? 'Record a task' : '새 자동화 녹화'}
+          </button>
+        ) : (
+          <div style={{ marginBottom: 16, padding: '12px 14px', borderRadius: 10, background: '#fff0ef', border: '1px solid #ff3b3055' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#ff3b30' }}>
+                <span style={{ animation: 'recBlink 1s steps(2) infinite' }}>●</span> {isEn ? 'Recording' : '녹화 중'} · {recCount}{isEn ? ' steps' : '단계'}
+              </span>
+              <button onClick={stopRecording} style={{ border: 'none', borderRadius: 8, padding: '6px 14px', background: '#1a1d2e', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                ■ {isEn ? 'Stop & Save' : '중지 & 저장'}
+              </button>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 12, color: '#b25e00' }}>
+              {isEn ? 'Click and type in the target app as usual.' : '대상 앱에서 평소처럼 클릭·입력하세요.'}
+            </div>
+            <style>{`@keyframes recBlink { 50% { opacity: 0 } }`}</style>
+          </div>
+        )}
+
         {/* 저장된 자동화 목록 */}
         <div style={{ fontSize: 13, fontWeight: 700, color: '#555', marginBottom: 8 }}>
           {isEn ? 'Saved automations' : '저장된 자동화'} ({workflows.length})
@@ -69,7 +133,7 @@ export function AutomationPanel({ open, onClose, lang = 'ko', primaryColor = '#4
           <div style={{ color: '#888', fontSize: 13 }}>{isEn ? 'Loading...' : '불러오는 중...'}</div>
         ) : workflows.length === 0 ? (
           <div style={{ color: '#888', fontSize: 13, padding: '8px 0' }}>
-            {isEn ? 'No automations yet. Record one on Windows.' : '아직 없어요. Windows에서 녹화해보세요.'}
+            {isEn ? 'No automations yet. Hit “Record a task” above.' : '아직 없어요. 위 “새 자동화 녹화”를 눌러보세요.'}
           </div>
         ) : (
           workflows.map((name) => (

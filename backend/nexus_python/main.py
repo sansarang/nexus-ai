@@ -738,6 +738,210 @@ def uia_verify(body: dict):
         return ok(verified=False, reason=str(e))
 
 
+# ──────────────────────────────────────────────────────────────
+#  UIA 녹화기 (Recorder) — 사용자 클릭/입력을 AutoStep으로 자동 캡처
+#  핵심: "한 번 시연하면 알아서 반복"의 '시연(녹화)' 부분.
+#  pynput으로 마우스/키보드 이벤트를 잡고, 클릭 지점을 UIA ElementFromPoint로
+#  '의미 셀렉터'(name/role/automation_id)로 변환한다. 텍스트 필드는 값 변화를
+#  읽어 set_text, 그 외 클릭은 click 스텝으로 기록 → 기존 재생엔진으로 반복.
+#  ⚠️ Windows 전용(UIA+pynput). Mac에서는 _uia()=None → start가 안전 거부.
+# ──────────────────────────────────────────────────────────────
+import threading as _threading
+_rec_lock = _threading.Lock()
+_rec_active = False
+_rec_steps: List[dict] = []
+_rec_pending = None          # (selector, UIAElementInfo, initial_value) — 입력 중인 필드
+_rec_started_at = 0.0
+_rec_mouse_listener = None
+_rec_kb_listener = None
+
+_REC_CLICKABLE = ("Button", "Hyperlink", "MenuItem", "CheckBox",
+                  "RadioButton", "ListItem", "TabItem", "SplitButton")
+_REC_EDITABLE = ("Edit", "Document", "ComboBox")
+
+
+def _uia_iface():
+    try:
+        from pywinauto.uia_defines import IUIA
+        return IUIA().iuia
+    except Exception:
+        return None
+
+
+def _element_from_point(x, y):
+    iface = _uia_iface()
+    if iface is None:
+        return None
+    try:
+        from pywinauto import win32structures
+        from pywinauto.uia_element_info import UIAElementInfo
+        com = iface.ElementFromPoint(win32structures.POINT(int(x), int(y)))
+        return UIAElementInfo(com) if com is not None else None
+    except Exception:
+        return None
+
+
+def _elem_info_to_selector(info) -> dict:
+    sel = {}
+    for attr, key in (("name", "name"), ("control_type", "role"), ("automation_id", "automation_id")):
+        try:
+            v = getattr(info, attr, None)
+            if v:
+                sel[key] = v
+        except Exception:
+            pass
+    return sel
+
+
+def _normalize_target(info):
+    """raw Text/Image 등을 클릭하면 의미 있는 조상(Button 등)으로 상승."""
+    try:
+        ct = info.control_type
+    except Exception:
+        return info
+    if ct in _REC_CLICKABLE or ct in _REC_EDITABLE:
+        return info
+    cur = info
+    for _ in range(4):
+        try:
+            p = cur.parent
+        except Exception:
+            break
+        if p is None:
+            break
+        try:
+            if p.control_type in _REC_CLICKABLE:
+                return p
+        except Exception:
+            pass
+        cur = p
+    return info
+
+
+def _read_value(info) -> str:
+    try:
+        from pywinauto.controls.uiawrapper import UIAWrapper
+        w = UIAWrapper(info)
+        try:
+            v = w.iface_value.CurrentValue
+            if v is not None:
+                return v
+        except Exception:
+            pass
+        try:
+            return w.window_text() or ""
+        except Exception:
+            return ""
+    except Exception:
+        return ""
+
+
+def _rec_flush_pending():
+    """입력 중이던 필드의 현재 값을 읽어 set_text 스텝으로 확정 (lock 보유 상태에서 호출)."""
+    global _rec_pending
+    if _rec_pending is None:
+        return
+    sel, info, initial = _rec_pending
+    _rec_pending = None
+    cur = _read_value(info)
+    if cur and cur != initial:
+        _rec_steps.append({"kind": "set_text", "selector": sel, "value": cur})
+
+
+def _rec_on_click(x, y, button, pressed):
+    if not pressed:
+        return
+    try:
+        if "left" not in str(button).lower():
+            return
+    except Exception:
+        pass
+    with _rec_lock:
+        if not _rec_active:
+            return
+        _rec_flush_pending()
+        info = _element_from_point(x, y)
+        if info is None:
+            return
+        info = _normalize_target(info)
+        sel = _elem_info_to_selector(info)
+        if not sel:
+            return
+        role = sel.get("role", "")
+        if role in _REC_EDITABLE:
+            _rec_pending = (sel, info, _read_value(info))   # 입력 시작 — 값은 flush 때 확정
+        else:
+            _rec_steps.append({"kind": "click", "selector": sel})
+
+
+def _rec_on_press(key):
+    with _rec_lock:
+        if not _rec_active:
+            return
+        try:
+            from pynput import keyboard as _kb
+            if key in (_kb.Key.enter, _kb.Key.tab):
+                _rec_flush_pending()
+        except Exception:
+            pass
+
+
+@app.post("/desktop/uia/record/start")
+def uia_record_start():
+    global _rec_active, _rec_steps, _rec_pending, _rec_started_at
+    global _rec_mouse_listener, _rec_kb_listener
+    if _uia() is None:
+        return fail(_uia_err or "UIA 미가용 — 녹화는 Windows에서만 가능")
+    try:
+        from pynput import mouse, keyboard
+    except Exception as e:
+        return fail(f"pynput 미설치/초기화 실패: {e}")
+    with _rec_lock:
+        if _rec_active:
+            return ok(recording=True, count=len(_rec_steps), message="이미 녹화 중")
+        _rec_steps = []
+        _rec_pending = None
+        _rec_active = True
+        _rec_started_at = time.time()
+    try:
+        _rec_mouse_listener = mouse.Listener(on_click=_rec_on_click)
+        _rec_mouse_listener.start()
+        _rec_kb_listener = keyboard.Listener(on_press=_rec_on_press)
+        _rec_kb_listener.start()
+    except Exception as e:
+        with _rec_lock:
+            _rec_active = False
+        return fail(f"입력 후킹 실패: {e}")
+    return ok(recording=True, message="녹화 시작 — 대상 앱에서 평소처럼 클릭/입력하세요")
+
+
+@app.get("/desktop/uia/record/status")
+def uia_record_status():
+    with _rec_lock:
+        last = _rec_steps[-1] if _rec_steps else None
+        elapsed = int(time.time() - _rec_started_at) if _rec_active else 0
+        return ok(recording=_rec_active, count=len(_rec_steps), last=last, elapsed=elapsed)
+
+
+@app.post("/desktop/uia/record/stop")
+def uia_record_stop():
+    global _rec_active, _rec_mouse_listener, _rec_kb_listener
+    with _rec_lock:
+        _rec_flush_pending()
+        _rec_active = False
+        steps = list(_rec_steps)
+    for lst in (_rec_mouse_listener, _rec_kb_listener):
+        try:
+            if lst is not None:
+                lst.stop()
+        except Exception:
+            pass
+    _rec_mouse_listener = None
+    _rec_kb_listener = None
+    return ok(recording=False, steps=steps, count=len(steps),
+              message=f"녹화 완료 — {len(steps)}단계 캡처됨")
+
+
 @app.post("/desktop/agent/run")
 @app.post("/desktop-agent/run")
 def desktop_agent_run(body: dict):

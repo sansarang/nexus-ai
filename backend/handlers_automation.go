@@ -7,6 +7,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"runtime"
@@ -286,6 +287,84 @@ func rowKeys(row map[string]string) []string {
 	return keys
 }
 
+// ── 녹화기(Recorder) 프록시 ────────────────────────────────────
+// 사용자 클릭/입력을 Python UIA 후킹으로 AutoStep으로 캡처한다.
+// "한 번 시연하면 알아서 반복"의 '시연(녹화)' 부분 — 비개발자도 자동화를 만들 수 있게 한다.
+
+// POST /api/automation/record/start — 녹화 시작.
+func handleAutomationRecordStart(w http.ResponseWriter, _ *http.Request) {
+	res, err := callPython("POST", "/desktop/uia/record/start", nil)
+	if err != nil {
+		writeJSON(w, 501, map[string]any{
+			"success": false, "code": "automation_unavailable",
+			"message": "녹화 엔진 미가용 (데스크탑 자동화는 Windows에서 사용 가능)",
+			"detail":  err.Error(),
+		})
+		return
+	}
+	json200(w, res)
+}
+
+// GET /api/automation/record/status — 녹화 상태/캡처 단계 수 (라이브 UI 폴링).
+func handleAutomationRecordStatus(w http.ResponseWriter, _ *http.Request) {
+	res, err := callPython("GET", "/desktop/uia/record/status", nil)
+	if err != nil {
+		json200(w, map[string]any{"success": true, "recording": false, "count": 0})
+		return
+	}
+	json200(w, res)
+}
+
+// POST /api/automation/record/stop — 녹화 종료. {name} 주어지면 캡처 결과를 워크플로로 저장.
+func handleAutomationRecordStop(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	tryDecodeBody(r, &req)
+
+	res, err := callPython("POST", "/desktop/uia/record/stop", nil)
+	if err != nil {
+		writeJSON(w, 501, map[string]any{
+			"success": false, "code": "automation_unavailable",
+			"message": "녹화 엔진 미가용", "detail": err.Error(),
+		})
+		return
+	}
+
+	// name이 주어지면 캡처된 steps를 워크플로로 저장 → 녹화→저장→재생 루프 완성.
+	if strings.TrimSpace(req.Name) != "" {
+		steps := decodeStepsFromPython(res["steps"])
+		if len(steps) > 0 {
+			wf := NewAutoWorkflow(req.Name, steps)
+			if path, serr := wf.Save(); serr == nil {
+				res["saved"] = true
+				res["workflow"] = req.Name
+				res["path"] = path
+			} else {
+				res["saved"] = false
+				res["save_error"] = serr.Error()
+			}
+		}
+	}
+	json200(w, res)
+}
+
+// decodeStepsFromPython — Python이 돌려준 steps(JSON)를 []AutoStep으로 변환 (재마샬링).
+func decodeStepsFromPython(v any) []AutoStep {
+	if v == nil {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var steps []AutoStep
+	if json.Unmarshal(b, &steps) != nil {
+		return nil
+	}
+	return steps
+}
+
 // registerAutomationRoutes — main.go / main_stub.go 양쪽에서 호출 (라우트 중복 정의 방지).
 func registerAutomationRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/automation/status", handleAutomationStatus)
@@ -295,4 +374,7 @@ func registerAutomationRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/automation/workflows/{name}/replay", handleAutomationReplay)
 	mux.HandleFunc("POST /api/automation/run", handleAutomationRun)
 	mux.HandleFunc("POST /api/automation/batch", handleAutomationBatch)
+	mux.HandleFunc("POST /api/automation/record/start", handleAutomationRecordStart)
+	mux.HandleFunc("GET /api/automation/record/status", handleAutomationRecordStatus)
+	mux.HandleFunc("POST /api/automation/record/stop", handleAutomationRecordStop)
 }

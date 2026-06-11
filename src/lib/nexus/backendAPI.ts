@@ -675,6 +675,15 @@ export const automationRun = (steps: AutoStepDef[], dryRun = false) =>
 export const automationReplay = (name: string) =>
   request<{ success: boolean; result?: unknown; message?: string; code?: string }>('POST', `/api/automation/workflows/${encodeURIComponent(name)}/replay`, {})
 
+// ── 녹화기(Recorder) ──────────────────────────────────────────
+export interface RecordStatusResult { success: boolean; recording: boolean; count: number; last?: unknown; elapsed?: number }
+export const automationRecordStart = () =>
+  request<{ success: boolean; recording?: boolean; message?: string; detail?: string; code?: string }>('POST', '/api/automation/record/start', {})
+export const automationRecordStatus = () =>
+  request<RecordStatusResult>('GET', '/api/automation/record/status')
+export const automationRecordStop = (name?: string) =>
+  request<{ success: boolean; steps?: AutoStepDef[]; count?: number; saved?: boolean; workflow?: string; message?: string }>('POST', '/api/automation/record/stop', name ? { name } : {})
+
 export const schedulerDelete = (id: string) =>
   request<{ success: boolean; message: string }>('DELETE', `/api/scheduler/delete?id=${encodeURIComponent(id)}`)
 
